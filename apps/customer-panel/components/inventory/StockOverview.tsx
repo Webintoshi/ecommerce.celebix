@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { InventoryBalance } from "@celebix/saas-contracts";
 
 import { inventoryApi } from "@/lib/inventory-ui/client";
@@ -15,9 +15,10 @@ type BalanceState = Readonly<{
   locationId: string;
   revision: number;
   items: readonly InventoryBalance[];
+  resolved?: boolean;
 }>;
 
-export function StockOverview(props: Readonly<{
+function StockOverviewContent(props: Readonly<{
   canManage: boolean;
   canPurchase?: boolean;
   onCorrect(selection: StockCorrectionSelection): void;
@@ -30,7 +31,10 @@ export function StockOverview(props: Readonly<{
   const [threshold, setThreshold] = useState("5");
   const [attempt, setAttempt] = useState(0);
   const [balanceState, setBalanceState] = useState<BalanceState>({ phase: "loading", locationId: "", revision: 0, items: [] });
-  const activeLocations = workspace.locations.filter(({ status }) => status === "active");
+  const previousMetadata = useRef(workspace);
+  if (workspace.phase === "loaded" && workspace.inventoryCanRead) previousMetadata.current = workspace;
+  const metadata = workspace.phase === "loading" ? previousMetadata.current : workspace;
+  const activeLocations = metadata.locations.filter(({ status }) => status === "active");
   const location = activeLocations.find(({ id }) => id === selectedLocation)
     ?? activeLocations.find(({ isDefault }) => isDefault) ?? activeLocations[0];
   const locationId = location?.id ?? "";
@@ -40,22 +44,23 @@ export function StockOverview(props: Readonly<{
     if (workspace.phase !== "loaded" || !workspace.inventoryCanRead || !locationId) return;
     const request = new AbortController();
     const revision = workspace.revision;
-    setBalanceState({ phase: "loading", locationId, revision, items: [] });
+    setBalanceState((previous) => ({ phase: "loading", locationId, revision, items: previous.locationId === locationId ? previous.items : [], resolved: previous.locationId === locationId && previous.resolved }));
     void inventoryApi.listBalances(locationId, request.signal).then((items) => {
       if (request.signal.aborted) return;
       if (items.some((item) => item.locationId !== locationId) || new Set(items.map(({ variantId }) => variantId)).size !== items.length) {
         throw new Error("inventory_balance_location_mismatch");
       }
-      setBalanceState({ phase: "loaded", locationId, revision, items });
+      setBalanceState({ phase: "loaded", locationId, revision, items, resolved: true });
     }).catch(() => {
-      if (!request.signal.aborted) setBalanceState({ phase: "error", locationId, revision, items: [] });
+      if (!request.signal.aborted) setBalanceState((previous) => ({ phase: "error", locationId, revision, items: previous.locationId === locationId ? previous.items : [], resolved: previous.locationId === locationId && previous.resolved }));
     });
     return () => request.abort();
   }, [workspace.phase, workspace.inventoryCanRead, workspace.revision, locationId, attempt]);
 
   const currentBalances = workspace.phase === "loaded" && balanceState.locationId === locationId && balanceState.revision === workspace.revision;
   const phase = currentBalances ? balanceState.phase : "loading";
-  const rows = useMemo(() => phase === "loaded" ? buildStockRows(workspace.variants, balanceState.items) : [], [phase, workspace.variants, balanceState.items]);
+  const resolved = balanceState.resolved && balanceState.locationId === locationId && workspace.phase !== "error";
+  const rows = useMemo(() => resolved ? buildStockRows(metadata.variants, balanceState.items) : [], [resolved, metadata.variants, balanceState.items]);
   const visibleRows = useMemo(() => filter === "low" && !validThreshold ? [] : filterStockRows(rows, { search, status: filter, lowThreshold: Number(threshold) }), [rows, search, filter, threshold, validThreshold]);
 
   function exportCsv() {
@@ -76,8 +81,8 @@ export function StockOverview(props: Readonly<{
   }
   function rowActions(row: StockRow) {
     return <div className={styles.rowActions}>
-      {props.canManage ? <button type="button" aria-label={`${row.productTitle} · ${row.variantTitle} stokunu düzelt`} disabled={!row.canCorrect} onClick={() => correct(row)}>Stok düzelt</button> : null}
-      {row.quantity === undefined && props.canPurchase ? <button type="button" onClick={() => purchase(row)}>Stok ekle</button> : null}
+      {props.canManage ? <button type="button" aria-label={`${row.productTitle} · ${row.variantTitle} stokunu düzelt`} disabled={!row.canCorrect || phase !== "loaded"} onClick={() => correct(row)}>Stok düzelt</button> : null}
+      {row.quantity === undefined && props.canPurchase ? <button type="button" disabled={phase !== "loaded"} onClick={() => purchase(row)}>Stok ekle</button> : null}
     </div>;
   }
   function rowTitle(row: StockRow) {
@@ -90,19 +95,20 @@ export function StockOverview(props: Readonly<{
 
   if (!workspace.inventoryCanRead) return <p className={styles.state} role="status">Depo stoklarını görüntüleme yetkiniz yok.</p>;
   if (workspace.phase === "error") return <div className={styles.state} role="alert"><p>Ürün ve depo bilgileri yüklenemedi.</p><button type="button" onClick={workspace.reload}>Tekrar dene</button></div>;
-  if (workspace.phase === "loading") return <div className={styles.loading} role="status"><p>Ürün ve depo bilgileri yükleniyor…</p><div className={styles.skeleton} aria-hidden="true" /></div>;
+  if (workspace.phase === "loading" && !resolved) return <div className={styles.loading} role="status"><p>Ürün ve depo bilgileri yükleniyor…</p><div className={styles.skeleton} aria-hidden="true" /></div>;
   if (!location) return <div className={styles.state} role="status"><p>Etkin depo bulunamadı. Depolar bölümünden bir depo ekleyin.</p></div>;
 
-  return <section className={styles.overview} aria-label="Depo stokları">
+  return <section className={styles.overview} aria-label="Depo stokları" aria-busy={phase === "loading"}>
     <div className={styles.toolbar}>
-      <label className={styles.depot}><span>Depo</span><select aria-label="Depo" value={locationId} onChange={(event) => setSelectedLocation(event.currentTarget.value)}>{activeLocations.map((item) => <option value={item.id} key={item.id}>{item.name}{item.isDefault ? " · Varsayılan" : ""}</option>)}</select></label>
+      <label className={styles.depot}><span>Depo</span><select aria-label="Depo" disabled={workspace.phase !== "loaded"} value={locationId} onChange={(event) => setSelectedLocation(event.currentTarget.value)}>{activeLocations.map((item) => <option value={item.id} key={item.id}>{item.name}{item.isDefault ? " · Varsayılan" : ""}</option>)}</select></label>
       <label className={styles.search}><span className={styles.srOnly}>Stokta ürün ara</span><input aria-label="Stokta ürün ara" type="search" placeholder="Ürün, varyant veya SKU ara" value={search} onChange={(event) => setSearch(event.currentTarget.value)} /></label>
       <label className={styles.filter}><span className={styles.srOnly}>Stok durumu</span><select aria-label="Stok durumu" value={filter} onChange={(event) => setFilter(event.currentTarget.value as StockFilter)}><option value="all">Tümü</option><option value="zero">Stok yok</option><option value="low">Azalan</option></select></label>
       {filter === "low" ? <label className={styles.threshold}><span>Eşik</span><input aria-label="Azalan stok eşiği" type="number" inputMode="numeric" min="1" max="2147483647" value={threshold} aria-invalid={!validThreshold} onChange={(event) => setThreshold(event.currentTarget.value)} /></label> : null}
       <button className={styles.export} type="button" disabled={phase !== "loaded" || !visibleRows.length} onClick={exportCsv}>CSV indir</button>
     </div>
     {filter === "low" && !validThreshold ? <p className={styles.notice} role="alert">Eşik için 1 veya daha büyük bir tam sayı girin.</p> : null}
-    {phase === "loading" ? <div className={styles.loading} role="status"><p>Depo stoku yükleniyor…</p><div className={styles.skeleton} aria-hidden="true" /></div> : phase === "error" ? <div className={styles.state} role="alert"><p>Depo stoku yüklenemedi.</p><button type="button" onClick={() => setAttempt((value) => value + 1)}>Tekrar dene</button></div> : <>
+    {phase === "error" ? <div className={styles.notice} role="alert"><p>Depo stoku yüklenemedi.{resolved ? " Son alınan değerler gösteriliyor; stok işlemleri kilitli." : ""}</p><button type="button" onClick={() => setAttempt((value) => value + 1)}>Tekrar dene</button></div> : null}
+    {phase === "loading" && !resolved ? <div className={styles.loading} role="status"><p>Depo stoku yükleniyor…</p><div className={styles.skeleton} aria-hidden="true" /></div> : phase === "error" && !resolved ? null : <>
       <div className={styles.listContext} role="status"><span>{visibleRows.length} / {rows.length} varyant</span>{filter === "low" && validThreshold ? <span>{threshold} ve altındaki stoklar</span> : null}{search || filter !== "all" ? <button type="button" onClick={() => { setSearch(""); setFilter("all"); }}>Filtreleri temizle</button> : null}</div>
       {visibleRows.length ? <>
         <div className={styles.table} role="region" aria-label="Depo stok listesi" tabIndex={0}><table aria-label="Depo stokları"><thead><tr><th>Ürün</th><th>Depo stoku</th>{props.canManage || props.canPurchase ? <th><span className={styles.srOnly}>İşlemler</span></th> : null}</tr></thead><tbody>{visibleRows.map((row) => <tr key={row.variantId}><td>{rowTitle(row)}</td><td className={styles.quantity}>{row.quantity === undefined ? <span className={styles.missing}>Kayıt yok</span> : <strong data-stock-quantity={row.quantity}>{row.quantity}</strong>}</td>{props.canManage || props.canPurchase ? <td>{rowActions(row)}</td> : null}</tr>)}</tbody></table></div>
@@ -111,4 +117,8 @@ export function StockOverview(props: Readonly<{
       </> : <div className={styles.state} role="status"><p>{rows.length ? "Bu filtrelere uyan varyant yok." : "Bu depoda gösterilecek ürün veya stok kaydı yok."}</p>{!rows.length && props.canPurchase ? <button type="button" onClick={() => purchase()}>Satın alma oluştur</button> : null}</div>}
     </>}
   </section>;
+}
+
+export function StockOverview(props: Parameters<typeof StockOverviewContent>[0]) {
+  return <div className={styles.body} data-stock-overview-body><StockOverviewContent {...props} /></div>;
 }

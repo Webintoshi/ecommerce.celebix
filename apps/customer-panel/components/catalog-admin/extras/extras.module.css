@@ -110,3 +110,5 @@
   .formActions > * { width: 100%; }
   .previewBody { padding: 16px; }
 }
+
+.listWorkspace { min-height: 480px; align-content: start; }

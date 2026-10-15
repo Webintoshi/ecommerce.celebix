@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReviewCollectionOverview, ReviewCollectionSettings } from "@celebix/saas-contracts";
 import { PanelEmptyState } from "@/components/panel/PanelPageShell";
 import { reviewCollectionApi, ReviewCollectionApiError } from "@/lib/review-collection-ui/client";
+import { CatalogWorkspaceLoading } from "../catalog/CatalogWorkspaceLoading";
 import styles from "./review-collection.module.css";
 const STATUS: Readonly<Record<string, string>> = { queued: "Gönderim bekliyor", leased: "Hazırlanıyor", sent: "Davet gönderildi", completed: "Yorum alındı", failed: "Gönderilemedi", suppressed: "Gönderim kapatıldı", requires_review: "Kontrol gerekiyor" };
 const date = (value: string) => new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -29,7 +30,7 @@ export function ReviewCollectionConsole({ canManage, view }: Readonly<{ canManag
   return <section className={styles.workspace} aria-busy={loading}>
     {error ? <div className={styles.feedback} role="alert"><p>{error}</p>{!dirty ? <button type="button" disabled={loading} onClick={() => void load()}>Yeniden yükle</button> : null}</div> : null}
     {success ? <p className={styles.feedback} role="status">{success}</p> : null}
-    {loading && !data ? <p role="status">Yorum davetleri yükleniyor…</p> : null}
+    {loading && !data ? <CatalogWorkspaceLoading layout={view === "settings" ? "editor" : "list"} label="Yorum davetleri yükleniyor…" /> : null}
     {data && draft && view === "settings" ? <form className={styles.settings} onSubmit={event => { event.preventDefault(); void save(); }}>
       <div><h2>Otomatik yorum davetleri</h2><p>Teslim edilmiş, ödemesi tamamlanmış siparişler için e-posta gönderilir. Her ürün ve sipariş için bir davet hazırlanır.</p></div>
       <label className={styles.toggle}><input type="checkbox" checked={draft.enabled} disabled={!canManage || !!busy} onChange={event => { const enabled = event.currentTarget.checked; settingOperation.current = null; setDraft(value => value ? { ...value, enabled } : value); }} /><span>Otomatik davetleri etkinleştir</span></label>

@@ -1661,6 +1661,19 @@
 .createCustomerConsent, .check { background: transparent; border: 0; border-radius: 0; border-bottom: 1px solid var(--customer-border); }
 .taxonomyChecks label { border: 0; border-radius: 0; padding-inline: 0; }
 .customerDetailTopbar { background: transparent; border: 0; border-bottom: 1px solid var(--customer-border); border-radius: 0; padding: 12px 0; }
+.customerMetricPlaceholder{display:block;width:64%;height:32px}
+.customerDataSurface{min-width:0;min-height:384px}
+.customerLoading{display:block;padding:0;min-height:384px;text-align:left}
+.customerSkeletonRows{display:grid;gap:0;width:100%}
+.customerSkeletonRows>div{display:grid;grid-template-columns:2fr 2fr 1fr;align-items:center;gap:24px;min-height:64px;padding:16px 20px;border-bottom:1px solid var(--customer-border)}
+.customerSkeletonRows span{display:block;min-width:0;height:16px}
+.customerDetailSkeleton{display:grid;gap:24px;min-width:0}
+.customerIdentitySkeleton{display:block;min-height:88px}
+.customerSectionSkeleton{display:block;min-height:176px}
+.taxonomySkeleton{display:grid;gap:0;min-height:256px;border-bottom:1px solid var(--customer-border)}
+.taxonomySkeleton>div{display:grid;grid-template-columns:2fr 2fr 1fr;align-items:center;gap:16px;min-height:64px;padding:16px;border-bottom:1px solid var(--customer-border)}
+.taxonomySkeleton span{display:block;height:16px;border-radius:4px;background:var(--cp-border)}
+@media(max-width:600px){.customerSkeletonRows>div{grid-template-columns:2fr 1fr;min-height:128px;padding:16px}.customerSkeletonRows span:nth-child(2){display:none}.taxonomySkeleton>div{grid-template-columns:2fr 1fr}.taxonomySkeleton span:nth-child(2){display:none}}
 @media (max-width: 1024px) { .customerMetric:nth-child(2) { border-right: 0; } .customerMetric:nth-child(-n + 2) { border-bottom: 1px solid var(--customer-border); } .customerSummaryRail { padding-left: 0; border-left: 0; } }
 @media (max-width: 760px) { .customerCards { padding-inline: 0; gap: 0; } .customerCard .customerTags { flex-wrap: wrap; max-width: 100%; overflow: visible; } .customerTags span { max-width: 100%; } .noteForm .button { justify-self: end; } }
 @media (max-width: 480px) { .customerMetrics { gap: 0; } .customerMetric strong { font-size: 1.5rem; } .appliedFilters { flex-wrap: wrap; padding-inline: 0; } .customerDetailTopbar { padding-inline: 0; } .customerToolbar { padding-inline: 0; background: transparent; } .customerMetric { padding-inline: 12px; } }

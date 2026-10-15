@@ -8,9 +8,10 @@ import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShe
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { CatalogSizeGuideContent } from "./CatalogSizeGuideContent";
+import { CatalogWorkspaceLoading } from "../../catalog/CatalogWorkspaceLoading";
 import styles from "./extras.module.css";
 
-export function CatalogSizeGuidePreview({ resourceId, initialResource }: { resourceId: string; initialResource?: CatalogAdminResource }) {
+function CatalogSizeGuidePreviewWorkspace({ resourceId, initialResource }: { resourceId: string; initialResource?: CatalogAdminResource }) {
   const [resource, setResource] = useState<CatalogAdminResource>();
   const [config, setConfig] = useState<CatalogSizeGuideConfig>();
   const [categoryNames, setCategoryNames] = useState<readonly string[]>([]);
@@ -32,9 +33,13 @@ export function CatalogSizeGuidePreview({ resourceId, initialResource }: { resou
   }, [initialResource, resourceId]);
   useEffect(() => { void load(); return () => { request.current += 1; }; }, [load]);
   return <PanelPageShell><PanelPageHeader title="Ölçü rehberi önizlemesi" /><h1 className={styles.srOnly}>Ölçü rehberi önizlemesi</h1><section className={styles.workspace}>
-    {loading ? <div className={styles.loading} role="status">Ölçü rehberi yükleniyor…</div> : error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : config && resource ? <article className={styles.preview}>
+    {loading ? <CatalogWorkspaceLoading layout="preview" label="Ölçü rehberi yükleniyor…" /> : error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : config && resource ? <article className={styles.preview}>
       <div className={styles.previewMeta}><span>{resource.name}</span><span>{config.enabled && resource.status === "active" ? "Gösterim açık" : "Gösterim kapalı"}</span></div><p className={styles.help}>{categoryNames.join(", ")}{config.includeDescendants ? " · Alt kategoriler dahil" : ""}</p><div><ProductSizeGuideDialog heading={config.heading}><CatalogSizeGuideContent body={config.body} /></ProductSizeGuideDialog></div>
     </article> : null}
     <Link className={styles.backLink} href="/products/extras">Ekstralara dön</Link>
   </section></PanelPageShell>;
+}
+
+export function CatalogSizeGuidePreview(props: Parameters<typeof CatalogSizeGuidePreviewWorkspace>[0]) {
+  return <CatalogSizeGuidePreviewWorkspace key={props.resourceId ?? "new"} {...props} />;
 }

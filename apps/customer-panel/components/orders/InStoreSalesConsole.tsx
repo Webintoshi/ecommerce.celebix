@@ -73,6 +73,8 @@ export function InStoreSalesConsole(){
   const [collectionSale,setCollectionSale]=useState<InStoreSale|null>(null),[collectionLocked,setCollectionLocked]=useState(false);
   const [priceVariant,setPriceVariant]=useState<string|null>(null),[priceText,setPriceText]=useState("");
   const [list,setList]=useState<readonly InStoreSale[]>([]),[nextCursor,setNextCursor]=useState<string|null>(null),[listBusy,setListBusy]=useState(false),[listError,setListError]=useState<string|null>(null),[staff,setStaff]=useState<readonly InStoreStaffGrant[]>([]),[staffBusy,setStaffBusy]=useState<string|null>(null);
+  const listSequence=useRef(0);
+  useEffect(()=>()=>{listSequence.current++;},[]);
   const queryRef=useRef(""),resultsTerm=useRef(""),resultsLocation=useRef(""),lookupGeneration=useRef(0);
   const primaryRef=useRef<HTMLButtonElement>(null),scanRef=useRef<HTMLInputElement>(null),dialogRef=useRef<HTMLDialogElement>(null),returnFocus=useRef<HTMLElement|null>(null),discountRef=useRef<HTMLInputElement>(null),priceRef=useRef<HTMLInputElement>(null),customerRef=useRef<HTMLInputElement>(null),closeRef=useRef<HTMLButtonElement>(null);
   function updateQuery(value:string){queryRef.current=value;setQuery(value);}
@@ -108,7 +110,7 @@ export function InStoreSalesConsole(){
     if(dialog){if(!element.open)element.showModal();requestAnimationFrame(()=>{if(dialog==="price")priceRef.current?.focus();else if(dialog==="discount")discountRef.current?.focus();else if(dialog==="customer")customerRef.current?.focus();else closeRef.current?.focus();});}
     else if(element.open)element.close();
   },[dialog]);
-  function openDialog(kind:DialogKind){returnFocus.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setListError(null);setDialog(kind);
+  function openDialog(kind:DialogKind){listSequence.current++;returnFocus.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setListError(null);setDialog(kind);
     if(kind==="discount"){setDiscountKind(state.discount?.kind??"percentage");setDiscountText(state.discount?String((state.discount.kind==="percentage"?state.discount.percentageBps:state.discount.amountCents)/100):"");}
     if(kind==="social")setSocialDraft({channel:state.salesChannel,platform:state.socialPlatform,reference:state.socialReference??""});
     if(kind==="delivery"){setDeliveryMethod(state.fulfillmentMethod);setShippingDraft(addressDraft(state.shippingAddress));setBillingDraft(addressDraft(state.billingAddress));setSeparateBilling(Boolean(state.billingAddress&&JSON.stringify(state.billingAddress)!==JSON.stringify(state.shippingAddress)));setShippingFee(String(state.shippingCents/100).replace(".",","));setDeliveryError(null);}
@@ -118,13 +120,13 @@ export function InStoreSalesConsole(){
     if(kind==="return"){setReturnReason("");setReturnConfirmed(false);}
     if(kind==="customer"){setCustomer(state.customerName);setNote(state.note);setCustomerMode("search");setChosenCustomer(state.customer);setCustomerQuery("");setCustomerResults([]);setCustomerError(null);}
     if(kind==="held"||kind==="pending"||kind==="recent"){setList(kind==="held"?state.bootstrap?.heldSales??[]:kind==="pending"?state.bootstrap?.pendingSales??[]:state.bootstrap?.recentSales??[]);setNextCursor(null);void loadList(kind);}
-    if(kind==="staff"){setListBusy(true);void inStoreSalesUi.listStaff().then(grants=>setStaff(eligibleStaff(grants))).catch(error=>setListError(message(error))).finally(()=>setListBusy(false));}
+    if(kind==="staff"){const request=++listSequence.current;setListBusy(true);void inStoreSalesUi.listStaff().then(grants=>{if(request===listSequence.current)setStaff(eligibleStaff(grants));}).catch(error=>{if(request===listSequence.current)setListError(message(error));}).finally(()=>{if(request===listSequence.current)setListBusy(false);});}
   }
   function openCollection(sale:InStoreSale){if(!permissions?.canCollectReceivables||!sale.customerId||!sale.orderId||!sale.finance?.dueCents||blocked||unknown)return;setCollectionSale(sale);openDialog("collect");}
   function openPrice(variantId:string){const row=state.cart.find(line=>line.variantId===variantId);if(!row||!editable||!permissions?.canEditPrice)return;setPriceVariant(variantId);setPriceText(row.unitPriceCents===null?"":String(row.unitPriceCents/100).replace(".",","));openDialog("price");}
-  function closeDialog(){if(staffBusy||customerBusy||customerPending||collectionLocked||["discard","revise","abort","return","reconcile"].includes(state.busy??""))return;setDialog(null);}
-  function dialogClosed(){if(dialogRef.current?.open)return;setDialog(null);const target=returnFocus.current;if(target?.isConnected&&!target.hasAttribute("disabled"))target.focus();else focusScan();}
-  async function loadList(kind:"held"|"pending"|"recent",cursor?:string){setListBusy(true);setListError(null);try{const page=await inStoreSalesUi.listSales({status:kind==="recent"?"completed":kind,...(cursor?{cursor}:{}),pageSize:20});setList(old=>cursor?[...old,...page.sales]:page.sales);setNextCursor(page.nextCursor);}catch(error){setListError(message(error));}finally{setListBusy(false);}}
+  function closeDialog(){if(staffBusy||customerBusy||customerPending||collectionLocked||["discard","revise","abort","return","reconcile"].includes(state.busy??""))return;listSequence.current++;setDialog(null);}
+  function dialogClosed(){if(dialogRef.current?.open)return;listSequence.current++;setDialog(null);const target=returnFocus.current;if(target?.isConnected&&!target.hasAttribute("disabled"))target.focus();else focusScan();}
+  async function loadList(kind:"held"|"pending"|"recent",cursor?:string){const request=++listSequence.current;setListBusy(true);setListError(null);try{const page=await inStoreSalesUi.listSales({status:kind==="recent"?"completed":kind,...(cursor?{cursor}:{}),pageSize:20});if(request!==listSequence.current)return;setList(old=>cursor?[...old,...page.sales]:page.sales);setNextCursor(page.nextCursor);}catch(error){if(request===listSequence.current)setListError(message(error));}finally{if(request===listSequence.current)setListBusy(false);}}
   async function add(product:InStoreProduct){if(resultsTerm.current!==queryRef.current.trim()||resultsLocation.current!==controller.getSnapshot().locationId){setSearchError("Arama sonucu güncel değil. Ürünü yeniden ara.");return;}updateQuery("");setResults([]);setSearchError(null);await controller.addProduct(product);focusScan();}
   function submitScan(event:FormEvent){event.preventDefault();const value=queryRef.current.trim();if(!editable||!value)return;
     if(selected>=0&&results[selected]&&resultsTerm.current===value){void add(results[selected]);return;}
@@ -166,7 +168,7 @@ export function InStoreSalesConsole(){
       try{setStaff(eligibleStaff(await inStoreSalesUi.listStaff()));setListError("Güncel yetkiler yüklendi. Yeniden kaydetmeden önce ayarları kontrol et.");}catch{setListError("Yetki değişikliğinin sonucu doğrulanamadı. Pencereyi yeniden açıp güncel ayarları kontrol et.");}
     }
   }finally{setStaffBusy(null);}}
-  if(state.phase==="loading")return <PanelPageShell><PanelPageHeader title="Manuel satış" /><h1 className="sr-only">Manuel satış</h1><div className={styles.loading} role="status"><span className="sr-only">Satış alanı hazırlanıyor…</span><div className={styles.loadingRows} aria-hidden="true"><span /><span /><span /></div></div></PanelPageShell>;
+  if(state.phase==="loading")return <PanelPageShell><PanelPageHeader title="Manuel satış" /><h1 className="sr-only">Manuel satış</h1><div className={`${styles.loading} ${styles.console}`} role="status"><span className="sr-only">Satış alanı hazırlanıyor…</span><div className={styles.loadingCommandbar} aria-hidden="true"/><div className={styles.layout} aria-hidden="true"><div className={styles.loadingRows}><span/><span/><span/></div><div className={styles.loadingSummary}><span/><span/><span/></div></div></div></PanelPageShell>;
   if(state.phase==="error")return <PanelPageShell><PanelPageHeader title="Manuel satış" /><h1 className="sr-only">Manuel satış</h1><div className={styles.error} role="alert"><p>{state.error}</p><button className={styles.secondary} onClick={()=>void controller.initialize()}>Yeniden dene</button></div></PanelPageShell>;
   return <PanelPageShell><PanelPageHeader title="Manuel satış" /><h1 className="sr-only">Manuel satış</h1>
     <div className={styles.console}>

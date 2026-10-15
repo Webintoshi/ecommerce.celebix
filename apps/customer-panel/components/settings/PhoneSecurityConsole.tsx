@@ -36,7 +36,7 @@ export function PhoneSecurityConsole({ client: provided, clock, navigate }: Read
     return <section className={styles.console} aria-labelledby="personal-phone-heading">
   <header><h1 id="personal-phone-heading">Kişisel giriş telefonu</h1><p>Mağaza yönetimine kişisel WhatsApp numaranızla giriş yapın.</p></header>
   {state?.phoneVerified ? <div className={styles.status}><h2>Doğrulandı</h2><p>{state.phoneMasked}</p><p>Bu numara kişisel girişiniz için doğrulandı.</p><p>Numaranıza erişemiyorsanız hesap kurtarma için Celebix desteğine başvurun.</p></div> : state && formClient.current ? <div className={styles.setup}><p>Mağazanızın iletişim telefonu yerine kendi numaranızı doğrulayın.</p><MerchantPhoneLoginForm client={formClient.current} clock={clock} navigate={navigate} completionMessage="Telefonunuz doğrulandı. Güvenlik ekranına dönülüyor…"/></div> : null}
-  {!state && !error ? <p role="status">Telefon bilgileri yükleniyor…</p> : null}
+  {!state && !error ? <div className={styles.loading} role="status" aria-label="Telefon bilgileri yükleniyor…"><span className="sr-only">Telefon bilgileri yükleniyor…</span><div aria-hidden="true"><span /><span /><span /></div></div> : null}
   {error ? <><p role="alert" className={styles.error}>{error}</p><button type="button" className="button button-primary" disabled={busy} onClick={() => void read()}>Yeniden dene</button></> : null}
  </section>;
 }

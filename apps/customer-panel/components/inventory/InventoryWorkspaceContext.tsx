@@ -38,21 +38,24 @@ export function InventoryWorkspaceProvider({ inventoryCanRead, children }: Reado
     };
   }, [inventoryCanRead]);
   const reload = useCallback(() => { void controller.current?.reload(); }, []);
+  const displayedData = useRef(snapshot.data);
+  if (snapshot.phase === "loaded" || snapshot.phase === "error" || !inventoryCanRead) displayedData.current = snapshot.data;
+  const data = snapshot.phase === "loading" ? displayedData.current : snapshot.data;
   const value = useMemo<InventoryWorkspaceContextValue>(() => {
-    const locations = new Map(snapshot.data.locations.map((location) => [location.id, location.name]));
-    const variants = new Map(snapshot.data.variants.map((variant) => [variant.variantId, `${variant.productTitle} · ${variant.variantTitle}${variant.sku ? ` (${variant.sku})` : ""}`]));
+    const locations = new Map(data.locations.map((location) => [location.id, location.name]));
+    const variants = new Map(data.variants.map((variant) => [variant.variantId, `${variant.productTitle} · ${variant.variantTitle}${variant.sku ? ` (${variant.sku})` : ""}`]));
     return Object.freeze({
       inventoryCanRead,
       phase: snapshot.phase,
-      locations: snapshot.data.locations,
-      variants: snapshot.data.variants,
-      formChoices: snapshot.data.formChoices,
+      locations: data.locations,
+      variants: data.variants,
+      formChoices: data.formChoices,
       locationName: (id: string) => locations.get(id) ?? "Depo bilgisi yüklenemedi",
       variantName: (id: string) => variants.get(id) ?? "Ürün bilgisi yüklenemedi",
       reload,
       revision: snapshot.revision,
     });
-  }, [inventoryCanRead, snapshot, reload]);
+  }, [inventoryCanRead, snapshot, data, reload]);
   return <InventoryWorkspaceContext.Provider value={value}>{children}</InventoryWorkspaceContext.Provider>;
 }
 

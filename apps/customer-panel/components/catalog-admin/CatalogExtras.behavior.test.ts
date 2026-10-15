@@ -1,3 +1,4 @@
+import { compile as compileCatalogLoading } from "../../lib/mira-final-test-support.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -43,7 +44,7 @@ async function withScreen(moduleName: string, exportName: string, props: Record<
     const compiled = { exports: {} as Record<string, unknown> };
     const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
     Function("require", "module", "exports", output)((id: string) => {
-      if (id === "react") return React;
+      if (id.endsWith("/CatalogWorkspaceLoading")) return compileCatalogLoading("components/catalog/CatalogWorkspaceLoading.tsx");if (id === "react") return React;
       if (id === "react-dom") return ReactDom;
       if (id === "react/jsx-runtime") return jsxRuntime;
       if (id === "next/link") return ({ href, children, ...rest }: any) => createElement("a", { href, ...rest }, children);

@@ -595,15 +595,15 @@ export function PaymentSettingsConsole(props: Readonly<{
       {sources.catalog.phase === "error" || sources.profiles.phase === "error" || sources.definitions.phase === "error" ? <p className={styles.providerWarning} role="status"><ShieldAlert aria-hidden="true" />Sağlayıcı bağlantı bilgileri şu anda sınırlı; mevcut ödeme yöntemleri ayrı olarak çalışmaya devam eder.</p> : null}
 
       <nav className={styles.workspaceTabs} aria-label="Ödeme ayarları çalışma alanları" role="tablist">
-        <button type="button" role="tab" aria-selected={workspaceTab === "methods"} className={workspaceTab === "methods" ? styles.activeWorkspaceTab : undefined} onClick={() => setWorkspaceTab("methods")}><CreditCard aria-hidden="true" />Ödeme yöntemleri{methodsKnown ? <span>{view.counts.methods}</span> : null}</button>
-        <button type="button" role="tab" aria-selected={workspaceTab === "providers"} className={workspaceTab === "providers" ? styles.activeWorkspaceTab : undefined} onClick={() => setWorkspaceTab("providers")}><PlugZap aria-hidden="true" />Sağlayıcılar{sources.catalog.phase === "ready" ? <span>{view.catalog.totalCount}</span> : null}</button>
+        <button type="button" role="tab" aria-selected={workspaceTab === "methods"} className={workspaceTab === "methods" ? styles.activeWorkspaceTab : undefined} onClick={() => setWorkspaceTab("methods")}><CreditCard aria-hidden="true" />Ödeme yöntemleri<span>{methodsKnown ? view.counts.methods : "—"}</span></button>
+        <button type="button" role="tab" aria-selected={workspaceTab === "providers"} className={workspaceTab === "providers" ? styles.activeWorkspaceTab : undefined} onClick={() => setWorkspaceTab("providers")}><PlugZap aria-hidden="true" />Sağlayıcılar<span>{sources.catalog.phase === "ready" ? view.catalog.totalCount : "—"}</span></button>
       </nav>
 
       {workspaceTab === "methods" ? <section className={styles.methodsPanel} aria-labelledby="payment-methods-title">
         <h2 id="payment-methods-title" className={styles.srOnly}>Checkout yöntemleri</h2>
         <p className={styles.workspaceNote}>Yalnız etkin ödeme yöntemleri müşteriye gösterilir.</p>
 
-        {sources.methods.phase === "loading" ? <p className={styles.loadingState} role="status">Ödeme yöntemleri yükleniyor…</p> : null}
+        {sources.methods.phase === "loading" ? <div className={styles.loadingMethods} role="status" aria-label="Ödeme yöntemleri yükleniyor…"><span className={styles.srOnly}>Ödeme yöntemleri yükleniyor…</span>{[0,1,2].map(index=><div key={index} aria-hidden="true"><span/><span/><span/><span/></div>)}</div> : null}
         {methodsLoadError ? <div className={styles.loadError} role="alert"><span>Ödeme yöntemleri yüklenemedi.</span><button type="button" className={styles.secondaryButton} onClick={() => void load()}><RefreshCw />Tekrar dene</button></div> : null}
         {sources.methods.phase === "ready" && view.methods.length === 0 ? <div className={styles.emptyMethods}><CreditCard aria-hidden="true" /><h3>Henüz ödeme yöntemi yok</h3><p>Yerleşik bir yöntem eklendiğinde veya online sağlayıcı etkinleştiğinde burada görünür.</p>{!props.canManage ? <span>Salt okunur erişim</span> : null}</div> : null}
 

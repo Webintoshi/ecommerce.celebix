@@ -893,3 +893,5 @@
   .loadingRow { grid-template-columns: 40px minmax(0, 1fr); gap: 16px; }
   .loadingRow span:nth-child(n+3) { display: none; }
 }
+
+.listBody { min-height: 600px; }

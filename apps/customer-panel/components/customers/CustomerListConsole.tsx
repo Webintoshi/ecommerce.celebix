@@ -11,7 +11,6 @@ import {
   ArrowRight,
   Download,
   MailCheck,
-  RefreshCcw,
   Search,
   SlidersHorizontal,
   UserPlus,
@@ -21,6 +20,7 @@ import {
 import {
   PanelPageHeader,
   PanelPageShell,
+  PanelSkeletonBlock,
   PanelStatusBadge,
 } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
@@ -53,6 +53,8 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     [appendError, setAppendError] = useState("");
   const queryGeneration = useRef(0);
   const appendInFlight = useRef<number | null>(null);
+  const loadedQuery = useRef<string | null>(null);
+  const queryKey = JSON.stringify([search, status]);
   const load = useCallback(
     async (append = false) => {
       let generation: number;
@@ -67,7 +69,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
         queryGeneration.current = generation;
         appendInFlight.current = null;
         setLoadingMore(false);
-        setState("loading");
+        setState(loadedQuery.current === queryKey ? "loaded" : "loading");
         setError("");
         setAppendError("");
       }
@@ -87,13 +89,14 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
           append ? Object.freeze([...old, ...l.items]) : l.items,
         );
         setCursor(l.nextCursor);
+        loadedQuery.current = queryKey;
         if (!append) setState("loaded");
       } catch (e) {
         if (queryGeneration.current !== generation) return;
         if (append) setAppendError(message(e));
         else {
           setError(message(e));
-          setState("error");
+          setState(loadedQuery.current === queryKey ? "loaded" : "error");
         }
       } finally {
         if (
@@ -106,10 +109,11 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
         }
       }
     },
-    [cursor, search, status],
+    [cursor, search, status, queryKey],
   );
   useEffect(() => {
     void load(false);
+    return () => { queryGeneration.current += 1; appendInFlight.current = null; };
   }, [search, status]);
   async function exportCsv() {
     if (exporting) return;
@@ -152,6 +156,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
     setStatus("all");
   }
   const activeFilters = Number(Boolean(search)) + Number(status !== "all");
+  const displayState = state === "loaded" && loadedQuery.current !== queryKey ? "loading" : state;
   return (
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className="sr-only">Müşteriler</h1> : null}
@@ -165,30 +170,28 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
           </Link>
         ) : undefined}
       />
-      {summary ? (
-        <section className={styles.customerMetrics} aria-label="Müşteri özeti">
+        <section className={styles.customerMetrics} aria-label="Müşteri özeti" aria-busy={!summary && displayState === "loading"}>
           <article className={styles.customerMetric}>
             <div className={styles.customerMetricLabel}><UsersRound aria-hidden="true" /><span>Aktif müşteri</span></div>
-            <strong>{summary.active.toLocaleString("tr-TR")}</strong>
+            <strong>{summary ? summary.active.toLocaleString("tr-TR") : <PanelSkeletonBlock className={styles.customerMetricPlaceholder} />}</strong>
             <small>Güncel müşteri kaydı</small>
           </article>
           <article className={styles.customerMetric}>
             <div className={styles.customerMetricLabel}><Archive aria-hidden="true" /><span>Arşiv</span></div>
-            <strong>{summary.archived.toLocaleString("tr-TR")}</strong>
+            <strong>{summary ? summary.archived.toLocaleString("tr-TR") : <PanelSkeletonBlock className={styles.customerMetricPlaceholder} />}</strong>
             <small>Arşivlenmiş kayıt</small>
           </article>
           <article className={styles.customerMetric}>
             <div className={styles.customerMetricLabel}><MailCheck aria-hidden="true" /><span>E-posta izinli</span></div>
-            <strong>{summary.consentedEmail.toLocaleString("tr-TR")}</strong>
+            <strong>{summary ? summary.consentedEmail.toLocaleString("tr-TR") : <PanelSkeletonBlock className={styles.customerMetricPlaceholder} />}</strong>
             <small>Pazarlama izni olan</small>
           </article>
           <article className={`${styles.customerMetric} ${styles.customerMetricValue}`}>
             <div className={styles.customerMetricLabel}><WalletCards aria-hidden="true" /><span>Toplam harcama</span></div>
-            <strong>{money(summary.totalSpentCents, summary.currency)}</strong>
+            <strong>{summary ? money(summary.totalSpentCents, summary.currency) : <PanelSkeletonBlock className={styles.customerMetricPlaceholder} />}</strong>
             <small>Tüm müşteri harcaması</small>
           </article>
         </section>
-      ) : null}
       <section className={styles.surface} aria-label="Müşteri çalışma alanı">
         <form
           className={styles.customerToolbar}
@@ -234,17 +237,18 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
           </button>
         </form>
         {activeFilters > 0 ? <div className={styles.appliedFilters} aria-label="Uygulanan filtreler"><span>{activeFilters} filtre{search ? ` · “${search}”` : ""}{status !== "all" ? ` · ${status === "active" ? "Aktif" : "Arşiv"}` : ""}</span><button type="button" onClick={clearFilters}>Filtreleri temizle</button></div> : null}
-        {error && state !== "error" ? (
+        {error && displayState !== "error" ? (
           <p className={styles.customerInlineError} role="alert">
             {error}
           </p>
         ) : null}
-        {state === "loading" ? (
+        <div className={styles.customerDataSurface} aria-busy={displayState === "loading"}>
+        {displayState === "loading" ? (
           <div className={styles.customerLoading} role="status">
-            <RefreshCcw aria-hidden="true" />
-            <div><strong>Müşteriler yükleniyor</strong><span>Müşteri kayıtları hazırlanıyor.</span></div>
+            <span className="sr-only">Müşteriler yükleniyor</span>
+            <div className={styles.customerSkeletonRows} aria-hidden="true">{Array.from({ length: 6 }, (_, i) => <div key={i}><PanelSkeletonBlock /><PanelSkeletonBlock /><PanelSkeletonBlock /></div>)}</div>
           </div>
-        ) : state === "error" ? (
+        ) : displayState === "error" ? (
           <div className={styles.customerError} role="alert">
             <div><strong>Müşteriler yüklenemedi</strong><p>{error}</p></div>
             <button type="button" onClick={() => void load(false)}>Tekrar dene</button>
@@ -357,6 +361,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             <p className={styles.loadedCount} role="status">{items.length.toLocaleString("tr-TR")} müşteri gösteriliyor{cursor ? " · Devamı var" : ""}</p>
           </>
         )}
+        </div>
       </section>
     </PanelPageShell>
   );

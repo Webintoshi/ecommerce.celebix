@@ -78,7 +78,7 @@ export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canR
   return (
     <section id="checkout-delivery" className={styles.section} aria-labelledby="checkout-delivery-title" aria-busy={canRead && (loadState === "loading" || busy)} data-settings-dirty={editable && (price !== (workspace.settings === null ? "" : deliveryPriceInput(workspace.settings.shippingPriceCents)) || days !== checkoutDeliveryDaysInput(workspace)) ? "true" : undefined}>
       <div className={styles.heading}><h2 id="checkout-delivery-title">Teslimat ücreti</h2><p>Mağazanın ödeme adımında kullanılan teslimat ayarı.</p></div>
-      {!canRead ? <p className={styles.state}>Bu ayarı görüntüleme yetkiniz yok.</p> : loadState === "loading" ? <p className={styles.state} role="status">Yükleniyor…</p> : loadState === "loaded" ? <>
+      {!canRead ? <p className={styles.state}>Bu ayarı görüntüleme yetkiniz yok.</p> : loadState === "loading" ? <div className={styles.loadingFields} role="status" aria-label="Teslimat ayarı yükleniyor…"><span className="sr-only">Teslimat ayarı yükleniyor…</span><div aria-hidden="true"><span/><span/><span/></div></div> : loadState === "loaded" ? <>
         <div className={styles.summary}><strong>{view.label}</strong>{view.fee ? <span>{view.fee}</span> : null}<small>{view.detail}</small>{view.checkoutDetail ? <small>{view.checkoutDetail}</small> : null}</div>
         <form className={styles.form} onSubmit={submit} noValidate>
           <div className={styles.fields}>

@@ -7,9 +7,10 @@ import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShe
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
 import { CatalogSizeGuideEditor } from "./CatalogSizeGuideEditor";
 import { catalogExtraType } from "./registry";
+import { CatalogWorkspaceLoading } from "../../catalog/CatalogWorkspaceLoading";
 import styles from "./extras.module.css";
 
-export function CatalogExtraEditor({ resourceId, canManage }: { resourceId: string; canManage: boolean }) {
+function CatalogExtraEditorWorkspace({ resourceId, canManage }: { resourceId: string; canManage: boolean }) {
   const [resource, setResource] = useState<CatalogAdminResource>();
   const [error, setError] = useState("");
   const request = useRef(0);
@@ -21,5 +22,9 @@ export function CatalogExtraEditor({ resourceId, canManage }: { resourceId: stri
   }, [resourceId]);
   useEffect(() => { void load(); return () => { request.current += 1; }; }, [load]);
   if (resource) return catalogExtraType(resource) === "size_guide" ? <CatalogSizeGuideEditor canManage={canManage} resourceId={resourceId} initialResource={resource} /> : <CatalogResourceEditor kind="extra" canManage={canManage} resourceId={resourceId} />;
-  return <PanelPageShell><PanelPageHeader title="Ekstra düzenle" /><h1 className={styles.srOnly}>Ekstra düzenle</h1>{error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : <div className={styles.loading} role="status">Ekstra yükleniyor…</div>}</PanelPageShell>;
+  return <PanelPageShell><PanelPageHeader title="Ekstra düzenle" /><h1 className={styles.srOnly}>Ekstra düzenle</h1>{error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : <CatalogWorkspaceLoading layout="editor" label="Ekstra yükleniyor…" />}</PanelPageShell>;
+}
+
+export function CatalogExtraEditor(props: Parameters<typeof CatalogExtraEditorWorkspace>[0]) {
+  return <CatalogExtraEditorWorkspace key={props.resourceId ?? "new"} {...props} />;
 }

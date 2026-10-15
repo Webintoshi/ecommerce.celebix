@@ -50,6 +50,10 @@
 .tokenForm .save { margin-top: 8px; }
 .loading, .inlineState, .liveStatus { margin: 0; color: var(--ship-muted); font-size: 13px; line-height: 1.6; }
 .loading { padding: 24px 0; }
+.loadingWorkspace { min-height: 240px; padding: 32px 0; border-top: 1px solid var(--ship-border); }
+.loadingWorkspace > div { display: grid; grid-template-columns: 180px minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+.loadingWorkspace > div > span { display: block; height: 44px; border-radius: 8px; background: var(--cp-soft); }
+@media (max-width: 640px) { .loadingWorkspace { min-height: 320px; padding: 24px 0; } .loadingWorkspace > div { grid-template-columns: minmax(0, 1fr); gap: 20px; } }
 .inlineState { display: flex; align-items: center; gap: 8px; padding: 16px 0; border-bottom: 1px solid var(--ship-border); }
 .liveStatus:empty { display: none; }
 .liveStatus { padding-top: 16px; }

@@ -190,7 +190,8 @@ export function StorefrontAssetManager({
         <button ref={uploadRef} className={styles.uploadButton} type="submit" disabled={busy || !selectedFile || !dimensions || !fileMatchesRatio}>{busy ? <LoaderCircle aria-hidden="true" /> : <ImagePlus aria-hidden="true" />} Yükle</button>
       </fieldset>
     </form> : null}
-    {loading ? <p className={styles.state}>Yükleniyor…</p> : visibleAssets.length === 0 ? <p className={styles.state}>Henüz vitrin görseli yok.</p> : <ul className={styles.grid}>
+    <div className={styles.assetRegion} aria-busy={loading}>
+    {loading && assets.length === 0 ? <div className={styles.assetLoading} role="status" aria-label="Vitrin görselleri yükleniyor…"><span className="sr-only">Vitrin görselleri yükleniyor…</span>{[0,1,2].map(index=><span key={index} aria-hidden="true" />)}</div> : visibleAssets.length === 0 ? !error ? <p className={styles.state}>Henüz vitrin görseli yok.</p> : null : <ul className={styles.grid}>
       {visibleAssets.map((asset) => <li key={asset.id} className={styles.card}>
         <div className={styles.assetImageFrame}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={asset.publicUrl} alt={asset.altText} width={asset.width} height={asset.height} style={{ aspectRatio: `${asset.width} / ${asset.height}` }} /></div>
         <div className={styles.assetMeta}><div><strong>{({ logo: "Logo", hero: "Ana sayfa bannerı", category: "Kategori görseli", social: "Sosyal paylaşım", favicon: "Site simgesi" } as Record<StorefrontAssetKind, string>)[asset.kind]}</strong><span className={styles.ratioBadge}>{storefrontAssetRatioLabel(asset.width, asset.height)}</span></div><small>{asset.width}×{asset.height} · {Math.ceil(asset.byteSize / 1024)} KB</small></div>
@@ -202,5 +203,6 @@ export function StorefrontAssetManager({
         </div> : null}
       </li>)}
     </ul>}
+    </div>
   </section>;
 }

@@ -326,10 +326,10 @@ function StockWorkspaceBody(props: StockWorkspaceProps) {
         {notice && !target ? <p className={styles.notice} role="status">{notice}</p> : null}
         {selected ? tabs.map(tab => <section key={tab.id} className={styles.content} id={`stock-panel-${tab.id}`} role="tabpanel" aria-labelledby={`stock-tab-${tab.id}`} tabIndex={view.tab === tab.id ? 0 : undefined} hidden={view.tab !== tab.id}>{view.tab === tab.id ? <>
           {view.tab === "overview" ? <StockOverview canManage={canCount} canPurchase={canPurchase} onCorrect={selection => open("count", selection)} onPurchase={selection => open("purchase", selection)} /> : null}
-          {view.tab === "counts" ? <InventoryCountConsole key={`counts-${listRevision}`} embedded canRead={props.canReadInventory} canManage={props.canManageInventory} /> : null}
-          {view.tab === "transfers" ? <InventoryTransferConsole key={`transfers-${listRevision}`} embedded canRead={props.canReadInventory} canManage={props.canManageInventory} /> : null}
-          {view.tab === "purchases" ? <PurchasingConsole key={`purchases-${listRevision}`} embedded canRead={props.canReadPurchasing} canManage={props.canManagePurchasing} /> : null}
-          {view.tab === "locations" ? <InventoryLocationConsole key={`locations-${listRevision}`} embedded canRead={props.canReadInventory} canManage={props.canManageInventory} onStateChange={updateLocationActivity} /> : null}
+          {view.tab === "counts" ? <InventoryCountConsole refreshRevision={listRevision} embedded canRead={props.canReadInventory} canManage={props.canManageInventory} /> : null}
+          {view.tab === "transfers" ? <InventoryTransferConsole refreshRevision={listRevision} embedded canRead={props.canReadInventory} canManage={props.canManageInventory} /> : null}
+          {view.tab === "purchases" ? <PurchasingConsole refreshRevision={listRevision} embedded canRead={props.canReadPurchasing} canManage={props.canManagePurchasing} /> : null}
+          {view.tab === "locations" ? <InventoryLocationConsole refreshRevision={listRevision} embedded canRead={props.canReadInventory} canManage={props.canManageInventory} onStateChange={updateLocationActivity} /> : null}
         </> : null}</section>) : <p className={styles.notice} role="status">Stok kayıtlarını görüntüleme yetkiniz yok.</p>}
       </div>
       {target && operationProps ? <div ref={backdrop} className={styles.backdrop}>

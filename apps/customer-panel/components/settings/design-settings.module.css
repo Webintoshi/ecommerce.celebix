@@ -625,3 +625,6 @@
 .publishButton, .modalFooter button:not(.cancelButton),
 .orderButton, .surfaceMenu > summary { transition: none; }
 }
+
+.catalogStatus{min-height:40px;min-width:0}.catalogStatus>p{margin:0;font-size:12px;color:var(--cp-text-secondary);line-height:1.5}
+@media(max-width:640px){.catalogStatus{min-height:64px}}

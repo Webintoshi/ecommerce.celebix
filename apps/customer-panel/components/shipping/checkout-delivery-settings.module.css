@@ -19,3 +19,6 @@
 .retry { justify-self: start; }
 @media (max-width: 1024px) { .fields { gap: 16px; } }
 @media (max-width: 640px) { .fields { grid-template-columns: minmax(0, 1fr); } .fields input { font-size: 16px; } .actions { justify-content: stretch; } .actions button { flex: 1 1 100%; } }
+
+.loadingFields{min-height:192px;min-width:0}.loadingFields>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.loadingFields>div>span{display:block;height:88px;border-radius:8px;background:var(--cp-soft)}.loadingFields>div>span:last-child{grid-column:1/-1;justify-self:end;width:104px;height:44px}
+@media(max-width:640px){.loadingFields{min-height:304px}.loadingFields>div{grid-template-columns:minmax(0,1fr)}.loadingFields>div>span:last-child{width:100%}}

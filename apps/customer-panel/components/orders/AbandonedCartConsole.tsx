@@ -37,6 +37,7 @@ import {
 import {
   PanelPageHeader,
   PanelPageShell,
+  PanelSkeletonBlock,
   PanelStatusBadge,
 } from "@/components/panel/PanelPageShell";
 import {
@@ -257,7 +258,7 @@ export function AbandonedCartListPresentation(
             emphasis="recovered"
           />
         </section>
-      ) : null}
+      ) : <section className={styles.metrics} aria-label="Sepet özeti" aria-busy={props.state === "loading"}>{["Terk edilen", "Kurtarılan", "Kayıp değer", "Kurtarılan değer"].map(label => <article className={styles.metric} key={label}><div className={styles.metricLabel}>{label}</div><strong><PanelSkeletonBlock className={styles.metricPlaceholder} /></strong><small><PanelSkeletonBlock /></small></article>)}</section>}
 
       <section
         className={styles.surface}
@@ -322,6 +323,7 @@ export function AbandonedCartListPresentation(
           {hasFilters ? <div className={styles.appliedFilters}><span>{(appliedSearch.trim() ? 1 : 0) + (props.status !== "all" ? 1 : 0)} filtre etkin{props.status !== "all" ? ` · ${STATUS[props.status]}` : ""}{appliedSearch.trim() ? ` · “${appliedSearch.trim()}”` : ""}</span><button type="button" onClick={props.onClear}>Temizle</button></div> : null}
         </form>
 
+        {props.error && props.state === "loaded" ? <p className={styles.error} role="alert">{props.error}</p> : null}
         {props.state === "loading" ? (
           <div className={styles.loading} role="status">
             <RefreshCcw aria-hidden="true" />
@@ -443,10 +445,13 @@ export function AbandonedCartConsole() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [paginationError, setPaginationError] = useState("");
   const sequence = useRef(0);
+  const loadedQuery = useRef<string | null>(null);
   const load = useCallback(
     async (cursor?: string) => {
       const current = ++sequence.current;
-      cursor ? setLoadingMore(true) : setState("loading");
+      const queryKey = JSON.stringify([search, sort, status]);
+      const retainRows = loadedQuery.current === queryKey;
+      cursor ? setLoadingMore(true) : setState(retainRows ? "loaded" : "loading");
       setError("");
       setPaginationError("");
       try {
@@ -466,20 +471,16 @@ export function AbandonedCartConsole() {
         );
         setNextCursor(list.nextCursor);
         setSummary(latestSummary);
+        loadedQuery.current = queryKey;
         setState("loaded");
       } catch (failure) {
         if (current === sequence.current) {
-          if (!cursor) {
-            setItems([]);
-            setSummary(undefined);
-            setNextCursor(undefined);
-          }
           if (cursor) {
             setPaginationError(message(failure));
             setState("loaded");
           } else {
             setError(message(failure));
-            setState("error");
+            setState(retainRows ? "loaded" : "error");
           }
         }
       } finally {
@@ -496,7 +497,7 @@ export function AbandonedCartConsole() {
   }, [load]);
   return (
     <AbandonedCartListPresentation
-      state={state}
+      state={state === "loaded" && loadedQuery.current !== JSON.stringify([search, sort, status]) ? "loading" : state}
       items={items}
       summary={summary}
       error={error}
@@ -548,7 +549,7 @@ export function AbandonedCartDetailPresentation(
 ) {
   if (props.state === "loading")
     return (
-      <PanelPageShell><PanelPageHeader title="Sepet ayrıntısı" /><h1 className="sr-only">Sepet ayrıntısı</h1><Link className={styles.back} href="/orders/abandoned-carts">Sepetlere dön</Link><div className={styles.detailLoading} role="status"><RefreshCcw aria-hidden="true" /><strong>Sepet ayrıntısı yükleniyor</strong></div></PanelPageShell>
+      <PanelPageShell><PanelPageHeader title="Sepet ayrıntısı" /><h1 className="sr-only">Sepet ayrıntısı</h1><Link className={styles.back} href="/orders/abandoned-carts">Sepetlere dön</Link><div className={styles.detailLoading} role="status"><span className="sr-only">Sepet ayrıntısı yükleniyor</span><PanelSkeletonBlock className={styles.detailToolbarPlaceholder} /><div className={styles.detailHero}>{Array.from({ length: 4 }, (_, i) => <PanelSkeletonBlock className={styles.detailMetricPlaceholder} key={i} />)}</div><div className={styles.detailGrid}><PanelSkeletonBlock className={styles.detailMainPlaceholder} /><PanelSkeletonBlock className={styles.detailSidePlaceholder} /></div></div></PanelPageShell>
     );
   if (props.state === "error" || !props.detail)
     return (
@@ -768,29 +769,49 @@ export function AbandonedCartDetailConsole({
   const [recoveryUrl, setRecoveryUrl] = useState<string>();
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const loadSequence = useRef(0);
+  const cartScope = useRef(0);
+  const currentCartId = useRef(cartId);
+  const loadedCartId = useRef<string | null>(null);
+  currentCartId.current = cartId;
   const load = useCallback(async () => {
+    const request = ++loadSequence.current;
+    const retainDetail = loadedCartId.current === cartId;
+    if (!retainDetail) setState("loading");
     setError("");
     try {
-      setDetail(await abandonedCartApi.get(cartId));
+      const result = await abandonedCartApi.get(cartId);
+      if (request !== loadSequence.current || currentCartId.current !== cartId) return;
+      if (result.id !== cartId) throw new Error("invalid_cart_response");
+      setDetail(result);
+      loadedCartId.current = cartId;
       setState("loaded");
     } catch (failure) {
+      if (request !== loadSequence.current || currentCartId.current !== cartId) return;
       setError(message(failure));
-      setState("error");
+      setState(retainDetail ? "loaded" : "error");
     }
   }, [cartId]);
   useEffect(() => {
+    cartScope.current += 1;
+    setNotice(""); setNote(""); setRecoveryUrl(undefined); setBusy(false);
     void load();
+    return () => { loadSequence.current += 1; cartScope.current += 1; };
   }, [load]);
   async function archive() {
-    if (!detail || !canManage || busy) return;
+    if (!detail || detail.id !== cartId || !canManage || busy) return;
+    const scope = cartScope.current;
+    const isCurrent = () => scope === cartScope.current && currentCartId.current === cartId;
     setBusy(true);
     setError("");
     setNotice("");
     try {
       await abandonedCartApi.archive(cartId, detail.version);
+      if (!isCurrent()) return;
       await load();
-      setNotice("Sepet arşivlendi.");
+      if (isCurrent()) setNotice("Sepet arşivlendi.");
     } catch (failure) {
+      if (!isCurrent()) return;
       setError(message(failure));
       if (
         failure instanceof AbandonedCartApiError &&
@@ -798,44 +819,53 @@ export function AbandonedCartDetailConsole({
       )
         await load();
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
   async function issueRecoveryLink() {
-    if (!detail || !canManage || busy) return;
+    if (!detail || detail.id !== cartId || !canManage || busy) return;
+    const scope = cartScope.current;
+    const isCurrent = () => scope === cartScope.current && currentCartId.current === cartId;
     setBusy(true);
     setError("");
     setNotice("");
     setRecoveryUrl(undefined);
     try {
       const result = await abandonedCartApi.issueRecoveryLink(cartId);
+      if (!isCurrent()) return;
       setRecoveryUrl(result.url);
       setNotice(
         `Bağlantı ${date(result.expiresAt)} tarihine kadar geçerlidir.`,
       );
     } catch (failure) {
-      setError(message(failure));
+      if (isCurrent()) setError(message(failure));
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
   async function copyRecoveryLink() {
     if (!recoveryUrl || busy) return;
+    const scope = cartScope.current;
+    const isCurrent = () => scope === cartScope.current && currentCartId.current === cartId;
     try {
       await navigator.clipboard.writeText(recoveryUrl);
-      setNotice("Kurtarma bağlantısı panoya kopyalandı.");
+      if (isCurrent()) setNotice("Kurtarma bağlantısı panoya kopyalandı.");
     } catch {
-      setError("Bağlantı panoya kopyalanamadı. Metni seçip elle kopyalayın.");
+      if (isCurrent()) setError("Bağlantı panoya kopyalanamadı. Metni seçip elle kopyalayın.");
     }
   }
   async function recordRecoveryAttempt(kind: "contacted" | "note") {
     if (
       !detail ||
+      detail.id !== cartId ||
       !canManage ||
       busy ||
       (kind === "note" && note.trim().length === 0)
     )
       return;
+    const scope = cartScope.current;
+    const isCurrent = () => scope === cartScope.current && currentCartId.current === cartId;
+    const submittedNote = note;
     setBusy(true);
     setError("");
     setNotice("");
@@ -845,22 +875,23 @@ export function AbandonedCartDetailConsole({
         kind,
         kind === "note" ? note.trim() : undefined,
       );
+      if (!isCurrent()) return;
       setNotice(
         kind === "contacted"
           ? "İletişim kuruldu olarak kaydedildi."
           : "Ekip notu kaydedildi.",
       );
-      if (kind === "note") setNote("");
+      if (kind === "note") setNote(current => current === submittedNote ? "" : current);
     } catch (failure) {
-      setError(message(failure));
+      if (isCurrent()) setError(message(failure));
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
   return (
     <AbandonedCartDetailPresentation
-      state={state}
-      detail={detail}
+      state={detail && detail.id !== cartId ? "loading" : state}
+      detail={detail?.id === cartId ? detail : undefined}
       error={error}
       notice={notice}
       recoveryUrl={recoveryUrl}
@@ -868,7 +899,6 @@ export function AbandonedCartDetailConsole({
       busy={busy}
       canManage={canManage}
       onRetry={() => {
-        setState("loading");
         void load();
       }}
       onIssueRecoveryLink={() => void issueRecoveryLink()}

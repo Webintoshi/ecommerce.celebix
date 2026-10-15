@@ -6,6 +6,7 @@ import type { CatalogAdminResource } from "@celebix/saas-contracts";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
 import { formatTurkishMoney } from "@/lib/catalog-ui/money";
+import { CatalogWorkspaceLoading } from "../catalog/CatalogWorkspaceLoading";
 import styles from "./catalog-admin-console.module.css";
 
 function formatTry(priceAdjustmentCents: number) {
@@ -22,7 +23,7 @@ function priceFor(resource: CatalogAdminResource) {
   return typeof price === "number" && Number.isSafeInteger(price) && price >= 0 ? price : 0;
 }
 
-export function CatalogExtraPreview({ resourceId }: { resourceId: string }) {
+function CatalogExtraPreviewWorkspace({ resourceId }: { resourceId: string }) {
   const [resource, setResource] = useState<CatalogAdminResource>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -49,7 +50,7 @@ export function CatalogExtraPreview({ resourceId }: { resourceId: string }) {
       />
       <h1 className={styles.srOnly}>Ekstra önizlemesi</h1>
       <section className={`${styles.surface} ${styles.workspace}`}>
-        {loading ? <p className={styles.state} role="status">Ekstra yükleniyor…</p> : null}
+        {loading ? <CatalogWorkspaceLoading layout="preview" label="Ekstra yükleniyor…" /> : null}
         {!loading && error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : null}
         {!loading && resource ? (
           <article className={styles.preview}>
@@ -87,4 +88,8 @@ export function CatalogExtraPreview({ resourceId }: { resourceId: string }) {
       </section>
     </PanelPageShell>
   );
+}
+
+export function CatalogExtraPreview(props: Parameters<typeof CatalogExtraPreviewWorkspace>[0]) {
+  return <CatalogExtraPreviewWorkspace key={props.resourceId} {...props} />;
 }

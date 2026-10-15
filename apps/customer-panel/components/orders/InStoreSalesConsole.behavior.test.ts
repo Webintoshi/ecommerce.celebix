@@ -510,3 +510,21 @@ test("a delayed native close event cannot dismiss the next open sales dialog",as
 test("delivery fields enforce the native address limits and retain oversized pasted input for correction",async()=>{await mounted(async(container,browser)=>{await act(async()=>button(container,"Teslimat türü").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;await act(async()=>button(dialog,"Kargo").click());for(const [field,max] of [["line1",300],["line2",300],["city",200],["district",200]] as const)assert.equal(dialog.querySelector<HTMLInputElement>(`input[name="shipping-${field}"]`)!.maxLength,max);await fillInput(dialog.querySelector<HTMLInputElement>('input[name="shipping-recipientName"]')!,"Ayşe Kaya");await fillInput(dialog.querySelector<HTMLInputElement>('input[name="shipping-line1"]')!,"A".repeat(301));await fillInput(dialog.querySelector<HTMLInputElement>('input[name="shipping-city"]')!,"İstanbul");await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal(dialog.open,true);assert.match(dialog.textContent??"",/uzun|sınır/);},"draft",v4Api);});
 
 test("a manager must attest the actual return before clearing an obsolete receipt fence",async()=>{let reconciled=0;await mounted(async(container)=>{const confirm=container.querySelector<HTMLButtonElement>('[data-confirm-part]')!;await act(async()=>confirm.click());assert.ok(button(container,"Fiziksel iadeyi doğrula"));await act(async()=>button(container,"Fiziksel iadeyi doğrula").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.equal(button(dialog,"Fiziksel iadeyi doğrula").disabled,true);assert.match(dialog.textContent??"",/₺400,00/);await act(async()=>dialog.querySelector<HTMLInputElement>('input[type="checkbox"]')!.click());await act(async()=>button(dialog,"Fiziksel iadeyi doğrula").click());assert.equal(reconciled,1);assert.equal(dialog.open,false);assert.ok(button(container,"Beklet ve yeni satış"));},"payment_pending",async(api)=>{await v4Api(api);const bootstrap=await api.bootstrap(),base=await api.getSale(ID),partId="9e000000-0000-4000-8000-000000000020",prepare="9e000000-0000-4000-8000-000000000021";let current:any={...base,status:"payment_pending",prepareOperationId:prepare,paymentParts:[{partId,paymentMethod:"card",amountCents:40000,receiptId:null,receivedAt:null,actorMembershipId:null,refundEventId:null,returnedAt:null}]};api.bootstrap=async()=>({...bootstrap,activeDraft:current});api.getSale=async()=>current;api.confirmPayment=async()=>{current={...current,version:2,paymentParts:[{...current.paymentParts[0],partId:LOCATION,paymentMethod:"cash",amountCents:20000}]};throw new InStoreSalesUiError("version_conflict",409);};api.reconcileObsoletePayment=async()=>{reconciled++;return{sale:current,replayed:false,priceChanged:false};};});});
+
+test("late manual sales list responses cannot replace another open list",async()=>{
+ let resolveHeld!:(value:{sales:readonly InStoreSale[];nextCursor:null})=>void,resolveRecent!:(value:{sales:readonly InStoreSale[];nextCursor:null})=>void;
+ let source!:InStoreSale;
+ await mounted(async(container)=>{
+  await act(async()=>button(container,"Bekletilenler0").click());
+  await act(async()=>button(container,"Pencereyi kapat").click());
+  await act(async()=>button(container,"Son satışlar").click());
+  await act(async()=>resolveRecent({sales:[{...source,status:"completed",customerName:"Doğru son satış"}],nextCursor:null}));
+  assert.match(container.querySelector("dialog")!.textContent??"",/Doğru son satış/);
+  await act(async()=>resolveHeld({sales:[{...source,status:"held",customerName:"Eski bekletilen satış"}],nextCursor:null}));
+  assert.doesNotMatch(container.querySelector("dialog")!.textContent??"",/Eski bekletilen satış/);
+  assert.match(container.querySelector("dialog")!.textContent??"",/Doğru son satış/);
+ },"draft",async api=>{
+  source=await api.getSale(ID);
+  api.listSales=async input=>input.status==="held"?new Promise(resolve=>{resolveHeld=resolve;}):new Promise(resolve=>{resolveRecent=resolve;});
+ });
+});

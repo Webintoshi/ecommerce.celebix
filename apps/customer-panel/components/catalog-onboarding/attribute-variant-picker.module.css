@@ -32,3 +32,7 @@
 .picker :is(input, button):focus-visible { outline: 3px solid #FE6100; outline-offset: 2px; }
 .error { margin: 0; color: #ae3422; font-size: 13px; }
 @media (max-width: 600px) { .defaults, .valueEntry { grid-template-columns: 1fr; } .intro, .valueHeading { align-items: flex-start; flex-direction: column; } }
+
+.attributeFeedback { min-height: 24px; }
+.attributeFeedback p { margin: 0; }
+.attributes { min-height: 40px; }

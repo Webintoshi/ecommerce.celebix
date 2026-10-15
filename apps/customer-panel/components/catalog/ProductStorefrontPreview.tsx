@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import type { CatalogProductPreviewProjection } from "@celebix/saas-data";
 
+import { CatalogWorkspaceLoading } from "./CatalogWorkspaceLoading";
 import styles from "./catalog-operations.module.css";
 
-export function ProductStorefrontPreview({ productId, token }: { productId: string; token: string }) {
+function ProductStorefrontPreviewWorkspace({ productId, token }: { productId: string; token: string }) {
   const [preview, setPreview] = useState<CatalogProductPreviewProjection>();
   const [error, setError] = useState("");
 
@@ -26,7 +27,7 @@ export function ProductStorefrontPreview({ productId, token }: { productId: stri
   }, [productId, token]);
 
   if (error) return <div className="feedback feedback-error" role="alert"><strong>Önizleme açılamadı</strong><p>{error}</p></div>;
-  if (!preview) return <div className="catalog-loading" role="status"><span className="spinner" /> Mağaza önizlemesi hazırlanıyor…</div>;
+  if (!preview) return <CatalogWorkspaceLoading layout="preview" label="Mağaza önizlemesi hazırlanıyor…" />;
 
   const first = preview.variants[0];
   return (
@@ -41,4 +42,8 @@ export function ProductStorefrontPreview({ productId, token }: { productId: stri
       {preview.variants.length ? <ul>{preview.variants.map((variant, index) => <li key={`${variant.title}-${index}`}>{variant.title} · {variant.stockTracking ? `${variant.stockQuantity} adet` : "Stok takibi yok"}</li>)}</ul> : <p>Satış seçeneği eklenmemiş.</p>}
     </article>
   );
+}
+
+export function ProductStorefrontPreview(props: Parameters<typeof ProductStorefrontPreviewWorkspace>[0]) {
+  return <ProductStorefrontPreviewWorkspace key={JSON.stringify([props.productId, props.token])} {...props} />;
 }

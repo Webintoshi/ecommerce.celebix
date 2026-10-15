@@ -755,3 +755,5 @@
 .workspace :is(.button, .primary, .secondaryButton),
 .workspace :is(.button, .secondaryButton):not(.primary):not(.danger), .workspace :is(.filterField, .brandSort) select { transition: none; }
 }
+
+.listBody { min-height: 360px; }

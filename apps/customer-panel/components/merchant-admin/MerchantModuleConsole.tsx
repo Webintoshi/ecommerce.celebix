@@ -1,5 +1,6 @@
 "use client";
 
+import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import {
   MERCHANT_ADMIN_PROVIDER_RECORD_KINDS,
   type MerchantAdminEvent,
@@ -298,15 +299,20 @@ export function MerchantModuleConsole({
   const marketplace = kind === "marketplace_connection";
   const compactAdministrators = kind === "administrator_invite";
   const quietSettings = kind === "general_setting" || kind === "language_setting" || kind === "notification_setting";
-  const [hasLoaded, setHasLoaded] = useState(false);
+  const [loadedKind, setLoadedKind] = useState<MerchantAdminRecordKind | null>(null);
+  const hasLoaded = loadedKind === kind;
   const [settingsDirty, setSettingsDirty] = useState(false);
   const singleton = definition.cardinality === "singleton";
   const providerRecordKind = toProviderRecordKind(kind);
   const providerCapability = providerRecordKind ? capabilityForProviderKind(providerRecordKind) : null;
-  const [items, setItems] = useState<readonly MerchantAdminRecord[]>([]);
-  const [events, setEvents] = useState<readonly MerchantAdminEvent[]>([]);
-  const [providerJobs, setProviderJobs] = useState<readonly MerchantAdminProviderJob[]>([]);
-  const [providerProfiles, setProviderProfiles] = useState<readonly MerchantProviderProfile[]>([]);
+  const [storedItems, setItems] = useState<readonly MerchantAdminRecord[]>([]);
+  const items = hasLoaded ? storedItems : [];
+  const [storedEvents, setEvents] = useState<readonly MerchantAdminEvent[]>([]);
+  const events = hasLoaded ? storedEvents : [];
+  const [storedProviderJobs, setProviderJobs] = useState<readonly MerchantAdminProviderJob[]>([]);
+  const providerJobs = hasLoaded ? storedProviderJobs : [];
+  const [storedProviderProfiles, setProviderProfiles] = useState<readonly MerchantProviderProfile[]>([]);
+  const providerProfiles = hasLoaded ? storedProviderProfiles : [];
   const [editing, setEditing] = useState<MerchantAdminRecord | null>(null);
   const [editorOpen, setEditorOpen] = useState(createFirst && canManage);
   const [loading, setLoading] = useState(true);
@@ -354,7 +360,7 @@ export function MerchantModuleConsole({
       ]);
       if (!mountedRef.current || loadVersionRef.current !== version) return;
       setItems(records);
-      setHasLoaded(true);
+      setLoadedKind(kind);
       setEvents(audit);
       setProviderJobs(jobs);
       setProviderProfiles(profiles);
@@ -654,17 +660,17 @@ export function MerchantModuleConsole({
       {message ? <p className={styles.success} role="status">{message}</p> : null}
       {error && !editorOpen ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}</p>{!quietSettings || !hasLoaded ? <button type="button" className={styles.button} disabled={loading || busy} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
 
-      <section className={styles.surface} data-merchant-workspace={singleton ? "singleton" : "collection"}>
+      <section className={styles.surface} aria-busy={loading} data-merchant-workspace={singleton ? "singleton" : "collection"}>
         {quietSettings ? (
-          loading ? <div className={styles.state} role="status">Yükleniyor…</div> : hasLoaded ? <>
+          loading && !hasLoaded ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="settings" /> : hasLoaded ? <>
             {activeRecords.length > 1 ? <p className={styles.warning} role="status">En son güncellenen etkin kayıt düzenleniyor.</p> : null}
-            <SettingsRecordForm key={`${singletonRecord?.id ?? "new"}:${singletonRecord?.version ?? 0}`} kind={kind} record={singletonRecord} canManage={canManage} busy={busy} onSubmit={submit} onDirtyChange={setSettingsDirty} />
+            <fieldset className={styles.readGuard} disabled={loading}><SettingsRecordForm key={`${singletonRecord?.id ?? "new"}:${singletonRecord?.version ?? 0}`} kind={kind} record={singletonRecord} canManage={canManage} busy={busy} onSubmit={submit} onDirtyChange={setSettingsDirty} /></fieldset>
           </> : <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button>
         ) : singleton ? (
           <div className={styles.singletonWorkspace}>
-            {loading ? (
-              <div className={styles.state} role="status">{definition.title} yükleniyor…</div>
-            ) : !error ? (
+            {loading && !hasLoaded ? (
+              <MerchantWorkspaceLoading label={`${definition.title} yükleniyor…`} layout="editor" preview={false} />
+            ) : hasLoaded ? (
               <>
                 <div className={styles.singletonIntro}>
                   <div>
@@ -679,7 +685,7 @@ export function MerchantModuleConsole({
                   <input name="name" type="hidden" value={singletonRecord?.name ?? definition.title} readOnly />
                   <input name="status" type="hidden" value="active" readOnly />
                   {definition.fields.map((field) => field.type === "enum-list" ? (
-                    <fieldset className={styles.wide} disabled={!canManage || busy} key={field.key}>
+                    <fieldset className={styles.wide} disabled={!canManage || busy || loading} key={field.key}>
                       <legend>{field.label}</legend>
                       {field.allowedValues?.map((value) => (
                         <label key={value}>
@@ -692,24 +698,24 @@ export function MerchantModuleConsole({
                     <label className={field.type === "textarea" || field.type === "string-list" ? styles.wide : undefined} key={field.key}>
                       {field.label}
                       {field.type === "textarea" || field.type === "string-list" ? (
-                        <textarea disabled={!canManage || busy} name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
+                        <textarea disabled={!canManage || busy || loading} name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
                       ) : field.type === "boolean" ? (
-                        <span className={styles.switchField}><input disabled={!canManage || busy} name={field.key} type="checkbox" defaultChecked={singletonRecord?.config[field.key] === true} /><span>Etkin</span></span>
+                        <span className={styles.switchField}><input disabled={!canManage || busy || loading} name={field.key} type="checkbox" defaultChecked={singletonRecord?.config[field.key] === true} /><span>Etkin</span></span>
                       ) : field.type === "enum" ? (
-                        <select disabled={!canManage || busy} name={field.key} required={field.required} defaultValue={inputValue(singletonRecord, field.key)}>
+                        <select disabled={!canManage || busy || loading} name={field.key} required={field.required} defaultValue={inputValue(singletonRecord, field.key)}>
                           <option value="">Seçin</option>
                           {field.allowedValues?.map((value) => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}
                         </select>
                       ) : field.type === "datetime" ? (
-                        <input disabled={!canManage || busy} name={field.key} required={field.required} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(singletonRecord, field.key)} />
+                        <input disabled={!canManage || busy || loading} name={field.key} required={field.required} type="datetime-local" step="0.001" defaultValue={dateTimeInputValue(singletonRecord, field.key)} />
                       ) : (
-                        <input disabled={!canManage || busy} name={field.key} required={field.required} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : field.key === "skuPrefix" ? 20 : 1000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
+                        <input disabled={!canManage || busy || loading} name={field.key} required={field.required} type={field.type} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : undefined} maxLength={field.type === "number" ? undefined : field.key === "skuPrefix" ? 20 : 1000} placeholder={field.placeholder} defaultValue={inputValue(singletonRecord, field.key)} />
                       )}
                       {field.key === "skuPrefix" ? <small>İsteğe bağlı. Yeni manuel SKU girişlerinde sabit başlangıç olarak görünür; mevcut kodları değiştirmez.</small> : null}
                     </label>
                   ))}
                   <div className={`${styles.wide} ${styles.actions}`}>
-                    {canManage ? <button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Ayarları kaydet"}</button> : <p className={styles.readOnly}>Bu yapılandırmayı görüntüleme yetkiniz var; değiştirme yetkiniz yok.</p>}
+                    {canManage ? <button className={styles.primary} disabled={busy || loading}>{busy ? "Kaydediliyor…" : "Ayarları kaydet"}</button> : <p className={styles.readOnly}>Bu yapılandırmayı görüntüleme yetkiniz var; değiştirme yetkiniz yok.</p>}
                   </div>
                 </form>
               </>
@@ -746,8 +752,9 @@ export function MerchantModuleConsole({
         </div>}
         <div className={operations.result} role="status" aria-live="polite"><span>{loading ? "Yükleniyor…" : hasLoaded ? `${summary.visible.length.toLocaleString("tr-TR")} / ${summary.total.toLocaleString("tr-TR")} ${kind === "page" ? "sayfa" : "kayıt"}` : "Kayıtlar yüklenemedi"}</span>{!canManage ? <span>Salt okunur</span> : null}</div>
 
-        {loading ? (
-          kind === "page" ? <ContentPagesLoading /> : <div className={styles.state} role="status">{definition.title} yükleniyor…</div>
+        <div className={styles.listRegion} aria-busy={loading}>
+        {loading && !hasLoaded ? (
+          kind === "page" ? <ContentPagesLoading /> : <MerchantWorkspaceLoading label={`${definition.title} yükleniyor…`} />
         ) : !hasLoaded && error ? null : summary.visible.length === 0 ? (
           marketplace ? <div className={marketplaceStyles.empty}>
             <MarketplaceArtwork variant="connect" />
@@ -814,7 +821,7 @@ export function MerchantModuleConsole({
               })}
             </div>
           </>
-        )}</>}
+        )}</div></>}
 
         {marketplace ? <section data-provider-settings="">
           <details><summary className={marketplaceStyles.settingsSummary}><ShieldCheck aria-hidden="true" />Aktarım koşulları<ChevronDown aria-hidden="true" /></summary><p className={marketplaceStyles.providerHelp}>{definition.notice} Hazırlık kaydı yalnız etkin ve doğrulanmış bir bağlantıyla iş kuyruğuna alınabilir.</p></details>
@@ -822,8 +829,8 @@ export function MerchantModuleConsole({
         </section> : null}
         {compactAdministrators ? <details className={styles.adminRoleHelp}><summary>Rol bilgisi</summary><AdministratorRoleGuide /></details> : null}
         <details className={styles.audit}>
-          <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({events.length})</summary>
-          {events.length ? (
+          <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({hasLoaded ? events.length : "—"})</summary>
+          {hasLoaded && events.length ? (
             <ol>{events.map((event) => <li key={event.id}><strong>{eventLabel(event)}</strong><time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString("tr-TR")}</time></li>)}</ol>
           ) : <p>Henüz kalıcı işlem kaydı yok.</p>}
         </details>

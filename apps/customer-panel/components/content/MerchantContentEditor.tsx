@@ -1,4 +1,5 @@
 'use client';
+import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import type{MerchantContentDocument,MerchantContentKind,MerchantContentValues,MerchantContentVersion,MerchantContentOrigins,MerchantContentField,SaveMerchantContentRequest}from'@celebix/saas-contracts';
 import type{Editor}from'@tiptap/core';
 import Link from'next/link';
@@ -90,7 +91,7 @@ export function MerchantContentEditor({storeId,kind,recordId,returnTo,canManage,
  const title=recordId?kind==='blog_post'?'Blog yazısını düzenle':'Sayfayı düzenle':kind==='blog_post'?'Yeni blog yazısı':'Yeni sayfa';
  return <div className={`${operations.workspace} ${kind==='page'?pages.editor:''}`}><PanelPageShell><h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title}/><Link className={operations.back} href={returnTo}>Geri dön</Link>
  {!canManage?<p role="status" className={styles.readOnly}>Düzenleme yetkiniz yok.</p>:null}{scopeReady&&document?.status==='archived'?<p role="status" className={styles.readOnly}>Bu kayıt arşivlendi; burada düzenlenemez.</p>:null}
- {loading||!scopeReady?<p role="status" className={styles.state}>Yükleniyor…</p>:null}
+ {loading||!scopeReady?<MerchantWorkspaceLoading label="İçerik yükleniyor…" layout="editor" preview={kind!=='page'} />:null}
  {scopeReady&&error?<div className={operations.feedback}><p role="alert" className={styles.error}>{error}</p>{!loading&&!draft?<button type="button" onClick={()=>void load()}>Tekrar dene</button>:null}{reloadRequired?<button type="button" onClick={()=>{if(window.confirm('Girilmiş değişiklikler bırakılıp güncel kayıt yüklensin mi?'))void load();}}>Güncel kaydı yükle</button>:null}</div>:null}
  {scopeReady&&draft&&!loading?<div className={`${operations.editLayout} ${kind==='page'?pages.editLayout:''}`}><form className={operations.form} onSubmit={submit} aria-busy={busy}>
  <section><h2>{requiredPage?"İçerik":"İçerik bilgileri"}</h2>{requiredPage==='blog'?<Link className={operations.back} href="/content/blog">Blog yazıları</Link>:null}<div className={operations.fields}>

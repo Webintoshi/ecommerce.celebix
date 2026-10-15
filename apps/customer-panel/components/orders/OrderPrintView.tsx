@@ -62,7 +62,7 @@ export function OrderPrintView({ orderId }: Readonly<{ orderId: string }>) {
   }, [orderId, requestSequence]);
 
   if (error) return <main className={styles.printPage}><p role="alert">{error}</p></main>;
-  if (!order || order.id !== orderId) return <main className={styles.printPage}><p role="status">Sipariş hazırlanıyor…</p></main>;
+  if (!order || order.id !== orderId) return <main className={styles.printPage}><div className={styles.printSkeleton} role="status"><span className="sr-only">Sipariş hazırlanıyor…</span><div className={styles.printSkeletonHeading} aria-hidden="true" /><div className={styles.printSummary} aria-hidden="true"><i /><i /><i /></div><div className={styles.printSkeletonTable} aria-hidden="true">{Array.from({ length: 5 }, (_, i) => <i key={i} />)}</div><div className={styles.printSkeletonTotals} aria-hidden="true" /></div></main>;
   return (
     <main className={styles.printPage}>
       <div className={styles.printActions}><button type="button" onClick={() => window.print()}>Yazdır</button></div>

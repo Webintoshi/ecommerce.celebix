@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelActionButton, PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { inventoryApi } from "@/lib/inventory-ui/client";
 import { createInventoryConsoleLifecycle, createInventoryCountConsoleController, type InventoryConsoleSnapshot } from "@/lib/inventory-ui/console-controller";
-import { InventoryListState, useInventoryCollection, type InventoryListPhase } from "./InventoryListState";
+import { InventoryListState, InventoryLoading, useInventoryCollection, type InventoryListPhase } from "./InventoryListState";
 import { InventoryOperationForm } from "./InventoryOperationForm";
 import { useOptionalInventoryWorkspace } from "./InventoryWorkspaceContext";
 import type { InventoryConsoleActivity } from "./InventoryOperationForm";
@@ -52,6 +52,7 @@ export function InventoryCountPresentation(props: Readonly<{ state: InventoryCon
     reviewFocused.current = active;
   }, [reviewVersion, item?.version, item?.status, props.hasUnsavedChanges]);
   if (props.state.phase === "denied") return <div className={styles.denied} role="status">Bu stok sayımını görüntüleme yetkiniz yok.</div>;
+  if (!item && props.state.phase === "loading") return <InventoryLoading editor />;
   if (!item) return <div className={props.state.phase === "error" ? styles.error : styles.state} role={props.state.phase === "error" ? "alert" : "status"}>{props.state.message || "Stok sayımı yükleniyor…"}</div>;
   const counted = item.lines.every((line) => line.countedQuantity !== undefined);
   const reviewing = reviewVersion === item.version && item.status === "counting" && counted && !props.hasUnsavedChanges;
@@ -73,8 +74,8 @@ function InventoryCountDetail(props: Readonly<{ initial?: InventoryCount; resour
   </>;
 }
 
-export function InventoryCountConsole(props: Readonly<{ mode?: "list" | "new" | "detail"; initial?: InventoryCount; initialItems?: readonly InventoryCount[]; resourceId?: string; canRead?: boolean; canManage: boolean; embedded?: boolean; initialLocationId?: string; initialVariantId?: string; onStateChange?(state: InventoryConsoleActivity): void }>) {
-  const canRead = props.canRead ?? true, load = useCallback((signal?: AbortSignal) => inventoryApi.listCounts(signal), []), mode = props.mode ?? (props.initial || props.resourceId ? "detail" : "list"), detail = mode !== "list", list = useInventoryCollection({ enabled: !detail, canRead, initial: props.initialItems, load });
+export function InventoryCountConsole(props: Readonly<{ mode?: "list" | "new" | "detail"; refreshRevision?: number; initial?: InventoryCount; initialItems?: readonly InventoryCount[]; resourceId?: string; canRead?: boolean; canManage: boolean; embedded?: boolean; initialLocationId?: string; initialVariantId?: string; onStateChange?(state: InventoryConsoleActivity): void }>) {
+  const canRead = props.canRead ?? true, load = useCallback((signal?: AbortSignal) => inventoryApi.listCounts(signal), []), mode = props.mode ?? (props.initial || props.resourceId ? "detail" : "list"), detail = mode !== "list", list = useInventoryCollection({ enabled: !detail, refreshKey: props.refreshRevision, canRead, initial: props.initialItems, load });
   const title = mode === "new" ? "Yeni stok sayımı" : detail ? "Stok sayımı ayrıntısı" : "Stok sayımları";
-  return <PanelPageShell embedded={props.embedded}><PanelPageHeader embedded={props.embedded} title={title} description="Depo stoklarını sayın ve farkları uygulayın." actions={!props.embedded && mode === "list" && props.canManage ? <span className={styles.pageAction}><PanelActionButton primary href="/products/stock?tab=counts&kind=count&new=1">Yeni stok sayımı</PanelActionButton></span> : undefined} />{!props.embedded ? <h1 className={styles.srOnly}>{title}</h1> : null}{detail ? <InventoryCountDetail initial={props.initial} resourceId={props.resourceId} create={mode === "new"} canRead={canRead} canManage={props.canManage} initialLocationId={props.initialLocationId} initialVariantId={props.initialVariantId} onStateChange={props.onStateChange} /> : <InventoryCountListPresentation state={list.phase} items={list.items} error={list.error} canManage={props.canManage} onRetry={list.retry} />}</PanelPageShell>;
+  return <PanelPageShell embedded={props.embedded}><PanelPageHeader embedded={props.embedded} title={title} description="Depo stoklarını sayın ve farkları uygulayın." actions={!props.embedded && mode === "list" && props.canManage ? <span className={styles.pageAction}><PanelActionButton primary href="/products/stock?tab=counts&kind=count&new=1">Yeni stok sayımı</PanelActionButton></span> : undefined} />{!props.embedded ? <h1 className={styles.srOnly}>{title}</h1> : null}{detail ? <InventoryCountDetail key={props.resourceId ?? props.initial?.id ?? "new"} initial={props.initial} resourceId={props.resourceId} create={mode === "new"} canRead={canRead} canManage={props.canManage} initialLocationId={props.initialLocationId} initialVariantId={props.initialVariantId} onStateChange={props.onStateChange} /> : <InventoryCountListPresentation state={list.phase} items={list.items} error={list.error} canManage={props.canManage} onRetry={list.retry} />}</PanelPageShell>;
 }

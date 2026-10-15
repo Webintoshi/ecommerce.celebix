@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PanelActionButton, PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { inventoryApi } from "@/lib/inventory-ui/client";
 import { createInventoryConsoleLifecycle, createPurchasingConsoleController, type InventoryConsoleSnapshot } from "@/lib/inventory-ui/console-controller";
-import { InventoryListState, useInventoryCollection, type InventoryListPhase } from "./InventoryListState";
+import { InventoryListState, InventoryLoading, useInventoryCollection, type InventoryListPhase } from "./InventoryListState";
 import { InventoryOperationForm, PurchaseReceiptForm } from "./InventoryOperationForm";
 import { useOptionalInventoryWorkspace } from "./InventoryWorkspaceContext";
 import type { InventoryConsoleActivity } from "./InventoryOperationForm";
@@ -48,6 +48,7 @@ export function PurchasingDetailPresentation(props: Readonly<{ state: InventoryC
   const variantName = (id: string) => workspace?.variantName(id) ?? "Ürün bilgisi yüklenemedi";
   const item = props.state.record;
   if (props.state.phase === "denied") return <div className={styles.denied} role="status">Bu satın alma kaydını görüntüleme yetkiniz yok.</div>;
+  if (!item && props.state.phase === "loading") return <InventoryLoading editor />;
   if (!item) return <div className={props.state.phase === "error" ? styles.error : styles.state} role={props.state.phase === "error" ? "alert" : "status"}>{props.state.message || "Satın alma kaydı yükleniyor…"}</div>;
   return <><div className={styles.detailSummary}><div><span>Sipariş</span><strong>{number(item.id)}</strong></div><div><span>Tedarikçi</span><strong>{item.supplierName}</strong></div><div><span>Depo</span><strong>{locationName(item.locationId)}</strong></div><div><span>Durum</span><PanelStatusBadge tone={tone(item.status)}>{LABELS[item.status]}</PanelStatusBadge></div></div>
     {props.state.message ? <p className={props.state.phase === "conflict" ? styles.conflict : props.state.phase === "error" || props.state.phase === "verification_unavailable" ? styles.errorNotice : styles.notice} role={props.state.phase === "conflict" || props.state.phase === "error" || props.state.phase === "verification_unavailable" ? "alert" : "status"}>{props.state.message}</p> : null}
@@ -70,12 +71,12 @@ function PurchasingDetail(props: Readonly<{ initial?: PurchaseOrder; resourceId?
   </>;
 }
 
-export function PurchasingConsole(props: Readonly<{ mode?: "list" | "new" | "detail"; initial?: PurchaseOrder; initialItems?: readonly PurchaseOrder[]; resourceId?: string; canRead?: boolean; canManage: boolean; embedded?: boolean; initialLocationId?: string; initialVariantId?: string; onStateChange?(state: InventoryConsoleActivity): void }>) {
+export function PurchasingConsole(props: Readonly<{ mode?: "list" | "new" | "detail"; refreshRevision?: number; initial?: PurchaseOrder; initialItems?: readonly PurchaseOrder[]; resourceId?: string; canRead?: boolean; canManage: boolean; embedded?: boolean; initialLocationId?: string; initialVariantId?: string; onStateChange?(state: InventoryConsoleActivity): void }>) {
   const canRead = props.canRead ?? true;
   const load = useCallback((signal?: AbortSignal) => inventoryApi.listPurchaseOrders(signal), []);
   const mode = props.mode ?? (props.initial || props.resourceId ? "detail" : "list");
   const detail = mode !== "list";
-  const list = useInventoryCollection({ enabled: !detail, canRead, initial: props.initialItems, load });
+  const list = useInventoryCollection({ enabled: !detail, refreshKey: props.refreshRevision, canRead, initial: props.initialItems, load });
   const title = mode === "new" ? "Yeni satın alma siparişi" : detail ? "Satın alma ayrıntısı" : "Satın alma";
-  return <PanelPageShell embedded={props.embedded}><PanelPageHeader embedded={props.embedded} title={title} description="Tedarikçiden sipariş verin ve gelen ürünleri teslim alın." actions={!props.embedded && mode === "list" && props.canManage ? <span className={styles.pageAction}><PanelActionButton primary href="/products/stock?tab=purchases&kind=purchase&new=1">Yeni satın alma siparişi</PanelActionButton></span> : undefined} />{!props.embedded ? <h1 className={styles.srOnly}>{title}</h1> : null}{detail ? <PurchasingDetail initial={props.initial} resourceId={props.resourceId} create={mode === "new"} canRead={canRead} canManage={props.canManage} initialLocationId={props.initialLocationId} initialVariantId={props.initialVariantId} onStateChange={props.onStateChange} /> : <PurchasingListPresentation state={list.phase} items={list.items} error={list.error} canManage={props.canManage} onRetry={list.retry} />}</PanelPageShell>;
+  return <PanelPageShell embedded={props.embedded}><PanelPageHeader embedded={props.embedded} title={title} description="Tedarikçiden sipariş verin ve gelen ürünleri teslim alın." actions={!props.embedded && mode === "list" && props.canManage ? <span className={styles.pageAction}><PanelActionButton primary href="/products/stock?tab=purchases&kind=purchase&new=1">Yeni satın alma siparişi</PanelActionButton></span> : undefined} />{!props.embedded ? <h1 className={styles.srOnly}>{title}</h1> : null}{detail ? <PurchasingDetail key={props.resourceId ?? props.initial?.id ?? "new"} initial={props.initial} resourceId={props.resourceId} create={mode === "new"} canRead={canRead} canManage={props.canManage} initialLocationId={props.initialLocationId} initialVariantId={props.initialVariantId} onStateChange={props.onStateChange} /> : <PurchasingListPresentation state={list.phase} items={list.items} error={list.error} canManage={props.canManage} onRetry={list.retry} />}</PanelPageShell>;
 }

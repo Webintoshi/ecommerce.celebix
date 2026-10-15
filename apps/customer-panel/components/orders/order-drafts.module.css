@@ -123,3 +123,7 @@
 
 .choiceRetry { min-height: 44px; border: 0; border-radius: 8px; background: transparent; padding: 0 8px; color: var(--cp-text-primary); font: inherit; text-decoration: underline; cursor: pointer; }
 @media (max-width: 1024px) { .editorToolbar { gap: 12px; } }
+.editorLoading{grid-template-columns:minmax(0,1fr) minmax(280px,320px);gap:40px;padding:0;min-width:0}
+.editorLoading>div{display:grid;gap:24px;min-width:0}
+.editorLoading i{height:176px}
+@media(max-width:1000px){.editorLoading{grid-template-columns:minmax(0,1fr);gap:24px}}

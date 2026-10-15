@@ -37,6 +37,7 @@ import { VariantPricingPolicyControl } from "@/components/reference-pricing/Vari
 import { PermanentDeleteDialog } from "@/components/shared/PermanentDeleteDialog";
 import { usePanelTopbarChrome } from "@/components/panel/PanelTopbarChrome";
 import catalogStyles from "./catalog-operations.module.css";
+import { CatalogWorkspaceLoading } from "./CatalogWorkspaceLoading";
 import styles from "./product-detail-workspace.module.css";
 
 function value(data: FormData, key: string) {
@@ -87,7 +88,7 @@ function VariantFields({ variant, skuPrefix, onBarcodeGenerated, showMeasurement
   );
 }
 
-export function ProductDetailConsole({
+function ProductDetailConsoleWorkspace({
   productId,
   canManage = false,
   canArchive = false,
@@ -626,7 +627,7 @@ export function ProductDetailConsole({
     finally{setBusy("");}
   }
 
-  if (loading) return <div className="catalog-loading page-loading" role="status"><span className="spinner" aria-hidden="true" /> Ürün ayrıntıları yükleniyor…</div>;
+  if (loading && !detail) return <CatalogWorkspaceLoading layout="product" label="Ürün ayrıntıları yükleniyor…" />;
   if (detail === undefined) return <section className={`catalog-page ${catalogStyles.catalogRoot}`}><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
 
   const { product, variants } = detail;
@@ -854,4 +855,8 @@ export function ProductDetailConsole({
       /> : null}
     </section>
   );
+}
+
+export function ProductDetailConsole(props: Parameters<typeof ProductDetailConsoleWorkspace>[0]) {
+  return <ProductDetailConsoleWorkspace key={props.productId} {...props} />;
 }

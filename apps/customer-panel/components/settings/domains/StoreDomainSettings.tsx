@@ -186,7 +186,7 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
     </form> : null}
     {error ? <p className={styles.error} role="alert">{error}<button type="button" onClick={() => void load()}>Tekrar dene</button></p> : null}
     <span className={styles.srOnly} aria-live="polite">{copied ? "DNS değeri kopyalandı" : ""}</span>
-    {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : null}
+    {loading && !loaded ? <div className={styles.loadingBundles} role="status" aria-label="Alan adları yükleniyor…"><span className={styles.srOnly}>Alan adları yükleniyor…</span><div aria-hidden="true"><span/><span/><span/><span/></div></div> : null}
     {loaded ? <>
       {openReplacement && replacementPresentation ? <section className={styles.replacement} aria-label="Güvenli alan adı geçişi">
         <div><ArrowLeftRight size={20} aria-hidden="true" /><span><strong>{replacementPresentation.label}</strong><small>Eski adresler geri dönüş için korunur.</small></span></div>

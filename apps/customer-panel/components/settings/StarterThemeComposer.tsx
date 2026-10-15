@@ -12,7 +12,7 @@ import {
   type StorefrontAsset,
   type StorefrontDesignDestinationOption,
 } from "@celebix/saas-contracts";
-import { ArrowDown, ArrowUp, LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ShippingProgressSettings } from "./ShippingProgressSettings";
@@ -315,7 +315,7 @@ export function StarterThemeComposer({
     {error ? <p className={styles.error} role="alert">{error}</p> : null}
     {resourceError ? <div className={styles.resourceError}><p className={styles.error} role="alert">{resourceError}</p><button type="button" onClick={() => void load()} disabled={loading}>Yeniden dene</button></div> : null}
     {!canManage ? <p className={styles.readOnly} role="status">Yalnız görüntüleme</p> : null}
-    {loading ? <p className={styles.loading}><LoaderCircle aria-hidden="true" /> Yükleniyor…</p> : <form className={`${styles.workspace} ${showPreview ? "" : styles.editorOnly}`} onSubmit={(event) => event.preventDefault()}>
+    {loading ? <div className={styles.composerLoading} role="status" aria-label="Tema alanları yükleniyor…"><span className="sr-only">Tema alanları yükleniyor…</span><div aria-hidden="true"><span/><span/><span/><span/></div></div> : <form className={`${styles.workspace} ${showPreview ? "" : styles.editorOnly}`} onSubmit={(event) => event.preventDefault()}>
       <div className={styles.editor}>
         <p className={styles.notice}>Değişiklikleri önizleyin. Uygula ile mağazaya yansır.</p>
         <section

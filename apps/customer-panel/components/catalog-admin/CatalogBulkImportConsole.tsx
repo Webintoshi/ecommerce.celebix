@@ -17,6 +17,7 @@ import {
   type CatalogImportParseResult,
   type CatalogImportProvider,
 } from "@/lib/catalog-import/providers";
+import { CatalogWorkspaceLoading } from "../catalog/CatalogWorkspaceLoading";
 import styles from "./catalog-admin-console.module.css";
 
 const MAX_SOURCE_BYTES = 524_288;
@@ -43,6 +44,9 @@ function message(caught: unknown, fallback: string): string {
 export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) {
   const [items, setItems] = useState<readonly CatalogAdminImportJob[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyResolved, setHistoryResolved] = useState(false);
+  const [historyError, setHistoryError] = useState("");
+  const historyRequest = useRef(0);
   const [provider, setProvider] = useState<CatalogImportProvider>("generic");
   const [sourceMode, setSourceMode] = useState<"file" | "feed">("file");
   const [feedUrl, setFeedUrl] = useState("");
@@ -59,13 +63,15 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
   const previewRequestRef = useRef(0);
 
   const loadHistory = useCallback(async () => {
+    const sequence = ++historyRequest.current;
     setHistoryLoading(true);
-    try { setItems(await catalogAdminApi.imports()); }
-    catch (caught) { setError(message(caught, "Yükleme geçmişi alınamadı.")); }
-    finally { setHistoryLoading(false); }
+    setHistoryError("");
+    try { const result = await catalogAdminApi.imports(); if (sequence === historyRequest.current) { setItems(result); setHistoryResolved(true); } }
+    catch (caught) { if (sequence === historyRequest.current) setHistoryError(message(caught, "Yükleme geçmişi alınamadı.")); }
+    finally { if (sequence === historyRequest.current) setHistoryLoading(false); }
   }, []);
 
-  useEffect(() => { void loadHistory(); }, [loadHistory]);
+  useEffect(() => { void loadHistory(); return () => { historyRequest.current += 1; }; }, [loadHistory]);
 
   function clearPreview() {
     previewRequestRef.current += 1;
@@ -240,9 +246,10 @@ export function CatalogBulkImportConsole({ canImport }: { canImport: boolean }) 
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
     </section>
 
-    <section className={`${styles.surface} ${styles.workspace}`} aria-labelledby="history-heading">
+    <section className={`${styles.surface} ${styles.workspace} ${styles.listBody}`} aria-labelledby="history-heading" aria-busy={historyLoading}>
       <div className={styles.historyHeading}><div><span>Geçmiş</span><h2 id="history-heading">Son toplu aktarımlar</h2></div><button type="button" className={styles.secondaryButton} onClick={() => void loadHistory()} disabled={historyLoading}><RotateCcw size={18} aria-hidden />Yenile</button></div>
-      {historyLoading ? <div className={styles.state} role="status">Yükleme geçmişi alınıyor…</div> : items.length === 0 ? <PanelEmptyState title="Henüz toplu yükleme yok" description="İlk gerçek yükleme tamamlandığında burada görünecek." /> : <div className={styles.list}>{items.map((job) => <article className={styles.item} key={job.id}><div><h2>{job.fileName}</h2><p>{job.succeededRows}/{job.totalRows} başarılı · {job.failedRows} hatalı</p></div><span className={styles.status}>{{ processing: "İşleniyor", completed: "Tamamlandı", failed: "Başarısız" }[job.status]}</span></article>)}</div>}
+      {historyError ? <p className={styles.error} role="alert">{historyError}</p> : null}
+      {historyLoading && !historyResolved ? <CatalogWorkspaceLoading label="Yükleme geçmişi alınıyor…" /> : !historyResolved ? null : items.length === 0 ? <PanelEmptyState title="Henüz toplu yükleme yok" description="İlk gerçek yükleme tamamlandığında burada görünecek." /> : <div className={styles.list}>{items.map((job) => <article className={styles.item} key={job.id}><div><h2>{job.fileName}</h2><p>{job.succeededRows}/{job.totalRows} başarılı · {job.failedRows} hatalı</p></div><span className={styles.status}>{{ processing: "İşleniyor", completed: "Tamamlandı", failed: "Başarısız" }[job.status]}</span></article>)}</div>}
     </section>
   </PanelPageShell>;
 }

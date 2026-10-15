@@ -57,3 +57,5 @@
   .fileArea { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   .altField { grid-column: 1 / -1; }
 }
+
+.assetRegion{min-width:0;min-height:240px}.assetLoading{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:16px;min-height:240px}.assetLoading>span:not(:global(.sr-only)){display:block;min-height:240px;border-radius:8px;background:var(--cp-soft)}

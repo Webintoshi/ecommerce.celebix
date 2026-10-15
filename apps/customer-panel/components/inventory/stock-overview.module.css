@@ -54,3 +54,5 @@
   .state { padding: 24px 16px; }
   .listContext { font-size: 12px; }
 }
+
+.body { min-height: 440px; min-width: 0; }

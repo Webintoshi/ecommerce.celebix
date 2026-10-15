@@ -1570,3 +1570,8 @@
 }
 
 .primaryButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.stableListRegion { min-width: 0; min-height: 340px; }
+@media (max-width: 640px) { .stableListRegion { min-height: 480px; } }
+
+.analyticsRegion { min-width: 0; min-height: 340px; }
+@media (max-width: 640px) { .analyticsRegion { min-height: 640px; } }

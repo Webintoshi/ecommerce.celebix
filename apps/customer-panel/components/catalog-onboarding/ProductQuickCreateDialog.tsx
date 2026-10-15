@@ -334,7 +334,7 @@ export function ProductQuickCreateDialog({
           </div>
         </fieldset>
 
-        {options === null ? <p className={styles.loading} role="status">Ürün seçenekleri yükleniyor…</p> : null}
+        <p className={`${styles.loading} ${workspace.optionsStatus}`} role="status">{options === null ? "Ürün seçenekleri yükleniyor…" : ""}</p>
         {requiresDetailed ? <div className={workspace.detailedNotice} role="status"><span>Ayrıntıların korunuyor. Kaydı detaylı formdan tamamla.</span><button type="button" onClick={onAdvanced} disabled={submitting || barcodeBusy}>Detaylı forma dön</button></div> : null}
         {!requiresDetailed && (!title.trim() || parseTurkishMoneyToCents(price) === null || !categoryId) ? <p className={workspace.readiness}>Satışa açmak için: {[!title.trim() ? "Ürün adı" : "", parseTurkishMoneyToCents(price) === null ? "Fiyat" : "", !categoryId ? "Kategori" : ""].filter(Boolean).join(" · ")}</p> : null}
         <div className={styles.actions}>

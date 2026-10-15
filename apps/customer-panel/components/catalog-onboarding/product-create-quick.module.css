@@ -44,3 +44,5 @@
   .workspace[role="region"] form > div:last-child button[type="submit"][value="publish"] { grid-column: 1 / -1; grid-row: 1; }
   .workspace[role="region"] .cancel { margin-right: 0; }
 }
+
+.workspace .optionsStatus { min-height: 20px; }

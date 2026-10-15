@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type {
   CustomerDetail,
   CustomerSegment,
@@ -11,7 +11,7 @@ import type {
   OrderStatus,
 } from "@celebix/saas-contracts";
 
-import { PanelPageHeader, PanelPageShell, PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelPageHeader, PanelPageShell, PanelSkeletonBlock, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import styles from "./customer-console.module.css";
 
@@ -231,9 +231,16 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const sequence = useRef(0);
+  const customerScope = useRef(0);
+  const currentCustomerId = useRef(customerId);
+  const loadedCustomerId = useRef<string | null>(null);
+  currentCustomerId.current = customerId;
 
   const load = useCallback(async (refresh = false) => {
-    if (!refresh) setState("loading");
+    const request = ++sequence.current;
+    const retainDetail = refresh && loadedCustomerId.current === customerId;
+    if (!retainDetail) setState("loading");
     setError("");
     try {
       const [detail, customerWorkspace, availableTags, availableSegments] = await Promise.all([
@@ -242,63 +249,81 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
         customerApi.tags(),
         customerApi.segments(),
       ]);
+      if (request !== sequence.current || currentCustomerId.current !== customerId) return;
+      if (detail.id !== customerId) throw new Error("invalid_customer_response");
       setData(detail);
       setWorkspace(customerWorkspace);
       setTags(availableTags);
       setSegments(availableSegments);
+      loadedCustomerId.current = customerId;
       setState("loaded");
     } catch (caught) {
+      if (request !== sequence.current || currentCustomerId.current !== customerId) return;
       setError(message(caught));
-      if (!refresh) setState("error");
+      if (!retainDetail) setState("error");
     }
   }, [customerId]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    customerScope.current += 1;
+    setNotice(""); setBusy(false);
+    void load();
+    return () => { sequence.current += 1; customerScope.current += 1; };
+  }, [load]);
 
   async function addNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
     const rawText = String(new FormData(form).get("text") ?? "");
     const text = rawText.trim();
-    if (!data || !text || busy) return;
+    if (!data || data.id !== customerId || !text || busy) return;
+    const scope = customerScope.current;
+    const isCurrent = () => scope === customerScope.current && currentCustomerId.current === customerId;
     setBusy(true);
     setError("");
     try {
       await customerApi.addNote(customerId, text);
+      if (!isCurrent()) return;
       const noteInput = form.elements.namedItem("text") as HTMLTextAreaElement | null;
       if (!noteInput || noteInput.value === rawText) form.reset();
       setNotice("Not kaydedildi.");
       await load(true);
-    } catch (caught) { setError(message(caught)); }
-    finally { setBusy(false); }
+    } catch (caught) { if (isCurrent()) setError(message(caught)); }
+    finally { if (isCurrent()) setBusy(false); }
   }
 
   async function assign(kind: "tags" | "segments", ids: readonly string[]) {
-    if (!data || busy) return;
+    if (!data || data.id !== customerId || busy) return;
+    const scope = customerScope.current;
+    const isCurrent = () => scope === customerScope.current && currentCustomerId.current === customerId;
     setBusy(true);
     setError("");
     try {
       if (kind === "tags") await customerApi.setTags(customerId, ids);
       else await customerApi.setSegments(customerId, ids);
+      if (!isCurrent()) return;
       setNotice(kind === "tags" ? "Etiketler güncellendi." : "Segmentler güncellendi.");
       await load(true);
-    } catch (caught) { setError(message(caught)); }
-    finally { setBusy(false); }
+    } catch (caught) { if (isCurrent()) setError(message(caught)); }
+    finally { if (isCurrent()) setBusy(false); }
   }
 
   async function archive() {
-    if (!data || busy) return;
+    if (!data || data.id !== customerId || busy) return;
+    const scope = customerScope.current;
+    const isCurrent = () => scope === customerScope.current && currentCustomerId.current === customerId;
     setBusy(true);
     setError("");
     try {
       await customerApi.archive(customerId, data.version);
+      if (!isCurrent()) return;
       setNotice("Müşteri arşivlendi.");
       await load(true);
-    } catch (caught) { setError(message(caught)); }
-    finally { setBusy(false); }
+    } catch (caught) { if (isCurrent()) setError(message(caught)); }
+    finally { if (isCurrent()) setBusy(false); }
   }
 
-  if (state === "loading") return <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.state} role="status">Müşteri yükleniyor…</div></PanelPageShell>;
+  if (state === "loading" || data && data.id !== customerId) return <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.customerDetailSkeleton} role="status"><span className="sr-only">Müşteri yükleniyor…</span><PanelSkeletonBlock className={styles.customerIdentitySkeleton} /><div className={styles.customerWorkspace}><div className={styles.customerWorkspaceMain}>{Array.from({ length: 3 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div><div className={styles.customerSummaryRail}>{Array.from({ length: 2 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div></div></div></PanelPageShell>;
   if (state === "error" || !data || !workspace) return (
     <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.state} role="alert"><div><p className={styles.error}>{error}</p><button className={styles.button} onClick={() => void load()}>Tekrar dene</button></div></div></PanelPageShell>
   );

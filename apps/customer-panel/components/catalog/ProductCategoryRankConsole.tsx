@@ -11,6 +11,7 @@ import {
   type CategoryProductOrderItem,
 } from "@/lib/catalog-ui/product-order-client";
 import type { ProductFeaturedImage } from "@/lib/catalog-ui/client";
+import { CatalogWorkspaceLoading } from "./CatalogWorkspaceLoading";
 import styles from "./product-category-rank.module.css";
 
 type CategoryOption = CatalogOnboardingOptions["categories"][number];
@@ -53,6 +54,7 @@ export function ProductCategoryRankConsole({
   onClose(): void;
 }>) {
   const [categoryId, setCategoryId] = useState(initialCategoryId);
+  const [loadedCategory, setLoadedCategory] = useState("");
   const [baseline, setBaseline] = useState<CategoryProductOrder>();
   const [items, setItems] = useState<readonly CategoryProductOrderItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -70,9 +72,11 @@ export function ProductCategoryRankConsole({
   useEffect(() => { onSavingChange(saving); }, [saving, onSavingChange]);
 
   useEffect(() => {
-    setBaseline(undefined);
-    setItems([]);
-    itemsRef.current = [];
+    if (loadedCategory !== categoryId) {
+      setBaseline(undefined);
+      setItems([]);
+      itemsRef.current = [];
+    }
     setError("");
     setNotice("");
     if (!categoryId) {
@@ -83,6 +87,7 @@ export function ProductCategoryRankConsole({
     setLoading(true);
     void productOrderClient.get(categoryId, controller.signal).then((result) => {
       if (controller.signal.aborted) return;
+      setLoadedCategory(result.categoryId);
       setBaseline(result);
       setItems(result.items);
       itemsRef.current = result.items;
@@ -98,6 +103,7 @@ export function ProductCategoryRankConsole({
   function changeCategory(next: string) {
     if (next === categoryId || saving) return;
     if (dirty && !window.confirm("Kaydedilmemiş vitrin sırası silinecek. Devam edilsin mi?")) return;
+    setError("");
     setCategoryId(next);
   }
 
@@ -164,7 +170,7 @@ export function ProductCategoryRankConsole({
     <section className={styles.root} aria-label="Kategori vitrin sırası">
       <div className={styles.header}>
         <div><h2>Vitrin sırası</h2><p>Kategori içindeki ürünlerin mağazada görünme sırası.</p></div>
-        <button className={styles.close} type="button" onClick={close} disabled={saving}><X aria-hidden="true" /> Listeye dön</button>
+        <button className={styles.close} type="button" onClick={close} disabled={saving || loading}><X aria-hidden="true" /> Listeye dön</button>
       </div>
       <div className={styles.controls}>
         <label className={styles.categoryPicker}><span>Kategori / alt kategori</span><select value={categoryId} disabled={saving || optionsState !== "ready"} onChange={(event) => changeCategory(event.currentTarget.value)} aria-label="Vitrin sırası kategorisi"><option value="">{optionsState === "loading" ? "Kategoriler yükleniyor…" : optionsState === "unavailable" ? "Kategoriler yüklenemedi" : "Bir kategori seçin"}</option>{categories.map((category) => <option key={category.id} value={category.id}>{categoryName(category, categoryMap)}</option>)}</select></label>
@@ -177,7 +183,8 @@ export function ProductCategoryRankConsole({
         {optionsState === "unavailable" ? <button type="button" onClick={onRetryOptions}>Kategorileri yenile</button> : null}
       </div>
       {categoryId && !loading && !error && items.length === 0 ? <div className={styles.empty}><Package aria-hidden="true" /><span>Bu kategoride sıralanacak ürün yok.</span></div> : null}
-      {categoryId && !loading && items.length > 0 ? <>
+      {categoryId && loading && loadedCategory !== categoryId ? <CatalogWorkspaceLoading label="Sıra yükleniyor…" /> : null}
+      {categoryId && loadedCategory === categoryId && items.length > 0 ? <>
         <p id="rank-keyboard-instruction" className={styles.srOnly}>Ürünü sürükleyin veya taşıma tutamacı üzerindeyken yukarı ve aşağı ok tuşlarını kullanın. Yanındaki ok düğmeleri de aynı işlemi yapar.</p>
         <ol className={styles.list} aria-label="Kategori ürün sırası">
           {items.map((item, index) => {
@@ -185,7 +192,7 @@ export function ProductCategoryRankConsole({
             return <li key={item.productId} className={`${styles.row} ${draggingId === item.productId ? styles.dragging : ""}`} data-rank-product-id={item.productId}>
               <span className={styles.number}>{index + 1}</span>
               <button
-                className={styles.handle} type="button" disabled={saving}
+                className={styles.handle} type="button" disabled={saving || loading}
                 aria-label={`${item.title} ürününü sürükle; ok tuşlarıyla taşı`}
                 aria-describedby="rank-keyboard-instruction"
                 aria-keyshortcuts="ArrowUp ArrowDown"
@@ -205,8 +212,8 @@ export function ProductCategoryRankConsole({
               <span className={styles.product}><strong>{item.title}</strong><small>{item.slug}</small></span>
               <span className={`${styles.status} ${item.status === "active" ? styles.active : ""}`}>{item.status === "active" ? "Yayında" : "Satışa kapalı"}</span>
               <span className={styles.moveButtons}>
-                <button type="button" disabled={saving || index === 0} aria-label={`${item.title} ürününü bir sıra yukarı taşı`} onClick={() => move(item.productId, index - 1)}><ArrowUp aria-hidden="true" /></button>
-                <button type="button" disabled={saving || index === items.length - 1} aria-label={`${item.title} ürününü bir sıra aşağı taşı`} onClick={() => move(item.productId, index + 1)}><ArrowDown aria-hidden="true" /></button>
+                <button type="button" disabled={saving || loading || index === 0} aria-label={`${item.title} ürününü bir sıra yukarı taşı`} onClick={() => move(item.productId, index - 1)}><ArrowUp aria-hidden="true" /></button>
+                <button type="button" disabled={saving || loading || index === items.length - 1} aria-label={`${item.title} ürününü bir sıra aşağı taşı`} onClick={() => move(item.productId, index + 1)}><ArrowDown aria-hidden="true" /></button>
               </span>
             </li>;
           })}

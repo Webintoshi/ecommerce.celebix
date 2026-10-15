@@ -198,7 +198,7 @@ export function AnalyticsSettingsConsole() {
       <div className={styles.root}>
         <PanelPageHeader title="Analitik ayarları" />
         {state === "loading" ? (
-          <p className={styles.loading} role="status">Ayarlar yükleniyor…</p>
+          <div className={styles.loadingWorkspace} role="status" aria-label="Ayarlar yükleniyor…"><span className="sr-only">Ayarlar yükleniyor…</span><div className={styles.loadingConnection} aria-hidden="true" />{[0,1,2].map(index=><div className={styles.loadingSection} key={index} aria-hidden="true"><span/><div>{index===0?<><span className={styles.loadingWideField}/><span className={styles.loadingToggle}/></>:<><span/><span/>{index===1?<span/>:<span className={styles.loadingToggle}/>}</>}</div></div>)}<div className={styles.loadingSave} aria-hidden="true"/></div>
         ) : null}
         {state === "error" ? (
           <div className={styles.error} role="alert">

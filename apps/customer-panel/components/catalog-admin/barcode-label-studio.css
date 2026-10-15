@@ -369,3 +369,9 @@
 }
 
 .barcode-studio fieldset.barcode-workspace { min-inline-size: 0; margin: 0; padding: 0; border: 0; }
+
+.barcode-studio .barcode-skeleton { display: block; width: 100%; min-height: 400px; padding: 0; }
+.barcode-studio .barcode-skeleton-row { display: grid; grid-template-columns: 44px minmax(0, 3fr) minmax(0, 1fr); align-items: center; min-height: 72px; gap: 24px; padding: 12px 8px; border-bottom: 1px solid var(--barcode-border); }
+.barcode-studio .barcode-skeleton-row span { display: block; height: 12px; border-radius: 4px; background: var(--cp-soft); }
+.barcode-studio .barcode-skeleton-row span:first-child { height: 40px; }
+@media (max-width: 700px) { .barcode-studio .barcode-skeleton-row { min-height: 240px; grid-template-columns: 44px minmax(0, 1fr); } .barcode-studio .barcode-skeleton-row span:last-child { display: none; } }

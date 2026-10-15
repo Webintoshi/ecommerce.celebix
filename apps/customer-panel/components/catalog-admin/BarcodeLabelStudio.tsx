@@ -322,6 +322,7 @@ export function BarcodeLabelStudio({
   const [step, setStep] = useState<1 | 2 | 3>(1),
     [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS),
     [rows, setRows] = useState<readonly BarcodeLabelVariantRow[]>([]),
+    [resolvedScope, setResolvedScope] = useState<string>(),
     [total, setTotal] = useState(0),
     [displayStoreName, setDisplayStoreName] = useState(storeName),
     [nextCursor, setNextCursor] = useState<string>(),
@@ -380,7 +381,8 @@ export function BarcodeLabelStudio({
           .filter((row): row is BarcodeLabelVariantRow => row !== undefined),
       [selection, snapshots],
     ),
-    displayedRows = showSelectedOnly ? selectedRows : rows,
+    sameScope = resolvedScope === JSON.stringify([filters, cursor ?? null]),
+    displayedRows = showSelectedOnly ? selectedRows : sameScope ? rows : [],
     matchingSelectedIds = useMemo(
       () =>
         new Set(
@@ -552,6 +554,7 @@ export function BarcodeLabelStudio({
         }
         if (requestId !== loadRequest.current) return;
         setRows(value.items);
+        setResolvedScope(JSON.stringify([activeFilters, activeCursor ?? null]));
         setTotal(value.catalogTotal);
         setNextCursor(value.nextCursor);
         setSnapshots((current) => {
@@ -1597,8 +1600,8 @@ export function BarcodeLabelStudio({
               className="barcode-table-shell barcode-table-wrap"
               aria-busy={loading}
             >
-              {loading ? (
-                <div className="barcode-skeleton">Katalog yükleniyor…</div>
+              {(loading || !sameScope) && !sameScope && !error && !showSelectedOnly ? (
+                <div className="barcode-skeleton" role="status" aria-label="Katalog yükleniyor…">{Array.from({ length: 5 }, (_, index) => <div className="barcode-skeleton-row" key={index} aria-hidden="true"><span /><span /><span /></div>)}</div>
               ) : error ? (
                 <div className="barcode-empty">
                   <h2>Katalog yüklenemedi</h2>

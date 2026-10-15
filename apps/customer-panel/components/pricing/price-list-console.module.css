@@ -383,3 +383,12 @@
 .ruleDetails summary span { margin-left: 12px; color: var(--cp-text-secondary); font-size: 12px; }
 .empty a { border-color: var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); }
 .empty a:hover { border-color: var(--cp-text-secondary); background: var(--cp-soft); }
+
+.listBody { min-height: 360px; }
+.listLoading { display: grid; align-content: start; }
+.loadingRow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: center; min-height: 64px; padding: 16px; border-bottom: 1px solid var(--cp-border); }
+.loadingRow span { display: block; height: 12px; border-radius: 4px; background: var(--cp-soft); }
+.loadingRow span:first-child { width: 75%; }
+.editorLoading { display: grid; align-content: start; gap: 24px; }
+.editorLoading .loadingRow { min-height: 160px; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--cp-border); border-radius: 12px; }
+@media (max-width: 640px) { .loadingRow { gap: 16px; min-height: 112px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } .loadingRow span:last-child { display: none; } }

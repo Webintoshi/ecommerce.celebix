@@ -247,12 +247,15 @@ export function ProductListConsole({
   const [rankSaving, setRankSaving] = useState(false);
   const [rows, setRows] = useState<readonly ProductRow[]>([]);
   const [appliedQueryDigest, setAppliedQueryDigest] = useState<string>();
+  const [appliedPage, setAppliedPage] = useState<string>();
   const [summary, setSummary] = useState<CatalogDashboardSummary>();
   const [summaryState, setSummaryState] = useState<SummaryState>("loading");
   const [selected, setSelected] = useState<readonly string[]>([]);
   const [bulkAction, setBulkAction] = useState<BulkAction>("");
   const [nextCursor, setNextCursor] = useState<string>();
   const [currentCursor, setCurrentCursor] = useState<string | undefined>(initialCursor);
+  const currentCursorRef = useRef(currentCursor);
+  currentCursorRef.current = currentCursor;
   const [cursorHistory, setCursorHistory] = useState<readonly (string | undefined)[]>([]);
   const [pageSize, setPageSize] = useState<CatalogProductPageSize>(initialPageSize);
   const pageSizeRef = useRef(pageSize);
@@ -272,6 +275,7 @@ export function ProductListConsole({
   const [quickOptionsState, setQuickOptionsState] = useState<"loading" | "ready" | "unavailable">("loading");
   const quickOptionsRequestRef = useRef<Promise<CatalogOnboardingOptions> | null>(null);
   const operationCoordinator = useRef(createProductOperationCoordinator());
+  const appliedReadScope = useRef<string | undefined>(undefined);
   const queryRef = useRef<CatalogProductListQuery>(initialQuery);
   queryRef.current = Object.freeze({
     ...(debouncedSearch.trim() === "" ? {} : { search: debouncedSearch.trim() }),
@@ -301,14 +305,14 @@ export function ProductListConsole({
   }, []);
 
   const load = useCallback(async (options: LoadOptions = {}): Promise<LoadResult> => {
-    if (options.cursor !== undefined && rowsStaleRef.current) return "blocked";
+    if (options.cursor !== undefined && options.cursor !== currentCursorRef.current && rowsStaleRef.current) return "blocked";
     const sequence = options.mutationToken === undefined
       ? operationCoordinator.current.beginRead()
       : operationCoordinator.current.beginCanonicalRead(options.mutationToken);
     if (sequence === null) return "blocked";
     const cursor = options.cursor;
     cursor === undefined ? setLoading(true) : setLoadingMore(true);
-    if (cursor === undefined) setSummaryState("loading");
+    if (cursor === undefined) setSummaryState((current) => current === "ready" ? current : "loading");
     if (options.mutationToken === undefined) setError("");
     try {
       const query = queryRef.current;
@@ -338,9 +342,14 @@ export function ProductListConsole({
       if (!operationCoordinator.current.isCurrentRead(sequence)) return "stale";
       setRows(projected);
       setAppliedQueryDigest(queryDigest);
+      setAppliedPage(JSON.stringify([cursor ?? null, input.pageSize]));
       setNextCursor(result.nextCursor);
       setCatalogTotal(result.catalogTotal);
-      setSelected(Object.freeze([]));
+      const scope = JSON.stringify([queryDigest, cursor ?? null, input.pageSize]);
+      const retainedScope = appliedReadScope.current === scope && options.mutationToken === undefined;
+      appliedReadScope.current = scope;
+      const availableIds = new Set(projected.filter(({ product }) => product.status !== "archived").map(({ product }) => product.id));
+      setSelected((current) => retainedScope ? Object.freeze(current.filter((id) => availableIds.has(id))) : Object.freeze([]));
       setRowsStale(false);
       return "applied";
     } catch (failure) {
@@ -421,7 +430,8 @@ export function ProductListConsole({
   }, [archiveCandidate]);
 
   const currentQueryDigest = catalogProductListQueryDigest(queryRef.current);
-  const visibleRows = appliedQueryDigest === currentQueryDigest ? rows : Object.freeze([] as ProductRow[]);
+  const sameScope = appliedQueryDigest === currentQueryDigest && appliedPage === JSON.stringify([currentCursor ?? null, pageSize]);
+  const visibleRows = sameScope ? rows : Object.freeze([] as ProductRow[]);
   const knownImages = Object.fromEntries(visibleRows.flatMap(({ product, featuredImage }) => featuredImage ? [[product.id, featuredImage] as const] : []));
   const firstProductWithoutMedia = visibleRows.find(({ product, featuredImage }) => product.status !== "archived" && featuredImage === undefined)?.product;
 
@@ -429,7 +439,7 @@ export function ProductListConsole({
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.includes(id));
   const summaryMetrics = productSummaryMetrics(summaryState, summary);
   const catalogIsEmpty = (catalogTotal ?? summary?.totalProducts) === 0;
-  const queryUnavailable = !loading && error !== "" && appliedQueryDigest !== currentQueryDigest;
+  const queryUnavailable = !loading && !loadingMore && error !== "" && !sameScope;
 
   function invalidateGlobalQuery(clearSelection = true) {
     operationCoordinator.current.invalidateReads();
@@ -512,6 +522,7 @@ export function ProductListConsole({
 
   function goNextPage() {
     if (nextCursor === undefined) return;
+    setSelected(Object.freeze([]));
     if (typeof window !== "undefined") {
       const query = productListUrlStateQuery({ query: queryRef.current, pageSize, cursor: nextCursor });
       window.history.pushState(window.history.state, "", `${window.location.pathname}?${query}${window.location.hash}`);
@@ -523,6 +534,7 @@ export function ProductListConsole({
   function goPreviousPage() {
     const previous = cursorHistory.at(-1);
     if (cursorHistory.length === 0) return;
+    setSelected(Object.freeze([]));
     if (typeof window !== "undefined") {
       const query = productListUrlStateQuery({ query: queryRef.current, pageSize, ...(previous === undefined ? {} : { cursor: previous }) });
       window.history.pushState(window.history.state, "", `${window.location.pathname}${query === "" ? "" : `?${query}`}${window.location.hash}`);
@@ -679,7 +691,7 @@ export function ProductListConsole({
   }
 
   async function retryStaleRows() {
-    await load();
+    await load({ ...(currentCursor === undefined ? {} : { cursor: currentCursor }) });
   }
 
   function exportVisibleRows() {
@@ -750,7 +762,7 @@ export function ProductListConsole({
         </div>
         <label className="product-search"><Search aria-hidden="true" /><span className="sr-only">Tabloda arama yapın; tüm katalogda ürün, slug, SKU veya barkod arayın</span><input value={search} disabled={busy} onChange={(event) => updateSearch(event.target.value)} placeholder="Ürün, slug, SKU veya barkod ara" aria-label="Ürün tablosunda ara" /></label>
         <button className={`command-button ${filterOpen || filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== "" ? "is-active" : ""}`} type="button" aria-expanded={filterOpen} aria-pressed={filter !== "all" || stockFilter !== "all" || categoryId !== "" || brandId !== "" || collectionId !== ""} disabled={busy || loading || loadingMore} onClick={() => setFilterOpen((current) => !current)}><FilterIcon aria-hidden="true" />Filtre</button>
-        <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load()} aria-label="Ürün listesini yenile" title="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
+        <button ref={refreshListButtonRef} className="command-button command-icon-button" type="button" disabled={busy || loading || loadingMore} onClick={() => void load({ ...(currentCursor === undefined ? {} : { cursor: currentCursor }) })} aria-label="Ürün listesini yenile" title="Ürün listesini yenile"><RefreshCw aria-hidden="true" /></button>
         {canManage ? <button className={`command-button product-rank-toggle ${rankMode ? "is-active" : ""}`} type="button" aria-pressed={rankMode} aria-expanded={rankMode} disabled={rankSaving} onClick={toggleRankMode}><GripVertical aria-hidden="true" />Vitrin sırası</button> : null}
       </div>
 
@@ -773,8 +785,8 @@ export function ProductListConsole({
 
       {(canManage || canArchive) && filter !== "archived" ? <div className="product-bulkbar">
         <div className="product-bulk-actions">
-          <label className="select-all-control"><input type="checkbox" disabled={busy} checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? Object.freeze(visibleIds) : Object.freeze([]))} aria-label="Görüntülenen tüm ürünleri seç" /><span>Tümünü seç</span></label>
-          <select value={bulkAction} disabled={busy} onChange={(event) => setBulkAction(event.target.value as BulkAction)} aria-label="Toplu İşlemler"><option value="">Toplu İşlemler</option>{canManage ? <><option value="active">Aktif yap</option><option value="draft">Taslağa al</option></> : null}{canArchive ? <option value="archive">Arşivle</option> : null}</select>
+          <label className="select-all-control"><input type="checkbox" disabled={busy || loading || loadingMore} checked={allVisibleSelected} onChange={(event) => setSelected(event.target.checked ? Object.freeze(visibleIds) : Object.freeze([]))} aria-label="Görüntülenen tüm ürünleri seç" /><span>Tümünü seç</span></label>
+          <select value={bulkAction} disabled={busy || loading || loadingMore} onChange={(event) => setBulkAction(event.target.value as BulkAction)} aria-label="Toplu İşlemler"><option value="">Toplu İşlemler</option>{canManage ? <><option value="active">Aktif yap</option><option value="draft">Taslağa al</option></> : null}{canArchive ? <option value="archive">Arşivle</option> : null}</select>
           <button className={catalogStyles.bulkActionButton} type="button" disabled={selected.length === 0 || bulkAction === "" || busy || loading || loadingMore} onClick={applyBulkAction}>Uygula</button>
           <span className="product-selected-count">{selected.length} ürün seçildi</span>
         </div>
@@ -784,11 +796,12 @@ export function ProductListConsole({
         </div>
       </div> : null}
 
-      {error ? <div className="feedback feedback-error" role="alert"><div><strong>Bir sorun oluştu</strong><p>{error}</p></div><button className="button button-secondary" type="button" onClick={() => void load()}>Tekrar dene</button></div> : null}
+      {error ? <div className="feedback feedback-error" role="alert"><div><strong>Bir sorun oluştu</strong><p>{error}</p></div><button className="button button-secondary" type="button" onClick={() => void load({ ...(currentCursor === undefined ? {} : { cursor: currentCursor }) })}>Tekrar dene</button></div> : null}
       {bulkOutcome ? <div className={`feedback ${bulkOutcome.failed > 0 || bulkOutcome.reconciliation === "failed" ? "feedback-error" : "feedback-success"}`} role={bulkOutcome.failed > 0 || bulkOutcome.reconciliation === "failed" ? "alert" : "status"}><div><strong>Toplu işlem sonucu</strong><p>{bulkOutcome.completed} tamamlandı, {bulkOutcome.failed} başarısız. {bulkOutcome.reconciliation === "succeeded" ? "Liste kalıcı mağaza durumuyla uzlaştırıldı." : "Kanonik uzlaştırma başarısız; görüntülenen satırlar güncel olmayabilir. Yeniden deneyin."}</p></div></div> : null}
       {rowsStale ? <div id="product-stale-warning" className="feedback feedback-error" role="alert"><div><strong>Ürün satırları doğrulanamadı</strong><p>Uzlaştırma başarısız; görüntülenen satırlar güncel olmayabilir.</p></div><button className="button button-secondary" type="button" onClick={() => void retryStaleRows()} disabled={loading || busy}>Yeniden dene</button></div> : null}
 
-      {loading ? (
+      <div className={catalogStyles.listBody} aria-busy={loading || loadingMore}>
+      {(loading || loadingMore) && !sameScope ? (
         <div className={catalogStyles.listLoading} role="status" aria-live="polite">
           <span className="sr-only">Ürünler yükleniyor…</span>
           <div className={catalogStyles.loadingHeader} aria-hidden="true" />
@@ -805,7 +818,7 @@ export function ProductListConsole({
           <div className="empty-state"><span className="empty-state-mark" aria-hidden="true"><Search /></span><h2>Aramanızla eşleşen ürün bulunamadı</h2><p>Arama terimini veya global filtreleri değiştirip yeniden deneyin.</p></div>
         )
       ) : (
-        <div className="catalog-table-shell" role="region" aria-label="Ürün karşılaştırma tablosu" tabIndex={0} data-stale={rowsStale ? "true" : undefined} aria-describedby={rowsStale ? "product-stale-warning" : undefined}>
+        <div className="catalog-table-shell" role="region" aria-label="Ürün karşılaştırma tablosu" aria-busy={loading || loadingMore} tabIndex={0} data-stale={rowsStale ? "true" : undefined} aria-describedby={rowsStale ? "product-stale-warning" : undefined}>
           <table className="catalog-table">
             <thead><tr><th>Seç</th><th>Ürün</th><th>SKU</th><th>Fiyat</th><th>Stok</th><th>Durum</th><th>Yayında</th><th>İşlemler</th></tr></thead>
             <tbody>
@@ -817,8 +830,8 @@ export function ProductListConsole({
                   <td data-label="Fiyat">{compareAtPrice(variant) !== undefined ? <del>{money(compareAtPrice(variant), product.currency)}</del> : null}<span className="product-price">{money(sellingPrice(variant), product.currency)}</span></td>
                   <td data-label="Stok"><span className={productStockPresentation(variant).className}>{productStockPresentation(variant).label}</span></td>
                   <td data-label="Durum"><span className={`product-status-text status-${product.status}`}>{STATUS_LABELS[product.status]}</span>{product.status === "draft" ? <small>Henüz yayına hazır değil</small> : null}</td>
-                  <td data-label="Yayında">{canManage && product.status !== "archived" ? <button className={`publish-switch ${product.status === "active" ? "is-active" : ""}`} type="button" role="switch" aria-checked={product.status === "active"} disabled={busy} onClick={() => void setProductStatus(product, product.status === "active" ? "draft" : "active")} aria-label={`${product.title} yayın durumunu değiştir`}><span /></button> : <span aria-label="Yayın değişikliği kullanılamıyor">—</span>}</td>
-                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link>{product.status !== "archived" ? <Link className="icon-button" href={`/products/barcode-labels?productId=${product.id}`} aria-label={`${product.title} için barkod etiketi hazırla`} title="Barkod etiketi hazırla"><ScanBarcode /></Link> : null}{canManage && product.status !== "archived" ? <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link> : null}{canArchive && product.status !== "archived" ? <button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Trash2 /></button> : null}{canArchive && product.status === "archived" ? <button className="button button-secondary" type="button" disabled={busy} onClick={() => void restore(product)}><RotateCcw aria-hidden="true" />{"Geri Yükle"}</button> : null}</td>
+                  <td data-label="Yayında">{canManage && product.status !== "archived" ? <button className={`publish-switch ${product.status === "active" ? "is-active" : ""}`} type="button" role="switch" aria-checked={product.status === "active"} disabled={busy || loading || loadingMore} onClick={() => void setProductStatus(product, product.status === "active" ? "draft" : "active")} aria-label={`${product.title} yayın durumunu değiştir`}><span /></button> : <span aria-label="Yayın değişikliği kullanılamıyor">—</span>}</td>
+                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link>{product.status !== "archived" ? <Link className="icon-button" href={`/products/barcode-labels?productId=${product.id}`} aria-label={`${product.title} için barkod etiketi hazırla`} title="Barkod etiketi hazırla"><ScanBarcode /></Link> : null}{canManage && product.status !== "archived" ? <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link> : null}{canArchive && product.status !== "archived" ? <button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy || loading || loadingMore} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Trash2 /></button> : null}{canArchive && product.status === "archived" ? <button className="button button-secondary" type="button" disabled={busy || loading || loadingMore} onClick={() => void restore(product)}><RotateCcw aria-hidden="true" />{"Geri Yükle"}</button> : null}</td>
                 </tr>
               ))}
             </tbody>
@@ -826,13 +839,15 @@ export function ProductListConsole({
         </div>
       )}
 
+      </div>
+
       <nav className="product-pagination" aria-label="Ürün sayfaları"><button className="button button-secondary" type="button" onClick={goPreviousPage} disabled={cursorHistory.length === 0 || loadingMore || loading || busy || rowsStale}>Önceki</button><button className="button button-secondary" type="button" onClick={goNextPage} disabled={nextCursor === undefined || loadingMore || loading || busy || rowsStale}>{loadingMore ? "Yükleniyor…" : "Sonraki"}</button></nav>
 
       {archiveCandidate && canArchive ? (
         <div className="archive-dialog-layer">
           <div ref={archiveDialogRef} className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="archive-title" aria-describedby="archive-description" tabIndex={-1} onKeyDown={handleArchiveDialogKeyDown}>
             <div><strong id="archive-title">Arşivlemeyi onayla</strong><p id="archive-description"><b>{archiveCandidate.title}</b><br />Bu ürün mağazada görünmez olacaktır.<br /><br />Sipariş geçmişi korunacaktır.<br /><br />Bu işlem daha sonra geri alınabilir.</p></div>
-            <div className="confirmation-actions"><button ref={archiveCancelButtonRef} className="button button-secondary" type="button" onClick={closeArchiveDialog} disabled={busy}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void archive()} disabled={busy}>{busy ? "Arşivleniyor…" : "Ürünü arşivle"}</button></div>
+            <div className="confirmation-actions"><button ref={archiveCancelButtonRef} className="button button-secondary" type="button" onClick={closeArchiveDialog} disabled={busy || loading || loadingMore}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void archive()} disabled={busy || loading || loadingMore}>{busy ? "Arşivleniyor…" : "Ürünü arşivle"}</button></div>
           </div>
         </div>
       ) : null}
@@ -841,7 +856,7 @@ export function ProductListConsole({
         <div className="archive-dialog-layer">
           <div className="archive-dialog" role="alertdialog" aria-modal="true" aria-labelledby="bulk-archive-title" aria-describedby="bulk-archive-description">
             <div><strong id="bulk-archive-title">Toplu arşivlemeyi onayla</strong><p id="bulk-archive-description">{bulkArchiveConfirmationMessage(selected.length)}<br />Bu ürün mağazada görünmez olacaktır.<br /><br />Sipariş geçmişi korunacaktır.<br /><br />Bu işlem daha sonra geri alınabilir.</p></div>
-            <div className="confirmation-actions"><button className="button button-secondary" type="button" onClick={() => setBulkArchiveConfirmation(false)} disabled={busy}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void executeConfirmedBulkAction()} disabled={busy}>{busy ? "Arşivleniyor…" : `${selected.length} ürünü arşivle`}</button></div>
+            <div className="confirmation-actions"><button className="button button-secondary" type="button" onClick={() => setBulkArchiveConfirmation(false)} disabled={busy || loading || loadingMore}>Vazgeç</button><button className="button button-danger" type="button" onClick={() => void executeConfirmedBulkAction()} disabled={busy || loading || loadingMore}>{busy ? "Arşivleniyor…" : `${selected.length} ürünü arşivle`}</button></div>
           </div>
         </div>
       ) : null}

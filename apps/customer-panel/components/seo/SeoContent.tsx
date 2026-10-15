@@ -18,6 +18,10 @@ const byteCount = (value:string) => new TextEncoder().encode(value).length;
 export function SeoContent({canManage,initialKind='product',resourceId,initialQuery='',initialMissing=false,client=seoClient}:Readonly<{canManage:boolean;initialKind?:SeoResourceKind;resourceId?:string;initialQuery?:string;initialMissing?:boolean;client?:SeoClient}>){
   const [kind,setKind]=useState(initialKind),[query,setQuery]=useState(initialQuery),[missing,setMissing]=useState(initialMissing);
   const [items,setItems]=useState<SeoResource[]>([]),[total,setTotal]=useState(0),[cursor,setCursor]=useState<string|null>(null),[history,setHistory]=useState<(string|null)[]>([null]);
+  const activeReadScope=JSON.stringify([kind,query,missing]);
+  const [loadedReadScope,setLoadedReadScope]=useState('');
+  const [requestedCursor,setRequestedCursor]=useState<string|null>(null),resolvedCursor=useRef<string|null>(null);
+  const dataReady=activeReadScope===loadedReadScope&&requestedCursor===resolvedCursor.current;
   const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState('');
   const [editing,setEditing]=useState<SeoResource|null>(null),[draft,setDraft]=useState<Draft>({title:'',description:'',canonicalPath:'',indexing:'inherit'}),[conflict,setConflict]=useState(false);
   const [fieldErrors,setFieldErrors]=useState<Partial<Record<keyof Draft,string>>>({});
@@ -48,7 +52,7 @@ export function SeoContent({canManage,initialKind='product',resourceId,initialQu
       returnToItem.current='';
       restoreListFocus.current=true;
     }
-    const request=++sequence.current;setLoading(true);setError('');
+    const request=++sequence.current;setRequestedCursor(selectedCursor);setLoading(true);setError('');
     try{
       const result=await client.resources({kind,query,missing,cursor:selectedCursor??undefined});
       if(seek&&resourceId&&!opened.current){
@@ -57,9 +61,9 @@ export function SeoContent({canManage,initialKind='product',resourceId,initialQu
         if(found&&request===sequence.current){opened.current=true;edit(found);}
       }
       if(request!==sequence.current)return false;
-      setItems(result.items);setCursor(result.nextCursor);setTotal(result.total);
+      resolvedCursor.current=selectedCursor;setItems(result.items);setCursor(result.nextCursor);setTotal(result.total);setLoadedReadScope(JSON.stringify([kind,query,missing]));
       return true;
-    }catch(error){if(request===sequence.current)setError(error instanceof Error?error.message:'İçerikler yüklenemedi.');return false;}
+    }catch(error){if(request===sequence.current){setRequestedCursor(resolvedCursor.current);setError(error instanceof Error?error.message:'İçerikler yüklenemedi.');}return false;}
     finally{if(request===sequence.current)setLoading(false);}
   },[client,kind,query,missing,resourceId]);
   useEffect(()=>{
@@ -122,8 +126,8 @@ export function SeoContent({canManage,initialKind='product',resourceId,initialQu
       <button className={styles.iconButton} type="button" aria-label="İçerikleri yenile" disabled={loading} onClick={()=>void load(history.at(-1)??null)}><RefreshCw size={18} aria-hidden="true"/><span className="sr-only">Yenile</span></button>
     </div>
     <SeoFeedback error={!editing?error:''} message={message}/>
-    {!loading&&(!error||items.length>0)?<div className={styles.toolbar}><span className={styles.muted}>{total} içerik</span>{missing?<small className={styles.muted}>Varsayılan metin kullanılabilir.</small>:null}</div>:null}
-    {loading?<SeoLoading label="İçerikler yükleniyor…"/>:<div ref={list} className={styles.contentList} aria-label="İçerik SEO listesi">
+    <div className={`${styles.toolbar} ${styles.contentCount}`}><span className={styles.muted}>{dataReady?`${total} içerik`:loading?'İçerikler yükleniyor…':''}</span>{missing?<small className={styles.muted}>Varsayılan metin kullanılabilir.</small>:null}</div>
+    <div className={styles.contentRegion} aria-busy={loading}>{!dataReady?error&&!loading?<div className={styles.empty}><button type="button" onClick={()=>void load(history.at(-1)??null)}>Yeniden dene</button></div>:<SeoLoading label="İçerikler yükleniyor…" layout="content"/>:<div ref={list} className={styles.contentList} aria-label="İçerik SEO listesi">
       {items.map(item=><article className={styles.contentRow} key={`${item.kind}:${item.id}`}>
         <div className={styles.resourceIdentity}><SeoResourceThumb resource={item}/><div><strong>{item.name}</strong><small className={styles.url}>{item.path}</small><small>{item.status==='active'||item.status==='published'?'Yayında':'Taslak'} · {item.locale}</small></div></div>
         <div className={styles.resourceMeta}><small>Meta başlık</small><span>{item.title||'Özel başlık yok'}</span>{!item.title?<small className={styles.muted}>İçerik başlığı kullanılır</small>:null}</div>
@@ -133,8 +137,8 @@ export function SeoContent({canManage,initialKind='product',resourceId,initialQu
       </article>)}
       {!items.length&&!error?<div className={styles.empty}><SeoArtwork kind="search"/><strong>İçerik bulunamadı</strong><button type="button" onClick={()=>{setQuery('');setMissing(false);}}>Filtreleri temizle</button></div>:null}
       {!items.length&&error?<div className={styles.empty}><button type="button" onClick={()=>void load(history.at(-1)??null)}>Yeniden dene</button></div>:null}
-    </div>}
-    <div className={styles.pagination}>{!loading&&(!error||items.length>0)?<span className={styles.muted}>{items.length} içerik · {total} sonuç</span>:null}<div className={styles.actions}>
+    </div>}</div>
+    <div className={styles.pagination}>{dataReady&&(!error||items.length>0)?<span className={styles.muted}>{items.length} içerik · {total} sonuç</span>:null}<div className={styles.actions}>
       <button type="button" disabled={loading||history.length<2} onClick={()=>{const next=history.slice(0,-1);void load(next.at(-1)??null).then(success=>{if(success)setHistory(next);});}}><ChevronLeft size={16} aria-hidden="true"/>Önceki</button>
       <span>{history.length}. sayfa</span><button type="button" disabled={loading||!cursor} onClick={()=>{if(cursor){const next=cursor;void load(next).then(success=>{if(success)setHistory(current=>[...current,next]);});}}}>Sonraki<ChevronRight size={16} aria-hidden="true"/></button>
     </div></div>

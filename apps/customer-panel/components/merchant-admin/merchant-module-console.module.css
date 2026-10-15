@@ -655,3 +655,8 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* Keep collection chrome and history in place while rows are read. */
+.listRegion { min-width: 0; min-height: 340px; }
+.readGuard { display: contents; margin: 0; padding: 0; border: 0; min-width: 0; }
+@media (max-width: 640px) { .listRegion { min-height: 480px; } }

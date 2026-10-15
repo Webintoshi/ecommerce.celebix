@@ -1,0 +1,38 @@
+.loading { min-width: 0; width: 100%; color: var(--cp-text-secondary); }
+.loading :global(.sr-only) { position: absolute; }
+.list { display: grid; align-content: start; min-height: 340px; }
+.tableHead, .row { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, .8fr) minmax(0, 1.4fr) minmax(0, 1fr) 44px; gap: 20px; align-items: center; padding: 16px; border-bottom: 1px solid var(--cp-border); }
+.tableHead { min-height: 48px; }
+.tableHead > span { height: 12px; width: 70%; }
+.row { min-height: 72px; }
+.row > span { height: 16px; width: 100%; }
+.editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .42fr); gap: 32px; align-items: start; }
+.editorSingle { grid-template-columns: minmax(0, 1fr); }
+.settings { display: grid; min-width: 0; }
+.settingSection { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 40px; min-height: 160px; padding: 24px 0; border-bottom: 1px solid var(--cp-border); }
+.form { display: grid; gap: 24px; min-width: 0; }
+.heading { height: 24px; width: min(180px, 60%); }
+.fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.fields > div { display: grid; gap: 8px; min-width: 0; }
+.label { height: 16px; width: 40%; }
+.input { height: 44px; width: 100%; }
+.body { height: 280px; width: 100%; }
+.footer { height: 64px; width: 100%; }
+.preview { display: grid; gap: 20px; min-width: 0; }
+.previewArt { height: 180px; width: 100%; }
+.analytics { display: grid; gap: 20px; }
+.metrics { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.metric { height: 144px; width: 100%; }
+.reports { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.report { min-height: 144px; width: 100%; }
+@media (max-width: 900px) { .editor { grid-template-columns: minmax(0, 1fr); gap: 24px; } .reports { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .list { min-height: 480px; gap: 12px; }
+  .tableHead { display: none; }
+  .row { grid-template-columns: minmax(0, 1fr) 44px; gap: 16px; min-height: 144px; padding: 16px 0; }
+  .row > span:nth-child(3), .row > span:nth-child(4) { grid-column: 1; }
+  .row > span:last-child { grid-column: 2; grid-row: 1 / 4; height: 44px; }
+  .fields, .metrics { grid-template-columns: minmax(0, 1fr); }
+  .settingSection { grid-template-columns: minmax(0, 1fr); gap: 20px; min-height: 240px; }
+  .body { height: 320px; }
+}

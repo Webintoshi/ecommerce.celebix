@@ -69,7 +69,7 @@ export function SeoSettings({canManage,client=seoClient}:Readonly<{canManage:boo
 
   return <SeoFrame active="settings" title="SEO ayarları" canManage={canManage}>
     <SeoFeedback error={error} message={message}/>
-    {!draft?busy?<SeoLoading label="Ayarlar yükleniyor…"/>:<div className={styles.empty}><SeoArtwork kind="search"/><strong>Ayarlar yüklenemedi</strong><button type="button" onClick={()=>void load()}>Yeniden dene</button></div>:<form ref={form} className={styles.form} onSubmit={save}>
+    {!draft?busy?<SeoLoading label="Ayarlar yükleniyor…" layout="settings"/>:<div className={styles.empty}><SeoArtwork kind="search"/><strong>Ayarlar yüklenemedi</strong><button type="button" onClick={()=>void load()}>Yeniden dene</button></div>:<form ref={form} className={styles.form} onSubmit={save}>
       <section className={styles.settingsSection} aria-labelledby="seo-default-label"><div className={styles.sectionIntro}><Globe size={22} aria-hidden="true"/><div><h2 id="seo-default-label">Mağaza varsayılanları</h2><small>Özel meta alanı olmayan içeriklerde kullanılır.</small></div></div><div className={styles.sectionBody}>
         {text('metaTitle','Meta başlık')}{text('metaDescription','Meta açıklama',true)}
         <label className={styles.checkbox}><input type="checkbox" name="allowIndex" disabled={disabled} checked={draft.allowIndex} onChange={event=>change('allowIndex',event.target.checked)}/>Arama motorları indeksleyebilir</label><small className={styles.muted}>İçeriklerin kendi tercihi ayrıca uygulanır.</small>

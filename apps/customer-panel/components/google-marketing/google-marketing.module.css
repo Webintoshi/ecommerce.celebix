@@ -1,9 +1,12 @@
 .workspace { display: grid; gap: 16px; min-width: 0; color: var(--cp-text-primary); }
 .domain { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; }
 .domain strong { color: var(--cp-text-primary); font-weight: 500; overflow-wrap: anywhere; }
+.domain { min-height: 20px; }
+.domainLoading { display: block; width: min(240px, 65%); height: 20px; }
 .services { border-top: 1px solid var(--cp-border); min-width: 0; }
 .serviceRow { display: grid; grid-template-columns: 180px minmax(0, 1fr) auto; align-items: center; gap: 32px; min-width: 0; padding: 24px 0; border-bottom: 1px solid var(--cp-border); }
 .serviceContent { display: grid; justify-items: start; gap: 8px; min-width: 0; }
+.serviceContent { min-height: 160px; align-content: start; }
 .serviceHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
 .serviceHeading h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
 .description { margin: 0 0 4px; color: var(--cp-text-secondary); font-size: 14px; line-height: 1.6; }

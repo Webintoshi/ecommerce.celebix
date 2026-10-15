@@ -10,6 +10,7 @@ import { CatalogAdminApiError, catalogAdminApi } from "@/lib/catalog-admin-ui/cl
 import { brandLogoAssetId, loadBrandProductDirectory, type BrandProductDirectoryEntry } from "@/lib/catalog-admin-ui/brand-product-directory";
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
+import { CatalogWorkspaceLoading } from "../catalog/CatalogWorkspaceLoading";
 import styles from "./catalog-admin-console.module.css";
 
 const META: Record<CatalogAdminResourceKind, Readonly<{ title: string; description: string; singular: string }>> = Object.freeze({
@@ -31,7 +32,7 @@ function attributeValues(resource: CatalogAdminResource) {
     : [];
 }
 
-export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdminResourceKind; canManage: boolean }) {
+function CatalogResourceConsoleWorkspace({ kind, canManage }: { kind: CatalogAdminResourceKind; canManage: boolean }) {
   const route = getCatalogResourceRouteDefinitionForKind(kind);
   const meta = META[kind];
   const [items, setItems] = useState<readonly CatalogAdminResource[]>([]);
@@ -46,11 +47,12 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
   const [brandSort, setBrandSort] = useState("name");
   const [archivingIds, setArchivingIds] = useState<readonly string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resolved, setResolved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const loadLogos = useCallback(async (signal: AbortSignal) => {
-    setLogosState("loading");
+    setLogosState((current) => current === "ready" ? current : "loading");
     try {
       const response = await fetch("/api/storefront-assets", { credentials: "same-origin", cache: "no-store", signal });
       if (!response.ok) throw new Error();
@@ -79,17 +81,14 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
     directoryRequest.current = undefined;
     setLoading(true);
     setError("");
-    setBrandProducts([]);
-    setBrandLogos([]);
-    setDirectoryState("idle");
     try {
       if (kind === "brand") {
         void loadLogos(current.signal);
         const resources = await catalogAdminApi.resources(kind);
-        if (!current.signal.aborted) setItems(activeResources(resources));
+        if (!current.signal.aborted) { setItems(activeResources(resources)); setResolved(true); }
       } else {
         const resources = await catalogAdminApi.resources(kind);
-        if (!current.signal.aborted) setItems(activeResources(resources));
+        if (!current.signal.aborted) { setItems(activeResources(resources)); setResolved(true); }
       }
     } catch (caught) {
       if (!current.signal.aborted) setError(caught instanceof CatalogAdminApiError ? caught.message : `${meta.title} yüklenemedi.`);
@@ -135,7 +134,7 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
         {resource.description ? <p className={styles.brandDescription}>{resource.description}</p> : null}
         <details className={styles.brandProducts} onToggle={(event) => { if (event.currentTarget.open && resource.productCount) loadProducts(); }}><summary>Bağlı ürünler</summary>{linkedProducts.length ? <ul>{linkedProducts.slice(0, 4).map((product) => <li key={product.id}><span>{product.title}</span>{product.representativeSku ? <small>{product.representativeSku}</small> : null}</li>)}</ul> : <p>{resource.productCount ? directoryState === "error" ? "Ürün adları yüklenemedi." : directoryState === "ready" ? "Ürün adları okunamadı." : "Ürünler yükleniyor…" : "Ürün bağlanmamış."}</p>}{resource.productCount > 4 ? <small>+{(resource.productCount - 4).toLocaleString("tr-TR")} ürün daha</small> : null}</details>
       </div>
-      <div className={styles.brandCardActions}><span className={styles.status}>v{resource.version}</span>{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}><Pencil aria-hidden="true" /> Düzenle</Link><button className={styles.danger} type="button" aria-label={`${resource.name} markasını arşivle`} disabled={archivingIds.includes(resource.id)} onClick={() => void archive(resource)}><Archive aria-hidden="true" /><span className={styles.srOnly}>{archivingIds.includes(resource.id) ? "Arşivleniyor" : "Arşivle"}</span></button></> : null}</div>
+      <div className={styles.brandCardActions}><span className={styles.status}>v{resource.version}</span>{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}><Pencil aria-hidden="true" /> Düzenle</Link><button className={styles.danger} type="button" aria-label={`${resource.name} markasını arşivle`} disabled={loading || Boolean(error) || archivingIds.includes(resource.id)} onClick={() => void archive(resource)}><Archive aria-hidden="true" /><span className={styles.srOnly}>{archivingIds.includes(resource.id) ? "Arşivleniyor" : "Arşivle"}</span></button></> : null}</div>
     </article>;
   }
 
@@ -148,13 +147,13 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
         {resource.description ? <p>{resource.description}</p> : null}
         <ul className={styles.attributeChips}>{values.map((entry) => <li key={entry}>{entry}</li>)}</ul>
       </div>
-      {canManage ? <div className={styles.attributeCardActions}><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></div> : null}
+      {canManage ? <div className={styles.attributeCardActions}><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy || loading || Boolean(error)} onClick={() => void archive(resource)}>Arşivle</button></div> : null}
     </article>;
   }
 
-  return <PanelPageShell><PanelPageHeader title={meta.title} description={meta.description} actions={canManage ? <span className={styles.workspace}><Link className={styles.primary} href={`/products/${route.segment}/new`}>Yeni {meta.singular}</Link></span> : undefined} /><h1 className={styles.srOnly}>{meta.title}</h1><section className={`${styles.surface} ${styles.workspace} ${kind === "brand" ? styles.brandWorkspace : ""}`}>
+  return <PanelPageShell><PanelPageHeader title={meta.title} description={meta.description} actions={canManage ? <span className={styles.workspace}><Link className={styles.primary} href={`/products/${route.segment}/new`}>Yeni {meta.singular}</Link></span> : undefined} /><h1 className={styles.srOnly}>{meta.title}</h1><section className={`${styles.surface} ${styles.workspace} ${styles.listBody} ${kind === "brand" ? styles.brandWorkspace : ""}`} aria-busy={loading}>
     {error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" disabled={loading || busy} onClick={() => void load()}>Tekrar dene</button></p> : null}
-    {!loading && items.length ? <div className={styles.resourceToolbar}>
+    {resolved && items.length ? <div className={styles.resourceToolbar}>
       <label className={styles.resourceSearch}><Search aria-hidden="true" /><span className={styles.srOnly}>{kind === "brand" ? "Marka veya bağlı ürün ara" : kind === "attribute" ? "Nitelik veya değer ara" : `${meta.title} içinde ara`}</span><input type="search" value={search} onChange={(event) => { setSearch(event.currentTarget.value); if (kind === "brand" && event.currentTarget.value.trim()) loadProducts(); }} placeholder={kind === "brand" ? "Marka veya bağlı ürün ara" : kind === "attribute" ? "Nitelik veya değer ara" : "Ad veya URL anahtarı ara"} /></label>
       {kind === "brand" ? <><div className={styles.brandFilters} role="group" aria-label="Marka filtresi">{([["all", "Tümü"], ["unlinked", "Ürünsüz"], ["no-logo", "Görselsiz"]] as const).map(([filter, label]) => <button type="button" key={filter} aria-pressed={brandFilter === filter} disabled={filter === "no-logo" && logosState !== "ready"} onClick={() => setBrandFilter(filter)}>{label}</button>)}</div><label className={styles.brandSort}><span className={styles.srOnly}>Markaları sırala</span><select value={brandSort} onChange={(event) => setBrandSort(event.currentTarget.value)}><option value="name">Ada göre</option><option value="products">Ürün sayısına göre</option></select></label></> : null}
       <span className={styles.resultCount} role="status">{visibleItems.length} / {items.length} {kind === "brand" ? "marka" : "kayıt"}</span>
@@ -163,6 +162,10 @@ export function CatalogResourceConsole({ kind, canManage }: { kind: CatalogAdmin
     {kind === "brand" && !loading && logosState === "error" ? <p className={styles.warning} role="alert">Logolar yüklenemedi. <button className={styles.button} type="button" onClick={() => { if (controller.current) void loadLogos(controller.current.signal); }}>Tekrar dene</button></p> : null}
     {kind === "brand" && !loading && directoryState === "error" ? <p className={styles.warning} role="alert">Ürün adları yüklenemedi. <button className={styles.button} type="button" onClick={loadProducts}>Tekrar dene</button></p> : null}
     {kind === "brand" && normalizedSearch && directoryState === "loading" ? <p className={styles.resultCount} role="status">Bağlı ürünlerde aranıyor…</p> : null}
-    {loading ? <div className={styles.state} role="status">{meta.title} yükleniyor…</div> : items.length === 0 ? error ? null : kind === "attribute" ? <PanelEmptyState title="Henüz nitelik yok" description="Renk veya beden ekleyerek başlayın; değerleri ürün varyantlarında seçebilirsiniz." action={canManage ? <Link className={styles.button} href="/products/attributes/new">İlk niteliği oluştur</Link> : undefined} /> : <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : kind === "brand" ? visibleItems.length ? <div className={styles.brandList}>{visibleItems.map(brandCard)}</div> : <PanelEmptyState title={normalizedSearch && directoryState === "loading" ? "Bağlı ürünlerde aranıyor…" : "Eşleşen marka yok"} description="Arama veya filtreyi değiştirin." action={<button className={styles.button} type="button" onClick={() => { setSearch(""); setBrandFilter("all"); }}>Filtreleri temizle</button>} /> : kind === "attribute" ? visibleItems.length ? <div className={styles.attributeList}>{visibleItems.map(attributeCard)}</div> : <PanelEmptyState title="Eşleşen nitelik yok" description="Başka bir ad veya değer arayın." /> : !visibleItems.length ? <PanelEmptyState title="Eşleşen kayıt yok" description="Aramanızı değiştirin veya temizleyin." /> : <div className={styles.list}>{visibleItems.map((resource) => <article className={styles.item} key={resource.id}><div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>)}</div>}
+    {loading && !resolved ? <CatalogWorkspaceLoading label={`${meta.title} yükleniyor…`} /> : items.length === 0 ? error ? null : kind === "attribute" ? <PanelEmptyState title="Henüz nitelik yok" description="Renk veya beden ekleyerek başlayın; değerleri ürün varyantlarında seçebilirsiniz." action={canManage ? <Link className={styles.button} href="/products/attributes/new">İlk niteliği oluştur</Link> : undefined} /> : <PanelEmptyState title={`Henüz ${meta.singular} yok`} description="İlk gerçek kayıt oluşturulduğunda burada görünecek." /> : kind === "brand" ? visibleItems.length ? <div className={styles.brandList}>{visibleItems.map(brandCard)}</div> : <PanelEmptyState title={normalizedSearch && directoryState === "loading" ? "Bağlı ürünlerde aranıyor…" : "Eşleşen marka yok"} description="Arama veya filtreyi değiştirin." action={<button className={styles.button} type="button" onClick={() => { setSearch(""); setBrandFilter("all"); }}>Filtreleri temizle</button>} /> : kind === "attribute" ? visibleItems.length ? <div className={styles.attributeList}>{visibleItems.map(attributeCard)}</div> : <PanelEmptyState title="Eşleşen nitelik yok" description="Başka bir ad veya değer arayın." /> : !visibleItems.length ? <PanelEmptyState title="Eşleşen kayıt yok" description="Aramanızı değiştirin veya temizleyin." /> : <div className={styles.list}>{visibleItems.map((resource) => <article className={styles.item} key={resource.id}><div><h2>{resource.name}</h2><p>/{resource.slug} · {resource.productCount} ürün</p>{resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.status}>v{resource.version}</span>{kind === "extra" ? <Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/preview`}>Önizle</Link> : null}{canManage ? <><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy || loading || Boolean(error)} onClick={() => void archive(resource)}>Arşivle</button></> : null}</div></article>)}</div>}
   </section></PanelPageShell>;
+}
+
+export function CatalogResourceConsole(props: Parameters<typeof CatalogResourceConsoleWorkspace>[0]) {
+  return <CatalogResourceConsoleWorkspace key={props.kind} {...props} />;
 }

@@ -188,12 +188,14 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
   return <fieldset className={ui.picker} disabled={disabled || loading || saving}>
     <legend>{presentation === "create" ? "Nitelikler" : "Niteliklerden varyant seç"}</legend>
     <div className={ui.intro}>{presentation !== "create" ? <p className={ui.hint}>Renk, Beden gibi seçenekleri belirleyin; yalnız işaretlediğiniz kombinasyonlar eklenecek.</p> : null}<button type="button" onClick={() => openEditor({ kind: "new" })} disabled={selectedIds.length >= 3}>+ Yeni nitelik</button></div>
+    <div className={ui.attributeFeedback} aria-live="polite">
     {loading ? <p role="status">Nitelikler yükleniyor…</p> : null}
     {!loading && !error && !choices.length ? <p>Henüz nitelik yok. Buradan Renk veya Beden ekleyebilirsiniz.</p> : null}
     {invalidChoiceCount > 0 ? <p role="status" className={ui.error}>{invalidChoiceCount} nitelik kaydının değeri geçersiz; diğer nitelikleri kullanabilirsiniz.</p> : null}
     {error ? <p role="alert" className={ui.error}>{error}{!resources.length && !loading ? <button type="button" onClick={() => setLoadRevision((current) => current + 1)}>Tekrar dene</button> : null}</p> : null}
     {notice ? <p role="status" className={ui.notice}>{notice}</p> : null}
-    <div className={ui.attributes}>{choices.map((choice) => <label key={choice.id}><input type="checkbox" checked={selectedIds.includes(choice.id)} disabled={!selectedIds.includes(choice.id) && selectedIds.length >= 3} onChange={() => toggleAttribute(choice)} /> {choice.name}</label>)}</div>
+    </div>
+    <div className={ui.attributes} aria-busy={loading}>{choices.map((choice) => <label key={choice.id}><input type="checkbox" checked={selectedIds.includes(choice.id)} disabled={!selectedIds.includes(choice.id) && selectedIds.length >= 3} onChange={() => toggleAttribute(choice)} /> {choice.name}</label>)}</div>
     {selectedChoices.map((choice) => <div key={choice.id} className={ui.values} role="group" aria-label={`${choice.name} değerleri`}><div className={ui.valueHeading}><strong>{choice.name}</strong><button type="button" onClick={() => openEditor({ kind: "existing", id: choice.id })}>{choice.name} için değer ekle</button></div><div>{choice.values.map((item) => <label key={item}><input type="checkbox" checked={(selectedValues[choice.id] ?? []).includes(item)} onChange={() => toggleValue(choice, item)} /> {item}</label>)}</div></div>)}
     {editor ? <section className={ui.inlineEditor} aria-label="Nitelik düzenleyici" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); closeEditor(); } }}>
       <div className={ui.editorHeading}><strong>{editor.kind === "new" ? "Yeni nitelik oluştur" : `${choices.find((choice) => choice.id === editor.id)?.name ?? "Nitelik"} için değer ekle`}</strong><button type="button" onClick={closeEditor} aria-label="Nitelik düzenleyiciyi kapat">×</button></div>

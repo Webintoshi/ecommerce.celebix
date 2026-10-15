@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowUpRight, Barcode, Check, ChevronLeft, ChevronRight, Pac
 import type { GoogleMerchantOverview, GoogleMerchantProduct, GoogleMerchantProducts, GoogleMerchantIdentityInput } from "@celebix/saas-contracts";
 import { GoogleMarketingConnections } from "@/components/google-marketing/GoogleMarketingConnections";
 import { OrderActionDialog } from "@/components/orders/OrderActionDialog";
-import { PanelStatusBadge } from "@/components/panel/PanelPageShell";
+import { PanelSkeletonBlock, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { MarketplaceArtwork } from "@/components/marketplaces/MarketplaceArtwork";
 import { googleMerchantClient, type GoogleMerchantClient, type GoogleMerchantPreferences } from "./client";
 import { attributeDraft, attributesFromDraft, failureMessage, lastSyncLabel, productStatus, type AttributeDraft } from "./model";
@@ -187,6 +187,7 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
     <GoogleMarketingConnections canManage={canManage} services={MERCHANT_ONLY} onChange={() => { setCursors([undefined]); setPageIndex(0); void load(null); }} />
     {notice ? <p className={styles.notice} role="status"><Check size={16} aria-hidden="true" />{notice}</p> : null}
     {error ? <div className={styles.feedback}><p role="alert">Ürün durumu yüklenemedi. {failureMessage(error)}</p><button className="button button-secondary" type="button" disabled={loading} onClick={() => void load()}>Listeyi yeniden yükle</button></div> : null}
+    {loading&&!overview?<section className={`${styles.identity} ${styles.identityLoading}`} role="status" aria-label="Ürün markası yükleniyor"><PanelSkeletonBlock className={styles.loadingLabel}/><div className={styles.identityContent}><PanelSkeletonBlock/><PanelSkeletonBlock/><PanelSkeletonBlock/></div></section>:null}
     {identity?<section className={styles.identity} aria-labelledby="merchant-identity-heading" aria-busy={identitySaving||undefined}>
       <div className={styles.sectionLabel}><Package size={20} aria-hidden="true" /><h2 id="merchant-identity-heading">Ürün markası</h2></div>
       <div className={styles.identityContent}>{canManage?<>
@@ -207,8 +208,10 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
         </div>
       </div>
       {syncError ? <p role="alert" className={styles.feedback}>{failureMessage(syncError)}</p> : null}
+      {!counts&&loading?<div className={styles.metrics} role="status" aria-label="Ürün özeti yükleniyor">{Array.from({length:8},(_,index)=><div className={styles.loadingMetric} key={index}><PanelSkeletonBlock/><PanelSkeletonBlock/><PanelSkeletonBlock/></div>)}</div>:null}
       {counts ? <dl className={styles.metrics}>{metrics.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value.toLocaleString("tr-TR")}</dd><span className={styles.metricTrack} aria-hidden="true"><span style={{ width: `${value / maxMetricCount * 100}%` }} /></span></div>)}</dl> : null}
-      {loading && !page ? <div role="status" className={styles.loading}><span>Ürünler yükleniyor…</span><div aria-hidden="true">{[0, 1, 2].map(row => <span className={styles.loadingRow} key={row}><span /><span /><span /></span>)}</div></div> : page?.items.length ? <>
+      <div className={styles.productRegion}>
+      {loading && !page ? <div role="status" className={styles.loading}><span className="sr-only">Ürünler yükleniyor…</span><div aria-hidden="true">{[0, 1].map(row => <span className={styles.loadingRow} key={row}><span /><span /><span /><span /><span /></span>)}</div></div> : page?.items.length ? <>
         <div className={styles.tableScroll} role="region" aria-label="Google ürün tablosu" tabIndex={0}>
           <table aria-label="Google Merchant ürünleri" className={styles.table}><thead><tr><th scope="col">Ürün / varyant</th><th scope="col">Fiyat</th><th scope="col">Google durumu</th>{canManage ? <th scope="col">Aktarım</th> : null}<th scope="col"><span className="sr-only">İşlemler</span></th></tr></thead><tbody>
             {page.items.map(product => {
@@ -226,6 +229,7 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
         </div>
         <div className={styles.pagination}><button type="button" className="button button-secondary" disabled={loading || pageIndex === 0} onClick={() => move(pageIndex - 1)}><ChevronLeft size={16} aria-hidden="true" />Önceki</button><span>{pageIndex + 1}. sayfa</span><button type="button" className="button button-secondary" disabled={loading || !page.nextCursor} onClick={() => move(pageIndex + 1, page.nextCursor ?? undefined)}>Sonraki<ChevronRight size={16} aria-hidden="true" /></button></div>
       </> : !error && page ? <div className={styles.empty}><MarketplaceArtwork variant="products" className={styles.emptyArtwork} /><div><h3>Henüz ürün aktarımı yok.</h3><p>{overview?.connection.status === "connected" ? "Yayımlanmış ürünler otomatik kontrol edilir. Ürünleri yeniden kontrol edebilirsiniz." : "Önce Google Merchant bağlantısını tamamlayın."}</p><Link className="button button-secondary" href="/products">Ürünleri aç<ArrowUpRight size={16} aria-hidden="true" /></Link></div></div> : null}
+      </div>
       <p className={styles.help}>Google’a gönderilmesi, ürünün onaylandığı anlamına gelmez. Google inceleme sonucunu ürün durumunda gösterir.</p>
     </section>
     <OrderActionDialog open={Boolean(editor)} title="Google ürün bilgileri" className={styles.dialog} busy={saving} onClose={closeEditor} footer={editor ? <div className={styles.dialogActions}><button className="button button-secondary" type="button" disabled={saving} onClick={closeEditor}>Vazgeç</button><button className="button button-primary" type="button" disabled={saving} onClick={() => void saveAttributes()}>{saving ? "Kaydediliyor…" : editor.attempt ? "Tekrar kaydet" : "Kaydet"}</button></div> : null}>

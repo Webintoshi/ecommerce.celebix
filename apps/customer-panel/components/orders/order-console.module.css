@@ -1662,3 +1662,9 @@ button:disabled.primaryButton,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.printSkeleton{display:grid;gap:24px;min-width:0}
+.printSkeletonHeading{height:72px;background:var(--cp-border);border-radius:8px}
+.printSkeleton .printSummary i{display:block;height:80px;background:var(--cp-border);border-radius:8px}
+.printSkeletonTable{display:grid;gap:0}
+.printSkeletonTable i{display:block;height:56px;border-bottom:1px solid var(--cp-border);background:var(--cp-canvas)}
+.printSkeletonTotals{height:128px;width:40%;justify-self:end;background:var(--cp-border);border-radius:8px}

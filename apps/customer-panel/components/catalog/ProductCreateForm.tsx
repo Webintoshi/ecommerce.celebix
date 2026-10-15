@@ -16,10 +16,11 @@ import {
   type ProductDraftSession,
 } from "@/lib/catalog-ui/product-draft-session";
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
+import { CatalogWorkspaceLoading } from "./CatalogWorkspaceLoading";
 import styles from "@/components/catalog-onboarding/product-create-entry.module.css";
 
 const ProductAdvancedEditor = dynamic(() => import("@/components/catalog-onboarding/ProductAdvancedEditor").then((module) => module.ProductAdvancedEditor), {
-  loading: () => <p role="status">Form yükleniyor…</p>,
+  loading: () => <CatalogWorkspaceLoading layout="product" label="Form yükleniyor…" />,
 });
 
 export function ProductCreateForm({ initialMode = "choose" }: Readonly<{ initialMode?: "choose" | "quick" | "advanced" }>) {
@@ -133,7 +134,7 @@ export function ProductCreateForm({ initialMode = "choose" }: Readonly<{ initial
           onClose={() => selectMode("choose")}
           onCreated={(result) => finish(`/products/${result.product.id}`)}
           onAdvanced={() => selectMode("advanced")}
-        /> : !error ? <p className={styles.loading} role="status">Ürün seçenekleri yükleniyor…</p> : null}
+        /> : !error ? <CatalogWorkspaceLoading layout="product" label="Ürün seçenekleri yükleniyor…" /> : null}
     </section>
   );
 }

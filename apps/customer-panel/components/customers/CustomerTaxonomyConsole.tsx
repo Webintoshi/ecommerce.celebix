@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { CustomerSegment, CustomerTag } from "@celebix/saas-contracts";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
@@ -27,27 +27,42 @@ export function CustomerTaxonomyConsole({
     [nameError, setNameError] = useState(""),
     [tagName, setTagName] = useState(""),
     [tagColor, setTagColor] = useState(DEFAULT_TAG_COLOR);
+  const sequence = useRef(0);
+  const kindScope = useRef(0);
+  const currentKind = useRef(kind);
+  const failedKind = useRef<string | null>(null);
+  currentKind.current = kind;
+  const loadedKind = useRef<string | null>(null);
   const load = useCallback(async () => {
-    setLoading(true);
+    const request = ++sequence.current;
+    if (loadedKind.current !== kind) setLoading(true);
     setLoadFailed(false);
     setError("");
     try {
-      setItems(
+      const result = (
         kind === "tags"
           ? await customerApi.tags()
-          : await customerApi.segments(),
+          : await customerApi.segments()
       );
+      if (request !== sequence.current) return;
+      setItems(result);
+      loadedKind.current = kind;
     } catch (e) {
+      if (request !== sequence.current) return;
+      failedKind.current = kind;
       setLoadFailed(true);
       setError(
         e instanceof CustomerApiError ? e.message : `${title} yüklenemedi.`,
       );
     } finally {
-      setLoading(false);
+      if (request === sequence.current) setLoading(false);
     }
   }, [kind, title]);
   useEffect(() => {
+    kindScope.current += 1;
+    setBusy(false);
     void load();
+    return () => { sequence.current += 1; kindScope.current += 1; };
   }, [load]);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -64,6 +79,8 @@ export function CustomerTaxonomyConsole({
     }
     setNameError("");
     setBusy(true);
+    const scope = kindScope.current;
+    const isCurrent = () => scope === kindScope.current && currentKind.current === kind;
     try {
       kind === "tags"
         ? await customerApi.saveTag({ name, color: secondary })
@@ -71,6 +88,7 @@ export function CustomerTaxonomyConsole({
             name,
             ...(secondary ? { description: secondary } : {}),
           });
+      if (!isCurrent()) return;
       const current = new FormData(form),
         currentName = String(current.get("name") ?? ""),
         currentSecondary = String(current.get("secondary") ?? "");
@@ -83,13 +101,17 @@ export function CustomerTaxonomyConsole({
       }
       await load();
     } catch (x) {
+      if (!isCurrent()) return;
       setError(
         x instanceof CustomerApiError ? x.message : `${title} kaydedilemedi.`,
       );
     } finally {
-      setBusy(false);
+      if (isCurrent()) setBusy(false);
     }
   }
+  const visibleItems = loadedKind.current === kind ? items : [];
+  const currentLoadFailed = loadFailed && failedKind.current === kind;
+  const displayLoading = loading || loadedKind.current !== kind && !currentLoadFailed;
   return (
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className="sr-only">{title}</h1> : null}
@@ -193,12 +215,10 @@ export function CustomerTaxonomyConsole({
             {error}
           </p>
         ) : null}
-        {loadFailed && !loading ? <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button> : null}
-        {loading ? (
-          <div className={kind === "segments" ? styles.segmentLoading : styles.tagLoading} role="status">
-            {kind === "segments" ? "Segmentler yükleniyor…" : "Etiketler yükleniyor…"}
-          </div>
-        ) : loadFailed && items.length === 0 ? null : items.length === 0 ? (
+        {currentLoadFailed && !displayLoading ? <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button> : null}
+        {displayLoading ? (
+          <div className={styles.taxonomySkeleton} role="status"><span className="sr-only">{kind === "segments" ? "Segmentler yükleniyor…" : "Etiketler yükleniyor…"}</span>{Array.from({ length: 4 }, (_, i) => <div key={i} aria-hidden="true"><span /><span /><span /></div>)}</div>
+        ) : currentLoadFailed && visibleItems.length === 0 ? null : visibleItems.length === 0 ? (
           kind === "segments" ? (
             <section className={styles.segmentListPanel} aria-labelledby="segments-list-title">
               <header className={styles.segmentListTitle}><div><h2 id="segments-list-title">Segmentler</h2><p>Manuel müşteri gruplarınız burada listelenir.</p></div><span>0 kayıt</span></header>
@@ -219,10 +239,10 @@ export function CustomerTaxonomyConsole({
         ) : (
           kind === "segments" ? (
             <section className={styles.segmentListPanel} aria-labelledby="segments-list-title">
-              <header className={styles.segmentListTitle}><div><h2 id="segments-list-title">Segmentler</h2><p>Manuel müşteri gruplarını ve üye sayılarını izleyin.</p></div><span>{items.length.toLocaleString("tr-TR")} kayıt</span></header>
+              <header className={styles.segmentListTitle}><div><h2 id="segments-list-title">Segmentler</h2><p>Manuel müşteri gruplarını ve üye sayılarını izleyin.</p></div><span>{visibleItems.length.toLocaleString("tr-TR")} kayıt</span></header>
               <div className={styles.segmentListHeader} aria-hidden="true"><span>Segment</span><span>Açıklama</span><span>Üye sayısı</span></div>
               <div className={styles.segmentRows}>
-                {items.map((item) => (
+                {visibleItems.map((item) => (
                   <article className={styles.segmentRow} key={item.id}>
                     <div className={styles.segmentIdentity}><strong>{item.name}</strong><small>Manuel segment</small></div>
                     <p>{"description" in item && item.description ? item.description : "Açıklama eklenmemiş"}</p>
@@ -233,10 +253,10 @@ export function CustomerTaxonomyConsole({
             </section>
           ) : (
             <section className={styles.tagListPanel} aria-labelledby="tags-list-title">
-              <header className={styles.tagListTitle}><div><h2 id="tags-list-title">Etiketler</h2><p>Etiket renklerini ve müşteri kullanımını izleyin.</p></div><span>{items.length.toLocaleString("tr-TR")} kayıt</span></header>
+              <header className={styles.tagListTitle}><div><h2 id="tags-list-title">Etiketler</h2><p>Etiket renklerini ve müşteri kullanımını izleyin.</p></div><span>{visibleItems.length.toLocaleString("tr-TR")} kayıt</span></header>
               <div className={styles.tagListHeader} aria-hidden="true"><span>Etiket</span><span>Renk</span><span>Kullanım</span></div>
               <div className={styles.tagRows}>
-                {items.map((item) => (
+                {visibleItems.map((item) => (
                   <article className={styles.tagRow} key={item.id}>
                     {"color" in item ? (
                       <span className={styles.tagListChip}>

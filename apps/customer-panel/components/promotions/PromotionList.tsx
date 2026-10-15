@@ -87,6 +87,9 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
   const [overview, setOverview] = useState<PromotionOverviewResult | null>(null);
   const [overviewPhase, setOverviewPhase] = useState<"loading" | "loaded" | "error">("loading");
   const [appliedQuery, setAppliedQuery] = useState<ListQuery>({});
+  const [loadedQuery, setLoadedQuery] = useState<string | null>(null);
+  const queryScope = (value: ListQuery) => JSON.stringify(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
+  const dataReady = loadedQuery === queryScope(appliedQuery);
   const appliedQueryRef = useRef<ListQuery>({});
   const loader = useMemo(() => new PromotionListLoader(promotionApi), [promotionApi]);
   const query = (): ListQuery => ({
@@ -100,7 +103,7 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     setAppendError(false); if (!preserveMessage) setMessage("");
     void loader.load({ ...selectedQuery, ...(cursor ? { cursor } : {}) }).then((page) => {
       if (!page) return;
-      setItems((current) => cursor ? [...current, ...page.items] : page.items); setNextCursor(page.nextCursor); setPhase(cursor || page.items.length ? "loaded" : "empty");
+      setLoadedQuery(queryScope(selectedQuery)); setItems((current) => cursor ? [...current, ...page.items] : page.items); setNextCursor(page.nextCursor); setPhase(cursor || page.items.length ? "loaded" : "empty");
     }).catch(() => { if (cursor) setAppendError(true); else setPhase("error"); }).finally(() => setLoadingMore(false));
   };
   useEffect(() => { load({}); return () => loader.dispose(); }, [loader]);
@@ -161,7 +164,7 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy((current) => current.filter((id) => id !== item.id)));
   };
 
-  const rowActions = (item: PromotionAdminListItem) => <PromotionActions item={item} canManage={canManage && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canPublish={canPublish && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canArchive={canArchive && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} busy={busy.includes(item.id)} onAction={action} />;
+  const rowActions = (item: PromotionAdminListItem) => <PromotionActions item={item} canManage={canManage && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canPublish={canPublish && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canArchive={canArchive && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} busy={busy.includes(item.id) || phase === "loading"} onAction={action} />;
   const identity = (item: PromotionAdminListItem) => {
     const Icon = BENEFIT_ICONS[item.benefitKind];
     return <div className={styles.identity}><span className={styles.benefitIcon} aria-hidden="true"><Icon size={20} /></span><div><Link href={`/discounts/${item.id}`} className={styles.name}>{item.name}</Link><p>{item.humanMechanic}</p>{wheelSources.sources.has(item.id) ? <LuckyWheelPromotionSource source={wheelSources.sources.get(item.id)!} /> : <small>{item.triggerKind === "code" ? `${item.activeCodeCount} aktif kod` : "Otomatik"}</small>}</div></div>;
@@ -190,23 +193,25 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     </div>
     <div className={styles.statusBar}>
       <div className={styles.statusTabs} role="group" aria-label="İndirim durumu">{QUICK_STATUSES.map(status => <button key={status.value} type="button" aria-pressed={appliedStatus === status.value} onClick={() => selectStatus(status.value)}>{status.label}</button>)}</div>
-      {phase === "loaded" || phase === "empty" ? <span className={styles.count}>{items.length} indirim{nextCursor ? " · Devamı var" : ""}</span> : null}
+      {dataReady ? <span className={styles.count}>{items.length} indirim{nextCursor ? " · Devamı var" : ""}</span> : null}
     </div>
     {filterCount > 0 ? <div className={styles.appliedFilters}><span>{appliedLabels.join(" · ")}</span><button type="button" className="button button-text" onClick={clearFilters}>Temizle</button></div> : null}
     {message && !filtersOpen ? <p role="status" className={styles.feedback}>{message}</p> : null}
     {canArchive && deletionRecovery.length ? <section aria-label="Bekleyen silme doğrulamaları" className={styles.feedback}><p>Önceki silme işleminin sonucu doğrulanamadı.</p>{deletionRecovery.map((entry, index) => <button key={entry.id} type="button" className="button button-secondary" onClick={event => { deleteFocus.current = event.currentTarget; setDeleteItem({ id: entry.id, name: "Bu indirim" }); }}>Silmeyi doğrula{deletionRecovery.length > 1 ? ` ${index + 1}` : ""}</button>)}</section> : null}
-    {phase === "loading" ? <div role="status" aria-label="Kampanyalar yükleniyor" className={styles.loading}><span className={styles.srOnly}>Kampanyalar yükleniyor…</span>{[0, 1, 2].map(row => <div key={row} aria-hidden="true"><span /><span /><span /></div>)}</div> : null}
+    <div className={styles.stableListRegion} aria-busy={phase === "loading"}>
+    {phase === "loading" && !dataReady ? <div role="status" aria-label="Kampanyalar yükleniyor" className={styles.loading}><span className={styles.srOnly}>Kampanyalar yükleniyor…</span>{[0, 1, 2].map(row => <div key={row} aria-hidden="true"><span /><span /><span /></div>)}</div> : null}
     {phase === "error" ? <div role="alert" className={styles.feedback}><span>İndirimler yüklenemedi.</span><button type="button" className="button button-secondary" onClick={() => load(appliedQuery)}>Yeniden dene</button></div> : null}
-    {phase === "empty" ? <div className={emptyStyles.empty}>
+    {dataReady && items.length === 0 ? <div className={emptyStyles.empty}>
       <PromotionIllustration kind={filterCount ? "custom" : "first_paid_order_percentage"} className={emptyStyles.illustration} />
       <div className={emptyStyles.copy}><PanelEmptyState title={filterCount ? "Eşleşen indirim yok" : "İlk indiriminizle başlayın"} description={filterCount ? "Aramayı veya filtreleri değiştirin." : "Yeni bir indirim oluşturun; burada yönetin."} action={filterCount ? <button className="button button-secondary" type="button" onClick={clearFilters}>Filtreleri temizle</button> : canManage ? <PanelActionButton href="/discounts/new">İlk kampanyayı oluştur</PanelActionButton> : undefined} /></div>
     </div> : null}
-    {phase === "loaded" ? <>
-      <div className={styles.desktopTable} role="region" aria-label="Kampanya tablosu" tabIndex={0}><table aria-label="Kampanyalar"><thead><tr><th scope="col">İndirim</th><th scope="col">Durum</th><th scope="col">Kullanım</th><th scope="col">İndirim / ciro</th><th scope="col">Tarih</th><th scope="col"><span className={styles.srOnly}>İşlemler</span></th></tr></thead><tbody>{items.map(item => <tr key={item.id} aria-busy={busy.includes(item.id)}><td>{identity(item)}</td><td><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge></td><td className={styles.usage}>{item.usage.used}</td><td className={styles.financial}><span>{amounts(item, "discountMinor")}</span><small>{amounts(item, "revenueMinor")}</small></td><td className={styles.dates}>{dates(item, timezone)}</td><td>{rowActions(item)}</td></tr>)}</tbody></table></div>
-      <div className={styles.mobileCards}>{items.map(item => <article key={item.id} aria-busy={busy.includes(item.id)}><div className={styles.cardHeader}>{identity(item)}{rowActions(item)}</div><div className={styles.cardMeta}><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge><span>{item.usage.used} kullanım</span></div><dl><div><dt>İndirim</dt><dd>{amounts(item, "discountMinor")}</dd></div><div><dt>Ciro</dt><dd>{amounts(item, "revenueMinor")}</dd></div></dl><p className={styles.dates}>{dates(item, timezone)}</p></article>)}</div>
+    {dataReady && items.length > 0 ? <>
+      <div className={styles.desktopTable} role="region" aria-label="Kampanya tablosu" tabIndex={0}><table aria-label="Kampanyalar"><thead><tr><th scope="col">İndirim</th><th scope="col">Durum</th><th scope="col">Kullanım</th><th scope="col">İndirim / ciro</th><th scope="col">Tarih</th><th scope="col"><span className={styles.srOnly}>İşlemler</span></th></tr></thead><tbody>{items.map(item => <tr key={item.id} aria-busy={busy.includes(item.id) || phase === "loading"}><td>{identity(item)}</td><td><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge></td><td className={styles.usage}>{item.usage.used}</td><td className={styles.financial}><span>{amounts(item, "discountMinor")}</span><small>{amounts(item, "revenueMinor")}</small></td><td className={styles.dates}>{dates(item, timezone)}</td><td>{rowActions(item)}</td></tr>)}</tbody></table></div>
+      <div className={styles.mobileCards}>{items.map(item => <article key={item.id} aria-busy={busy.includes(item.id) || phase === "loading"}><div className={styles.cardHeader}>{identity(item)}{rowActions(item)}</div><div className={styles.cardMeta}><PanelStatusBadge tone={statusTone(item.effectiveStatus)}>{STATUS[item.effectiveStatus] ?? item.effectiveStatus}</PanelStatusBadge><span>{item.usage.used} kullanım</span></div><dl><div><dt>İndirim</dt><dd>{amounts(item, "discountMinor")}</dd></div><div><dt>Ciro</dt><dd>{amounts(item, "revenueMinor")}</dd></div></dl><p className={styles.dates}>{dates(item, timezone)}</p></article>)}</div>
       {appendError ? <p className={styles.feedback} role="alert">Sonraki indirimler yüklenemedi. Mevcut liste korunuyor.</p> : null}
       <div className={styles.listFooter}><p className={styles.count} role="status">{items.length} kampanya gösteriliyor{nextCursor ? " · Devamı var" : ""}</p>{nextCursor ? <button type="button" className="button button-secondary" disabled={loadingMore} onClick={() => load(appliedQuery, nextCursor)}>{loadingMore ? "Yükleniyor…" : appendError ? "Yeniden dene" : "Daha fazla göster"}<ChevronDown size={16} aria-hidden="true" /></button> : null}</div>
     </> : null}
+    </div>
     {deleteItem ? <PromotionDeleteDialog key={deleteItem.id} id={deleteItem.id} name={deleteItem.name} api={promotionApi} returnFocusRef={deleteFocus} onCancel={() => { setDeleteItem(null); setDeletionRecovery(promotionApi.pendingDeletions()); }} onDeleted={() => { setDeleteItem(null); window.setTimeout(() => filterTrigger.current?.focus(), 0); setDeletionRecovery(promotionApi.pendingDeletions()); setMessage("İndirim silindi."); setOverviewRetry(value => value + 1); load(appliedQueryRef.current, undefined, true); }} /> : null}
     <DesignSettingsModal open={filtersOpen} surface={{ label: "Filtreler", hint: "İndirimleri durum, tür, hedef kitle ve tarihe göre daraltın." }} onClose={closeFilters} onApply={applyFilters} applyLabel="Filtreleri uygula" returnFocusRef={filterTrigger} className={styles.filterModal}>
       <form className={styles.filterFields} onSubmit={event => { event.preventDefault(); applyFilters(); }}>

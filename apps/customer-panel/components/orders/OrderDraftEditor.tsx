@@ -366,7 +366,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
       <PanelPageHeader title={title} />
       <h1 className="sr-only">{title}</h1>
       <div className={styles.editorToolbar}><Link ref={backLinkRef} className={styles.secondaryAction} href="/orders/drafts">Manuel satışa dön</Link>{record ? <span>{record.draftNumber}</span> : null}</div>
-      {phase === "loading" ? <div className={styles.editorLoading} role="status"><strong>Geçmiş manuel satış yükleniyor</strong><i aria-hidden="true" /></div> : null}
+      {phase === "loading" ? <div className={styles.editorLoading} role="status"><span className="sr-only">Geçmiş manuel satış yükleniyor</span><div aria-hidden="true"><i /><i /><i /></div><div aria-hidden="true"><i /><i /></div></div> : null}
       {phase === "error" ? <div className={styles.error} role="alert"><div><h2>Kayıt açılamadı</h2><p>{error}</p></div><button type="button" onClick={() => setRetry((current) => current + 1)}>Tekrar dene</button></div> : null}
       {phase === "ready" ? (
         <div className={styles.editorWorkspace}>

@@ -9,6 +9,7 @@ export type InventoryListPhase = "loading" | "loaded" | "error" | "denied";
 
 export function useInventoryCollection<Item>(options: Readonly<{
   enabled?: boolean;
+  refreshKey?: number;
   canRead: boolean;
   initial?: readonly Item[];
   load: (signal?: AbortSignal) => Promise<readonly Item[]>;
@@ -32,9 +33,9 @@ export function useInventoryCollection<Item>(options: Readonly<{
       }
     });
     return () => request.abort();
-  }, [options.canRead, options.enabled, options.initial, options.load, revision]);
+  }, [options.canRead, options.enabled, options.initial, options.load, options.refreshKey, revision]);
 
-  return Object.freeze({ phase, items, error, retry: () => setRevision((value) => value + 1) });
+  return Object.freeze({ phase: !options.canRead ? "denied" as const : phase, items, error, retry: () => setRevision((value) => value + 1) });
 }
 
 export function InventoryListState(props: Readonly<{
@@ -46,9 +47,19 @@ export function InventoryListState(props: Readonly<{
   onRetry: () => void;
   children: ReactNode;
 }>) {
-  if (props.state === "denied") return <div className={styles.denied} role="status"><h2>Erişim yok</h2><p>Bu envanter listesini görüntüleme yetkiniz yok.</p></div>;
-  if (props.state === "loading") return <div className={styles.state} role="status" aria-live="polite">Kalıcı envanter kayıtları yükleniyor…</div>;
-  if (props.state === "error") return <div className={styles.error} role="alert"><h2>Liste yüklenemedi</h2><p>{props.error}</p><button type="button" onClick={props.onRetry}>Tekrar dene</button></div>;
-  if (props.count === 0) return <PanelEmptyState title={props.emptyTitle} description={props.emptyDescription} />;
-  return <>{props.children}</>;
+  return <div className={styles.listBody} data-inventory-list-body aria-busy={props.state === "loading"}>
+    {props.state === "denied" ? <div className={styles.denied} role="status"><h2>Erişim yok</h2><p>Bu envanter listesini görüntüleme yetkiniz yok.</p></div> : <>
+      {props.state === "error" ? <div className={styles.error} role="alert"><h2>Liste yüklenemedi</h2><p>{props.error}</p>{props.count > 0 ? <p>Son alınan kayıtlar gösteriliyor.</p> : null}<button type="button" onClick={props.onRetry}>Tekrar dene</button></div> : null}
+      {props.state === "loading" && props.count === 0 ? <InventoryLoading />
+        : props.count === 0 ? props.state === "error" ? null : <PanelEmptyState title={props.emptyTitle} description={props.emptyDescription} />
+        : props.children}
+    </>}
+  </div>;
+}
+
+export function InventoryLoading({ label = "Kalıcı envanter kayıtları yükleniyor…", editor = false }: { label?: string; editor?: boolean }) {
+  return <div className={`${styles.listBody} ${editor ? styles.editorLoading : styles.listLoading}`} role="status" aria-label={label}>
+    <span className={styles.srOnly}>{label}</span>
+    {Array.from({ length: editor ? 3 : 5 }, (_, index) => <div className={styles.loadingRow} key={index} aria-hidden="true"><span /><span /><span /></div>)}
+  </div>;
 }

@@ -13,7 +13,7 @@ test("composer is controlled by the unified storefront design document", async (
   assert.doesNotMatch(value, /merchantAdminApi[.]save\("starter_theme_composition"/);
 });
 test("composer loads canonical category product and R2 asset pickers", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["catalogOnboardingClient.listCategories", "catalogApi.listProducts", "/api/storefront-assets", "parseStorefrontAsset"]) assert.match(value, new RegExp(token.replace(/[().]/g, "\\$&"))); });
-test("composer exposes truthful resource loading and error states", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["Yükleniyor", "yüklenemiyor"]) assert.match(value, new RegExp(token)); });
+test("composer exposes truthful resource loading and error states", async () => { const value = await source("StarterThemeComposer.tsx"); for (const token of ["Yükleniyor", "yüklenemiyor"]) assert.match(value, new RegExp(token, "i")); });
 test("composer preserves disabled role authority", async () => { const value = await source("StarterThemeComposer.tsx"); assert.match(value, /const disabled = !canManage/); assert.match(value, /Yalnız görüntüleme/); });
 test("composer delegates draft autosave and publishing to its parent workspace", async () => {
   const value = await source("StarterThemeComposer.tsx");

@@ -419,3 +419,8 @@ test('definitive edit version conflict reloads canonical popup before a new dele
 test('read-only popup viewer cancellation restores its visible row trigger',async()=>{
  await popupScreen(async({container,click,window})=>{const view=Array.from(container.querySelectorAll('button')).find((b:any)=>b.textContent.includes('Görüntüle')) as HTMLButtonElement;view.focus();await click('Görüntüle');await click('Vazgeç');assert.equal(window.document.activeElement===view,true);},{records:[deletionRecord],canManage:false});
 });
+
+test('saved popup stays in its list while the confirmation read is pending or fails',async()=>{
+ let reads=0,reject!:(reason:unknown)=>void;
+ await popupScreen(async({container,click})=>{await click('Düzenle');await click('Uygula');assert.ok(container.querySelector('.listRow'),'saved popup stays visible while reloading');await React.act(async()=>reject(Error('unavailable')));assert.ok(container.querySelector('.listRow'),'failed confirmation read retains saved popup');assert.match(container.textContent??'',/Popuplar yüklenemedi/);},{records:[record()],list:async()=>++reads===1?[record()]:new Promise((_done,no)=>{reject=no;})});
+});

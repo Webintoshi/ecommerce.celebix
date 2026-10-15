@@ -1,3 +1,4 @@
+import { compile as compileCatalogLoading } from "../../lib/mira-final-test-support.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -30,7 +31,7 @@ test("attribute editor saves a name and selected values without asking for a tec
   const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
-    if (name === "react") return React;
+    if (name.endsWith("/CatalogWorkspaceLoading")) return compileCatalogLoading("components/catalog/CatalogWorkspaceLoading.tsx");if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "next/navigation") return { useRouter: () => ({ push() {}, refresh() {} }) };
     if (name === "@/components/catalog-admin/CatalogBrandLogoPicker") return { CatalogBrandLogoPicker: () => null };

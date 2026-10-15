@@ -1,3 +1,4 @@
+import { compile as compileCatalogLoading } from "../../lib/mira-final-test-support.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -46,7 +47,7 @@ async function withConsole(
   const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
-    if (name === "react") return React;
+    if (name.endsWith("/CatalogWorkspaceLoading")) return compileCatalogLoading("components/catalog/CatalogWorkspaceLoading.tsx");if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "next/link") return ({ href, children, ...props }: { href: string; children: React.ReactNode }) => createElement("a", { href, ...props }, children);
     if (name === "lucide-react") return { ImageOff: () => null, Search: () => null, Pencil: () => null, Archive: () => null };

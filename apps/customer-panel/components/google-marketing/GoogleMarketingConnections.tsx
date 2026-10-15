@@ -222,7 +222,7 @@ export function GoogleMarketingConnections({ canManage, services, onChange, onAu
   const locked = Boolean(busy || editor?.draft.apply || editor?.draft.disconnect);
   const connectLabel = busy === "connect" ? "Google’a yönlendiriliyor…" : editor?.error === "incremental_authorization_required" ? "Google’da yetkiyi tamamla" : editor?.connection.googleEmail ? "Google’a yeniden bağlan" : "Google ile bağlan";
   return <div className={styles.workspace}>
-    {overview?.storeDomain ? <p className={styles.domain}><span>Mağaza</span><strong>{overview.storeDomain}</strong></p> : null}
+    {overview?.storeDomain||overviewLoading&&!overview ? <p className={styles.domain}><span>Mağaza</span>{overview?.storeDomain?<strong>{overview.storeDomain}</strong>:<PanelSkeletonBlock className={styles.domainLoading}/>}</p> : null}
     {notice ? <p role="status" className={styles.notice}><Check size={16} aria-hidden="true" />{notice}</p> : null}
     {overviewError ? <div className={styles.feedback}><p role="alert">{readFailureMessage(overviewError, "Bağlantılar yüklenemedi. Tekrar deneyin.")}</p><button type="button" className="button button-secondary" disabled={overviewLoading} onClick={() => void loadOverview()}>Tekrar dene</button></div> : null}
     {overview && !overview.oauthConfigured ? <p className={styles.feedback} role="status">{errorMessage("oauth_unconfigured")}</p> : null}

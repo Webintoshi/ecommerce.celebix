@@ -373,3 +373,5 @@
 }
 
 .primaryButton:focus-visible, .refreshButton:focus-visible, .cancelButton:focus-visible, .secondaryButton:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+
+.categoryTree { min-height: 400px; }

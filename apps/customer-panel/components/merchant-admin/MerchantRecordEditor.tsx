@@ -1,5 +1,6 @@
 "use client";
 
+import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import type { MerchantAdminJson, MerchantAdminRecord, MerchantAdminRecordKind } from "@celebix/saas-contracts";
 import { ArrowLeft, FileText, Mail, MessageCircle, Search, Unplug } from "lucide-react";
 import Link from "next/link";
@@ -255,7 +256,7 @@ export function MerchantRecordEditor({
 
   if (kind === "administrator_invite") return <PanelPageShell>
     <PanelPageHeader title={recordId ? "Daveti düzenle" : "Yönetici ekle"} />
-    {!canManage ? <p className={styles.error} role="alert">Düzenleme yetkiniz yok.</p> : loading ? <p className={styles.state} role="status">Yükleniyor…</p> : <>
+    {!canManage ? <p className={styles.error} role="alert">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="settings" /> : <>
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
       {loadSucceeded ? <SettingsRecordForm key={`${record?.id ?? "new"}:${record?.version ?? 0}`} kind={kind} record={record ?? null} canManage={canManage} busy={busy} onSubmit={submit} /> : <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button>}
     </>}
@@ -266,7 +267,7 @@ export function MerchantRecordEditor({
   if (kind === "marketplace_connection") return <div className={operations.workspace}><PanelPageShell>
     <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
     <Link className={operations.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> Pazaryerleri</Link>
-    {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <p className={styles.state} role="status">Yükleniyor…</p> : <>
+    {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="editor" /> : <>
       {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
       {loadSucceeded ? <MarketplaceConnectionForm key={`${kind}:${recordId ?? "new"}`} record={record} returnTo={returnTo} busy={busy} dirty={dirty} onDirtyChange={() => setDirty(true)} onSubmit={submit} /> : null}
     </>}
@@ -286,7 +287,7 @@ export function MerchantRecordEditor({
     return <div className={operations.workspace}><PanelPageShell>
       <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
       <Link className={operations.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> {definition.title}</Link>
-      {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <p className={styles.state} role="status">Yükleniyor…</p> : <>
+      {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="editor" /> : <>
         {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
         {loadSucceeded ? <div className={operations.editLayout}>
           <form key={`${kind}:${recordId ?? "new"}`} className={operations.form} aria-busy={busy} onSubmit={submit} onInput={event => {
@@ -314,7 +315,7 @@ export function MerchantRecordEditor({
   }
 
   return <PanelPageShell><PanelPageHeader title={title} description={definition.description} /><section className={styles.surface}>
-    {loading ? <p className={styles.state} role="status">Kayıt yükleniyor…</p> : null}
+    {loading ? <MerchantWorkspaceLoading label="Kayıt yükleniyor…" layout="editor" preview={false} /> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
     {!loading && !error && definition.execution === "provider_required" ? <p className={styles.notice}>{definition.notice} Bu ekranda yalnız güvenli yapılandırma kaydedilir; harici çalıştırma başlatılmaz.</p> : null}
     {!loading && !error ? <form className={styles.form} onSubmit={submit}>

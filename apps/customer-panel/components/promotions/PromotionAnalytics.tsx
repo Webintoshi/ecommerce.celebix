@@ -1,9 +1,10 @@
 "use client";
 
+import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { PromotionAnalyticsDetailResult, PromotionDetail } from "@celebix/saas-contracts";
-import { PanelLoadingState, PanelPageHeader } from "@/components/panel/PanelPageShell";
+import { PanelPageHeader } from "@/components/panel/PanelPageShell";
 import { promotionApi } from "@/lib/promotion-ui/client";
 import { formatPromotionMinor } from "@/lib/promotion-ui/model";
 import styles from "./promotion-studio.module.css";
@@ -26,7 +27,8 @@ export function PromotionAnalytics({ promotionId }: Readonly<{ promotionId: stri
     <header className={styles.pageHeader}><div><h1 className={styles.srOnly}>Kampanya analizi</h1><strong className={styles.recordName}>{promotion?.name ?? "Kampanya"}</strong><p>Ödemesi tamamlanan siparişler</p></div><Link href={`/discounts/${promotionId}`}>Kampanyaya dön</Link></header>
     <div className={styles.kpiHeader}><h2>Performans</h2><div role="group" aria-label="Analiz dönemi">{([7, 30, 90] as const).map((value) => <button key={value} type="button" aria-pressed={days === value} onClick={() => setDays(value)}>Son {value} gün</button>)}</div></div>
     {failed ? <div role="alert" className={styles.error}>Analiz yüklenemedi. <button type="button" className={styles.textButton} onClick={() => setRetry((value) => value + 1)}>Yeniden dene</button></div> : null}
-    {!failed && !report ? <PanelLoadingState label="Kampanya analizi yükleniyor…" /> : null}
+    <div className={styles.analyticsRegion} aria-busy={!failed && !report}>
+    {!failed && !report ? <MerchantWorkspaceLoading label="Kampanya analizi yükleniyor…" layout="analytics" /> : null}
     {report ? <>
       {report.currencies.length === 0 ? <p className={styles.info}>Bu dönemde kampanyalı, ödemesi tamamlanmış sipariş yok.</p> : <div className={styles.kpis}>{report.currencies.map((row) => <article key={row.currency}><span>{row.currency}</span><strong>{row.affectedOrders} sipariş</strong><small>{row.usageCount} kullanım · {formatPromotionMinor(row.discountMinor, row.currency)} indirim</small><small>{formatPromotionMinor(row.netRevenueMinor, row.currency)} net ciro · {formatPromotionMinor(row.averageOrderMinor, row.currency)} ortalama</small><small>{row.newCustomerOrders} yeni müşteri · {row.recoveredOrders} geri kazanılan sepet</small></article>)}</div>}
       <div className={styles.reportGrid}>
@@ -35,5 +37,6 @@ export function PromotionAnalytics({ promotionId }: Readonly<{ promotionId: stri
         <article><h2>En çok satan kategoriler</h2>{report.topCategories.length ? <ol>{report.topCategories.map((row) => <li key={`${row.categoryId}:${row.currency}`}><span>{row.label}</span><strong>{row.quantity} adet · {formatPromotionMinor(row.revenueMinor, row.currency)}</strong></li>)}</ol> : <p>Kategori verisi yok.</p>}</article>
       </div>
     </> : null}
+    </div>
   </section>;
 }

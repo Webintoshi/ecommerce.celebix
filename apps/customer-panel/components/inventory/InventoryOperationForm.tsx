@@ -101,7 +101,7 @@ export function InventoryOperationForm(props: Props) {
   const choices: InventoryFormChoiceSnapshot = workspace
     ? workspace.phase === "loaded"
       ? { phase: "loaded", choices: workspace.formChoices }
-      : { ...EMPTY_CHOICES, phase: workspace.phase === "error" ? "unavailable" : "loading" }
+      : { choices: workspace.phase === "loading" ? workspace.formChoices : EMPTY_CHOICES.choices, phase: workspace.phase === "error" ? "unavailable" : "loading" }
     : standaloneChoices;
   const [productSearch, setProductSearch] = useState("");
   const choiceLifecycle = useRef<ReturnType<typeof createInventoryFormChoiceLifecycle> | null>(null);

@@ -61,3 +61,5 @@
 
 .fieldError { display: block; color: var(--cp-danger); font-size: 13px; line-height: 1.5; margin-top: 4px; }
 .editor [aria-invalid="true"] { border-color: var(--cp-danger); }
+
+.pickerResults{min-width:0;min-height:280px}.pickerLoading{display:grid;gap:12px}.pickerLoading>span:not(:global(.sr-only)){display:block;min-height:72px;border-radius:8px;background:var(--cp-soft)}

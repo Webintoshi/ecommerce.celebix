@@ -126,3 +126,5 @@
   .filterFields { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .filterFields :is(input, select) { font-size: 16px; }
 }
+.stableListRegion { min-width: 0; min-height: 340px; }
+@media (max-width: 640px) { .stableListRegion { min-height: 480px; } }

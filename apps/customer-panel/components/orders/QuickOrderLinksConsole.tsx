@@ -305,6 +305,7 @@ export function QuickOrderLinksConsole() {
   const [links, setLinks] = useState<readonly QuickOrderLinkListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [listRefreshing, setListRefreshing] = useState(false);
   const [listError, setListError] = useState("");
   const [paginationError, setPaginationError] = useState("");
   const [busyLinkId, setBusyLinkId] = useState<string>();
@@ -317,6 +318,7 @@ export function QuickOrderLinksConsole() {
   const customerSearchSequence = useRef(0);
   const activeSearchAbort = useRef<AbortController | undefined>(undefined);
   const listSequence = useRef(0);
+  const linksLoaded = useRef(false);
   const createRetry = useRef<Readonly<{ fingerprint: string; operationId: string }> | undefined>(undefined);
   const renderedSearchSequence = searchSequence.current;
   const renderedCustomerSearchSequence = customerSearchSequence.current;
@@ -351,7 +353,8 @@ export function QuickOrderLinksConsole() {
   const loadLinks = useCallback(async (cursor?: string) => {
     const sequence = ++listSequence.current;
     if (cursor === undefined) {
-      setListState("loading");
+      if (!linksLoaded.current) setListState("loading");
+      setListRefreshing(linksLoaded.current);
       setListError("");
     } else {
       setLoadingMore(true);
@@ -362,6 +365,7 @@ export function QuickOrderLinksConsole() {
       if (sequence !== listSequence.current) return;
       setLinks((current) => cursor === undefined ? result.items : Object.freeze([...current, ...result.items]));
       setNextCursor(result.nextCursor);
+      linksLoaded.current = true;
       setListState("loaded");
       setPaginationError("");
     } catch (error) {
@@ -369,12 +373,12 @@ export function QuickOrderLinksConsole() {
       const message = errorMessage(error, "Linkler yüklenemedi. Lütfen yeniden deneyin.");
       if (cursor === undefined) {
         setListError(message);
-        setListState("error");
+        setListState(linksLoaded.current ? "loaded" : "error");
       } else {
         setPaginationError(message);
       }
     } finally {
-      if (sequence === listSequence.current) setLoadingMore(false);
+      if (sequence === listSequence.current) { setLoadingMore(false); setListRefreshing(false); }
     }
   }, []);
 
@@ -860,7 +864,7 @@ export function QuickOrderLinksConsole() {
       <h1 className="sr-only">Hızlı Sipariş Linkleri</h1>
       <div className={styles.workspaceToolbar}>
         {view === "create" ? <button className={styles.secondaryButton} type="button" onClick={() => setView("links")}>Bağlantılara dön</button> : <span>{listState === "loaded" ? `${links.length.toLocaleString("tr-TR")} bağlantı${nextCursor ? " · daha fazla kayıt var" : ""}` : ""}</span>}
-        {view === "links" ? <div className={styles.workspaceActions}><button className={styles.refreshButton} type="button" onClick={() => { void loadLinks(); }}><RefreshCw aria-hidden="true" />Yenile</button><button ref={createButtonRef} className={styles.primaryButton} type="button" onClick={() => setView("create")}><Plus aria-hidden="true" />Yeni bağlantı</button></div> : null}
+        {view === "links" ? <div className={styles.workspaceActions}><button className={styles.refreshButton} type="button" disabled={listRefreshing} onClick={() => { void loadLinks(); }}><RefreshCw aria-hidden="true" />Yenile</button><button ref={createButtonRef} className={styles.primaryButton} type="button" onClick={() => setView("create")}><Plus aria-hidden="true" />Yeni bağlantı</button></div> : null}
       </div>
       {feedback ? <p className={styles.feedback} role="status" aria-live="polite">{feedback}</p> : null}
       <form hidden={view !== "create"} className={styles.console} data-presentation="quick-order-workspace" onSubmit={createLink}>
@@ -1055,7 +1059,7 @@ export function QuickOrderLinksConsole() {
         id="quick-order-links-title"
         hideHeading
       >
-        <div className={styles.linksBody}>
+        <div className={styles.linksBody} aria-busy={listState === "loading" || listRefreshing || loadingMore}>
           <div className={styles.linkToolbar}>
             <label className={styles.searchField}><span className="sr-only">Yüklenen bağlantılarda ara</span><Search aria-hidden="true" /><input ref={listSearchInputRef} type="search" value={linkSearch} onChange={(event) => setLinkSearch(event.target.value)} placeholder="Müşteri veya ürün ara" /></label>
             <label className={styles.statusFilter}><span className="sr-only">Bağlantı durumu</span><select aria-label="Bağlantı durumu" value={linkStatus} onChange={(event) => setLinkStatus(event.target.value as QuickOrderLinkStatus | "all")}><option value="all">Tüm durumlar</option>{Object.entries(STATUS_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
@@ -1063,7 +1067,7 @@ export function QuickOrderLinksConsole() {
           {hasLinkFilters ? <div className={styles.appliedFilters}><span>{visibleLinks.length} eşleşme · yüklenen {links.length} bağlantı{linkStatus !== "all" ? ` · ${STATUS_LABELS[linkStatus]}` : ""}{normalizedLinkSearch ? ` · “${linkSearch.trim()}”` : ""}</span><button className={styles.secondaryButton} type="button" onClick={() => { setLinkSearch(""); setLinkStatus("all"); }}>Temizle</button></div> : null}
           {listError && listState !== "error" ? <p className={styles.inlineError} role="alert">{listError}</p> : null}
           {listState === "loading" ? (
-            <div className={styles.listState} role="status" aria-live="polite"><RefreshCw aria-hidden="true" /><span><strong>Linkler yükleniyor</strong></span></div>
+            <div className={styles.listSkeleton} role="status"><span className="sr-only">Linkler yükleniyor</span>{Array.from({ length: 7 }, (_, i) => <div key={i} aria-hidden="true"><i /><i /><i /><i /></div>)}</div>
           ) : listState === "error" ? (
             <div className={styles.listError} role="alert"><div><strong>Linkler yüklenemedi</strong><p>{listError}</p></div><button type="button" onClick={() => { void loadLinks(); }}>Tekrar dene</button></div>
           ) : links.length === 0 ? (

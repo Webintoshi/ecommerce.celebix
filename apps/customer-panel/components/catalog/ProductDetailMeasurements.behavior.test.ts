@@ -1,3 +1,4 @@
+import { compile as compileCatalogLoading } from "../../lib/mira-final-test-support.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -20,7 +21,7 @@ async function compile(file: string, imports: Record<string, unknown>) {
   const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const module: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
-    if (name === "react") return React;
+    if (name.endsWith("/CatalogWorkspaceLoading")) return compileCatalogLoading("components/catalog/CatalogWorkspaceLoading.tsx");if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });
     if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };

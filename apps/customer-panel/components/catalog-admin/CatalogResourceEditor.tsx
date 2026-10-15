@@ -12,6 +12,7 @@ import { catalogApi } from "@/lib/catalog-ui/client";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
 import { attributeSlug } from "@/lib/catalog-onboarding-ui/attribute-resource";
 import { saveBrandResource } from "@/lib/catalog-admin-ui/brand-resource";
+import { CatalogWorkspaceLoading } from "../catalog/CatalogWorkspaceLoading";
 import styles from "./catalog-admin-console.module.css";
 
 const DESCRIPTIONS: Record<CatalogAdminResourceKind, string> = Object.freeze({
@@ -76,7 +77,7 @@ function hasProductRelations(kind: CatalogAdminResourceKind) {
   return kind === "collection" || kind === "brand" || kind === "tag";
 }
 
-export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; resourceId?: string; canManage: boolean }) {
+function CatalogResourceEditorWorkspace(props: { kind: CatalogAdminResourceKind; resourceId?: string; canManage: boolean }) {
   const { kind, resourceId, canManage } = props;
   const router = useRouter();
   const route = getCatalogResourceRouteDefinitionForKind(kind);
@@ -242,7 +243,7 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
   if (!canManage) return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p></PanelPageShell>;
 
   return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><section className={`${styles.surface} ${styles.workspace} ${kind === "brand" ? styles.brandWorkspace : ""}`}>
-    {loading ? <p className={styles.state} role="status">Kayıt yükleniyor…</p> : null}
+    {loading ? <CatalogWorkspaceLoading layout="editor" label="Kayıt yükleniyor…" /> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}{resourceId && !resource ? <> <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></> : null}</p> : null}
     {!loading && (resourceId === undefined || resource !== undefined) ? <form className={`${styles.form} ${kind === "attribute" ? styles.attributeForm : kind === "brand" ? styles.brandForm : ""}`} onSubmit={submit}>
       <fieldset className={`${styles.wide} ${styles.formSection} ${kind === "brand" ? styles.brandBasics : ""}`}><legend>{kind === "attribute" ? "Nitelik bilgileri" : "Temel bilgiler"}</legend><div className={styles.fieldGrid}>
@@ -288,4 +289,8 @@ export function CatalogResourceEditor(props: { kind: CatalogAdminResourceKind; r
       <div className={`${styles.wide} ${styles.actions} ${kind === "attribute" ? styles.attributeFormActions : kind === "brand" ? styles.brandFormActions : ""}`}><a className={styles.button} href={`/products/${route.segment}`}>Vazgeç</a><button className={styles.primary} disabled={busy || logoBusy || logoUploadFailed}>{busy ? "Kaydediliyor…" : logoBusy ? "Logo yükleniyor…" : kind === "attribute" ? resource ? "Değişiklikleri kaydet" : "Niteliği oluştur" : "Kaydet"}</button></div>
     </form> : null}
   </section></PanelPageShell>;
+}
+
+export function CatalogResourceEditor(props: Parameters<typeof CatalogResourceEditorWorkspace>[0]) {
+  return <CatalogResourceEditorWorkspace key={`${props.kind}:${props.resourceId ?? "new"}`} {...props} />;
 }

@@ -137,7 +137,7 @@ export function ArtificialIntelligenceSettings({ canManage }: Readonly<{ canMana
                   <strong>{entry.label}</strong>
                   <span className={connected ? styles.connected : styles.disconnected}>
                     {connected ? <Check aria-hidden="true" size={13} /> : null}
-                    {connected ? "Bağlı" : "Bağlı değil"}
+                    {loading && connections.length === 0 ? "Yükleniyor…" : connected ? "Bağlı" : "Bağlı değil"}
                   </span>
                 </div>
               </div>

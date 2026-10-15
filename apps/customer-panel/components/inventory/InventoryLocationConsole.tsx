@@ -8,6 +8,7 @@ import { inventoryApi } from "@/lib/inventory-ui/client";
 import { createInventoryLocationConsoleController, type InventoryLocationConsoleSnapshot } from "@/lib/inventory-ui/console-controller";
 import { useOptionalInventoryWorkspace } from "./InventoryWorkspaceContext";
 import type { InventoryConsoleActivity } from "./InventoryOperationForm";
+import { InventoryLoading } from "./InventoryListState";
 import styles from "./inventory-console.module.css";
 
 const ARCHIVE_REASON = Object.freeze({
@@ -110,23 +111,23 @@ export function InventoryLocationPresentation(props: Readonly<{
   onArchive(location: InventoryLocation): void;
 }>) {
   if (props.state.phase === "denied") return <section className={styles.denied} role="status">Konumları görüntüleme yetkiniz yok.</section>;
-  if (props.state.phase === "loading") return <section className={styles.state} role="status">Konumlar yükleniyor…</section>;
-  if (props.state.phase === "error") return <section className={styles.error} role="alert">{props.state.message}</section>;
-  return <section className={styles.locationManager} aria-labelledby="inventory-locations-title">
+  if (props.state.phase === "loading" && !props.state.items.length) return <InventoryLoading label="Konumlar yükleniyor…" />;
+  if (props.state.phase === "error" && !props.state.items.length) return <section className={styles.error} role="alert">{props.state.message}</section>;
+  return <section className={styles.locationManager} aria-labelledby="inventory-locations-title" aria-busy={props.state.phase === "loading"}>
     <div className={styles.locationContent} inert={Boolean(props.rename)}>
     <header><div><h2 id="inventory-locations-title">Depolar <span className={styles.fieldCount}>{props.state.items.length}</span></h2></div></header>
-    {props.state.message ? <p className={props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? styles.errorNotice : styles.notice} role={props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? "alert" : "status"}>{props.state.message}</p> : null}
+    {props.state.message ? <p className={props.state.phase === "error" || props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? styles.errorNotice : styles.notice} role={props.state.phase === "error" || props.state.phase === "conflict" || props.state.phase === "verification_unavailable" ? "alert" : "status"}>{props.state.message}</p> : null}
     {props.canManage ? <form className={styles.locationCreate} onSubmit={(event) => { event.preventDefault(); props.onCreate(); }}>
       <label htmlFor="inventory-location-name">Yeni konum adı</label>
-      <input id="inventory-location-name" value={props.name} maxLength={200} disabled={props.state.pending || props.state.locked} onChange={(event) => props.onName(event.currentTarget.value)} />
-      <button type="submit" disabled={props.state.pending || props.state.locked || !props.name.trim()}>Konum oluştur</button>
+      <input id="inventory-location-name" value={props.name} maxLength={200} disabled={(props.state.phase === "loading" || props.state.phase === "error") || props.state.pending || props.state.locked} onChange={(event) => props.onName(event.currentTarget.value)} />
+      <button type="submit" disabled={(props.state.phase === "loading" || props.state.phase === "error") || props.state.pending || props.state.locked || !props.name.trim()}>Konum oluştur</button>
     </form> : null}
     {!props.state.items.length ? <p className={styles.state}>Ek konum bulunmuyor. Varsayılan konum kalıcı sistem tarafından oluşturulur.</p> : <div className={styles.locationGrid}>{props.state.items.map((location) => {
       const reason = location.archiveEligibility.canArchive
         ? "Aktif konum transferlerde kullanılabilir."
         : ARCHIVE_REASON[location.archiveEligibility.reason];
-      const editDisabled = props.state.pending || props.state.locked || location.status !== "active" || location.isDefault;
-      const archiveDisabled = props.state.pending || props.state.locked || !location.archiveEligibility.canArchive;
+      const editDisabled = props.state.phase === "loading" || props.state.phase === "error" || props.state.pending || props.state.locked || location.status !== "active" || location.isDefault;
+      const archiveDisabled = props.state.phase === "loading" || props.state.phase === "error" || props.state.pending || props.state.locked || !location.archiveEligibility.canArchive;
       return <article className={styles.locationCard} key={location.id}>
         <div><strong>{location.name}</strong><PanelStatusBadge tone={location.status === "active" ? "success" : "neutral"}>{location.status === "active" ? "Aktif" : "Arşivlenmiş"}</PanelStatusBadge></div>
         <p>{reason}</p><details className={styles.recordInformation}><summary>Depo bilgisi</summary><dl><div><dt>Kimlik</dt><dd><code>{location.id}</code></dd></div><div><dt>Sürüm</dt><dd>{location.version}</dd></div></dl></details>
@@ -149,7 +150,7 @@ export function InventoryLocationPresentation(props: Readonly<{
   </section>;
 }
 
-export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; canManage: boolean; embedded?: boolean; onStateChange?(state: InventoryConsoleActivity): void }>) {
+export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; canManage: boolean; embedded?: boolean; refreshRevision?: number; onStateChange?(state: InventoryConsoleActivity): void }>) {
   const workspace = useOptionalInventoryWorkspace();
   const [name, setName] = useState("");
   const [rename, setRename] = useState<Readonly<{ location: InventoryLocation; name: string; error: string }> | undefined>();
@@ -162,10 +163,11 @@ export function InventoryLocationConsole(props: Readonly<{ canRead: boolean; can
     props.onStateChange?.({ pending: state.pending, locked: state.locked, dirty });
   }, [state.pending, state.locked, dirty, props.onStateChange]);
   useEffect(() => {
-    const next = createInventoryLocationConsoleController({ canRead: props.canRead, canManage: props.canManage, api: inventoryApi, onChange: setState });
+    const next = createInventoryLocationConsoleController({ canRead: props.canRead, canManage: props.canManage, api: inventoryApi, onChange: (next) => setState((previous) => (next.phase === "error" || next.phase === "loading") && !next.items.length ? { ...next, items: previous.items } : next) });
     controller.current = next; void next.load();
     return () => { next.dispose(); if (controller.current === next) controller.current = null; };
   }, [props.canRead, props.canManage]);
+  useEffect(() => { if (props.refreshRevision) void controller.current?.load(); }, [props.refreshRevision]);
   const closeRename = () => {
     if (renameSubmitting.current) return;
     const trigger = renameTrigger.current;

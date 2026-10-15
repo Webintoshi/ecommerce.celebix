@@ -298,3 +298,6 @@
   .orderEditor li > div { grid-column: 2; justify-content: flex-end; }
 }
 @media (prefers-reduced-motion: reduce) { .paytrModeControl input::after { transition: none; } }
+
+.methodsPanel{min-height:360px}.loadingMethods{display:grid;min-width:0;align-content:start;border-top:1px solid var(--pay-border);padding-top:40px}.loadingMethods>div{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;align-items:center;gap:24px;min-height:88px;border-top:1px solid var(--pay-border)}.loadingMethods>div>span{display:block;height:20px;border-radius:8px;background:var(--pay-soft)}.workspaceTabs button>span{display:inline-block;min-width:20px;text-align:center}
+@media(max-width:760px){.loadingMethods{gap:16px;padding-top:0;border-top:0}.loadingMethods>div{grid-template-columns:repeat(2,minmax(0,1fr));min-height:200px;padding:16px;border:1px solid var(--pay-border);border-radius:12px}}

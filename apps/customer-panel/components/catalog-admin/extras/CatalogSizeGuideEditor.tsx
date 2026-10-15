@@ -10,9 +10,10 @@ import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/cl
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { attributeSlug } from "@/lib/catalog-onboarding-ui/attribute-resource";
 import { CatalogSizeGuideContent } from "./CatalogSizeGuideContent";
+import { CatalogWorkspaceLoading } from "../../catalog/CatalogWorkspaceLoading";
 import styles from "./extras.module.css";
 
-export function CatalogSizeGuideEditor({ resourceId, canManage, initialResource }: { resourceId?: string; canManage: boolean; initialResource?: CatalogAdminResource }) {
+function CatalogSizeGuideEditorWorkspace({ resourceId, canManage, initialResource }: { resourceId?: string; canManage: boolean; initialResource?: CatalogAdminResource }) {
   const router = useRouter();
   const [resource, setResource] = useState<CatalogAdminResource>();
   const [ready, setReady] = useState(false);
@@ -103,7 +104,7 @@ export function CatalogSizeGuideEditor({ resourceId, canManage, initialResource 
 
   const title = resourceId ? "Ölçü rehberi düzenle" : "Yeni ölçü rehberi";
   return <PanelPageShell><PanelPageHeader title={title} /><h1 className={styles.srOnly}>{title}</h1><section className={styles.workspace}>
-    {!canManage ? <p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p> : loading ? <div className={styles.loading} role="status">Ölçü rehberi yükleniyor…</div> : <>
+    {!canManage ? <p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p> : loading ? <CatalogWorkspaceLoading layout="editor" label="Ölçü rehberi yükleniyor…" /> : <>
       {error ? <div className={styles.error} role="alert"><p>{error}</p>{!ready ? <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button> : versionConflict ? <button className={styles.button} type="button" disabled={reviewing} onClick={() => void reviewCurrentVersion()}>{reviewing ? "Yükleniyor…" : "Güncel sürümü incele"}</button> : null}</div> : null}
       {versionConflict && latestResource ? <section className={styles.conflictReview} aria-label="Güncel rehber sürümü"><h2>Güncel sürüm · v{latestResource.version}</h2><p>{latestResource.name} · {String(latestResource.config.heading)}</p><div className={styles.previewBody}><CatalogSizeGuideContent body={String(latestResource.config.body)} /></div><p>Taslağınız bu içeriğin yerine kaydedilecek. Devam ettikten sonra Uygula ile kaydedin.</p><button className={styles.button} type="button" onClick={() => { setResource(latestResource); setVersionConflict(false); setLatestResource(undefined); operation.current = undefined; setError(""); }}>Bu taslakla devam et</button></section> : null}
       {ready ? <form className={styles.form} onSubmit={submit}>
@@ -128,4 +129,8 @@ export function CatalogSizeGuideEditor({ resourceId, canManage, initialResource 
       </form> : null}
     </>}
   </section></PanelPageShell>;
+}
+
+export function CatalogSizeGuideEditor(props: Parameters<typeof CatalogSizeGuideEditorWorkspace>[0]) {
+  return <CatalogSizeGuideEditorWorkspace key={props.resourceId ?? "new"} {...props} />;
 }

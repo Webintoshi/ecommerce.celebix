@@ -317,7 +317,7 @@ export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, 
 
   return <PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={styles.workspace}>
     {message && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <p className={styles.status} role="status">{message}</p> : null}
-    {!restockOpen && !cartCaptureOpen && !orderBumpOpen && (loading ? <div className={styles.toolSkeleton} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
+    {!restockOpen && !cartCaptureOpen && !orderBumpOpen && (loading ? <div className={`${styles.toolSkeleton} ${styles.contactLoading}`} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
       : loadError ? <div className={styles.feedback}><Info size={20} aria-hidden="true" /><div><p role="alert">{loadError}</p><button className={secondary} type="button" onClick={() => void load()}>Yeniden dene</button></div></div>
       : loaded && !open && !restockOpen ? <article className={styles.toolRow}>
         <ToolArtwork /><div className={styles.toolCopy}><h2>İletişim balonu</h2><p>Müşterileriniz size kolayca ulaşsın.</p><span>{baseline.enabled ? "Açık" : "Kapalı"} · {baseline.channels.filter(channel => channel.enabled).length} kanal · {summaryDevices}{!canManage ? " · Salt okunur" : ""}</span>

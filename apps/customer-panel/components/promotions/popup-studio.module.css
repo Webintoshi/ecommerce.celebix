@@ -678,3 +678,5 @@
 
 .rowActions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 @media(max-width:760px) { .rowActions { grid-column:2; justify-self:start; } .rowActions button { min-height:44px; } }
+.stableListRegion { min-width: 0; min-height: 340px; }
+@media (max-width: 640px) { .stableListRegion { min-height: 480px; } }

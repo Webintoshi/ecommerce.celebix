@@ -1,5 +1,6 @@
 "use client";
 
+import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PromotionBenefit, PromotionConflictCheck, PromotionLegacyReason, PromotionMarginCheck, PromotionPickerKind, PromotionStatus } from "@celebix/saas-contracts";
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
@@ -317,7 +318,7 @@ export function PromotionEditor({ templateId = "custom", promotionId, timezone, 
     if (guard.canLeave()) window.location.assign("/discounts");
   };
 
-  if (loading) return <div className={styles.skeleton} role="status"><PanelPageHeader title="Kampanya" /><h1 className={styles.srOnly}>Kampanya</h1>Kampanya bilgileri yükleniyor…</div>;
+  if (loading) return <section className={styles.editor}><PanelPageHeader title="Kampanya" /><h1 className={styles.srOnly}>Kampanya</h1><MerchantWorkspaceLoading label="Kampanya bilgileri yükleniyor…" layout="editor" /></section>;
   if (legacyReason) return <section className={styles.warning} role="status"><PanelPageHeader title="Kampanya" /><h1 className={styles.srOnly}>Eski indirim kaydı</h1><strong>Eski indirim kaydı</strong><p>Bu kayıt yeni kampanyaya güvenle dönüştürülemedi. Mevcut veri korunuyor ve yalnız görüntülenebilir.</p><p>{LEGACY_REASON_COPY[legacyReason]}</p><a href="/discounts">Kampanyalara dön</a></section>;
   if (missing) return <section className={styles.warning} role="status"><PanelPageHeader title="Kampanya" /><h1 className={styles.srOnly}>Kampanya</h1><strong>Bu kampanya bulunamadı</strong><p>Kayıt başka bir mağazaya ait olabilir veya artık kullanılamıyor olabilir.</p><a href="/discounts">Kampanyalara dön</a></section>;
   if (loadError) return <section className={styles.warning} role="alert"><PanelPageHeader title="Kampanya" /><h1 className={styles.srOnly}>Kampanya</h1><strong>Kampanya açılamadı</strong><p>Bilgiler güvenli biçimde yüklenemediği için düzenleme kapatıldı.</p><button type="button" onClick={() => window.location.reload()}>Yeniden dene</button></section>;

@@ -27,3 +27,6 @@
 .button:not(.primary):not(.danger), .primary,
 .button:not(.primary):not(.danger), .toolbarActions .select, .productToolbar .select { transition: none; }
 }
+
+.listBody { min-height: 400px; }
+.memberBody { min-height: 256px; }

@@ -17,6 +17,31 @@ const cash={id:ID,name:"Kasa",type:"cash",currency:"TRY",balanceCents:500000,ver
 const row={id:ID,customerId:ID,customerName:"Ayşe Kaya",customerPhone:"+905550001122",customerArchived:true,orderId:ID,orderNumber:"POS-1",channel:"POS",currency:"TRY",saleCents:1100000,collectedCents:500000,returnCents:0,refundedCents:0,dueCents:600000,refundDueCents:0,occurredAt:date,dueDate:null,version:1};
 const event:AccountingEvent={id:ID,kind:"expense",currency:"TRY",amountCents:12500,accountId:ID,customerId:null,orderId:null,channel:null,paymentMethod:"cash",note:"Ofis gideri",category:"Kira",documentNumber:null,metadata:{},actorMembershipId:ID,occurredAt:date,createdAt:date,reversesEventId:null,reversed:false,allocations:[]};
 
+test("same accounting filters retain rows during refresh and keep errors visible",async()=>{
+ let calls=0,reject!:(error:Error)=>void;
+ await mounted("expenses",async(container,browser)=>{
+  const table=container.querySelector("table");assert.ok(table);
+  await act(async()=>container.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));
+  assert.ok(container.querySelector("table")===table,"same-query refresh must preserve mounted rows");
+  await act(async()=>reject(new Error("refresh unavailable")));
+  assert.ok(container.querySelector("table")===table,"same-query refresh error must preserve mounted rows");
+  assert.ok(container.querySelector('[role="alert"]'));
+ },value=>{value.expenses=async()=>++calls===1?{expenses:[event]}:new Promise((_resolve,fail)=>{reject=fail;});});
+});
+
+test("failed new accounting filters never reveal previous-query rows or a false empty result",async()=>{
+ let calls=0,reject!:(error:Error)=>void;
+ await mounted("expenses",async(container,browser)=>{
+  await fill(container.querySelector<HTMLInputElement>('.search input')!,"başka kayıt");
+  await act(async()=>container.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));
+  assert.equal(container.querySelector("table"),null);
+  await act(async()=>reject(new Error("unavailable")));
+  assert.equal(container.querySelector("table"),null,"previous filter must stay hidden after a failed fetch");
+  assert.doesNotMatch(container.textContent??"",/Bu dönemde ödenmiş gider yok/);
+  assert.ok(container.querySelector('[role="alert"]'));
+ },value=>{value.expenses=async()=>++calls===1?{expenses:[event]}:new Promise((_resolve,fail)=>{reject=fail;});});
+});
+
 test("pending manual receipt is shown in accounts without a generic reversal action",async()=>{
  await mounted("accounts",async(container)=>{
   assert.match(container.textContent??"",/Bekleyen manuel satış/);
@@ -73,3 +98,18 @@ test("a closed customer lookup cannot overwrite the next customer's collection",
 test("card settlement starts with a card source and bank destination and preserves gross net commission",async()=>{const CARD="9e000000-0000-4000-8000-000000000003",EUR_BANK="9e000000-0000-4000-8000-000000000005";let sent:unknown;await mounted("accounts",async(container,browser)=>{await act(async()=>button(container,"Bankaya aktar").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.equal(dialog.querySelector<HTMLSelectElement>('select[name="fromAccountId"]')?.value,CARD);assert.equal(dialog.querySelector<HTMLSelectElement>('select[name="toAccountId"]')?.value,EUR_BANK);await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,"100");await fill(dialog.querySelector<HTMLInputElement>('input[name="commission"]')!,"2");await fill(dialog.querySelector<HTMLInputElement>('input[name="note"]')!,"POS aktarımı");assert.match(dialog.textContent??"",/98,00/);await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal((sent as{fromAccountId:string}).fromAccountId,CARD);assert.equal((sent as{commissionCents:number}).commissionCents,200);},value=>{value.accounts=async()=>({accounts:[cash,bank,{...cash,id:CARD,name:"EUR Kart",type:"card",currency:"EUR"},{...bank,id:EUR_BANK,name:"EUR Banka",currency:"EUR"}],events:[]});value.mutate=async(_kind,input,key)=>{sent=input;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};});});
 
 test("paid expense currency selection selects an account in that currency",async()=>{const EUR="9e000000-0000-4000-8000-000000000004";let sent:unknown;await mounted("expenses",async(container,browser)=>{await act(async()=>button(container,"Gider ekle").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!,currency=dialog.querySelector<HTMLSelectElement>('select[name="currency"]');assert.ok(currency,"currency is selectable when accounts use different currencies");await act(async()=>{currency.value="EUR";currency.dispatchEvent(new browser.Event("change",{bubbles:true}) as unknown as Event);});assert.equal(dialog.querySelector<HTMLSelectElement>('select[name="accountId"]')?.value,EUR);await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,"25");await fill(dialog.querySelector<HTMLInputElement>('input[name="category"]')!,"Kargo");await fill(dialog.querySelector<HTMLInputElement>('input[name="note"]')!,"EUR ödenmiş gider");await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal((sent as{currency:string}).currency,"EUR");assert.equal((sent as{accountId:string}).accountId,EUR);},value=>{value.accounts=async()=>({accounts:[cash,bank,{...bank,id:EUR,name:"EUR banka",currency:"EUR"}],events:[]});value.mutate=async(_kind,input,key)=>{sent=input;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};});});
+
+test("same customer balance refresh keeps the collection form and entered amount mounted",async()=>{
+ let accountCalls=0;
+ await mounted("collection",async(container)=>{
+  const input=container.querySelector<HTMLInputElement>('input[name="amount"]')!;assert.ok(input);
+  await fill(input,"2000");
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,220));});
+  assert.ok(container.querySelector('input[name="amount"]')===input,"same-customer balance refresh must keep the collection form mounted");
+  assert.equal(input.value,"2000");
+ },value=>{
+  const initial=value.customerAccount;
+  value.customerAccount=async()=>++accountCalls===1?initial():new Promise(()=>{});
+  value.collectionPreview=async()=>({customerId:ID,currency:"TRY",version:2,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:200000}]});
+ });
+});

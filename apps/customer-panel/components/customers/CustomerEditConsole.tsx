@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import type { CustomerDetail } from "@celebix/saas-contracts";
 import type { CustomerAddressInput } from "@celebix/saas-data";
 
-import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
+import { PanelPageHeader, PanelPageShell, PanelSkeletonBlock } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
 import styles from "./customer-console.module.css";
 
@@ -139,7 +139,7 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
   }
 
   if (error && (!customer || customer.id !== customerId)) return <PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><p className={styles.error} role="alert">{error}</p><button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></PanelPageShell>;
-  if (!customer || customer.id !== customerId) return <PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><p className={styles.state} role="status">Müşteri hazırlanıyor…</p></PanelPageShell>;
+  if (!customer || customer.id !== customerId) return <PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><div className={styles.customerDetailSkeleton} role="status"><span className="sr-only">Müşteri hazırlanıyor…</span><PanelSkeletonBlock className={styles.customerIdentitySkeleton} />{Array.from({ length: 3 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div></PanelPageShell>;
   return (
     <PanelPageShell>
       <Link className={styles.back} href={`/customers/${encodeURIComponent(customer.id)}`}>← Müşteri ayrıntılarına dön</Link>

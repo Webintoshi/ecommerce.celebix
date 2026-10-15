@@ -268,3 +268,11 @@
   .root .definitionForm button { width: auto; }
   .tabs { gap: 20px; }
 }
+
+.root { min-height: 480px; }
+.root .loading { min-height: 480px; align-content: start; gap: 24px; }
+.root .loading span:nth-child(1) { height: 32px; width: 40%; }
+.root .loading span:nth-child(2) { height: 12px; width: 72%; }
+.root .loading span:nth-child(3) { height: 48px; width: 100%; }
+.root .loading span:nth-child(4) { height: 160px; width: 100%; }
+.root .loading span:nth-child(5) { height: 44px; width: 120px; justify-self: end; }

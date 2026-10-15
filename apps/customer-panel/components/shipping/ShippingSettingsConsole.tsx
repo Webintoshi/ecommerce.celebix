@@ -47,12 +47,14 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
   const [addressId, setAddressId] = useState("");
   const [codDeliveredMarksPaid, setCodDeliveredMarksPaid] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState<"connect" | "resources" | "revoke" | null>(null);
   const [notice, setNotice] = useState("");
 
   const hydrate = useCallback((next: ShippingSettingsWorkspace) => {
     if (!mounted.current) return;
     setWorkspace(next);
+    setLoaded(true);
     setBrandId(selectedId(next.resources, "brand", next.connection?.selectedBrandLabel));
     setAddressId(selectedId(next.resources, "address", next.connection?.selectedAddressLabel));
     setCodDeliveredMarksPaid(next.connection?.codDeliveredMarksPaid ?? false);
@@ -72,7 +74,7 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
   }, [load]);
 
   async function run(kind: "connect" | "resources" | "revoke", operation: (signal: AbortSignal) => Promise<ShippingSettingsWorkspace>, success: string) {
-    if (!canManage || mutationActive.current) return;
+    if (!canManage || loading || mutationActive.current) return;
     mutationActive.current = true;
     const controller = new AbortController();
     activeRequest.current = controller;
@@ -118,40 +120,40 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
         </div>
       </div>
 
-      {loading ? <p className={styles.loading} role="status">Yükleniyor…</p> : null}
+      {loading && !loaded ? <div className={styles.loadingWorkspace} role="status" aria-label="Kargo ayarları yükleniyor…"><span className="sr-only">Kargo ayarları yükleniyor…</span><div aria-hidden="true"><span /><span /><span /></div></div> : null}
 
-      {!loading && connection && canChoose ? <form className={styles.resourceForm} onSubmit={(event) => {
+      {loaded && connection && canChoose ? <form className={styles.resourceForm} onSubmit={(event) => {
         event.preventDefault();
         void run("resources", (signal) => shippingSettingsApi.selectResources({ brandResourceId: brandId, addressResourceId: addressId, codDeliveredMarksPaid }, signal), "Kargo ayarları kaydedildi.");
       }}>
         <div className={styles.formSection}>
           <div className={styles.sectionLabel}><h2>Gönderici</h2><p>Kargoların çıkış bilgileri.</p></div>
           <div className={styles.fields}>
-            <label><span>Gönderici marka</span><select value={brandId} onChange={(event) => setBrandId(event.target.value)} disabled={!canManage || busy !== null}>{brands.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
-            <label><span>Çıkış adresi</span><select value={addressId} onChange={(event) => setAddressId(event.target.value)} disabled={!canManage || busy !== null}>{addresses.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
+            <label><span>Gönderici marka</span><select value={brandId} onChange={(event) => setBrandId(event.target.value)} disabled={!canManage || loading || busy !== null}>{brands.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
+            <label><span>Çıkış adresi</span><select value={addressId} onChange={(event) => setAddressId(event.target.value)} disabled={!canManage || loading || busy !== null}>{addresses.map((resource) => <option key={resource.id} value={resource.id}>{resource.label}</option>)}</select></label>
           </div>
         </div>
         <div className={styles.formSection}>
           <div className={styles.sectionLabel}><h2>Kapıda ödeme</h2><p>Teslimat sonrası sipariş durumu.</p></div>
-          <label className={styles.toggle}><input type="checkbox" checked={codDeliveredMarksPaid} onChange={(event) => setCodDeliveredMarksPaid(event.target.checked)} disabled={!canManage || busy !== null} /><span><b>Teslim edilince ödendi işaretle</b><small>Kapıda ödemeli siparişlere uygulanır.</small></span></label>
+          <label className={styles.toggle}><input type="checkbox" checked={codDeliveredMarksPaid} onChange={(event) => setCodDeliveredMarksPaid(event.target.checked)} disabled={!canManage || loading || busy !== null} /><span><b>Teslim edilince ödendi işaretle</b><small>Kapıda ödemeli siparişlere uygulanır.</small></span></label>
         </div>
-        {canManage ? <div className={styles.saveRow}>{resourceDirty ? <button type="button" className={styles.secondary} disabled={busy !== null} onClick={() => { hydrate(workspace); setNotice(""); }}>Vazgeç</button> : null}<button className={styles.save} type="submit" disabled={busy !== null || !resourceDirty || !brandId || !addressId}>{busy === "resources" ? <LoaderCircle className={styles.spinner} size={16} /> : <Check size={16} />}Kaydet</button></div> : null}
+        {canManage ? <div className={styles.saveRow}>{resourceDirty ? <button type="button" className={styles.secondary} disabled={loading || busy !== null} onClick={() => { hydrate(workspace); setNotice(""); }}>Vazgeç</button> : null}<button className={styles.save} type="submit" disabled={loading || busy !== null || !resourceDirty || !brandId || !addressId}>{busy === "resources" ? <LoaderCircle className={styles.spinner} size={16} /> : <Check size={16} />}Kaydet</button></div> : null}
       </form> : null}
 
-      {!loading && canManage ? <section className={styles.formSection} aria-labelledby="shipping-connection-title">
+      {loaded && canManage ? <section className={styles.formSection} aria-labelledby="shipping-connection-title">
         <div className={styles.sectionLabel}><h2 id="shipping-connection-title">Bağlantı</h2><p>Basit Kargo API anahtarı.</p></div>
         <div className={styles.connectionControls}>
           {connection ? <div className={styles.actions}>
-            <button type="button" className={styles.secondary} disabled={busy !== null || resourceDirty} title={resourceDirty ? "Önce kargo ayarlarını kaydet veya vazgeç" : undefined} onClick={() => setEditingToken((value) => !value)} aria-label="Basit Kargo API anahtarını değiştir" aria-expanded={showToken}>Değiştir</button>
-            <button type="button" className={styles.remove} disabled={busy !== null || resourceDirty} onClick={() => { if (window.confirm("Basit Kargo bağlantısı kaldırılsın mı?")) void run("revoke", (signal) => shippingSettingsApi.revoke(signal), "Bağlantı kaldırıldı."); }}><Trash2 size={15} />Bağlantıyı kaldır</button>
+            <button type="button" className={styles.secondary} disabled={loading || busy !== null || resourceDirty} title={resourceDirty ? "Önce kargo ayarlarını kaydet veya vazgeç" : undefined} onClick={() => setEditingToken((value) => !value)} aria-label="Basit Kargo API anahtarını değiştir" aria-expanded={showToken}>Değiştir</button>
+            <button type="button" className={styles.remove} disabled={loading || busy !== null || resourceDirty} onClick={() => { if (window.confirm("Basit Kargo bağlantısı kaldırılsın mı?")) void run("revoke", (signal) => shippingSettingsApi.revoke(signal), "Bağlantı kaldırıldı."); }}><Trash2 size={15} />Bağlantıyı kaldır</button>
           </div> : null}
           {showToken ? <form className={styles.tokenForm} onSubmit={connect}>
             <label htmlFor="basit-kargo-token">API anahtarı</label>
             <div className={styles.tokenControl}>
               <KeyRound size={17} aria-hidden="true" />
-              <input id="basit-kargo-token" type="password" autoComplete="new-password" spellCheck={false} value={token} onChange={(event) => setToken(event.target.value)} placeholder="Basit Kargo API anahtarını yapıştır" disabled={busy !== null} />
+              <input id="basit-kargo-token" type="password" autoComplete="new-password" spellCheck={false} value={token} onChange={(event) => setToken(event.target.value)} placeholder="Basit Kargo API anahtarını yapıştır" disabled={loading || busy !== null} />
             </div>
-            <button className={styles.save} type="submit" disabled={busy !== null || resourceDirty || token.length < 16}>{busy === "connect" ? <LoaderCircle className={styles.spinner} size={16} /> : null}{connection ? "Kaydet" : "Bağla"}</button>
+            <button className={styles.save} type="submit" disabled={loading || busy !== null || resourceDirty || token.length < 16}>{busy === "connect" ? <LoaderCircle className={styles.spinner} size={16} /> : null}{connection ? "Kaydet" : "Bağla"}</button>
           </form> : null}
         </div>
       </section> : null}

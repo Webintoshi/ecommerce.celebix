@@ -5,6 +5,7 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 import type {EmailMarketingConnection, EmailMarketingOverview, EmailMarketingProvider} from '@celebix/saas-contracts';
 import {createEmailMarketingApi, type EmailMarketingApi, type EmailMarketingVersionOperation} from '@/lib/email-marketing-ui/client';
 import {EMAIL_SERVICES, emailMarketingCode, emailMarketingCount, emailMarketingDate, emailMarketingErrorMessage, emailMarketingStatus, serviceName} from '@/lib/email-marketing-ui/state';
+import {PanelSkeletonBlock} from '@/components/panel/PanelPageShell';
 import {ProviderBrand} from './ProviderBrand';
 import {EmailMarketingConnectDialog, type EmailMarketingAttempt} from './EmailMarketingConnectDialog';
 import styles from './email-marketing.module.css';
@@ -74,23 +75,23 @@ export function EmailMarketingConnections({canManage, configured, api: suppliedA
     {configured ? <p className={styles.hint}>Bağlantı kurmak müşterileri aktarmaz. Eşitle ile o andaki aktarılabilir müşterileri tek seferlik aktarım için sıraya alın.</p> : null}
     {!configured || overview?.configured === false ? <p className={styles.notice}>E-posta bağlantıları henüz kullanıma açılmadı. Önceki kampanya kayıtlarını görüntüleyebilirsiniz.</p> : null}
     {error ? <p role="alert" className={styles.notice}>{emailMarketingErrorMessage(error)}</p> : null}
-    {loading ? <p role="status" className={styles.hint}>Bağlantılar kontrol ediliyor…</p> : null}
+    {loading ? <span role="status" className={styles.srOnly}>Bağlantılar kontrol ediliyor…</span> : null}
     {EMAIL_SERVICES.map(service => {
       const connection = overview?.connections.find(c => c.provider === service.provider && c.status !== 'disconnected') ?? overview?.connections.find(c => c.provider === service.provider);
       const providerAvailable = overview?.providerAvailability?.[service.provider] ?? service.provider === 'klaviyo';
       const connected = !!connection && connection.status !== 'disconnected';
       const other = active && active.provider !== service.provider;
-      return <article key={service.provider} className={styles.card} aria-label={service.name}>
+      return <article key={service.provider} className={styles.card} aria-label={service.name} aria-busy={loading}>
         <div className={styles.service}><ProviderBrand provider={service.provider} /><p>{service.description}</p>
           <a href={service.pricingUrl} target="_blank" rel="noopener noreferrer" className={styles.hint}>Ücretsiz plan ve güncel sınırlar ↗</a></div>
-        <div className={styles.connection}><span className={styles.status} data-status={connection?.status ?? 'disconnected'}>{enabled && !providerAvailable && !connected ? 'Bağlantı hazırlığı sürüyor' : emailMarketingStatus(connection)}</span>
+        <div className={styles.connection}>{loading&&!overview?<div className={styles.connectionLoading} data-email-connection-loading="" aria-label="Bağlantı yükleniyor"><PanelSkeletonBlock/><PanelSkeletonBlock/><PanelSkeletonBlock/><PanelSkeletonBlock/></div>:<><span className={styles.status} data-status={connection?.status ?? 'disconnected'}>{enabled && !providerAvailable && !connected ? 'Bağlantı hazırlığı sürüyor' : emailMarketingStatus(connection)}</span>
           {enabled && !providerAvailable && connected ? <small>Bağlantı hazırlığı sürüyor.</small> : null}
           {connection && connection.status !== 'disconnected' ? <><strong>{connection.accountName ?? 'Bilinmiyor'}</strong><span>{connection.listName ?? 'Liste bilinmiyor'}</span>
             <small>Son aktarım: {emailMarketingDate(connection.lastSyncedAt)}</small>
             {connection.errorCode ? <small>{emailMarketingErrorMessage(connection.errorCode)}</small> : null}</> : null}
           {connection?.status === 'connected' ? <small id={`${service.provider}-sync-scope`}>Yalnızca ayrı pazarlama izni kanıtlanan müşteriler aktarılır. Satın alma veya sözleşme onayı bu iznin yerine geçmez. Aktarım, servisteki otomasyonları tetikleyebilir.</small> : null}
           {syncFeedback?.provider === service.provider ? <small role={syncFeedback.error ? 'alert' : 'status'}>{syncFeedback.error === 'outcome_unknown' ? 'Aktarımın sonucu henüz doğrulanamadı. Aynı işlemi tekrar eşitleyerek kontrol edin.' : syncFeedback.error === 'cleanup_pending' ? 'Bu aktarım işlemi sürüyor. Aynı işlemi tekrar eşitleyerek kontrol edin.' : syncFeedback.error ? emailMarketingErrorMessage(syncFeedback.error) : syncFeedback.message}</small> : null}
-          {other ? <small>Önce {serviceName(active.provider)} bağlantısını kaldırın.</small> : null}</div>
+          {other ? <small>Önce {serviceName(active.provider)} bağlantısını kaldırın.</small> : null}</>}</div>
         <div className={styles.cardActions}>
           {canManage ? <button className={`button ${connection?.status === 'connected' ? 'button-secondary' : 'button-primary'}`} aria-label={`${service.name} bağlantısını yönet`} disabled={!enabled || !!other || (!providerAvailable && !connected) || syncing === service.provider || !!(providerAvailable && connection && syncAttempts.current.has(connection.id))} onClick={() => setEditor(service.provider)}>{connected ? 'Yönet' : 'Bağla'}</button> : null}
           {canManage && connection?.status === 'connected' ? <button className="button button-primary" aria-label={`${service.name} müşterilerini eşitle`} aria-describedby={`${service.provider}-sync-scope`} disabled={!enabled || !providerAvailable || loading || !!editor || syncing !== null} onClick={() => void sync(connection)}>{syncing === service.provider ? 'Eşitleniyor…' : syncAttempts.current.has(connection.id) ? 'Tekrar eşitle' : 'Eşitle'}</button> : null}
@@ -98,6 +99,7 @@ export function EmailMarketingConnections({canManage, configured, api: suppliedA
             : <a href={service.accountUrl} target="_blank" rel="noopener noreferrer">Hesap oluştur ↗</a>}</div>
       </article>;
     })}
+    {loading&&!overview?<div className={`${styles.sync} ${styles.syncLoading}`} role="status" aria-label="Aktarım durumu yükleniyor">{[0,1,2,3].map(index=><PanelSkeletonBlock key={index}/>)}</div>:null}
     {overview ? <div className={styles.sync} aria-label="Aktarım durumu">
       <span>Bekleyen <strong>{emailMarketingCount(overview.sync.queued)}</strong></span>
       <span>Doğrulanan <strong>{emailMarketingCount(overview.sync.verified)}</strong></span>

@@ -262,3 +262,11 @@ test("overview failure can retry independently while the loaded campaign list st
   }, { overview: async (days, attempt) => { if (attempt === 1) throw Error("overview unavailable"); return overview(days); } });
 });
 test('historical deleted wheel rewards show truthful source counts and no ordinary coupon mutation actions',async()=>{await promotionScreen(async({container})=>{const row=container.querySelector('tbody tr')!;assert.match(row.textContent,/Kaynak: Şans Çarkı/);assert.match(row.textContent,/4 dağıtıldı · 2 kullanıldı/);assert.match(row.textContent,/silindi/);assert.ok(!Array.from(row.querySelectorAll('button')).some((b:any)=>['Sil','Arşivle','Çoğalt','Duraklat'].includes(b.textContent?.trim())));assert.equal(row.querySelector('a[href$="/edit"]'),null)},{managedSources:[{promotionId:record().id,campaignId:record(2).id,campaignName:'Önceki çark',issued:4,used:2,deleted:true}]})});
+
+test('same-filter campaign refresh keeps its table and changing status hides rows from the previous filter',async()=>{
+ let resolve!:(value:any)=>void;
+ await promotionScreen(async({container,click,row})=>{
+  const table=container.querySelector('table');await click('Duraklat',row('Kampanya 1'));assert.ok(container.querySelector('table')===table,'same-filter reload must keep the table');
+  await React.act(async()=>resolve({items:[record()],nextCursor:null}));await click('Aktif');assert.equal(container.querySelector('tbody tr'),null,'new status must not display old records');
+ },{canPublish:true,list:async(_query,attempt)=>attempt===1?{items:[record()],nextCursor:null}:new Promise(done=>{resolve=done;})});
+});

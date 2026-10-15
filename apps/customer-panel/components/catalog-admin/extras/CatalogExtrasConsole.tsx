@@ -8,6 +8,7 @@ import { PanelEmptyState, PanelPageHeader, PanelPageShell } from "@/components/p
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import { CATALOG_EXTRA_TYPES, catalogExtraHref, catalogExtraType, type CatalogExtraType } from "./registry";
+import { CatalogWorkspaceLoading } from "../../catalog/CatalogWorkspaceLoading";
 import styles from "./extras.module.css";
 
 function ExtraArtwork() {
@@ -32,6 +33,7 @@ export function CatalogExtrasConsole({ canManage }: { canManage: boolean }) {
   const [search, setSearch] = useState("");
   const [type, setType] = useState<CatalogExtraType | "all">("all");
   const [loading, setLoading] = useState(true);
+  const [resolved, setResolved] = useState(false);
   const [error, setError] = useState("");
   const [archiving, setArchiving] = useState<readonly string[]>([]);
   const request = useRef(0);
@@ -44,7 +46,7 @@ export function CatalogExtrasConsole({ canManage }: { canManage: boolean }) {
   const load = useCallback(async () => {
     const sequence = ++request.current;
     setLoading(true); setError("");
-    try { const resources = await catalogAdminApi.resources("extra"); if (request.current === sequence) setItems(resources.filter((item) => item.status === "active")); }
+    try { const resources = await catalogAdminApi.resources("extra"); if (request.current === sequence) { setItems(resources.filter((item) => item.status === "active")); setResolved(true); } }
     catch (caught) { if (request.current === sequence) setError(caught instanceof CatalogAdminApiError ? caught.message : "Ekstralar yüklenemedi."); }
     finally { if (request.current === sequence) setLoading(false); }
   }, []);
@@ -61,9 +63,9 @@ export function CatalogExtrasConsole({ canManage }: { canManage: boolean }) {
   const categoryById = useMemo(() => new Map(categories.map((category) => [category.id, category])), [categories]);
   const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
   const visible = items.filter((resource) => (type === "all" || catalogExtraType(resource) === type) && (!normalizedSearch || [resource.name, resource.slug, resource.description ?? "", ...(Array.isArray(resource.config.categoryIds) ? resource.config.categoryIds.map((id) => categoryById.get(String(id))?.name ?? "") : [])].some((value) => value.toLocaleLowerCase("tr-TR").includes(normalizedSearch))));
-  const isEmpty = !loading && !error && !items.length;
+  const isEmpty = resolved && !items.length;
 
-  return <PanelPageShell><PanelPageHeader title="Ekstralar" /><h1 className={styles.srOnly}>Ekstralar</h1><section className={styles.workspace}>
+  return <PanelPageShell><PanelPageHeader title="Ekstralar" /><h1 className={styles.srOnly}>Ekstralar</h1><section className={`${styles.workspace} ${styles.listWorkspace}`}>
     {error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" disabled={loading} onClick={() => void load()}>Tekrar dene</button></p> : null}
     {categoryState === "error" && items.some((item) => catalogExtraType(item) === "size_guide") ? <p className={styles.error} role="alert">Kategori adları yüklenemedi. <button className={styles.button} type="button" onClick={() => void loadCategories()}>Tekrar dene</button></p> : null}
     {canManage ? <div className={`${styles.creationEntry} ${isEmpty ? styles.emptyEntry : ""}`}>
@@ -77,12 +79,12 @@ export function CatalogExtrasConsole({ canManage }: { canManage: boolean }) {
       <span className={styles.muted} role="status">{visible.length} / {items.length} ekstra</span>
       {search || type !== "all" ? <button className={styles.button} type="button" onClick={() => { setSearch(""); setType("all"); }}>Temizle</button> : null}
     </div> : null}
-    {loading ? <div className={styles.loading} role="status">Ekstralar yükleniyor…</div> : !items.length ? error || canManage ? null : <div className={styles.readOnlyEmpty}><ExtraArtwork /><PanelEmptyState title="Henüz ekstra yok" description="Oluşturulan ekstralar burada görünür." /></div> : !visible.length ? <PanelEmptyState title="Eşleşen ekstra yok" description="Arama veya tür filtresini değiştirin." /> : <div className={styles.list}>{visible.map((resource) => {
+    {loading && !resolved ? <CatalogWorkspaceLoading label="Ekstralar yükleniyor…" /> : !items.length ? error || canManage ? null : <div className={styles.readOnlyEmpty}><ExtraArtwork /><PanelEmptyState title="Henüz ekstra yok" description="Oluşturulan ekstralar burada görünür." /></div> : !visible.length ? <PanelEmptyState title="Eşleşen ekstra yok" description="Arama veya tür filtresini değiştirin." /> : <div className={styles.list}>{visible.map((resource) => {
       const isGuide = catalogExtraType(resource) === "size_guide";
       const categoryIds = isGuide && Array.isArray(resource.config.categoryIds) ? resource.config.categoryIds.filter((id): id is string => typeof id === "string") : [];
       return <article className={styles.row} key={resource.id}><div className={styles.rowInfo}><div className={styles.rowHeading}><h2>{resource.name}</h2><span className={styles.muted}>{isGuide ? "Ölçü rehberi" : "Fiyatlı seçenek"}</span></div>
         {isGuide ? <><p>{categoryState === "loading" ? "Kategoriler yükleniyor…" : categoryIds.map((id) => categoryById.get(id)?.name ?? (categoryState === "error" ? "Kategori adı okunamıyor" : "Kategori artık etkin değil")).join(", ") || "Kategori atanmamış"}</p><small>{resource.config.enabled === true ? "Gösterim açık" : "Gösterim kapalı"}{resource.config.includeDescendants === true ? " · Alt kategoriler dahil" : ""}</small></> : <p>/{resource.slug} · {resource.productCount} ürün</p>}
-        {resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.muted}>v{resource.version}</span><Link className="button button-secondary" href={catalogExtraHref(resource, "preview")}><Eye aria-hidden="true" />Önizle</Link>{canManage ? <><Link className="button button-secondary" href={catalogExtraHref(resource, "edit")}><SquarePen aria-hidden="true" />Düzenle</Link><button type="button" className={styles.danger} disabled={archiving.includes(resource.id)} onClick={() => void archive(resource)}><Archive aria-hidden="true" />{archiving.includes(resource.id) ? "Arşivleniyor…" : "Arşivle"}</button></> : null}</div></article>;
+        {resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.muted}>v{resource.version}</span><Link className="button button-secondary" href={catalogExtraHref(resource, "preview")}><Eye aria-hidden="true" />Önizle</Link>{canManage ? <><Link className="button button-secondary" href={catalogExtraHref(resource, "edit")}><SquarePen aria-hidden="true" />Düzenle</Link><button type="button" className={styles.danger} disabled={loading || archiving.includes(resource.id)} onClick={() => void archive(resource)}><Archive aria-hidden="true" />{archiving.includes(resource.id) ? "Arşivleniyor…" : "Arşivle"}</button></> : null}</div></article>;
     })}</div>}
   </section></PanelPageShell>;
 }

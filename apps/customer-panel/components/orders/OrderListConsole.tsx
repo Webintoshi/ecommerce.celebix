@@ -212,6 +212,7 @@ export interface OrderListPresentationProps {
   readonly visibleColumns: OrderColumnVisibility;
   readonly nextCursor?: string;
   readonly loadingMore: boolean;
+  readonly refreshing?: boolean;
   readonly loadMoreError?: string;
   readonly onRetry: () => void;
   readonly onSearchChange: (value: string) => void;
@@ -325,11 +326,12 @@ export function OrderListPresentation(props: OrderListPresentationProps) {
     <section className={styles.listSurface} aria-label="Sipariş çalışma alanı" data-panel-surface="open">
       <div className={styles.toolbar}>
         <form className={styles.searchField} role="search" onSubmit={(event) => { event.preventDefault(); props.onSearchSubmit?.(); }}><Search aria-hidden="true" /><label className="sr-only" htmlFor="order-search">Sipariş ara</label><input ref={searchRef} id="order-search" type="search" value={props.search} onChange={(event) => props.onSearchChange(event.target.value)} placeholder="Sipariş, müşteri, e-posta veya telefon ara" maxLength={200} />{props.search ? <button className={styles.iconButton} type="button" aria-label="Aramayı temizle" onClick={clearSearch}><X aria-hidden="true" /></button> : null}<button className={styles.iconButton} type="submit" aria-label="Ara"><ArrowRight aria-hidden="true" /></button></form>
-        <div className={styles.toolbarActions}><button className={styles.iconButton} type="button" disabled={props.state === "loading" || props.loadingMore} onClick={props.onRetry} aria-label="Siparişleri yenile"><RefreshCw aria-hidden="true" /></button><button className={styles.iconButton} type="button" onClick={() => setDialog("columns")} aria-label="Sütunlar" aria-haspopup="dialog"><Columns3 aria-hidden="true" /></button><button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={() => setDialog("export")} aria-label="CSV Dışa Aktar" aria-haspopup="dialog"><Download aria-hidden="true" /><span>CSV</span></button><Link className={styles.primaryAction} href="/orders/quick-links"><Plus aria-hidden="true" /><span>Manuel satış</span></Link></div>
+        <div className={styles.toolbarActions}><button className={styles.iconButton} type="button" disabled={props.state === "loading" || props.loadingMore || props.refreshing} onClick={props.onRetry} aria-label="Siparişleri yenile"><RefreshCw aria-hidden="true" /></button><button className={styles.iconButton} type="button" onClick={() => setDialog("columns")} aria-label="Sütunlar" aria-haspopup="dialog"><Columns3 aria-hidden="true" /></button><button className={styles.exportButton} type="button" disabled={props.state !== "loaded" || props.items.length === 0} onClick={() => setDialog("export")} aria-label="CSV Dışa Aktar" aria-haspopup="dialog"><Download aria-hidden="true" /><span>CSV</span></button><Link className={styles.primaryAction} href="/orders/quick-links"><Plus aria-hidden="true" /><span>Manuel satış</span></Link></div>
       </div>
       <div className={styles.viewbar}><div className={styles.statusShortcuts} aria-label="Sipariş durumu">{([ ["all", "Tümü"], ["pending", "Onay bekleyen"], ["preparing", "Hazırlanıyor"], ["shipped", "Kargolandı"], ["delivered", "Teslim edildi"] ] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={props.status === value} className={props.status === value ? styles.activeShortcut : styles.shortcut} onClick={() => props.onStatusChange(value)}>{label}</button>)}</div><div className={styles.viewTools}><button className={styles.quietButton} type="button" onClick={openFilters} aria-haspopup="dialog"><SlidersHorizontal aria-hidden="true" />Filtreler{activeFilters ? <span className={styles.filterCount}>{activeFilters}</span> : null}</button><label className={styles.sortControl}><ArrowDownUp aria-hidden="true" /><span className="sr-only">Sıralama</span><select value={props.sort} onChange={(event) => props.onSortChange(event.target.value as OrderSort)}><option value="newest">En yeni</option><option value="oldest">En eski</option><option value="highest">Tutar: yüksekten</option><option value="lowest">Tutar: düşükten</option></select></label></div></div>
       {activeFilters > 0 ? <div className={styles.appliedFilters}><span>{props.state === "loaded" ? `${props.items.length} gösteriliyor` : "Filtreler uygulanıyor"}{hasLocalFilter ? " · Yüklenen siparişlerde" : ""}</span>{salesChannel !== "all" ? <span>Satış kanalı: {SALES_CHANNEL_FILTER_LABELS[salesChannel]}</span> : null}{socialPlatform !== "all" ? <span>Platform: {SOCIAL_PLATFORM_LABELS[socialPlatform]}</span> : null}<button className={styles.quietButton} type="button" onClick={resetFilters}>Filtreleri temizle <X aria-hidden="true" /></button></div> : null}
-      <div className={styles.dataSurface} aria-busy={props.state === "loading"}>{content}</div>
+      {props.error && props.state === "loaded" ? <div className={styles.loadMoreError} role="alert"><span>{props.error}</span></div> : null}
+      <div className={styles.dataSurface} aria-busy={props.state === "loading" || props.refreshing}>{content}</div>
       {props.state === "loaded" ? <footer className={styles.listFooter}><span>{props.items.length} gösteriliyor · {props.loadedCount} sipariş yüklendi</span><div>{props.loadMoreError ? <div className={styles.loadMoreError} role="alert"><span>{props.loadMoreError}</span></div> : null}{props.nextCursor ? <button className={styles.loadMore} type="button" disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? "Yükleniyor…" : props.loadMoreError ? "Tekrar dene" : "Daha fazla sipariş yükle"}<ChevronDown aria-hidden="true" /></button> : null}</div></footer> : null}
     </section>
     <OrderActionDialog open={dialog === "filters"} title="Filtreler" onClose={() => setDialog(null)} footer={<><button className={styles.quietButton} type="button" onClick={() => setDraft({ status: "all", dateRange: "all", payment: "all", fulfillment: "all", salesChannel: "all", socialPlatform: "all" })}>Temizle</button><button className={styles.primaryAction} type="submit" form="order-filter-form">Uygula</button></>}>
@@ -361,6 +363,7 @@ export function OrderListConsole() {
   const [items, setItems] = useState<readonly OrderListItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string>();
   const [loadingMore, setLoadingMore] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [loadMoreError, setLoadMoreError] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -377,13 +380,14 @@ export function OrderListConsole() {
   const appendRequest = useRef(false);
   const loadedQuery = useRef<string | null>(null);
 
-  const load = useCallback(async (cursor?: string, background = false) => {
+  const load = useCallback(async (cursor?: string) => {
     if (cursor && appendRequest.current) return;
     const request = ++sequence.current;
     appendRequest.current = cursor !== undefined;
     setLoadingMore(cursor !== undefined);
     const queryKey = JSON.stringify([status, search, sort, salesChannel, socialPlatform]);
-    if (!cursor && (!background || loadedQuery.current !== queryKey)) setState("loading");
+    const retainRows = loadedQuery.current === queryKey;
+    if (!cursor) { setRefreshing(retainRows); setState(retainRows ? "loaded" : "loading"); }
     setError(""); setLoadMoreError("");
     try {
       const result = await requestOrderListPage(orderApi, { ...(cursor ? { cursor } : {}), status, search, sort, salesChannel, socialPlatform });
@@ -395,9 +399,9 @@ export function OrderListConsole() {
     } catch (failure) {
       if (request !== sequence.current) return;
       if (cursor) setLoadMoreError(message(failure));
-      else { setError(message(failure)); setState("error"); }
+      else { setError(message(failure)); setState(retainRows ? "loaded" : "error"); }
     } finally {
-      if (request === sequence.current) { appendRequest.current = false; setLoadingMore(false); }
+      if (request === sequence.current) { appendRequest.current = false; setLoadingMore(false); setRefreshing(false); }
     }
   }, [search, sort, status, salesChannel, socialPlatform]);
 
@@ -408,7 +412,7 @@ export function OrderListConsole() {
     const refresh = (event: Event) => {
       if (event.type === "pageshow" && !(event as PageTransitionEvent).persisted) return;
       if (appendRequest.current || document.querySelector("dialog[open]")) return;
-      void load(undefined, event.type === "focus");
+      void load();
     };
     window.addEventListener("focus", refresh);
     window.addEventListener("pageshow", refresh);
@@ -439,5 +443,6 @@ export function OrderListConsole() {
   function changeSocialPlatform(value: OrderSocialPlatformSelection) { setSocialPlatform(value); if (value !== "all") setSalesChannel("social"); }
   function resetFilters() { setStatus("all"); setDateRange("all"); setPayment("all"); setFulfillmentFilter("all"); setSalesChannel("all"); setSocialPlatform("all"); }
 
-  return <OrderListPresentation state={state} items={filteredItems} loadedCount={items.length} error={error} loadMoreError={loadMoreError} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} salesChannel={salesChannel} socialPlatform={socialPlatform} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onClearSearch={clearSearch} onReset={resetFilters} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onSalesChannelChange={changeSalesChannel} onSocialPlatformChange={changeSocialPlatform} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
+  const displayState = state === "loaded" && loadedQuery.current !== JSON.stringify([status, search, sort, salesChannel, socialPlatform]) ? "loading" : state;
+  return <OrderListPresentation state={displayState} items={filteredItems} loadedCount={items.length} error={error} loadMoreError={loadMoreError} search={searchInput} status={status} sort={sort} dateRange={dateRange} payment={payment} fulfillment={fulfillmentFilter} salesChannel={salesChannel} socialPlatform={socialPlatform} visibleColumns={visibleColumns} nextCursor={nextCursor} loadingMore={loadingMore} refreshing={refreshing} onRetry={() => { void load(); }} onSearchChange={setSearchInput} onSearchSubmit={() => submitSearch()} onClearSearch={clearSearch} onReset={resetFilters} onStatusChange={setStatus} onSortChange={setSort} onDateRangeChange={setDateRange} onPaymentChange={setPayment} onFulfillmentChange={setFulfillmentFilter} onSalesChannelChange={changeSalesChannel} onSocialPlatformChange={changeSocialPlatform} onColumnVisibilityChange={(column, visible) => setVisibleColumns((current) => Object.freeze({ ...current, [column]: visible }))} onExport={exportCsv} onLoadMore={() => { if (nextCursor) void load(nextCursor); }} />;
 }

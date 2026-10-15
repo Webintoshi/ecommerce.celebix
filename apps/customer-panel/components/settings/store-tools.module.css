@@ -214,3 +214,9 @@
   .readOnly, .feedback { padding: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .workspace *, .dialog * { scroll-behavior: auto; transition: none; } }
+
+.toolSkeleton.contactLoading>span:first-child{min-height:144px}
+@media(max-width:1180px){.toolSkeleton{grid-template-columns:144px minmax(0,1fr) 116px;gap:24px}}
+@media(max-width:760px){.toolSkeleton{grid-template-columns:minmax(0,1fr);gap:16px;padding:24px 0}.toolSkeleton.contactLoading>span:first-child{min-height:128px}}
+
+.toolActionPlaceholder{display:block;width:116px;height:44px;border-radius:8px;background:var(--cp-soft)}

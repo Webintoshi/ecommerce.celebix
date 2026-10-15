@@ -140,3 +140,9 @@
 @media (prefers-reduced-motion: reduce) { .surface *, .panel *, .detailLoading > svg { transition-duration: .01ms; animation-duration: .01ms; scroll-behavior: auto; } }
 
 .detailHero > div > span:last-child { justify-self: start; }
+.metricPlaceholder{display:block;height:32px;width:64%}
+.detailLoading{display:grid;gap:24px;align-items:start;min-width:0}
+.detailToolbarPlaceholder{display:block;min-height:44px}
+.detailMetricPlaceholder{display:block;min-height:64px}
+.detailMainPlaceholder{display:block;min-height:384px}
+.detailSidePlaceholder{display:block;min-height:320px}

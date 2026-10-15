@@ -16,6 +16,7 @@ async function editorScreen(run:(context:{container:HTMLElement})=>Promise<void>
     "@/lib/promotion-ui/model":model,
     "@/lib/lucky-wheel-ui/client":{createLuckyWheelApi:()=>({managedPromotions:async()=>({items:options.managedSource?[{promotionId:ID,campaignId:ID,campaignName:"Çark kampanyası",issued:5,used:2,deleted:true}]:[],hasMore:false,nextCursor:null})})},
     "@/lib/catalog-ui/dirty-navigation":{createDirtyNavigationGuard},
+    "@/components/merchant-admin/MerchantWorkspaceLoading":{MerchantWorkspaceLoading:({label}:any)=>React.createElement("p",{role:"status"},label)},
     "@/components/panel/PanelPageShell":{PanelPageHeader:()=>null},
     "@/components/settings/design/DesignSettingsDrawer":compile(new URL("../settings/design/DesignSettingsDrawer.tsx",import.meta.url)),
     "./PromotionIllustration":{PromotionIllustration:()=>null,promotionIllustrationKind:()=>"percentage"},

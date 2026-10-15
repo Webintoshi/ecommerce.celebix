@@ -15,7 +15,7 @@ test("storefront asset manager uses only same-origin durable asset and setting A
 
 test("storefront asset manager exposes loading error empty upload selection bindings archive and focus restoration", async () => {
   const value = await source();
-  for (const token of ["Yükleniyor", "Henüz vitrin görseli yok", "role=\"alert\"", "Yükle", "Arşivle", "Hero olarak kullan", "Logo olarak kullan", "Sosyal görsel olarak kullan", "Kategori görseli", "focus()"]) assert.match(value, new RegExp(token));
+  for (const token of ["Yükleniyor", "Henüz vitrin görseli yok", "role=\"alert\"", "Yükle", "Arşivle", "Hero olarak kullan", "Logo olarak kullan", "Sosyal görsel olarak kullan", "Kategori görseli", "focus()"]) assert.match(value, new RegExp(token, "i"));
 });
 
 test("storefront asset manager explains upload as three visual child-friendly steps", async () => {
