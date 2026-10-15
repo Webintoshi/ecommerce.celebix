@@ -34,7 +34,7 @@ test('only disabled staff can be deleted after explicit confirmation and cancel 
   assert.equal(container.querySelectorAll('[data-delete-staff]').length,1);assert.match(button().closest('tr')!.textContent!,/Ada/);
   await click(button());assert.equal(calls.length,0);assert.match(container.querySelector('dialog')!.textContent!,/Geçmiş işlemler korunur/);assert.equal(container.querySelector('input'),null);
   await click(Array.from(container.querySelectorAll('button')).find(b=>b.textContent==='Vazgeç')!);assert.equal(container.querySelector('form'),null);assert.equal(calls.length,0);
-  await click(button());await React.act(async()=>container.querySelector('dialog')!.dispatchEvent(new window.Event('cancel',{cancelable:true})));assert.equal(container.querySelector('form'),null);assert.equal(calls.length,0);
+  await click(button());await React.act(async()=>container.querySelector('dialog')!.dispatchEvent(new window.Event('cancel',{cancelable:true}) as unknown as Event));assert.equal(container.querySelector('form'),null);assert.equal(calls.length,0);
   await click(button());await submit(window,container);assert.equal(calls.length,1);assert.equal(calls[0].id,ID);assert.equal(calls[0].input.expectedVersion,2);assert.equal(container.querySelector('tbody')!.textContent!.includes('Ada'),false);assert.match(container.querySelector('tbody')!.textContent!,/Grace/);assert.match(container.textContent!,/Personel kaydı silindi/);
  });
 });

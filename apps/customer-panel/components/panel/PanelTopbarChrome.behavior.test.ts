@@ -12,8 +12,8 @@ async function mounted(run:(fixture:any)=>Promise<void>){
   const saved=new Map<string,PropertyDescriptor|undefined>();
   const assign=(name:string,value:unknown)=>{saved.set(name,Object.getOwnPropertyDescriptor(globalThis,name));Object.defineProperty(globalThis,name,{configurable:true,writable:true,value});};
   const BrowserObserver=window.MutationObserver;
-  class TrackedObserver extends BrowserObserver{observe(target:any,options?:MutationObserverInit){if(target===window.document.body as unknown&&options?.subtree)bodyObservers++;super.observe(target as any,options);}}
-  window.requestAnimationFrame=()=>{frames++;return frames;};
+  class TrackedObserver extends BrowserObserver{observe(target:any,options?:MutationObserverInit){if(target===window.document.body as unknown&&options?.subtree)bodyObservers++;super.observe(target as any,options as Parameters<InstanceType<typeof BrowserObserver>["observe"]>[1]);}}
+  window.requestAnimationFrame=(()=>{frames++;return frames;}) as unknown as typeof window.requestAnimationFrame;
   assign('MutationObserver',TrackedObserver);assign('HTMLElement',window.HTMLElement);
   const originalRect=window.HTMLElement.prototype.getBoundingClientRect;
   Object.defineProperty(window.HTMLElement.prototype,'getBoundingClientRect',{configurable:true,value:function(this:any){return this.tagName==='HEADER'?{height:64}:originalRect.call(this);}});
@@ -87,7 +87,7 @@ test('rapid route replacement removes old portals and keeps the same shared slot
 test('topbar height is synchronized before passive screen effects can observe content offset',async()=>{
  await mounted(async({container,view})=>{
   const offsets:string[]=[];
-  function Screen(){useEffect(()=>{offsets.push(container.querySelector<HTMLElement>('.workspace')!.style.getPropertyValue('--panel-topbar-height'));},[]);return React.createElement('p',null,'Screen');}
+  function Screen(){useEffect(()=>{offsets.push((container.querySelector('.workspace') as HTMLElement).style.getPropertyValue('--panel-topbar-height'));},[]);return React.createElement('p',null,'Screen');}
   await view(React.createElement(Screen));assert.deepEqual(offsets,['64px']);
  });
 });

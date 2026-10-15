@@ -35,7 +35,7 @@ function stockFixture(load: (id: string, signal?: AbortSignal) => Promise<readon
     "@/lib/inventory-ui/workspace-data": { buildStockRows, filterStockRows, stockRowsCsv },
     "./InventoryWorkspaceContext": { useInventoryWorkspace: () => workspace },
   });
-  const component = () => createElement(StockOverview, { canManage: true, canPurchase: true, onCorrect() {}, onPurchase() {} });
+  const component = () => createElement<any>(StockOverview, { canManage: true, canPurchase: true, onCorrect() {}, onPurchase() {} });
   return { component, workspace(next: object) { workspace = { ...workspace, ...next }; } };
 }
 
@@ -145,7 +145,7 @@ test("inventory and price-list data regions reserve a normal five-row footprint 
   });
   await withEditor(async ({ container, render }) => {
     for (const state of ["loading", "loaded", "error"]) {
-      await render(createElement(InventoryListState, { state, count: state === "loaded" ? 1 : 0, error: "offline", emptyTitle: "Yok", emptyDescription: "", onRetry() {} }, createElement("table", null, createElement("tbody", null, createElement("tr", null, createElement("td", null, "Kayıt"))))));
+      await render(createElement<any>(InventoryListState, { state, count: state === "loaded" ? 1 : 0, error: "offline", emptyTitle: "Yok", emptyDescription: "", onRetry() {} }, createElement("table", null, createElement("tbody", null, createElement("tr", null, createElement("td", null, "Kayıt"))))));
       assert.ok(container.querySelector('[data-inventory-list-body]'));
       await render(createElement(PriceListListPresentation, { phase: state, items: [], tags: [], canManage: true, onRetry() {} }));
       assert.ok(container.querySelector('[data-price-list-body]'));
@@ -161,7 +161,7 @@ test("inventory and price-list data regions reserve a normal five-row footprint 
 test("a failed same-scope inventory list refresh keeps its rows beside the read error",async()=>{
  const { InventoryListState }=compile<any>(new URL("./InventoryListState.tsx",import.meta.url),{"@/components/panel/PanelPageShell":shell});
  await withEditor(async({container,render})=>{
-  const view=(state:string)=>createElement(InventoryListState,{state,count:1,error:"Liste yüklenemedi.",emptyTitle:"Yok",emptyDescription:"",onRetry(){}},createElement("table",null,createElement("tbody",null,createElement("tr",null,createElement("td",null,"Kayıt")))));
+  const view=(state:string)=>createElement<any>(InventoryListState,{state,count:1,error:"Liste yüklenemedi.",emptyTitle:"Yok",emptyDescription:"",onRetry(){}},createElement("table",null,createElement("tbody",null,createElement("tr",null,createElement("td",null,"Kayıt")))));
   await render(view("loaded"));const row=container.querySelector("tr");assert.ok(row);await render(view("loading"));assert.ok(container.querySelector("tr")===row);
   await render(view("error"));assert.ok(container.querySelector("tr")===row,"same list row survives failed refresh");assert.match(container.querySelector('[role="alert"]')?.textContent??"",/Son alınan kayıtlar/);
   await render(view("denied"));assert.equal(container.querySelector("tr"),null);

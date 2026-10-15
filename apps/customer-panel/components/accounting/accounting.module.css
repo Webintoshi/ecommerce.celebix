@@ -45,3 +45,15 @@
 .dialogActions .primary{white-space:normal;text-align:center;max-width:100%}
 @media(max-width:1280px){.balanceMetrics,.accountBalances,.loadingAccountBalances{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.effectAmounts{grid-template-columns:minmax(0,1fr);gap:8px}.effectAmounts>div{display:flex;justify-content:space-between;gap:16px}.balanceMetrics,.accountBalances,.loadingAccountBalances{grid-template-columns:minmax(0,1fr)}.dialogHeader h2{font-size:16px;overflow-wrap:anywhere}.dialogActions{flex-wrap:wrap}.dialogActions .primary{flex:1;min-width:0}.rowActions>button{white-space:normal;text-align:left}.effects{padding:12px}.accountBalances dd{font-size:20px}}
+.dueViews{display:flex;gap:8px;flex-wrap:wrap;min-width:0}
+.dueViews button{min-height:44px;padding:8px 16px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface);color:var(--cp-text-secondary);font-size:13px;cursor:pointer}
+.dueViews button[aria-pressed=true]{border-color:var(--cp-brand);color:var(--cp-text-primary);font-weight:600;background:var(--cp-canvas)}
+.scheduleRows{display:grid;gap:16px;min-width:0}
+.scheduleRow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px;gap:12px;align-items:end;min-width:0;margin:0;padding:12px 0 0;border:0;border-top:1px solid var(--cp-border)}
+.scheduleRow legend{padding:0 8px 0 0;font-size:13px;font-weight:600}
+.scheduleRow input[readonly]{background:var(--cp-canvas)}
+.scheduleTable table{min-width:480px;font-variant-numeric:tabular-nums}
+.scheduleLoading{display:grid;gap:16px;min-height:240px;align-content:start}
+.scheduleLoading>div{height:44px;border-radius:8px;background:var(--cp-border)}
+.scheduleLoading>div:first-of-type{height:80px}
+@media(max-width:700px){.dueViews{gap:8px}.dueViews button{flex:1;padding:8px 12px}.scheduleRow{grid-template-columns:minmax(0,1fr) 44px}.scheduleRow .field{grid-column:1}.scheduleRow .iconButton{grid-column:2;grid-row:2}.scheduleTable table{min-width:480px}}

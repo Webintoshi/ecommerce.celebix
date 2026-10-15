@@ -1,4 +1,5 @@
 import {accountingUuid,accountingInteger,parseAccountingFilters,parseAccountingIntent,isMerchantActionAllowed,type AccountingMutation,type TenantContext} from '@celebix/saas-contracts';
+import {parseAccountingScheduleIntent,parseAccountingScheduleFilters} from '@celebix/saas-contracts';
 import {readOrderPanelSessionCookie} from '../order-http/request-input.ts';
 import {approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape} from '../panel-origin-authority.ts';
 import type {ServerAccountingRuntime} from '../server-accounting/runtime.ts';
@@ -41,6 +42,18 @@ async function execute(run:()=>Promise<unknown>){try{return json({data:await run
 export function createAccountingHttpHandlers(deps:AccountingHttpDependencies){
   if(!deps||typeof deps.resolveRuntime!=='function'||typeof deps.now!=='function'||typeof deps.requestId!=='function')throw TypeError('accounting_http_invalid');
   return Object.freeze({
+    async schedules(request:Request){
+      const auth=await authorize(deps,request,'GET','/api/accounting/schedules',true,true);if(auth instanceof Response)return auth;
+      let filters;try{const params=new URL(request.url).searchParams;for(const key of params.keys())if(params.getAll(key).length!==1)throw TypeError('invalid_input');filters=parseAccountingScheduleFilters(Object.fromEntries(params));}catch{return failure('invalid_input');}
+      return execute(()=>auth.runtime.accounting.schedules({tenantContext:auth.tenantContext,now:auth.now,filters}));
+    },
+    async schedule(request:Request,rawId:unknown){let receivableId;try{receivableId=accountingUuid(rawId);}catch{return failure('invalid_input');}const auth=await authorize(deps,request,'GET',`/api/accounting/schedules/${receivableId}`,false,true);if(auth instanceof Response)return auth;return execute(()=>auth.runtime.accounting.schedule({tenantContext:auth.tenantContext,now:auth.now,receivableId}));},
+    async scheduleOperation(request:Request,rawId:unknown){let operationId;try{operationId=accountingUuid(rawId);}catch{return failure('invalid_input');}const auth=await authorize(deps,request,'GET',`/api/accounting/schedule-operations/${operationId}`,false);if(auth instanceof Response)return auth;return execute(()=>auth.runtime.accounting.scheduleOperation({tenantContext:auth.tenantContext,now:auth.now,operationId}));},
+    async saveSchedule(request:Request){
+      const auth=await authorize(deps,request,'POST','/api/accounting/schedules');if(auth instanceof Response)return auth;
+      let operationId,intent;try{operationId=accountingUuid(request.headers.get('idempotency-key'));intent=parseAccountingScheduleIntent(await body(request));}catch{return failure('invalid_input');}
+      return execute(()=>auth.runtime.accounting.saveSchedule({tenantContext:auth.tenantContext,now:auth.now,operationId,intent}));
+    },
     async preview(request:Request){
       const auth=await authorize(deps,request,'GET','/api/accounting/collection-preview',true,true);if(auth instanceof Response)return auth;
       let filters,amountCents;try{const params=new URL(request.url).searchParams;for(const key of params.keys())if(!['customerId','orderId','currency','amountCents'].includes(key)||params.getAll(key).length!==1)throw TypeError('invalid_input');const amount=params.get('amountCents');if(amount===null||! /^[1-9]\d*$/.test(amount))throw TypeError('invalid_input');amountCents=accountingInteger(Number(amount),1);params.delete('amountCents');filters=parseAccountingFilters(Object.fromEntries(params));if(!filters.customerId)throw TypeError('invalid_input');}catch{return failure('invalid_input');}

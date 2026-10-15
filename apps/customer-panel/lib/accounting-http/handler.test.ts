@@ -64,3 +64,16 @@ test('allocation preview binds customer order currency and exact positive cents 
   const response=await h.preview(request(`/api/accounting/collection-preview?customerId=${ID}&orderId=${OP}&currency=TRY&amountCents=200000`));assert.equal(response.status,200);assert.equal(calls[0].amountCents,200000);assert.equal(calls[0].orderId,OP);
   for(const amount of ['0','1.1','-3','9007199254740992'])assert.equal((await h.preview(request(`/api/accounting/collection-preview?customerId=${ID}&amountCents=${amount}`))).status,400);assert.equal(calls.length,1);
 });
+test('schedule routes bind manager authority, trusted tenant and a dedicated operation key',async()=>{
+ const calls:any[]=[];const h=setup({schedules:async(v:unknown)=>{calls.push(v);return{schedules:[],today:'2026-10-15',hasMore:false};},schedule:async(v:unknown)=>{calls.push(v);return{};},saveSchedule:async(v:unknown)=>{calls.push(v);return{};},scheduleOperation:async(v:unknown)=>{calls.push(v);return null;}});
+ assert.equal((await h.schedules(request('/api/accounting/schedules?dueStatus=overdue'))).status,200);assert.equal(calls[0].filters.dueStatus,'overdue');
+ assert.equal((await h.schedule(request(`/api/accounting/schedules/${ID}`),ID)).status,200);assert.equal(calls[1].receivableId,ID);
+ const intent={receivableId:ID,expectedVersion:1,installments:[{dueDate:'2026-10-20',amountCents:1000}]};
+ assert.equal((await h.saveSchedule(request('/api/accounting/schedules','POST',intent))).status,200);assert.equal(calls[2].operationId,OP);assert.equal(calls[2].tenantContext.store.id,ID);
+ assert.equal((await h.scheduleOperation(request(`/api/accounting/schedule-operations/${OP}`),OP)).status,200);
+ assert.equal((await h.schedules(request('/api/accounting/schedules?dueStatus=overdue&dueStatus=today'))).status,400);
+ assert.equal((await h.saveSchedule(request('/api/accounting/schedules','POST',{...intent,storeId:ID}))).status,400);
+ assert.equal((await h.saveSchedule(request('/api/accounting/schedules','POST',intent,{origin:'https://evil.example'}))).status,403);
+ assert.equal((await setup({},'cashier').saveSchedule(request('/api/accounting/schedules','POST',intent))).status,403);
+ assert.equal(calls.length,4);
+});
