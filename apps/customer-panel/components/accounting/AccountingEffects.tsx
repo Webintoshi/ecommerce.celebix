@@ -2,9 +2,9 @@ import type {AccountingEffectPreview} from "@/lib/accounting-ui/effects";
 import {accountingMoney as money} from "@/lib/accounting-ui/model";
 import styles from "./accounting.module.css";
 
-export function AccountingEffects({preview}:{preview:AccountingEffectPreview}) {
-  return <section className={styles.effects} aria-label="Kaydın etkisi" aria-live="polite" aria-atomic="true">
-    <h3>Kaydedince ne değişir?</h3>
+export function AccountingEffects({preview,compact=false}:{preview:AccountingEffectPreview;compact?:boolean}) {
+  return <section className={`${styles.effects}${compact?` ${styles.effectsCompact}`:""}`} aria-label="Kaydın etkisi" aria-live="polite" aria-atomic="true">
+    <h3>{compact?"Kayıt özeti":"Kaydedince ne değişir?"}</h3>
     {preview.rows.map((row,index)=><div className={styles.effectRow} key={`${row.label}:${index}`}>
       <strong>{row.label}</strong>
       <dl className={styles.effectAmounts}>
@@ -15,6 +15,6 @@ export function AccountingEffects({preview}:{preview:AccountingEffectPreview}) {
     </div>)}
     {preview.error?<p className={styles.muted}>{preview.error}</p>:null}
     {preview.notes.map(note=><p key={note} className={styles.muted}>{note}</p>)}
-    <p className={styles.effectNote}>Bu, son görünen kayıtlara göre bir önizlemedir. Kaydederken güncel tutarlar yeniden kontrol edilir.</p>
+    <p className={styles.effectNote}>{compact?"Önizleme · Güncel tutarlar kaydederken doğrulanır.":"Bu, son görünen kayıtlara göre bir önizlemedir. Kaydederken güncel tutarlar yeniden kontrol edilir."}</p>
   </section>;
 }

@@ -226,3 +226,15 @@
 @media(max-width:1280px){.toolbar{justify-content:stretch}}
 
 .recentHeader{display:flex;align-items:center;justify-content:space-between;gap:16px}.recentHeader>span{font-size:12px;color:var(--cp-text-secondary)}
+
+/* Keep accounting input focus clear without the previous heavy focus ring. */
+.console :is(input,select,textarea):is(:focus,:focus-visible),.dialog :is(input,select,textarea):is(:focus,:focus-visible){outline:1px solid var(--cp-text-secondary);outline-offset:2px;border-color:var(--cp-text-secondary);box-shadow:none}
+.effectsCompact{gap:12px;padding:16px;border:0;border-radius:8px;background:var(--cp-surface)}
+.effectsCompact h3{font-size:13px;font-weight:600;line-height:1.5}
+.effectsCompact .effectRow{gap:8px;padding-top:12px}
+.effectsCompact .effectRow>strong{font-size:12px;font-weight:500;line-height:1.5}
+.effectsCompact .effectAmounts{grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.effectsCompact .effectAmounts>div{display:grid;align-content:start;gap:4px;min-width:0}
+.effectsCompact .effectAmounts dt{font-size:12px;line-height:1.5}
+.effectsCompact .effectAmounts dd{font-size:13px;line-height:1.5}
+.effectsCompact .muted,.effectsCompact .effectNote{font-size:12px;line-height:1.5}

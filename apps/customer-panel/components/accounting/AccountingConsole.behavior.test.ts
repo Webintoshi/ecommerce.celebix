@@ -126,8 +126,8 @@ test("social channel selection requests POS receipts with social source",async()
 });
 function api(){let n=10;return{newId:()=>`9e000000-0000-4000-8000-${String(n++).padStart(12,"0")}`,overview:async():Promise<AccountingOverview>=>({currencies:[] as AccountingOverview["currencies"],accounts:[cash,bank],recentEvents:[]}),accounts:async()=>({accounts:[cash,bank],events:[event]}),receivables:async()=>({receivables:[row]}),expenses:async()=>({expenses:[event]}),customerAccount:async()=>({customerId:ID,customerName:row.customerName,customerPhone:row.customerPhone,customerArchived:true,currency:"TRY",version:1,dueCents:600000,refundDueCents:0,receivables:[row],events:[]}),collectionPreview:async()=>({customerId:ID,currency:"TRY",version:1,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:200000}]}),orderFinance:async()=>({status:"partial",collectedCents:500000,dueCents:300000,refundDueCents:50000,version:1,receipts:[{id:ID,amountCents:500000,paymentMethod:"cash",receivedAt:date,actorMembershipId:ID,reversed:true}]}),schedules:async(_filters?:unknown):Promise<AccountingSchedules>=>({schedules:[{receivable:row,hasPlan:false,plannedCents:0,unplannedCents:row.dueCents,installments:[]}],today:"2026-10-15",hasMore:false}),schedule:async(_id?:string):Promise<AccountingDebtSchedule>=>({receivable:row,hasPlan:false,plannedCents:0,unplannedCents:row.dueCents,installments:[]}),saveSchedule:async(intent:AccountingScheduleIntent,key:string):Promise<AccountingScheduleResult>=>({operationId:key,replayed:false,schedule:{receivable:{...row,version:row.version+1},hasPlan:true,plannedCents:row.dueCents,unplannedCents:0,installments:intent.installments.map(part=>({...part,coveredCents:0,dueCents:part.amountCents}))}}),scheduleOperation:async(_id:string):Promise<AccountingScheduleResult|null>=>null,getOperation:async():Promise<AccountingMutationResult|null>=>null,mutate:async(_kind:string,_input:unknown,key:string)=>({operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null})};}
 type Api=ReturnType<typeof api>;
-function button(container:HTMLElement,label:string){return Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent?.trim()===label)!;}
-async function fill(input:HTMLInputElement,value:string){const key=Object.keys(input).find(k=>k.startsWith("__reactProps$"))!;await act(async()=>{(input as unknown as Record<string,{onChange:(e:unknown)=>void}>)[key].onChange({target:{value}});});}
+function button(container:HTMLElement,label:string){return Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(b=>(b.getAttribute("aria-label")??b.textContent?.trim())===label)!;}
+async function fill(input:HTMLInputElement|HTMLSelectElement,value:string){if(input.tagName==="SELECT"){await act(async()=>{input.value=value;input.dispatchEvent(new input.ownerDocument.defaultView!.Event("change",{bubbles:true}));});return;}const key=Object.keys(input).find(k=>k.startsWith("__reactProps$"))!;await act(async()=>{(input as unknown as Record<string,{onChange:(e:unknown)=>void}>)[key].onChange({target:{value}});});}
 async function mounted(mode:string,verify:(container:HTMLElement,browser:Window)=>Promise<void>,customize?:(value:Api)=>void,browserSetup?:(browser:Window)=>void,props:Record<string,unknown>={}){
  const value=api(),defaultSchedules=value.schedules;customize?.(value);if(value.schedules===defaultSchedules)value.schedules=async(filters)=>({schedules:(await (value.receivables as (filters?:unknown)=>ReturnType<Api["receivables"]>)(filters)).receivables.map(debt=>({receivable:debt,hasPlan:false,plannedCents:0,unplannedCents:debt.dueCents,installments:[]})),today:"2026-10-15",hasMore:false});const browser=new Window({url:"https://panel.test/accounting"});browserSetup?.(browser);const saved=new Map<string,PropertyDescriptor|undefined>();
  for(const[key,val]of Object.entries({window:browser,document:browser.document,navigator:browser.navigator,HTMLElement:browser.HTMLElement,HTMLDialogElement:browser.HTMLDialogElement,Event:browser.Event,FormData:browser.FormData,requestAnimationFrame:(fn:FrameRequestCallback)=>setTimeout(()=>fn(Date.now()),0),IS_REACT_ACT_ENVIRONMENT:true})){saved.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value:val});}
@@ -135,6 +135,93 @@ async function mounted(mode:string,verify:(container:HTMLElement,browser:Window)
  const module=compile(resolve(import.meta.dirname,mode==="schedule"?"DebtScheduleForm.tsx":mode==="collection"?"CustomerCollectionForm.tsx":mode==="finance"?"OrderFinancePanel.tsx":"AccountingConsole.tsx")),Component=(mode==="schedule"?module.DebtScheduleForm:mode==="collection"?module.CustomerCollectionForm:mode==="finance"?module.OrderFinancePanel:module.AccountingConsole) as React.ComponentType<Record<string,unknown>>,container=browser.document.createElement("main");browser.document.body.append(container);const root=createRoot(container as unknown as HTMLElement);
  try{await act(async()=>{root.render(createElement(Component,{mode,canManage:true,scopeKey:"store:actor",receivableId:ID,onSaved:()=>{},customerId:ID,orderId:ID,currency:"TRY",onCollected:()=>{},...props}));await new Promise(r=>setTimeout(r,20));});await act(async()=>{await new Promise(r=>setTimeout(r,20));});await verify(container as unknown as HTMLElement,browser);}finally{await act(async()=>root.unmount());browser.happyDOM.abort();for(const[key,desc]of saved){if(desc)Object.defineProperty(globalThis,key,desc);else delete(globalThis as Record<string,unknown>)[key];}}
 }
+test('receivable overflow keeps every secondary action bound to its original dialog and restores its persistent row trigger',async()=>{
+ const cases=[
+  {action:'Vade / taksit planı',title:'Vade / taksit planı',field:'input[name="scheduleDate-0"]'},
+  {action:'Hesap hareketleri',title:'Müşteri hesabı',field:null},
+  {action:'Önceden kalan borç ekle',title:'Önceden kalan borç ekle',field:'input[name="amount"]'},
+  {action:'İade kaydı',title:'İade kaydı',field:'input[name="reason"]'},
+  {action:'Yapılan para iadesini kaydet',title:'Yapılan para iadesini kaydet',field:'select[name="accountId"]'},
+ ];
+ await mounted('receivables',async(container)=>{
+  const trigger=button(container,'Ayşe Kaya · POS-1 için diğer işlemler');
+  assert.ok(trigger,'secondary actions must be discoverable from their row-specific overflow trigger');
+  const target=trigger.getAttribute('popovertarget');assert.ok(target);
+  const group=container.ownerDocument.getElementById(target);assert.ok(group);
+  assert.equal(group.getAttribute('role'),'group');
+  const collection=button(container,'Alınan ödemeyi kaydet');assert.ok(collection);
+  assert.equal(collection.textContent?.trim(),'Ödeme kaydet');
+  assert.equal(group.contains(collection),false,'recording payment stays directly reachable outside the secondary actions');
+  for(const item of cases){
+   const action=button(group,item.action);assert.ok(action,item.action);
+   trigger.focus();await act(async()=>action.click());
+   await act(async()=>{await new Promise(resolve=>setTimeout(resolve,30));});
+   const dialog=container.querySelector<HTMLDialogElement>('dialog')!;
+   assert.equal(dialog.open,true,item.action);
+   assert.equal(dialog.querySelector('h2')?.textContent,item.title,item.action);
+   if(!['İade kaydı','Yapılan para iadesini kaydet'].includes(item.action))assert.match(dialog.textContent??'',/Ayşe Kaya/,item.action);
+   if(item.field)assert.ok(dialog.querySelector(item.field),item.action);
+   if(item.action==='Önceden kalan borç ekle')assert.equal(dialog.querySelector('[name="customerQuery"]'),null,'the row customer remains preselected');
+   await act(async()=>button(dialog,'Pencereyi kapat').click());
+   assert.equal(dialog.open,false,item.action);
+   assert.equal(container.ownerDocument.activeElement,trigger,'modal close returns focus to a persistent row control');
+  }
+ });
+});
+
+test('receivable overflow preserves cashier, customer, order and zero-debt action gates',async()=>{
+ const cases=[
+  {debt:row,canManage:false,canCollect:true,actions:['Ödeme planı','Hesap hareketleri'],collect:true,disabled:false},
+  {debt:{...row,orderId:null,orderNumber:null},canManage:true,canCollect:false,actions:['Vade / taksit planı','Hesap hareketleri','Önceden kalan borç ekle'],collect:true,disabled:false},
+  {debt:{...row,customerId:null,customerName:'Mağaza müşterisi',orderId:null,orderNumber:null},canManage:true,canCollect:false,actions:['Vade / taksit planı'],collect:false,disabled:false},
+  {debt:{...row,collectedCents:1100000,dueCents:0},canManage:true,canCollect:false,actions:['Ödeme planı','Hesap hareketleri','Önceden kalan borç ekle','İade kaydı','Yapılan para iadesini kaydet'],collect:true,disabled:true},
+ ];
+ for(const entry of cases)await mounted('receivables',async(container)=>{
+  const label=`${entry.debt.customerName} · ${entry.debt.orderNumber??'Önceden kalan borç'} için diğer işlemler`;
+  const trigger=button(container,label);assert.ok(trigger,label);
+  const group=container.ownerDocument.getElementById(trigger.getAttribute('popovertarget')!);assert.ok(group);
+  assert.deepEqual(Array.from(group.querySelectorAll('button')).map(action=>action.textContent?.trim()).sort(),[...entry.actions].sort());
+  const collection=button(container,'Alınan ödemeyi kaydet');
+  assert.equal(Boolean(collection),entry.collect,label);
+  if(collection)assert.equal(collection.disabled,entry.disabled,label);
+ },value=>{value.receivables=async()=>({receivables:[entry.debt]});},undefined,{canManage:entry.canManage,canCollect:entry.canCollect});
+});
+
+test('collection details retain order scope, account override and note through closing and submit the same discounted payment',async()=>{
+ let sent:Record<string,unknown>|undefined;const previews:unknown[]=[];
+ await mounted('receivables',async(container,browser)=>{
+  await act(async()=>button(container,'Alınan ödemeyi kaydet').click());
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,30));});
+  const dialog=container.querySelector<HTMLDialogElement>('dialog')!;
+  const order=dialog.querySelector<HTMLSelectElement>('select[name="orderId"]')!;
+  const details=order.closest('details');assert.ok(details,'secondary collection fields belong to an optional details disclosure');
+  assert.match(details.querySelector('summary')?.textContent??'',/^Ayrıntılar/);
+  await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,'2000');
+  await fill(dialog.querySelector<HTMLInputElement>('input[name="discount"]')!,'400');
+  await fill(dialog.querySelector<HTMLSelectElement>('select[name="paymentMethod"]')!,'bank_transfer');
+  await act(async()=>{details.open=true;details.dispatchEvent(new browser.Event('toggle')as unknown as Event);});
+  await fill(order,ID);
+  await fill(dialog.querySelector<HTMLSelectElement>('select[name="accountId"]')!,BANK);
+  await fill(dialog.querySelector<HTMLInputElement>('input[name="note"]')!,'Havale dekontu kontrol edildi');
+  await act(async()=>{details.open=false;details.dispatchEvent(new browser.Event('toggle')as unknown as Event);});
+  assert.equal(order.isConnected,true,'closing details does not discard the selected order');
+  assert.equal(order.value,ID);
+  assert.equal(dialog.querySelector<HTMLSelectElement>('select[name="accountId"]')?.value,BANK);
+  assert.equal(dialog.querySelector<HTMLInputElement>('input[name="note"]')?.value,'Havale dekontu kontrol edildi');
+  const closedSummary=details.querySelector('summary')?.textContent??'';
+  assert.match(closedSummary,/POS-1/,'closed details keep the selected order visible');
+  assert.match(closedSummary,/Banka/,'closed details keep the account override visible');
+  assert.match(closedSummary,/not/i,'closed details indicate a saved note');
+  await act(async()=>{await new Promise(resolve=>setTimeout(resolve,220));});
+  assert.deepEqual(previews.at(-1),{customerId:ID,orderId:ID,currency:'TRY',amountCents:240000});
+  await act(async()=>dialog.querySelector('form')!.dispatchEvent(new browser.Event('submit',{bubbles:true,cancelable:true})as unknown as Event));
+  assert.deepEqual(sent,{customerId:ID,orderId:ID,amountCents:200000,discountCents:40000,currency:'TRY',paymentMethod:'bank_transfer',accountId:BANK,expectedVersion:1,note:'Havale dekontu kontrol edildi'});
+ },value=>{
+  value.collectionPreview=async(input?:unknown)=>{previews.push(input);return{customerId:ID,currency:'TRY',version:1,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:240000}]};};
+  value.mutate=async(_kind,input,key)=>{sent=input as Record<string,unknown>;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};
+ });
+});
+
 test('cashier receivables allows customer-wide collection without loading balances or opening management actions',async()=>{
  const writes:{kind:string;input:any}[]=[];let accountReads=0;
  await mounted('receivables',async(container,browser)=>{
@@ -173,7 +260,7 @@ test("reload restores the immutable uncertain expense form instead of showing bl
 
 test("anonymous order reversal uses order finance version even when a cash account exists",async()=>{for(const accountId of[ID,null]){let input:unknown;await mounted("accounts",async(container,browser)=>{assert.ok(button(container,"Hatalı kaydı geri al"));await act(async()=>button(container,"Hatalı kaydı geri al").click());await act(async()=>{await new Promise(r=>setTimeout(r,20));});const dialog=container.querySelector<HTMLDialogElement>("dialog")!;await fill(dialog.querySelector<HTMLInputElement>('input[name="reason"]')!,"Para iadesi düzeltmesi");await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal((input as{expectedVersion:number}).expectedVersion,9);},value=>{value.accounts=async()=>({accounts:[cash,bank],events:[{...event,kind:"refund",accountId,orderId:ID}]});const finance=value.orderFinance;value.orderFinance=async()=>({...await finance(),version:9});value.mutate=async(_kind,intent,key)=>{input=intent;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};});}});
 
-test("a closed customer lookup cannot overwrite the next customer's collection",async()=>{let resolveFirst!:(value:Awaited<ReturnType<Api["customerAccount"]>>)=>void;let firstAccount!:Awaited<ReturnType<Api["customerAccount"]>>;let sent:unknown;const secondRow={...row,id:BANK,customerId:BANK,customerName:"Deniz Yılmaz",orderId:BANK,orderNumber:"POS-2",version:2};await mounted("receivables",async(container,browser)=>{const actions=Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter(b=>b.textContent?.trim()==="Alınan ödemeyi kaydet");await act(async()=>actions[0].click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;await act(async()=>button(dialog,"Vazgeç").click());await act(async()=>actions[1].click());await act(async()=>{await new Promise(r=>setTimeout(r,20));});assert.match(dialog.textContent??"",/Deniz Yılmaz/);await act(async()=>resolveFirst(firstAccount));assert.doesNotMatch(dialog.textContent??"",/Ayşe Kaya/);await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,"2000");await act(async()=>{await new Promise(r=>setTimeout(r,220));});await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal((sent as{customerId:string}).customerId,BANK);assert.equal((sent as{expectedVersion:number}).expectedVersion,2);},value=>{value.receivables=async()=>({receivables:[row,secondRow]});const read=value.customerAccount;value.customerAccount=async(customerId?:string)=>{if(customerId===ID){firstAccount=await read();return new Promise(resolve=>{resolveFirst=resolve;});}return{...await read(),customerId:BANK,customerName:"Deniz Yılmaz",version:2,receivables:[secondRow]};};value.collectionPreview=async()=>({customerId:BANK,currency:"TRY",version:2,dueCents:600000,allocations:[{receivableId:BANK,orderId:BANK,amountCents:200000}]});value.mutate=async(_kind,input,key)=>{sent=input;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};});});
+test("a closed customer lookup cannot overwrite the next customer's collection",async()=>{let resolveFirst!:(value:Awaited<ReturnType<Api["customerAccount"]>>)=>void;let firstAccount!:Awaited<ReturnType<Api["customerAccount"]>>;let sent:unknown;const secondRow={...row,id:BANK,customerId:BANK,customerName:"Deniz Yılmaz",orderId:BANK,orderNumber:"POS-2",version:2};await mounted("receivables",async(container,browser)=>{const actions=Array.from(container.querySelectorAll<HTMLButtonElement>("button")).filter(b=>(b.getAttribute("aria-label")??b.textContent?.trim())==="Alınan ödemeyi kaydet");await act(async()=>actions[0].click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;await act(async()=>button(dialog,"Vazgeç").click());await act(async()=>actions[1].click());await act(async()=>{await new Promise(r=>setTimeout(r,20));});assert.match(dialog.textContent??"",/Deniz Yılmaz/);await act(async()=>resolveFirst(firstAccount));assert.doesNotMatch(dialog.textContent??"",/Ayşe Kaya/);await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,"2000");await act(async()=>{await new Promise(r=>setTimeout(r,220));});await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal((sent as{customerId:string}).customerId,BANK);assert.equal((sent as{expectedVersion:number}).expectedVersion,2);},value=>{value.receivables=async()=>({receivables:[row,secondRow]});const read=value.customerAccount;value.customerAccount=async(customerId?:string)=>{if(customerId===ID){firstAccount=await read();return new Promise(resolve=>{resolveFirst=resolve;});}return{...await read(),customerId:BANK,customerName:"Deniz Yılmaz",version:2,receivables:[secondRow]};};value.collectionPreview=async()=>({customerId:BANK,currency:"TRY",version:2,dueCents:600000,allocations:[{receivableId:BANK,orderId:BANK,amountCents:200000}]});value.mutate=async(_kind,input,key)=>{sent=input;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};});});
 
 test("card settlement starts with a card source and bank destination and preserves gross net commission",async()=>{const CARD="9e000000-0000-4000-8000-000000000003",EUR_BANK="9e000000-0000-4000-8000-000000000005";let sent:unknown;await mounted("accounts",async(container,browser)=>{await act(async()=>button(container,"Bankaya geçen ödemeyi kaydet").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.equal(dialog.querySelector<HTMLSelectElement>('select[name="fromAccountId"]')?.value,CARD);assert.equal(dialog.querySelector<HTMLSelectElement>('select[name="toAccountId"]')?.value,EUR_BANK);await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,"100");await fill(dialog.querySelector<HTMLInputElement>('input[name="commission"]')!,"2");await fill(dialog.querySelector<HTMLInputElement>('input[name="note"]')!,"POS aktarımı");assert.match(dialog.textContent??"",/98,00/);const effects=dialog.querySelector('section[aria-label="Kaydın etkisi"]');assert.ok(effects);assert.match(effects.textContent??"",/4.900,00/);assert.match(effects.textContent??"",/5.098,00/);await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal((sent as{fromAccountId:string}).fromAccountId,CARD);assert.equal((sent as{commissionCents:number}).commissionCents,200);},value=>{value.accounts=async()=>({accounts:[cash,bank,{...cash,id:CARD,name:"EUR Kart",type:"card",currency:"EUR"},{...bank,id:EUR_BANK,name:"EUR Banka",currency:"EUR"}],events:[]});value.mutate=async(_kind,input,key)=>{sent=input;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};});});
 
