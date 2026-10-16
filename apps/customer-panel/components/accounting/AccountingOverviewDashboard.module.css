@@ -16,7 +16,7 @@
 .accounts .chartRow dd{font-size:20px}
 .track{height:8px;position:absolute;bottom:0;left:0;width:100%;background:var(--cp-soft);border-radius:4px}
 .bar,.accent{position:absolute;top:0;height:100%;border-radius:4px;background:var(--cp-graphite)}
-.accent{background:var(--cp-brand)}
+.accent{background:var(--cp-success)}
 .zero{position:absolute;top:-4px;bottom:-4px;width:1px;background:var(--cp-text-secondary);z-index:1}
 .axis{height:12px;position:relative;margin-top:-12px;color:var(--cp-text-secondary);font-size:10px}
 .axis span{position:absolute;transform:translateX(-50%)}
