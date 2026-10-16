@@ -7,6 +7,7 @@ export interface AccountingProfitabilityCurrency {
  readonly collectionsCents:number;readonly refundsCents:number;
  readonly expensesCents:number;readonly supplierPaymentsCents:number;readonly operatingExpensesCents:number;readonly commissionCents:number;readonly netCashCents:number;
  readonly knownCostCents:number;readonly costedSalesCents:number;
+ readonly catalogCostOrderCount?:number;readonly catalogCostCents?:number;
  readonly missingCostOrderCount:number;readonly unresolvedReturnCount:number;readonly unclassifiedSupplierPaymentCount:number;
  readonly grossProfitCents:number|null;readonly profitCents:number|null;
 }
@@ -23,10 +24,12 @@ export function parseAccountingProfitabilityFilters(value:unknown):Readonly<Acco
 const MONEY=['salesCents','returnCents','netSalesCents','collectionsCents','refundsCents','expensesCents','supplierPaymentsCents','operatingExpensesCents','commissionCents','netCashCents','knownCostCents','costedSalesCents'] as const;
 const COUNTS=['missingCostOrderCount','unresolvedReturnCount','unclassifiedSupplierPaymentCount'] as const;
 function currencyRow(value:unknown):Readonly<AccountingProfitabilityCurrency>{
- const b=accountingExact(value,['currency',...MONEY,...COUNTS,'grossProfitCents','profitCents'],['discountCents']);
+ const b=accountingExact(value,['currency',...MONEY,...COUNTS,'grossProfitCents','profitCents'],['discountCents','catalogCostOrderCount','catalogCostCents']);
  if(typeof b.currency!=='string'||! /^[A-Z]{3}$/.test(b.currency))fail();
  for(const key of MONEY)accountingInteger(b[key],Number.MIN_SAFE_INTEGER);
  if(Object.hasOwn(b,'discountCents'))accountingInteger(b.discountCents,Number.MIN_SAFE_INTEGER);
+ if(Object.hasOwn(b,'catalogCostOrderCount')!==Object.hasOwn(b,'catalogCostCents'))fail();
+ if(Object.hasOwn(b,'catalogCostOrderCount')){accountingInteger(b.catalogCostOrderCount,1);accountingInteger(b.catalogCostCents,Number.MIN_SAFE_INTEGER);}
  for(const key of COUNTS)accountingInteger(b[key]);
  for(const key of ['grossProfitCents','profitCents'])if(b[key]!==null)accountingInteger(b[key],Number.MIN_SAFE_INTEGER);
  const n=(key:string)=>BigInt(b[key] as number);

@@ -6,7 +6,7 @@ import type{AccountingProfitability} from '@celebix/saas-contracts';
 import {PanelPageHeader,PanelPageShell} from '@/components/panel/PanelPageShell';
 import {accountingUi} from '@/lib/accounting-ui/client';
 import {accountingMoney as money} from '@/lib/accounting-ui/model';
-import {defaultProfitabilityPeriod,profitabilityFilters,profitabilityGaps,type ProfitabilityFilters} from '@/lib/accounting-ui/profitability-model';
+import {defaultProfitabilityPeriod,profitabilityFilters,profitabilityGaps,profitabilityCostNotice,type ProfitabilityFilters} from '@/lib/accounting-ui/profitability-model';
 import {AccountingNavigation} from './AccountingNavigation';
 import {AccountingEmptyState} from './AccountingEmptyState';
 import shared from './accounting.module.css';
@@ -18,7 +18,7 @@ function Amount({label,value,currency,emphasis=false}:{label:string;value:number
  return<div className={emphasis?styles.total:undefined}><dt>{label}</dt><dd>{value===null?'Hesaplanamıyor':money(value===0?0:value,currency)}</dd></div>;
 }
 function CurrencySummary({row}:{row:Summary}){
- const gaps=profitabilityGaps(row);
+ const gaps=profitabilityGaps(row),costNotice=profitabilityCostNotice(row);
  return<article className={styles.currency} aria-label={`${row.currency} gelir ve kâr özeti`}>
   <div className={styles.currencyHeading}><h2 className={shared.currencyLabel}>{row.currency}</h2><span>Dönem özeti</span></div>
   <dl className={styles.metrics} aria-label="Satış, tahsilat ve kâr">
@@ -32,7 +32,7 @@ function CurrencySummary({row}:{row:Summary}){
     <dl><Amount label="Satış tutarı" value={row.salesCents} currency={row.currency}/><Amount label="İade kayıtları" value={-row.returnCents} currency={row.currency}/>{row.discountCents?<Amount label="İskonto" value={-row.discountCents} currency={row.currency}/>:null}<Amount label="Net satış" value={row.netSalesCents} currency={row.currency} emphasis/>
      <Amount label="Kayıtlı ürün maliyeti" value={-row.knownCostCents} currency={row.currency}/><Amount label="Ürün maliyeti sonrası kalan" value={row.grossProfitCents} currency={row.currency} emphasis/>
      <Amount label="Ödenmiş işletme gideri" value={-row.operatingExpensesCents} currency={row.currency}/><Amount label="Kart komisyonu" value={-row.commissionCents} currency={row.currency}/><Amount label="Hesaplanan kâr" value={row.profitCents} currency={row.currency} emphasis/>
-    </dl><p className={shared.muted}>Ürün maliyeti kayıtlı satış tutarı: {money(row.costedSalesCents,row.currency)}.</p>
+    </dl><p className={shared.muted}>Ürün maliyeti kayıtlı satış tutarı: {money(row.costedSalesCents,row.currency)}.</p>{costNotice?<p className={shared.muted} role="note">{costNotice}</p>:null}
    </section>
    <section className={styles.breakdown} aria-label={`${row.currency} para hareketleri`}><h3>Alınan ve ödenen para</h3>
     <dl><Amount label="Tahsilat" value={row.collectionsCents} currency={row.currency}/><Amount label="Müşteriye iade edilen" value={-row.refundsCents} currency={row.currency}/><Amount label="Ödenmiş işletme gideri" value={-row.operatingExpensesCents} currency={row.currency}/><Amount label="Tedarikçilere ödenen" value={-row.supplierPaymentsCents} currency={row.currency}/><Amount label="Kart komisyonu" value={-row.commissionCents} currency={row.currency}/><Amount label="Tahsilattan kalan" value={row.netCashCents} currency={row.currency} emphasis/></dl>

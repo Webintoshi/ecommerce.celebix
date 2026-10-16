@@ -14,8 +14,11 @@ export function profitabilityFilters(draft:{dateFrom:string;dateTo:string;curren
 }
 export function profitabilityGaps(row:{missingCostOrderCount:number;unresolvedReturnCount:number;unclassifiedSupplierPaymentCount:number}):string[]{
  const gaps:string[]=[];
- if(row.missingCostOrderCount)gaps.push(`${row.missingCostOrderCount} satışın ürün maliyeti, sipariş oluşturulurken kaydedilmemiş.`);
+ if(row.missingCostOrderCount)gaps.push(`${row.missingCostOrderCount} satışın maliyeti bulunamadı.`);
  if(row.unresolvedReturnCount)gaps.push(`${row.unresolvedReturnCount} iadenin ürün maliyeti eşleştirilemiyor.`);
  if(row.unclassifiedSupplierPaymentCount)gaps.push(`${row.unclassifiedSupplierPaymentCount} tedarikçi ödemesinin ürün alımı mı, işletme gideri mi olduğu belli değil.`);
  return gaps;
+}
+export function profitabilityCostNotice(row:{catalogCostOrderCount?:number;catalogCostCents?:number}):string|null{
+ return row.catalogCostOrderCount?`${row.catalogCostOrderCount} satış, güncel ürün maliyetiyle hesaplandı. Bu maliyetler değişirse özet de değişir.`:null;
 }

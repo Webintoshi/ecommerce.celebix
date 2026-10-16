@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {defaultProfitabilityPeriod,profitabilityFilters,profitabilityGaps} from './profitability-model.ts';
+import * as model from './profitability-model.ts';
 
 test('default profitability period starts at the current Istanbul month and ends today',()=>{
  assert.deepEqual(defaultProfitabilityPeriod(new Date('2026-09-30T22:30:00Z')),{dateFrom:'2026-10-01',dateTo:'2026-10-01'});
@@ -13,5 +14,6 @@ test('profitability filters accept valid calendar dates and no more than 366 inc
 test('missing cost, unmatched returns and unclassified payments explain unavailable profit',()=>{
  assert.deepEqual(profitabilityGaps({missingCostOrderCount:0,unresolvedReturnCount:0,unclassifiedSupplierPaymentCount:0}),[]);
  const gaps=profitabilityGaps({missingCostOrderCount:2,unresolvedReturnCount:1,unclassifiedSupplierPaymentCount:3});
- assert.equal(gaps.length,3);assert.match(gaps[0],/2 satış/);assert.match(gaps[0],/sipariş oluşturulurken/);assert.match(gaps[1],/1 iade/);assert.match(gaps[2],/3 tedarikçi ödemesi/);
+ assert.equal(gaps.length,3);assert.equal(gaps[0],'2 satışın maliyeti bulunamadı.');assert.match(gaps[1],/1 iade/);assert.match(gaps[2],/3 tedarikçi ödemesi/);
 });
+test('current catalog cost note names affected sales and warns that those costs can change the report',()=>{const notice=(model as unknown as Record<string,(v:unknown)=>string|null>).profitabilityCostNotice;assert.equal(typeof notice,'function');assert.equal(notice!({}),null);assert.equal(notice!({catalogCostOrderCount:0,catalogCostCents:0}),null);for(const catalogCostCents of[2500,0,-2500])assert.equal(notice!({catalogCostOrderCount:2,catalogCostCents}),'2 satış, güncel ürün maliyetiyle hesaplandı. Bu maliyetler değişirse özet de değişir.');});
