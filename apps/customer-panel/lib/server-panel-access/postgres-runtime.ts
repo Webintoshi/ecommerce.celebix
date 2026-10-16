@@ -2,6 +2,8 @@ import {createPostgresEmailMarketingConnectionRepository,createPostgresEmailMark
 import {emailMarketingConfiguration} from '../server-email-marketing/config.ts';
 import {registerServerEmailMarketingRepository,registerServerEmailMarketingWebhookRepository} from '../server-email-marketing/runtime.ts';
 import "server-only";
+import {PostgresCommercialPlanRepository} from '@celebix/saas-data';
+import {registerServerCommercialPlanRepository} from '../server-commercial-plan/runtime.ts';
 
 import { randomBytes, randomUUID } from "node:crypto";
 import process from "node:process";
@@ -1104,6 +1106,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerInStoreSalesRepository(access, createPostCommitInvalidatingRepository(inStoreSalesRepository, {
       prepareSale: ['catalog'], completeSale: ['catalog'], cancelSale: ['catalog'],
     }));
+    registerServerCommercialPlanRepository(access,new PostgresCommercialPlanRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}));
     registerServerAccountingRepository(access, createPostCommitInvalidatingRepository(new PostgresAccountingRepository({
       pool,role:'celebix_saas_app',timeouts:TIMEOUTS,
     }),{returnCredit:['catalog']}));

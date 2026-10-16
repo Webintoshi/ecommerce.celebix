@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {COMMERCIAL_PACKAGES} from '@celebix/saas-contracts';
 
 import {
   SaaSDataCorruptionError,
@@ -81,6 +82,15 @@ test("strict operation parser accepts a complete committed immutable snapshot", 
   const parsed = parseTenantOperationRow(committedRow(), panelOrigin);
   assert.equal(parsed.status, "committed");
   assert.deepEqual(parsed.result, result);
+});
+
+test('production commit and recovery parsers accept exact Free v2 and preserve v1 replay',()=>{
+ const free=COMMERCIAL_PACKAGES[0]!;
+ const next={...result,plan:{...result.plan,planId:free.id,version:2,features:free.features,limits:free.limits}};
+ assert.deepEqual(parseCreateStarterTenantResult(next,panelOrigin),next);
+ assert.deepEqual(parseTenantOperationRow(committedRow({result_payload:next}),panelOrigin).result,next);
+ assert.deepEqual(parseCreateStarterTenantResult(result,panelOrigin),result);
+ for(const bad of [{...next,plan:{...next.plan,planId:ids.plan}},{...next,plan:{...next.plan,limits:{...next.plan.limits,monthlyOrders:100}}}])assert.throws(()=>parseCreateStarterTenantResult(bad,panelOrigin),SaaSDataCorruptionError);
 });
 
 test("tenant result requires safe media readiness without infrastructure authority", () => {

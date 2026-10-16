@@ -1,4 +1,5 @@
 import {
+  COMMERCIAL_PACKAGES,
   SAAS_ERROR_CODES,
   type CreateStarterTenantInput,
   type CreateStarterTenantResult,
@@ -101,16 +102,16 @@ export class DeterministicFakeTenantCoreClient implements TenantCoreClient {
         },
         plan: {
           schemaVersion: 1,
-          planId: "plan_free_starter",
+          planId: COMMERCIAL_PACKAGES[0]!.id,
           planCode: "free_starter",
-          version: 1,
+          version: 2,
           status: "active",
-          features: ["catalog", "orders", "customers", "content", "media", "analytics", "checkout"],
+          features: COMMERCIAL_PACKAGES[0]!.features,
           limits: {
             products: 100,
             staff: 1,
             storageBytes: 1_000_000_000,
-            monthlyOrders: 100,
+            monthlyOrders: 50,
             customDomains: 0,
           },
           validFrom: now,

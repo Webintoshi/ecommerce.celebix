@@ -1,4 +1,5 @@
 import type { CreateStarterTenantInput, CreateStarterTenantResult } from "@celebix/saas-contracts";
+import {getCommercialPackage} from '@celebix/saas-contracts';
 import { createCanonicalAdminOriginFromPanelOrigin, normalizeExactHttpsOrigin } from "@celebix/saas-data";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -55,7 +56,7 @@ export function validateTenantCompletionResult(
   if (membership.schemaVersion !== 1 || !UUID.test(String(membership.id)) || !UUID.test(String(membership.principalId)) || membership.storeId !== store.id || membership.role !== "store_owner" || membership.status !== "active" || !validTimestamp(membership.createdAt) || !validTimestamp(membership.updatedAt) || membership.createdAt !== tenantInput.requestedAt || membership.updatedAt !== tenantInput.requestedAt) return false;
   const plan = value.plan;
   if (!exactKeys(plan, ["schemaVersion", "planId", "planCode", "version", "status", "features", "limits", "validFrom"], ["validUntil"])) return false;
-  if (plan.schemaVersion !== 1 || !UUID.test(String(plan.planId)) || plan.planCode !== "free_starter" || plan.version !== 1 || plan.status !== "active" || !validTimestamp(plan.validFrom) || plan.validFrom !== tenantInput.requestedAt) return false;
+  if (plan.schemaVersion !== 1 || !UUID.test(String(plan.planId)) || plan.planCode !== "free_starter" || (plan.version !== 1 && plan.version !== 2) || plan.status !== "active" || !validTimestamp(plan.validFrom) || plan.validFrom !== tenantInput.requestedAt) return false;
   if (plan.validUntil !== undefined && (!validTimestamp(plan.validUntil) || Date.parse(plan.validUntil) <= Date.parse(plan.validFrom))) return false;
   if (!Array.isArray(plan.features) || plan.features.length === 0) return false;
   let prior = -1;
@@ -66,6 +67,10 @@ export function validateTenantCompletionResult(
   }
   if (!isObject(plan.limits) || Object.keys(plan.limits).length !== LIMIT_KEYS.size || Object.keys(plan.limits).some((key) => !LIMIT_KEYS.has(key))) return false;
   if (Object.values(plan.limits).some((limit) => !Number.isSafeInteger(limit) || Number(limit) < 0)) return false;
+  if(plan.version===2){
+    const tariff=getCommercialPackage({planId:String(plan.planId),planCode:'free_starter',version:2});
+    if(!tariff||JSON.stringify(plan.features)!==JSON.stringify(tariff.features)||Object.entries(tariff.limits).some(([key,limit])=>(plan.limits as Record<string,unknown>)[key]!==limit))return false;
+  }
   const mediaStorage = value.mediaStorage;
   if (!exactKeys(mediaStorage, ["schemaVersion", "status", "version"])) return false;
   if (mediaStorage.schemaVersion !== 1 || mediaStorage.status !== "ready" || !Number.isSafeInteger(mediaStorage.version) || Number(mediaStorage.version) < 1) return false;

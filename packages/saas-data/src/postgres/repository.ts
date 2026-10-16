@@ -159,7 +159,14 @@ class PostgresTransaction implements SaaSDataTransaction {
         [value.id, value.principalId, value.storeId, value.role, value.status, value.createdAt, value.updatedAt], membershipRow,
       ), "after_membership_create"),
     };
-    this.plans = { findByCodeVersion: async (code: string, version: number) => this.loadPlan(code, version) };
+    this.plans = {
+      findByCodeVersion: async (code: string, version: number) => this.loadPlan(code, version),
+      findDefaultStarter: async () => {
+        const response=await this.query('SELECT saas.commercial_default_starter_version() AS version');
+        if(response.rows.length!==1||Object.keys(response.rows[0]!).join()!=='version'||![1,2,'1','2'].includes(response.rows[0]!.version as string|number))throw new SaaSDataCorruptionError();
+        return this.loadPlan('free_starter',Number(response.rows[0]!.version));
+      },
+    };
     this.subscriptions = {
       findActiveByStoreId: async (storeId: string) => this.optional(
         `SELECT id, store_id, plan_id, plan_code, plan_version, status, valid_from, valid_until, created_at, updated_at

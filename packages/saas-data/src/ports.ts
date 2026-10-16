@@ -41,6 +41,7 @@ export interface MembershipRepositoryPort {
 
 export interface PlanRepositoryPort {
   findByCodeVersion(code: string, version: number): Promise<PlanRecord | null>;
+  findDefaultStarter(): Promise<PlanRecord | null>;
 }
 
 export interface SubscriptionRepositoryPort {

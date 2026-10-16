@@ -11,6 +11,8 @@ export interface PlatformHttpDependencies {
 const headers={'Cache-Control':'no-store'};
 function json(body:unknown,status=200){return Response.json(body,{status,headers});}
 function publicError(error:unknown){if(error instanceof BodyTooLarge)return json({error:'İşlem içeriği çok büyük.'},413);const r=error as {code?:string;message?:string};const code=r?.code??r?.message;
+ if(code==='subscription_expired')return json({error:'Abonelik süresi dolmuş. Önce aboneliğin yenilenmesini tamamlayın.',code},422);
+ if(code==='commercial_assignment_disabled')return json({error:'Yeni paketler hazırlanıyor. Yayın tamamlandıktan sonra yeniden kontrol edin.',code},422);
  if(code==='operator_denied')return json({error:'Platform erişimi yok.',code},403);
  if(['version_conflict','operation_mismatch'].includes(code??''))return json({error:'Kayıt başka bir oturumda değişti. Güncel kaydı kontrol edin; girdileriniz korunuyor.',code},409);
  if(code==='operation_busy')return json({error:'Bu işlem şu anda çalışıyor. Durumunu kontrol edip aynı işlemden yeniden deneyin.',code},409);

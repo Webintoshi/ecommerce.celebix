@@ -21,4 +21,5 @@ export interface PanelClientChromeModel extends PanelPublicChromeModel {
   readonly staffManagementAvailable?: boolean;
   readonly activeStoreSelectionKey?: string;
   readonly storeOptions?: readonly PanelClientStoreOption[];
+  readonly lockedNavigationHrefs?: readonly string[];
 }

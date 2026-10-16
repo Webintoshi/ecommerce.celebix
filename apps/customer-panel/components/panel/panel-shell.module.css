@@ -1383,3 +1383,6 @@
 .footerSecurity { display: flex; grid-column: 1 / -1; align-items: center; gap: 8px; min-height: 44px; padding: 8px; border-radius: 8px; color: var(--cp-text-inverse); font-size: 13px; }
 .footerSecurity:hover { background: var(--cp-graphite); }
 .footerSecurity:focus-visible { outline: 2px solid var(--cp-text-inverse); outline-offset: 2px; }
+
+.navigationLock { display: inline-flex; align-items: center; flex-shrink: 0; margin-left: auto; opacity: .7; }
+.navigationLock svg { width: 12px; height: 12px; }

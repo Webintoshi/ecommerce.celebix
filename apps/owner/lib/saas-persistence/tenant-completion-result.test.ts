@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { CreateStarterTenantInput, CreateStarterTenantResult } from "@celebix/saas-contracts";
+import {COMMERCIAL_PACKAGES,PLAN_FEATURE_KEYS} from '@celebix/saas-contracts';
 
 import { validateTenantCompletionResult } from "./tenant-completion-result.ts";
 
@@ -76,6 +77,15 @@ const authorities = {
   panelOrigin: "https://panel.saas-staging.celebix.site",
   platformDomainSuffix: "saas-staging.celebix.site",
 };
+
+test('new Free v2 result is exact while a prior Free v1 completion remains replayable',()=>{
+ const free=COMMERCIAL_PACKAGES[0]!;
+ const next={...result,plan:{...result.plan,planId:free.id,version:free.version,features:PLAN_FEATURE_KEYS.filter(key=>free.features.includes(key)),limits:{...free.limits}}};
+ assert.equal(validateTenantCompletionResult(next,input,authorities),true);
+ assert.equal(validateTenantCompletionResult(result,input,authorities),true);
+ assert.equal(validateTenantCompletionResult({...next,plan:{...next.plan,planId:result.plan.planId}},input,authorities),false);
+ assert.equal(validateTenantCompletionResult({...next,plan:{...next.plan,limits:{...next.plan.limits,monthlyOrders:100}}},input,authorities),false);
+});
 
 test("tenant completion accepts only the exact safe persisted media readiness proof", () => {
   assert.equal(validateTenantCompletionResult(result, input, authorities), true);

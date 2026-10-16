@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 
 import { CommerceAnalyticsWorkspace } from "@/components/analytics/CommerceAnalyticsWorkspace";
 import { requireServerPanelAccess } from "@/lib/server-access";
+import { hasCommercialCapability } from "@celebix/saas-contracts";
+import { commercialAnalyticsDecision } from "@/lib/commercial-packages/route-model";
 
 const TABS = new Set([
   "overview",
@@ -28,6 +30,8 @@ export default async function AnalyticsPage({
   const rawRange = typeof query?.range === "string" ? query.range : "30d";
   const tab = (TABS.has(rawTab) ? rawTab : "overview") as
     "overview" | "funnel" | "carts" | "acquisition" | "products";
+  const feature = commercialAnalyticsDecision(tenantContext, tab);
+  if (feature.kind !== "allowed") redirect(`/upgrade?feature=${feature.capability}`);
   const customFrom =
     typeof query?.from === "string" && /^\d{4}-\d{2}-\d{2}$/.test(query.from)
       ? query.from
@@ -51,6 +55,7 @@ export default async function AnalyticsPage({
       customFrom={customFrom}
       customTo={customTo}
       initialTimezone={initialTimezone}
+      advancedAnalyticsAvailable={hasCommercialCapability(tenantContext.entitlements, "advanced_analytics")}
     />
   );
 }

@@ -64,7 +64,11 @@ test("provider-gated and legacy-rejected rows retain truthful canonical targets"
 
 const ROOT = new URL("../../../../", import.meta.url);
 const targetPage = (targetPath: string) => new URL(
-  targetPath === "/" ? "apps/customer-panel/app/(panel)/page.tsx" : `apps/customer-panel/app${targetPath.split("?",1)[0]}/page.tsx`,
+  targetPath === "/login" || targetPath.endsWith("/print")
+    ? `apps/customer-panel/app${targetPath}/page.tsx`
+    : targetPath === "/"
+      ? "apps/customer-panel/app/(panel)/page.tsx"
+      : `apps/customer-panel/app/(panel)${targetPath.split("?", 1)[0]}/page.tsx`,
   ROOT,
 );
 

@@ -7,6 +7,7 @@ test('server page access redirects cashiers away from ecommerce before returning
   const context={membership:{role}};
   const {requireServerPanelAccess}=compile<any>(new URL('../../lib/server-access.ts',import.meta.url),{
    'server-only':{},
+   './commercial-packages/route-model.ts':{commercialRouteDecision:()=>({kind:'allowed'})},
    'next/headers':{headers:async()=>new Headers(pathname?{'x-celebix-panel-pathname':pathname}:{})},
    'next/navigation':{redirect:(destination:string)=>{throw new Error(`redirect:${destination}`);}},
    '@/lib/server-session':{resolveServerPanelSession:async()=>({})},

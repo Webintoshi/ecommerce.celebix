@@ -1,4 +1,4 @@
-import type { PlanFeatureKey } from "@celebix/saas-contracts";
+import {COMMERCIAL_PACKAGES} from '@celebix/saas-contracts';
 
 import { SaaSDataUniqueConflict } from "../errors.ts";
 import type { SaaSDataRepository, SaaSDataTransaction } from "../ports.ts";
@@ -19,27 +19,17 @@ import type {
   TenantOperationRecord,
 } from "../types.ts";
 
-const FREE_STARTER_FEATURES = [
-  "catalog",
-  "orders",
-  "customers",
-  "content",
-  "media",
-  "analytics",
-  "checkout",
-] as const satisfies readonly PlanFeatureKey[];
-
 const DEFAULT_PLAN: PlanRecord = {
-  id: "plan_free_starter_v1",
+  id: COMMERCIAL_PACKAGES[0]!.id,
   code: "free_starter",
-  version: 1,
+  version: 2,
   status: "active",
-  features: FREE_STARTER_FEATURES,
+  features: COMMERCIAL_PACKAGES[0]!.features,
   limits: {
     products: 100,
     staff: 1,
     storageBytes: 1_000_000_000,
-    monthlyOrders: 100,
+    monthlyOrders: 50,
     customDomains: 0,
   },
   validFrom: "2026-01-01T00:00:00.000Z",
@@ -231,6 +221,10 @@ class InMemoryTransaction implements SaaSDataTransaction {
     };
 
     this.plans = {
+      findDefaultStarter: async () => {
+        ensureActive();
+        return this.state.plans.find(record=>record.code==='free_starter'&&record.version===2)??null;
+      },
       findByCodeVersion: async (code: string, version: number) => {
         ensureActive();
         return this.state.plans.find((record) => record.code === code && record.version === version) ?? null;

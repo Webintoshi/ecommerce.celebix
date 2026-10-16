@@ -62,11 +62,12 @@ import {
   ChevronDown,
   Gauge,
   createLucideIcon,
+  LockKeyhole,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type KeyboardEvent } from "react";
 import {
   isPanelNavigationPathActive,
   isPanelNavigationPathExact,
@@ -76,6 +77,12 @@ import {
   type PanelNavigationItem,
 } from "@/lib/panel-ui/navigation";
 import styles from "./panel-shell.module.css";
+
+const CommercialLocks = createContext<readonly string[]>([]);
+function NavigationLock({ href }: { href: string }) {
+  const locked = useContext(CommercialLocks).includes(href);
+  return locked ? <span className={styles.navigationLock} title="Paket seçeneklerini inceleyin"><LockKeyhole size={12} aria-hidden="true" /><span className="sr-only">Paket seçeneklerini inceleyin</span></span> : null;
+}
 
 const PrizeWheel = createLucideIcon("PrizeWheel", [
   ["path", { d: "M10 1h4l-2 3Z", key: "pointer" }],
@@ -233,6 +240,7 @@ function NavigationLink({
         <span className={styles.navigationLabel}>{label}</span>
         {context ? <small className={styles.navigationContext}>{context}</small> : null}
       </span>
+      <NavigationLock href={item.href} />
     </Link>
   );
 }
@@ -275,6 +283,7 @@ function NavigationEntry({
             <Icon aria-hidden="true" />
           </span>
           <span className={styles.navigationLabel}>{label}</span>
+          <NavigationLock href={item.href} />
         </Link>
         <button
           type="button"
@@ -301,11 +310,13 @@ export function PanelNavigation({
   analyticsAvailable = false,
   navigationMode,
   staffManagementAvailable = false,
+  lockedNavigationHrefs = [],
 }: {
   mode: "desktop" | "drawer";
   analyticsAvailable?: boolean;
   navigationMode?: "register";
   staffManagementAvailable?: boolean;
+  lockedNavigationHrefs?: readonly string[];
 }) {
   const pathname = usePathname() ?? "";
   const navigation = getPanelNavigation({ analyticsAvailable, navigationMode }).filter(({ key }) => key !== "setup").map((item) => ({
@@ -367,7 +378,7 @@ export function PanelNavigation({
   }
 
   return (
-    <div className={styles.navigationShell}>
+    <CommercialLocks.Provider value={lockedNavigationHrefs}><div className={styles.navigationShell}>
       <div className={styles.navigationSearch}>
         <Search aria-hidden="true" />
         <input
@@ -412,6 +423,6 @@ export function PanelNavigation({
           );
         })}
       </nav>
-    </div>
+    </div></CommercialLocks.Provider>
   );
 }

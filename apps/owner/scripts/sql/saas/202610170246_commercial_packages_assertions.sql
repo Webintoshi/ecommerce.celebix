@@ -1,0 +1,32 @@
+-- Portable read-only native246 schema, seed, ACL and preactivation checks.
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DO $commercial246_guard$
+DECLARE e record;actual_features text[];expected_features text[];actual_caps text[];expected_caps text[];r record;
+BEGIN
+ IF to_regclass('saas.commercial_package_release_state') IS NULL OR (SELECT count(*) FROM saas.commercial_package_release_state)<>1 OR (SELECT assignments_enabled FROM saas.commercial_package_release_state WHERE singleton) IS DISTINCT FROM false OR saas.commercial_default_starter_version()<>1 THEN RAISE EXCEPTION 'COMMERCIAL246_RELEASE_NOT_DISABLED';END IF;
+ IF (SELECT count(*)FROM saas.commercial_plan_policies)<>4 THEN RAISE EXCEPTION 'COMMERCIAL246_POLICY_COUNT';END IF;
+ FOR e IN SELECT * FROM(VALUES
+ ('00000000-0000-4000-8000-000000000003'::uuid,'free_starter',2,0::bigint,0::bigint,100::bigint,1::bigint,1000000000::bigint,50::bigint,0::bigint,500::bigint,ARRAY[]::text[]),
+ ('00000000-0000-4000-8000-000000000004'::uuid,'starter',1,199000,1990000,1000,2,5000000000,1000,4,5000,ARRAY['manual_orders','coupons','custom_domains','staff_management','google_connections','google_merchant','seo_tools','ai']),
+ ('00000000-0000-4000-8000-000000000005'::uuid,'growth',1,349000,3490000,5000,5,20000000000,5000,4,25000,ARRAY['manual_orders','coupons','custom_domains','staff_management','google_connections','google_merchant','seo_tools','ai','growth_tools','email_marketing','advanced_analytics']),
+ ('00000000-0000-4000-8000-000000000006'::uuid,'professional',1,599000,5990000,10000,15,50000000000,20000,4,50000,ARRAY['manual_orders','coupons','custom_domains','staff_management','google_connections','google_merchant','seo_tools','ai','growth_tools','email_marketing','advanced_analytics','cashier','accounting','reference_pricing'])
+ )spec(id,code,version,monthly,annual,products,staff,storage,orders,domains,variants,caps) LOOP
+  IF NOT EXISTS(SELECT 1 FROM saas.plans p JOIN saas.platform_plan_prices prices ON prices.plan_id=p.id JOIN saas.commercial_plan_policies policy ON policy.plan_id=p.id WHERE p.id=e.id AND p.plan_code=e.code AND p.version=e.version AND p.status='active' AND prices.monthly_price_cents=e.monthly AND prices.yearly_price_cents=e.annual AND policy.variant_limit=e.variants AND policy.seats_include_owner) THEN RAISE EXCEPTION 'COMMERCIAL246_PLAN_DRIFT:%',e.code;END IF;
+  IF (SELECT jsonb_object_agg(limit_key,effective_limit)FROM saas.plan_limits WHERE plan_id=e.id) IS DISTINCT FROM jsonb_build_object('products',e.products,'staff',e.staff,'storageBytes',e.storage,'monthlyOrders',e.orders,'customDomains',e.domains) THEN RAISE EXCEPTION 'COMMERCIAL246_LIMIT_DRIFT:%',e.code;END IF;
+  SELECT array_agg(feature_key ORDER BY feature_ordinal)INTO actual_features FROM saas.plan_features WHERE plan_id=e.id AND enabled;
+  expected_features:=CASE WHEN e.code='free_starter' THEN ARRAY['catalog','orders','customers','content','media','analytics','checkout','integrations'] WHEN e.code='professional' THEN ARRAY['catalog','orders','customers','content','media','analytics','checkout','custom_domains','staff_management','promotions','integrations','accounting','marketplaces'] ELSE ARRAY['catalog','orders','customers','content','media','analytics','checkout','custom_domains','staff_management','promotions','integrations','marketplaces'] END;
+  IF actual_features IS DISTINCT FROM expected_features OR (SELECT count(*)FROM saas.plan_features WHERE plan_id=e.id)<>13 THEN RAISE EXCEPTION 'COMMERCIAL246_FEATURE_DRIFT:%',e.code;END IF;
+  SELECT ARRAY(SELECT unnest(capabilities)ORDER BY 1)INTO actual_caps FROM saas.commercial_plan_policies WHERE plan_id=e.id;SELECT ARRAY(SELECT unnest(e.caps)ORDER BY 1)INTO expected_caps;
+  IF actual_caps IS DISTINCT FROM expected_caps THEN RAISE EXCEPTION 'COMMERCIAL246_CAPABILITY_DRIFT:%',e.code;END IF;
+ END LOOP;
+ IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='saas.commercial_plan_policies'::regclass AND tgname='commercial_policy_immutable' AND tgenabled='O') OR NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='saas.commercial_upgrade_requests'::regclass AND tgname='commercial_requests_immutable' AND tgenabled='O') THEN RAISE EXCEPTION 'COMMERCIAL246_IMMUTABILITY';END IF;
+ FOR r IN SELECT * FROM saas.commercial246_original_functions LOOP
+  IF to_regprocedure(r.signature) IS NULL OR encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(r.signature)),'UTF8')),'hex')<>r.published_sha256 OR NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=r.function_oid AND oid=to_regprocedure(r.signature) AND proowner=r.function_owner AND proacl IS NOT DISTINCT FROM r.function_acl AND proconfig IS NOT DISTINCT FROM r.function_config) THEN RAISE EXCEPTION 'COMMERCIAL246_FUNCTION_WITNESS:%',r.signature;END IF;
+ END LOOP;
+ IF (SELECT count(*) FROM saas.commercial246_original_functions)<>54 THEN RAISE EXCEPTION 'COMMERCIAL246_FUNCTION_COUNT';END IF;
+ IF EXISTS(SELECT 1 FROM pg_class WHERE relnamespace='saas'::regnamespace AND relname IN('commercial246_original_functions','commercial_plan_policies','commercial_upgrade_requests','commercial_order_reservations','commercial_package_release_state') AND(NOT relrowsecurity OR NOT relforcerowsecurity OR has_table_privilege('celebix_saas_app',oid,'SELECT,INSERT,UPDATE,DELETE') OR has_table_privilege('celebix_saas_platform_operator',oid,'SELECT,INSERT,UPDATE,DELETE'))) THEN RAISE EXCEPTION 'COMMERCIAL246_TABLE_ACL';END IF;
+ IF has_function_privilege('public','saas.commercial_plan_read(uuid,uuid,uuid,uuid,text,bigint,timestamptz)','EXECUTE') OR NOT has_function_privilege('celebix_saas_app','saas.commercial_plan_read(uuid,uuid,uuid,uuid,text,bigint,timestamptz)','EXECUTE') OR NOT has_function_privilege('celebix_saas_app','saas.commercial_upgrade_request(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text)','EXECUTE') OR NOT has_function_privilege('celebix_saas_bootstrap','saas.commercial_default_starter_version()','EXECUTE') OR has_function_privilege('celebix_saas_app','saas.commercial_reserve_order(uuid,text,uuid,timestamptz,boolean)','EXECUTE') THEN RAISE EXCEPTION 'COMMERCIAL246_RPC_ACL';END IF;
+ IF EXISTS(SELECT 1 FROM saas.subscriptions WHERE plan_id IN(SELECT plan_id FROM saas.commercial_plan_policies)) OR EXISTS(SELECT 1 FROM saas.commercial_upgrade_requests) OR EXISTS(SELECT 1 FROM saas.commercial_order_reservations) THEN RAISE EXCEPTION 'COMMERCIAL246_PREACTIVATION_HISTORY';END IF;
+END $commercial246_guard$;
+ROLLBACK;

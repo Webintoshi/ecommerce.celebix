@@ -59,7 +59,7 @@ function SaleArtwork({ completed = false }: { completed?: boolean }) {
   </svg>;
 }
 
-export function InStoreSalesConsole(){
+export function InStoreSalesConsole({accountingAvailable=true,cashierAvailable=true}:Readonly<{accountingAvailable?:boolean;cashierAvailable?:boolean}>={}){
   const [controller]=useState(()=>new InStoreRegisterController(inStoreSalesUi,()=>window.localStorage));
   const state=useSyncExternalStore(controller.subscribe,controller.getSnapshot,controller.getSnapshot);
   const [query,setQuery]=useState(""),[results,setResults]=useState<readonly InStoreProduct[]>([]),[searchBusy,setSearchBusy]=useState(false),[searchError,setSearchError]=useState<string|null>(null),[selected,setSelected]=useState(-1);
@@ -80,7 +80,8 @@ export function InStoreSalesConsole(){
   function updateQuery(value:string){queryRef.current=value;setQuery(value);}
   const resultsId=useId(),dialogTitleId=useId();const editable=controller.isEditable();
   const payment=state.sale?.status==="payment_pending",received=state.sale?.status==="payment_received",completed=state.sale?.status==="completed",cancelled=state.sale?.status==="cancelled",terminal=completed||cancelled;
-  const unknown=Boolean(state.recovery&&!state.busy),blocked=Boolean(state.busy),permissions=state.bootstrap?.permissions;
+  const unknown=Boolean(state.recovery&&!state.busy),blocked=Boolean(state.busy),serverPermissions=state.bootstrap?.permissions;
+  const permissions=serverPermissions?{...serverPermissions,canManageStaff:serverPermissions.canManageStaff&&cashierAvailable,canSellOnCredit:serverPermissions.canSellOnCredit&&(accountingAvailable||payment||received||unknown),canCollectReceivables:serverPermissions.canCollectReceivables&&accountingAvailable}:undefined;
   const saleSwitchLocked=unknown||Boolean(state.sale&&["payment_pending","payment_received"].includes(state.sale.status));
   const totalPreview=useMemo(()=>previewWithPermission(state.cart,state.discount,permissions?.discountLimitBps??0),[state.cart,state.discount,permissions?.discountLimitBps]);
   const totals=state.sale&&["payment_pending","payment_received","completed"].includes(state.sale.status)?state.sale.totals:totalPreview.totals?{...totalPreview.totals,totalCents:totalPreview.totals.totalCents+state.shippingCents}:null;

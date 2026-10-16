@@ -176,6 +176,7 @@
     "/settings/payment",
     "/settings/payment/[recordId]/edit",
     "/settings/payment/new",
+    "/settings/plan",
     "/settings/pricing",
     "/settings/promotion-banner",
     "/settings/security",
@@ -186,7 +187,8 @@
     "/support",
     "/support/ended",
     "/toshi",
-    "/unauthorized"
+    "/unauthorized",
+    "/upgrade"
   ],
   "handlers": [
     "/api/[...path]",
@@ -434,6 +436,7 @@
     "/api/payment-providers/iyzico/sandbox-activation/activate",
     "/api/payment-providers/iyzico/sandbox-activation/begin",
     "/api/payment-providers/iyzico/sandbox-activation/current",
+    "/api/plan",
     "/api/platform-invitations/bootstrap",
     "/api/platform-invitations/start",
     "/api/pricing/[...path]",

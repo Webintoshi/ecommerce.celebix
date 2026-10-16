@@ -1,4 +1,4 @@
-import { PLAN_FEATURE_KEYS, PLAN_LIMIT_KEYS } from "@celebix/saas-contracts";
+import { getCommercialPackage, PLAN_FEATURE_KEYS, PLAN_LIMIT_KEYS } from "@celebix/saas-contracts";
 import { moneyToCents, nonnegativeInteger } from "./command";
 import type { CommandSpec, Draft, Field, Membership, Period, Plan, Receipt, Store, SupportSession } from "./types";
 
@@ -29,7 +29,7 @@ export function publishPlanCommand(plans: Plan[], base?: Plan): CommandSpec {
 }
 
 export function assignPlanCommand(store: Store, plans: Plan[]): CommandSpec {
-  return { title: "Paket ata", description: "Kullanım sınırları ve bekleyen POS işlemleri sunucuda kontrol edilir. Ticari vade teknik abonelik süresini değiştirmez.", endpoint: "/api/platform/subscriptions", action: "subscription.assign", resourceId: store.id, expectedVersion: store.version, initial: { planId: store.subscription?.planId || "" }, fields: [{ ...required("planId", "Paket sürümü", "select"), options: plans.filter(plan => plan.status === "active" || plan.status === "published").map(plan => ({ value: plan.id, label: `${plan.code} · v${plan.version}` })) }], payload: draft => ({ storeId: store.id, planId: text(draft, "planId") }) };
+  return { title: "Paket ata", description: "Kullanım sınırları ve bekleyen POS işlemleri sunucuda kontrol edilir. Ticari vade teknik abonelik süresini değiştirmez.", endpoint: "/api/platform/subscriptions", action: "subscription.assign", resourceId: store.id, expectedVersion: store.version, initial: { planId: store.subscription?.planId || "" }, fields: [{ ...required("planId", "Paket sürümü", "select"), options: plans.filter(plan => plan.status === "active" || plan.status === "published").map(plan => ({ value: plan.id, label: `${getCommercialPackage({planId:plan.id,planCode:plan.code,version:plan.version})?.name??plan.code} · v${plan.version}` })) }], payload: draft => ({ storeId: store.id, planId: text(draft, "planId") }) };
 }
 
 export function periodCommand(store: Store): CommandSpec {

@@ -62,6 +62,22 @@ function repository(
   });
 }
 
+test('bootstrap chooses the native release-controlled default and rejects fabricated selector output',async()=>{
+ for(const version of [1,2,'1','2',true,'02',3]){
+  class SelectorClient extends FakeClient{
+   override async query(text:string,values:readonly unknown[]=[]):Promise<QueryResult<Record<string,unknown>>>{
+    this.calls.push({text,values});const rows=text.includes('commercial_default_starter_version')?[{version}]:[];return{command:'SELECT',rowCount:rows.length,oid:0,fields:[],rows};
+   }
+  }
+  const client=new SelectorClient(),transaction=await repository(client).beginTransaction();
+  if([1,2,'1','2'].includes(version as number|string)){
+   assert.equal(await transaction.plans.findDefaultStarter(),null);
+   assert.deepEqual(client.calls.find(call=>call.text.includes('FROM saas.plans'))?.values,['free_starter',Number(version)]);
+  }else await assert.rejects(()=>transaction.plans.findDefaultStarter(),SaaSDataCorruptionError);
+  await transaction.rollback();
+ }
+});
+
 test("beginTransaction binds one client, READ COMMITTED, local timeouts, then exact bootstrap role", async () => {
   const client = new FakeClient();
   const transaction = await repository(client).beginTransaction();

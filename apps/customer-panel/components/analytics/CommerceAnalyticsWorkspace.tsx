@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CalendarDays, ChevronDown, CircleAlert, GitCompareArrows, Route, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, CircleAlert, GitCompareArrows, LockKeyhole, Route, SlidersHorizontal } from "lucide-react";
 import {
   useRouter,
   useSearchParams,
@@ -974,6 +974,7 @@ export function CommerceAnalyticsWorkspace({
   customFrom,
   customTo,
   initialTimezone,
+  advancedAnalyticsAvailable = true,
 }: Readonly<{
   tab: Tab;
   range: Range;
@@ -981,6 +982,7 @@ export function CommerceAnalyticsWorkspace({
   customFrom?: string;
   customTo?: string;
   initialTimezone?: string;
+  advancedAnalyticsAvailable?: boolean;
 }>) {
   const router = useRouter(),
     searchParams = useSearchParams(),
@@ -1107,7 +1109,7 @@ export function CommerceAnalyticsWorkspace({
       [data?.comparisonTraffic],
     );
   const href = (patch: Record<string, string | null>) => analyticsQueryHref(serialized, patch);
-  const tabHref = (next: Tab) => analyticsTabHref(serialized, next);
+  const tabHref = (next: Tab) => next !== "overview" && !advancedAnalyticsAvailable ? "/upgrade?feature=advanced_analytics" : analyticsTabHref(serialized, next);
   const onTabKeyDown = (event: KeyboardEvent<HTMLAnchorElement>, index: number) => {
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
@@ -1187,6 +1189,7 @@ export function CommerceAnalyticsWorkspace({
                 onKeyDown={(event) => onTabKeyDown(event, index)}
               >
                 {label}
+                {value !== "overview" && !advancedAnalyticsAvailable ? <><LockKeyhole size={12} aria-hidden="true" /><span className="sr-only">Paket seçeneklerini inceleyin</span></> : null}
               </Link>
             ))}
           </nav>

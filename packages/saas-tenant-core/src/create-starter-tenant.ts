@@ -406,7 +406,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       const membership = await transaction.memberships.create(membershipRecord);
 
       stage = "plan_lookup";
-      const plan = await transaction.plans.findByCodeVersion("free_starter", 1);
+      const plan = await transaction.plans.findDefaultStarter();
       if (!plan || plan.status !== "active") {
         throw new TenantCoreFailure("tenant_transaction_failed", undefined, true);
       }

@@ -6,6 +6,7 @@ import { resolvePanelAnalyticsAvailability } from "@/lib/server-analytics/availa
 import { resolveDefaultPanelStoreOptions } from "@/lib/panel-store-options/default";
 import { resolveDefaultPanelStoreBranding } from "@/lib/server-panel-branding/default";
 import { PanelLayoutClient } from "./PanelLayoutClient";
+import { commercialNavigationLocks } from "@/lib/commercial-packages/route-model";
 
 const SERVER_CONTEXT_PROP = "tenant\u0043ontext" as const;
 
@@ -32,6 +33,7 @@ export async function PanelShell(props: PanelShellProps) {
     ...entitledModel,
     analyticsAvailable,
     staffManagementAvailable: Boolean(context && context.membership.role === 'store_owner' && !props.support),
+    ...(context?.entitlements ? { lockedNavigationHrefs: commercialNavigationLocks(context) } : {}),
     ...(context ? {
       storeDisplayName: activeStoreName ?? branding?.storeDisplayName ?? entitledModel.storeSlug,
       storeLogoUrl: branding?.storeLogoUrl ?? null,

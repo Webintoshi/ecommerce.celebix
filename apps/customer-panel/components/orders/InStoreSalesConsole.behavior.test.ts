@@ -25,7 +25,7 @@ function fixture(status:InStoreSale["status"]="draft"){
   } as unknown as MutableClient;
   return api;
 }
-async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<void>,status:InStoreSale["status"]="draft",customize?:(api:MutableClient)=>Promise<void>|void){
+async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<void>,status:InStoreSale["status"]="draft",customize?:(api:MutableClient)=>Promise<void>|void,properties:Record<string,unknown>={}){
   const api=fixture(status);await customize?.(api);
   const browser=new Window({url:"https://panel.example.test/orders/quick-links"});
   const globals=new Map<string,PropertyDescriptor|undefined>();
@@ -54,9 +54,9 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
     if(name==="./in-store-sales.module.css")return {__esModule:true,default:new Proxy({},{get:(_target,key)=>String(key)})};
     throw new Error(`unexpected_import:${name}`);
   },compiled,compiled.exports);
-  const Component=compiled.exports.InStoreSalesConsole as React.ComponentType;
+  const Component=compiled.exports.InStoreSalesConsole as React.ComponentType<Record<string,unknown>>;
   const container=browser.document.createElement("main");browser.document.body.append(container);const root=createRoot(container as unknown as HTMLElement);
-  try{await act(async()=>{root.render(createElement(Component));await new Promise(r=>setTimeout(r,20));});await act(async()=>{await new Promise(r=>setTimeout(r,20));});await verify(container as unknown as HTMLElement,browser);}
+  try{await act(async()=>{root.render(createElement(Component,properties));await new Promise(r=>setTimeout(r,20));});await act(async()=>{await new Promise(r=>setTimeout(r,20));});await verify(container as unknown as HTMLElement,browser);}
   finally{await act(async()=>root.unmount());for(const[key,descriptor]of globals)descriptor?Object.defineProperty(globalThis,key,descriptor):Reflect.deleteProperty(globalThis,key);await browser.happyDOM.close();}
 }
 const button=(container:HTMLElement,label:string)=>Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(x=>(x.textContent?.trim()===label||x.getAttribute("aria-label")===label))!;
@@ -527,4 +527,8 @@ test("late manual sales list responses cannot replace another open list",async()
   source=await api.getSale(ID);
   api.listSales=async input=>input.status==="held"?new Promise(resolve=>{resolveHeld=resolve;}):new Promise(resolve=>{resolveRecent=resolve;});
  });
+});
+
+test('commercial manual sales keep channel and delivery while new debt and cashier grants require their capabilities',async()=>{
+ await mounted(async(container)=>{assert.ok(button(container,'Satış kanalı'));assert.ok(button(container,'Teslimat türü'));assert.equal(Boolean(container.querySelector('button[aria-label="Satış yetkileri"]')),false);await act(async()=>button(container,'Ödeme parçaları').click());const dialog=container.querySelector<HTMLDialogElement>('dialog')!;assert.equal(button(dialog,'Veresiye').disabled,true);assert.ok(button(dialog,'Parça ekle'));},'draft',async(api)=>{await v4Api(api);const bootstrap=await api.bootstrap();api.bootstrap=async()=>({...bootstrap,permissions:{...bootstrap.permissions,canManageStaff:true}});},{accountingAvailable:false,cashierAvailable:false});
 });

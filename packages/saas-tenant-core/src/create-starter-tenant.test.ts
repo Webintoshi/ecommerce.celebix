@@ -115,7 +115,9 @@ test("successfully bootstraps an atomic free starter tenant", async () => {
   assert.equal(result.membership.role, "store_owner");
   assert.equal(result.membership.status, "active");
   assert.equal(result.plan.planCode, "free_starter");
-  assert.equal(result.plan.version, 1);
+  assert.equal(result.plan.version, 2);
+  assert.equal(result.plan.limits.monthlyOrders, 50);
+  assert.ok(result.plan.features.includes('integrations'));
   assert.deepEqual(result.mediaStorage, { schemaVersion: 1, status: "ready", version: 1 });
   assert.equal(result.provisioningStatus, "ready");
   assert.equal(state.principals.length, 1);
