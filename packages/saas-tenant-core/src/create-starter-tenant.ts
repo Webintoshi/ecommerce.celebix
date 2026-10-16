@@ -119,7 +119,13 @@ function validateInput(value: unknown): CreateStarterTenantInput | CreatePhoneSt
     throw new TenantCoreFailure("invalid_input", "idempotencyKey");
   }
   if (isRecord(value.principal) && value.principal.kind === "whatsapp") {
-    if (!hasOnlyKeys(value.principal, ["kind", "proof"])) throw new TenantCoreFailure("invalid_input", "principal");
+    if (!hasOnlyKeys(value.principal, ["kind", "proof", "profile"])) throw new TenantCoreFailure("invalid_input", "principal");
+    if (Object.hasOwn(value.principal, "profile")) {
+      const profile = value.principal.profile;
+      if (!isRecord(profile) || !hasOnlyKeys(profile, ["firstName", "lastName"]) ||
+        ![profile.firstName, profile.lastName].every(name => typeof name === "string" && name === name.trim() && name.length >= 1 && name.length <= 100 && !/[\u0000-\u001f\u007f]/u.test(name)))
+        throw new TenantCoreFailure("invalid_input", "principal.profile");
+    }
     try { parseMerchantWhatsAppCommand({ action: "read", input: value.principal.proof }); }
     catch { throw new TenantCoreFailure("identity_unverified", "principal.proof"); }
   } else {
@@ -308,7 +314,7 @@ class DefaultCreateStarterTenantService implements CreateStarterTenantService {
       let principal:import('@celebix/saas-data').PrincipalRecord|import('@celebix/saas-contracts').MerchantPhonePrincipalRecord;
       if ('kind' in input.principal) {
         if(!transaction.principals.authorizePhoneSignup)throw new TenantCoreFailure('identity_unverified','principal.proof');
-        principal=await transaction.principals.authorizePhoneSignup({proof:input.principal.proof,operationId,storeId:phoneStoreId!});
+        principal=await transaction.principals.authorizePhoneSignup({proof:input.principal.proof,operationId,storeId:phoneStoreId!,...(input.principal.profile ? {profile:input.principal.profile} : {})});
       } else {
         let oidcPrincipal = await transaction.principals.findByIdentity(input.principal.issuer, input.principal.subject);
         if (oidcPrincipal && oidcPrincipal.email.trim().toLowerCase() !== input.principal.email.trim().toLowerCase()) {

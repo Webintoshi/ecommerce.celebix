@@ -14,7 +14,7 @@ import type {
 } from "./types.ts";
 
 export interface PrincipalRepositoryPort {
-  authorizePhoneSignup?(input:{proof:import('@celebix/saas-contracts').MerchantWhatsAppBinding;operationId:string;storeId:string}):Promise<PrincipalRecord|import('@celebix/saas-contracts').MerchantPhonePrincipalRecord>;
+  authorizePhoneSignup?(input:{proof:import('@celebix/saas-contracts').MerchantWhatsAppBinding;operationId:string;storeId:string;profile?:Readonly<{firstName:string;lastName:string}>}):Promise<PrincipalRecord|import('@celebix/saas-contracts').MerchantPhonePrincipalRecord>;
   findByIdentity(issuer: string, subject: string): Promise<PrincipalRecord | null>;
   create(record: PrincipalRecord): Promise<PrincipalRecord>;
   updateVerifiedEmail(principalId: string, verifiedEmail: string, updatedAt: string): Promise<PrincipalRecord>;

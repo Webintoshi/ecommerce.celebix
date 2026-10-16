@@ -22,7 +22,7 @@ export type MerchantWhatsAppOutcome='prepared'|'pending'|'accepted'|'failed'|'am
 export type MerchantWhatsAppAuthority=Readonly<Record<string,unknown>>;
 export type MerchantWhatsAppResult=Readonly<{outcome:MerchantWhatsAppOutcome;authority:MerchantWhatsAppAuthority|null}>;
 
-export type CreatePhoneStarterTenantInput=Omit<import('../types.ts').CreateStarterTenantInput,'principal'>&Readonly<{principal:Readonly<{kind:'whatsapp';proof:MerchantWhatsAppBinding}>}>;
+export type CreatePhoneStarterTenantInput=Omit<import('../types.ts').CreateStarterTenantInput,'principal'>&Readonly<{principal:Readonly<{kind:'whatsapp';proof:MerchantWhatsAppBinding;profile?:Readonly<{firstName:string;lastName:string}>}>}>;
 export type MerchantPhonePrincipalRecord=Readonly<{id:import('../types.ts').PrincipalId;issuer:string;subject:string;authorityKind:'phone';email:null;emailVerified:false;createdAt:string;updatedAt:string}>;
 
 export type MerchantStaffAuthority=Readonly<{version:number;staff:readonly Readonly<{staffId:string;displayName:string;role:MerchantStaffRole;enabled:boolean;version:number;phoneMasked:string|null;phoneVerified:boolean;membershipId:string|null;principalId:string|null}>[]}>;
