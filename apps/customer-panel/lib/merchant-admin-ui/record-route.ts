@@ -7,6 +7,7 @@ export interface MerchantRecordRouteDefinition {
 }
 
 const ROUTES = Object.freeze({
+  "invoice-integration": Object.freeze({ kind: "invoice_integration", returnTo: "/accounting/invoicing-integration", createPath: "/accounting/invoicing-integration/new" }),
   marketplace: Object.freeze({ kind: "marketplace_connection", returnTo: "/marketplaces", createPath: "/marketplaces/new" }),
   discount: Object.freeze({ kind: "discount", returnTo: "/discounts", createPath: "/discounts/new" }),
   "lucky-wheel": Object.freeze({ kind: "lucky_wheel", returnTo: "/discounts/lucky-wheel", createPath: "/discounts/lucky-wheel/new" }),

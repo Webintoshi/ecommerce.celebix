@@ -17,6 +17,8 @@ import {
 
 import { SettingsRecordForm } from "@/components/settings/SettingsRecordForm";
 import { MarketplaceConnectionForm } from "@/components/marketplaces/MarketplaceConnectionForm";
+import { AccountingRecordForm } from "@/components/accounting/AccountingRecordForm";
+import accountingStyles from "@/components/accounting/accounting-workspace.module.css";
 import styles from "./merchant-module-console.module.css";
 import operations from "./merchant-operations.module.css";
 
@@ -270,6 +272,15 @@ export function MerchantRecordEditor({
     {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="editor" /> : <>
       {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
       {loadSucceeded ? <MarketplaceConnectionForm key={`${kind}:${recordId ?? "new"}`} record={record} returnTo={returnTo} busy={busy} dirty={dirty} onDirtyChange={() => setDirty(true)} onSubmit={submit} /> : null}
+    </>}
+  </PanelPageShell></div>;
+
+  if (kind === "invoice_integration") return <div className={`${operations.workspace} ${accountingStyles.workspace}`}><PanelPageShell>
+    <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
+    <Link className={accountingStyles.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> Fatura bağlantıları</Link>
+    {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Fatura bağlantısı yükleniyor…" layout="editor" /> : <>
+      {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
+      {loadSucceeded ? <AccountingRecordForm key={`${kind}:${recordId ?? "new"}`} kind="invoice_integration" record={record} returnTo={returnTo} busy={busy} dirty={dirty} onDirtyChange={() => setDirty(true)} onSubmit={submit} /> : null}
     </>}
   </PanelPageShell></div>;
 

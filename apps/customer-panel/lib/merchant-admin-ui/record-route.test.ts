@@ -11,6 +11,9 @@ import { getMerchantRecordRouteDefinition } from "./record-route.ts";
 import { createRouteFor, editRouteFor } from "./record-route.ts";
 
 test("locks each editor route to one merchant record kind", () => {
+  assert.equal(getMerchantRecordRouteDefinition("invoice-integration").kind, "invoice_integration");
+  assert.equal(createRouteFor("invoice_integration"), "/accounting/invoicing-integration/new");
+  assert.equal(editRouteFor("invoice_integration", "record-a"), "/accounting/invoicing-integration/record-a/edit");
   assert.equal(getMerchantRecordRouteDefinition("marketplace").kind, "marketplace_connection");
   assert.equal(createRouteFor("marketplace_connection"), "/marketplaces/new");
   assert.equal(editRouteFor("marketplace_connection", "record-a"), "/marketplaces/record-a/edit");
@@ -129,6 +132,9 @@ async function compileMerchantRecordEditor(overrides: Readonly<{
     };
     if (specifier === "@/lib/merchant-admin-ui/client") return { MerchantAdminApiError: CompiledMerchantAdminApiError, merchantAdminApi: Object.freeze({ record: overrides.record, save: overrides.save }) };
     if (specifier === "@/lib/merchant-admin-ui/presentation") return presentation;
+    if (specifier === "@/components/accounting/AccountingNavigation") return { AccountingNavigation: () => null };
+    if (specifier === "@/components/accounting/AccountingRecordForm") return { AccountingRecordForm: () => null };
+    if (specifier === "@/components/merchant-admin/MerchantWorkspaceLoading") return { MerchantWorkspaceLoading: () => null };
     if (specifier === "@/components/settings/SettingsRecordForm") return { SettingsRecordForm: () => null };
     if (specifier === "@/components/marketplaces/MarketplaceConnectionForm") return { MarketplaceConnectionForm: () => null };
     if (specifier.endsWith(".module.css")) return styles;

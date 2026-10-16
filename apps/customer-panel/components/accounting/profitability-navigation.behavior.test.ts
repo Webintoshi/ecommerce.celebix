@@ -23,5 +23,9 @@ test('profitability report is discoverable across shared accounting pages and ke
  assert.equal(group?.children?.find(item=>item.href==='/accounting/profitability')?.label,'Gelir ve kâr');
  assert.equal(getPanelRoutePresentation('/accounting/profitability').title,'Gelir ve kâr');
  assert.equal(getPanelNavigation({analyticsAvailable:false,navigationMode:'register'}).some(item=>item.href==='/accounting/profitability'),false);
- for(const path of['components/accounting/AccountingConsole.tsx','components/accounting/SupplierDebtsConsole.tsx','components/accounting/CashSessionsConsole.tsx','app/(panel)/accounting/settings/page.tsx'])assert.match(source(path),/href="\/accounting\/profitability"/u,path);
+ const Navigation=compile('components/accounting/AccountingNavigation.tsx').AccountingNavigation;
+ const html=renderToStaticMarkup(createElement(Navigation,{active:'profitability'}));
+ assert.match(html,/href="\/accounting\/profitability"[^>]*aria-current="page"/u);
+ for(const href of['/accounting','/accounting/receivables','/accounting/accounts','/accounting/cash-sessions','/accounting/suppliers','/accounting/expenses','/accounting/settings'])assert.ok(html.includes(`href="${href}"`),href);
+ for(const path of['components/accounting/AccountingConsole.tsx','components/accounting/SupplierDebtsConsole.tsx','components/accounting/CashSessionsConsole.tsx','app/(panel)/accounting/settings/page.tsx'])assert.match(source(path),/<AccountingNavigation\b|href="\/accounting\/profitability"/u,path);
 });
