@@ -18,12 +18,61 @@ function result(kind:string,intent:any,key:string):any{
 function api(){return{newId:()=>OP,suppliers:async(_filters?:any,_signal?:AbortSignal)=>({debts:[debt],today:'2026-10-15',hasMore:false}),supplier:async(_id:string,_signal?:AbortSignal)=>({debt,payments:[payment],hasMore:false}),accounts:async(_filters?:any,_signal?:AbortSignal)=>({accounts:[account,{...account,id:OTHER,name:'Kart hesabı',type:'card'},{...account,id:PAYMENT,name:'Dolar bankası',type:'bank',currency:'USD'}],events:[]}),supplierOperation:async(_id:string):Promise<any>=>null,supplierMutate:async(kind:string,intent:any,key:string)=>result(kind,intent,key)};}
 type Api=ReturnType<typeof api>;
 const wait=()=>act(async()=>{await new Promise(r=>setTimeout(r,30));});
-const button=(host:any,label:string)=>[...host.querySelectorAll('button')].find((b:any)=>b.textContent.trim()===label) as HTMLButtonElement|undefined;
+const button=(host:any,label:string)=>[...host.querySelectorAll('button')].find((b:any)=>(b.getAttribute('aria-label')??b.textContent.trim())===label) as HTMLButtonElement|undefined;
 async function click(host:any,label:string){const b=button(host,label);assert.ok(b,`Missing button ${label}`);await act(async()=>b.click());}
 async function fill(host:any,name:string,value:string){const input=host.querySelector(`[name="${name}"]`);assert.ok(input,`Missing field ${name}`);if(input.tagName==='SELECT'){await act(async()=>{input.value=value;input.dispatchEvent(new input.ownerDocument.defaultView.Event('change',{bubbles:true}));});return;}const key=Object.keys(input).find(k=>k.startsWith('__reactProps$'))!;await act(async()=>input[key].onChange({target:{value}}));}
 async function render(verify:(host:any,browser:Window)=>Promise<void>,customize?:(client:Api)=>void,setup?:(browser:Window)=>void,props:Record<string,unknown>={}){const client=api();customize?.(client);assert.ok(existsSync(new URL('./SupplierDebtsConsole.tsx',import.meta.url)),'supplier workspace is implemented');const C=compile('components/accounting/SupplierDebtsConsole.tsx',{'@/lib/accounting-ui/client':{accountingUi:client,AccountingUiError}}).SupplierDebtsConsole;const previous=globalThis.requestAnimationFrame;try{globalThis.requestAnimationFrame=(fn:FrameRequestCallback)=>setTimeout(()=>fn(Date.now()),0) as unknown as ReturnType<typeof requestAnimationFrame>;await mounted(C,{canManage:true,scopeKey:'store:actor',...props},async(host,browser)=>{await wait();await verify(host,browser)},setup);}finally{globalThis.requestAnimationFrame=previous;}}
 function pendingPay(){return{key:OP,kind:'pay',currency:'TRY',supplierName:debt.supplierName,accountName:account.name,intent:{debtId:ID,accountId:ACCOUNT,amountCents:30000,currency:'TRY',occurredOn:'2026-10-15',note:'İkinci ödeme',expectedVersion:2,expectedAccountVersion:3}};}
-test('supplier workspace does not grant cashier reads or money actions',async()=>{let reads=0;await render(async host=>{assert.match(host.textContent,/mağaza yöneticisi/);assert.equal(reads,0);assert.equal(button(host,'Tedarikçi borcu ekle'),undefined)},client=>{client.suppliers=async()=>{reads++;throw Error('denied')}},undefined,{canManage:false});});
+test('supplier workspace does not grant cashier reads or money actions',async()=>{let reads=0;await render(async host=>{assert.match(host.textContent,/mağaza yöneticisi/);assert.equal(reads,0);assert.equal(button(host,'Tedarikçi borcu ekle'),undefined);assert.equal(button(host,'Yapılan ödemeyi kaydet'),undefined);assert.equal(button(host,'Hareketler'),undefined);assert.equal(host.querySelector('form,table,dialog,a[href="/accounting/accounts"]'),null)},client=>{const denied=async()=>{reads++;throw Error('denied')};client.suppliers=denied;client.supplier=denied;client.accounts=denied;client.supplierOperation=denied},undefined,{canManage:false});});
+test('supplier rows keep all debt information and expose payment and history without duplicate actions',async()=>{
+ const reads:string[]=[];
+ await render(async(host,browser)=>{
+  const table=host.querySelector('[aria-label="Tedarikçi borç kayıtları"] table');assert.ok(table);
+  assert.deepEqual([...table.querySelectorAll('thead th')].map((cell:any)=>cell.textContent.trim()),['Tedarikçi / açıklama','Vade','Toplam borç','Ödenen','Kalan borç','Durum','İşlemler']);
+  const rows=[...table.querySelectorAll('tbody tr')];assert.equal(rows.length,3);
+  assert.equal(rows[0].querySelectorAll('td').length,7);
+  for(const value of ['Örnek Tedarik','Malzeme alımı','Belge F-15','20.10.2026','Borç 12.10.2026','₺1.000,00','₺200,00','₺800,00','Kısmen ödendi'])assert.ok(rows[0].textContent.includes(value),value);
+  const pay=button(rows[0],'Yapılan ödemeyi kaydet');assert.ok(pay);
+  assert.equal(pay.getAttribute('aria-label'),'Yapılan ödemeyi kaydet');assert.equal(pay.textContent?.trim(),'Ödeme kaydet');
+  assert.deepEqual([...rows[0].querySelectorAll('button')].map((b:any)=>b.textContent.trim()),['Ödeme kaydet','Hareketler']);
+  for(const settled of rows.slice(1)){assert.equal(button(settled,'Yapılan ödemeyi kaydet'),undefined);assert.ok(button(settled,'Hareketler'));}
+  const mobile=host.querySelector('[aria-label="Tedarikçi borç özetleri"] article');assert.ok(mobile);
+  assert.equal(button(mobile,'Yapılan ödemeyi kaydet')?.textContent?.trim(),'Ödeme kaydet');assert.ok(button(mobile,'Hareketler'));
+  await click(rows[0],'Hareketler');await wait();
+  const dialog=host.querySelector('dialog');assert.equal(dialog.open,true);assert.match(dialog.textContent,/Borç ve ödemeler/);assert.match(dialog.textContent,/İlk ödeme/);assert.deepEqual(reads,[ID]);
+  await click(dialog,'Kapat');assert.equal(dialog.open,false);
+  pay.focus();await act(async()=>pay.click());await wait();assert.equal(dialog.open,true);assert.deepEqual(reads,[ID,ID]);
+  await click(dialog,'Vazgeç');assert.equal(dialog.open,false);assert.equal(browser.document.activeElement as unknown,pay);
+ },client=>{
+  client.suppliers=async()=>({debts:[debt,{...debt,id:OTHER,supplierName:'Ödenen Tedarikçi',paidCents:100000,dueCents:0,status:'paid'},{...debt,id:PAYMENT,supplierName:'İptal Tedarikçi',paidCents:0,dueCents:0,status:'cancelled'}],today:'2026-10-15',hasMore:false});
+  client.supplier=async id=>{reads.push(id);return{debt,payments:[payment],hasMore:false};};
+ });
+});
+test('supplier payment keeps required fields visible and sends the selected date account and note with both balance effects',async()=>{
+ let sent:any;
+ await render(async host=>{
+  await click(host,'Yapılan ödemeyi kaydet');await wait();const dialog=host.querySelector('dialog');
+  const controls=[...dialog.querySelectorAll('input[name],select[name]')];assert.deepEqual(controls.map((control:any)=>control.name),['amount','accountId','occurredOn','note']);
+  for(const control of controls){assert.equal(control.required,true,control.name);assert.equal(control.closest('details,[hidden],[aria-hidden="true"]'),null,`${control.name} must remain visible`);}
+  assert.equal(dialog.querySelector('[name="occurredOn"]').max,'2026-10-15');assert.match(dialog.textContent,/Örnek Tedarik/);
+  await fill(dialog,'amount','300');await fill(dialog,'accountId',ACCOUNT);await fill(dialog,'occurredOn','2026-10-13');await fill(dialog,'note','  Ödeme makbuzu S-3  ');
+  const effects=dialog.querySelector('[aria-label="Ödemenin etkisi"]');assert.ok(effects);assert.match(effects.textContent,/₺800,00.*₺500,00/);assert.match(effects.textContent,/₺1.500,00.*₺1.200,00/);
+  await click(dialog,'Ödemeyi kaydet');
+  assert.deepEqual(sent,{kind:'pay',key:OP,intent:{debtId:ID,accountId:ACCOUNT,amountCents:30000,currency:'TRY',occurredOn:'2026-10-13',note:'Ödeme makbuzu S-3',expectedVersion:2,expectedAccountVersion:3}});
+ },client=>{client.supplierMutate=async(kind,intent,key)=>{sent={kind,intent,key};return result(kind,intent,key);};});
+});
+test('restored supplier payment freezes every required field and allows only manual recovery',async()=>{
+ let writes=0,lookups=0;const frozen=JSON.stringify(pendingPay());
+ await render(async(host,browser)=>{
+  const dialog=host.querySelector('dialog');assert.equal(dialog.open,true);
+  for(const [name,value]of Object.entries({amount:'300.00',accountId:ACCOUNT,occurredOn:'2026-10-15',note:'İkinci ödeme'})){const control=dialog.querySelector(`[name="${name}"]`);assert.ok(control,name);assert.equal(control.value,value,name);assert.equal(control.disabled,true,name);}
+  assert.equal(dialog.querySelector('[aria-label="Pencereyi kapat"]').disabled,true);
+  assert.deepEqual([...dialog.querySelectorAll('button:not([disabled])')].map((b:any)=>b.textContent.trim()),['Aynı işlemi kontrol et']);
+  const cancel=new browser.Event('cancel',{cancelable:true});await act(async()=>dialog.dispatchEvent(cancel));assert.equal(cancel.defaultPrevented,true);assert.equal(dialog.open,true);
+  assert.equal(browser.sessionStorage.getItem('celebix-accounting-supplier:store:actor'),frozen);assert.equal(writes,0);assert.equal(lookups,0);
+  await click(dialog,'Aynı işlemi kontrol et');assert.equal(lookups,1);assert.equal(writes,0);assert.equal(dialog.open,true);assert.equal(browser.sessionStorage.getItem('celebix-accounting-supplier:store:actor'),frozen);
+ },client=>{client.supplierOperation=async()=>{lookups++;throw new AccountingUiError('unavailable')};client.supplierMutate=async()=>{writes++;throw Error('must not write without a successful lookup')};},browser=>browser.sessionStorage.setItem('celebix-accounting-supplier:store:actor',frozen));
+});
 test('debt creation starts blank and leaves cash and bank unchanged',async()=>{let sent:any;await render(async host=>{await click(host,'Tedarikçi borcu ekle');const d=host.querySelector('dialog');assert.equal(d.querySelector('[name="amount"]').value,'');assert.match(d.textContent,/Kasa ve banka bakiyesi değişmez/);assert.equal(button(d,'Borcu kaydet')?.disabled,true);await fill(d,'supplierName','Yeni Tedarikçi');await fill(d,'amount','500');await fill(d,'note','Ürün alımı');await click(d,'Borcu kaydet');assert.equal(sent.kind,'createDebt');assert.equal(sent.intent.amountCents,50000);assert.equal(sent.intent.currency,'TRY');assert.equal(sent.intent.dueOn,null);assert.equal(sent.intent.documentNumber,null);assert.equal(sent.intent.occurredOn,'2026-10-15');},client=>{client.supplierMutate=async(kind,intent,key)=>{sent={kind,intent,key};return result(kind,intent,key)}});});
 test('partial payment previews debt and cash before and after with matching cash or bank only',async()=>{let sent:any;await render(async host=>{await click(host,'Yapılan ödemeyi kaydet');await wait();const d=host.querySelector('dialog');assert.equal(d.querySelector('[name="amount"]').value,'');await fill(d,'accountId',ACCOUNT);await fill(d,'amount','300');await fill(d,'note','İkinci ödeme');assert.match(d.querySelector('[aria-label="Ödemenin etkisi"]').textContent,/₺800,00.*₺500,00/);assert.match(d.querySelector('[aria-label="Ödemenin etkisi"]').textContent,/₺1.500,00.*₺1.200,00/);assert.match(d.textContent,/banka transferi başlatmaz/);assert.doesNotMatch(d.querySelector('[name="accountId"]').textContent,/Kart hesabı|Dolar bankası/);await click(d,'Ödemeyi kaydet');assert.deepEqual(sent.intent,pendingPay().intent);assert.equal(sent.key,OP);},client=>{client.supplierMutate=async(kind,intent,key)=>{sent={kind,intent,key};return result(kind,intent,key)}});});
 test('overpayment and insufficient funds cannot submit',async()=>{let writes=0;await render(async host=>{await click(host,'Yapılan ödemeyi kaydet');await wait();const d=host.querySelector('dialog');await fill(d,'accountId',ACCOUNT);await fill(d,'note','Ödeme');await fill(d,'amount','801');assert.equal(button(d,'Ödemeyi kaydet')?.disabled,true);assert.match(d.textContent,/kalan borcu aşamaz/);await fill(d,'amount','700');assert.equal(button(d,'Ödemeyi kaydet')?.disabled,true);assert.match(d.textContent,/hesapta yeterli para yok/);assert.equal(writes,0)},client=>{client.accounts=async()=>({accounts:[{...account,balanceCents:60000}],events:[]});client.supplierMutate=async()=>{writes++;throw Error('forbidden')}});});

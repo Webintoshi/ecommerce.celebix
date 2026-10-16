@@ -1,0 +1,37 @@
+.toolbar{gap:16px}
+.table table{min-width:1040px}
+.table th,.table td{padding-inline:8px}
+.table th:first-child,.table td:first-child{padding-left:0}
+.table td:first-child{min-width:180px;max-width:260px}
+.table td:last-child{min-width:240px}
+.rowActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:nowrap}
+.rowActions button{max-width:100%}
+.identity{display:flex;align-items:start;justify-content:space-between;gap:20px;min-width:0;padding-bottom:20px;border-bottom:1px solid var(--cp-border)}
+.identity>div{display:grid;gap:4px;min-width:0}
+.identity strong{font-size:16px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.identity span{font-size:12px;line-height:1.6;color:var(--cp-text-secondary);overflow-wrap:anywhere}
+.identity dl{display:grid;gap:4px;margin:0;text-align:right;flex-shrink:0;max-width:100%}
+.identity dt{font-size:12px;line-height:1.5;color:var(--cp-text-secondary)}
+.identity dd{margin:0;font-size:24px;line-height:1.25;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.025em;overflow-wrap:anywhere}
+.paymentForm{display:grid;min-width:0}
+.paymentBody{gap:20px}
+.paymentFields{gap:16px}
+.paymentFields>label:first-child input{min-height:48px;font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.paymentFields>label:nth-child(2) select{min-height:48px}
+.help{margin:0;color:var(--cp-text-secondary);font-size:12px;line-height:1.6}
+.effects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:16px;border:0;border-radius:8px;background:var(--cp-surface)}
+.effects>div{padding:0;gap:8px;min-width:0;border:0}
+.effects>div+div{border:0}
+.effects dt{font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.effects dd{font-size:13px;line-height:1.6}
+.effects dd>span,.effects dd>strong{display:inline;overflow-wrap:anywhere}
+.footer button{white-space:normal;max-width:100%}
+@media(max-width:1280px){.table table{min-width:1000px}.table td:first-child{min-width:160px;max-width:220px}.rowActions{gap:8px}}
+@media(max-width:700px){
+ .mobileList .rowActions{width:100%;justify-content:stretch;margin-top:12px;flex-wrap:wrap}
+ .mobileList .rowActions button{flex:1;min-width:0;white-space:normal}
+ .identity{gap:16px;flex-wrap:wrap;padding-bottom:16px}.identity>div{flex:1;min-width:120px}.identity dl{margin-left:auto}
+ .paymentBody{gap:16px}.paymentFields{gap:16px}.effects{gap:16px;padding:16px;grid-template-columns:minmax(0,1fr)}
+ .effects>div+div{padding-top:12px;border-top:1px solid var(--cp-border)}
+ .footer{gap:8px}.footer button{min-width:0}
+}
