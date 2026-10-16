@@ -3960,6 +3960,154 @@ BEGIN
 END $function$
 ;
 
+-- Rebind only the four active payment validators that pin the reviewed246 replacement.
+-- Native214's child-before-parent pattern preserves every source, owner and ACL check.
+-- Archived historical validators remain byte-identical and are never auto-enrolled.
+DO $commercial246_payment_compatibility$
+DECLARE manifest jsonb:=$manifest$[
+  {
+    "signature": "saas.paytr_iframe_activation_preflight()",
+    "beforeDefinitionSha": "8c03d8e1a8baab5108bc9e485f80897d57d1fc509e6549f036aefa411347c1dc",
+    "beforeBodyMd5": "de99b659ad4557a170745a6d40f8a75a",
+    "afterDefinitionSha": "d8fcb8315e1867c2d29d8ee7c2a27bad4a6bb5fe5bc97b3e2f07b59f6b0cdfc0",
+    "afterBodyMd5": "ff9469729992012d4f52ff42a1a6920f",
+    "owner": "celebix_saas_owner",
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+    "config": [
+      "search_path=pg_catalog, saas"
+    ],
+    "security": true,
+    "volatility": "v",
+    "replacements": [
+      {
+        "old": "27bc9a3e5ad2996e4aff04140a9ddf3f",
+        "new": "e058cb4fe5d5064f3c858376b2219724"
+      }
+    ]
+  },
+  {
+    "signature": "saas.payment_method_single_active_provider_preflight()",
+    "beforeDefinitionSha": "0f135f4314e1eaba87300862bf584216356cad4f17625a45d0a5983b903893d6",
+    "beforeBodyMd5": "8cf79ef23d6ce07b179ab7cccd90c651",
+    "afterDefinitionSha": "9c278fe81240bdf6a4a3fed24a4011dcf953246eadd7098f399d4f69b59d401b",
+    "afterBodyMd5": "4d10b644764f76db6909e7f44208655a",
+    "owner": "celebix_saas_owner",
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+    "config": [
+      "search_path=pg_catalog, saas"
+    ],
+    "security": true,
+    "volatility": "s",
+    "replacements": [
+      {
+        "old": "de99b659ad4557a170745a6d40f8a75a",
+        "new": "ff9469729992012d4f52ff42a1a6920f"
+      }
+    ]
+  },
+  {
+    "signature": "saas.iyzico_iframe_tenant_evidence_preflight()",
+    "beforeDefinitionSha": "d244d696f40ef7c12c79e5f936323110c577ae751dc85f21ee1c78bf10dd3628",
+    "beforeBodyMd5": "9e3caaf15be00bae7aabcfdda0312a04",
+    "afterDefinitionSha": "fd3c0f9a4aa674b12c838dd8beb032a4b0457a9a4718531704bc6087c50cd9a8",
+    "afterBodyMd5": "47fe0d9246eeaa4d676c986a86a58e3c",
+    "owner": "celebix_saas_owner",
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+    "config": [
+      "search_path=pg_catalog, saas"
+    ],
+    "security": true,
+    "volatility": "s",
+    "replacements": [
+      {
+        "old": "8cf79ef23d6ce07b179ab7cccd90c651",
+        "new": "4d10b644764f76db6909e7f44208655a"
+      }
+    ]
+  },
+  {
+    "signature": "saas.iyzico_iframe_tenant_activation_runtime_preflight()",
+    "beforeDefinitionSha": "5a2a07709b438cf180b8a69d3b57ffb1717e62982f1f7083fa5d6493abf370b3",
+    "beforeBodyMd5": "1d327060429c425451460e9b64a242bf",
+    "afterDefinitionSha": "d8dc16e7e02cd251435dcc6b9c993d77907f1c56fd06e2dbfcfd480c1adbfc69",
+    "afterBodyMd5": "0d45a2035f4ea0e8120974bd65f07c35",
+    "owner": "celebix_saas_owner",
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+    "config": [
+      "search_path=pg_catalog, saas"
+    ],
+    "security": true,
+    "volatility": "s",
+    "replacements": [
+      {
+        "old": "8cf79ef23d6ce07b179ab7cccd90c651",
+        "new": "4d10b644764f76db6909e7f44208655a"
+      },
+      {
+        "old": "9e3caaf15be00bae7aabcfdda0312a04",
+        "new": "47fe0d9246eeaa4d676c986a86a58e3c"
+      }
+    ]
+  }
+]$manifest$::jsonb;
+ item jsonb;change jsonb;proc record;saved record;revised text;original_source text;
+BEGIN
+ -- Bind the new validator hashes to the exact reviewed business replacement and its backup.
+ SELECT * INTO STRICT saved FROM saas.commercial246_original_functions
+ WHERE signature='saas.payment_attempt_begin(uuid,timestamp with time zone,uuid,text,uuid,text,bigint,text,text)';
+ original_source:=substring(saved.definition FROM '(?s)AS \$function\$(.*)\$function\$');
+ IF saved.original_sha256<>'4acf5906efc56d3fd02e989121da2c68ac8afef2a1b7951ae5fd14137a479a4f'
+  OR encode(sha256(convert_to(saved.definition,'UTF8')),'hex')<>saved.original_sha256
+  OR md5(original_source)<>'27bc9a3e5ad2996e4aff04140a9ddf3f'
+  OR NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=saved.function_oid
+   AND p.oid=to_regprocedure(saved.signature) AND p.proowner=saved.function_owner
+   AND p.proacl IS NOT DISTINCT FROM saved.function_acl AND p.proconfig IS NOT DISTINCT FROM saved.function_config
+   AND p.prosecdef AND p.provolatile='v'
+   AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='d4735bd086febda831811b60ecea7ce42ab68709de576c7be1ea598cb0406bd1'
+   AND md5(p.prosrc)='e058cb4fe5d5064f3c858376b2219724')
+ THEN RAISE EXCEPTION 'COMMERCIAL246_PAYMENT_REPLACEMENT_PROOF_INVALID';END IF;
+ -- Validate the closed predecessor authority set before changing any validator.
+ FOR item IN SELECT value FROM jsonb_array_elements(manifest) LOOP
+  SELECT p.*,pg_get_functiondef(p.oid)AS definition INTO STRICT proc
+  FROM pg_proc p WHERE p.oid=(item->>'signature')::regprocedure;
+  IF encode(sha256(convert_to(proc.definition,'UTF8')),'hex')IS DISTINCT FROM item->>'beforeDefinitionSha'
+   OR md5(proc.prosrc)IS DISTINCT FROM item->>'beforeBodyMd5'
+   OR proc.proowner IS DISTINCT FROM(item->>'owner')::regrole
+   OR proc.proacl::text IS DISTINCT FROM item->>'acl'
+   OR to_jsonb(proc.proconfig)IS DISTINCT FROM item->'config'
+   OR proc.prosecdef IS DISTINCT FROM(item->>'security')::boolean
+   OR proc.provolatile::text IS DISTINCT FROM item->>'volatility'
+  THEN RAISE EXCEPTION 'COMMERCIAL246_PAYMENT_VALIDATOR_PROOF_INVALID:%',item->>'signature';END IF;
+  INSERT INTO saas.commercial246_original_functions
+  VALUES(item->>'signature',proc.definition,item->>'beforeDefinitionSha',NULL,proc.oid,proc.proowner,proc.proacl,proc.proconfig);
+ END LOOP;
+ FOR item IN SELECT value FROM jsonb_array_elements(manifest) LOOP
+  SELECT p.*,pg_get_functiondef(p.oid)AS definition INTO STRICT proc
+  FROM pg_proc p WHERE p.oid=(item->>'signature')::regprocedure;
+  revised:=proc.definition;
+  FOR change IN SELECT value FROM jsonb_array_elements(item->'replacements') LOOP
+   IF(length(revised)-length(replace(revised,quote_literal(change->>'old'),'')))/length(quote_literal(change->>'old'))<>1
+   THEN RAISE EXCEPTION 'COMMERCIAL246_PAYMENT_LITERAL_AMBIGUOUS:%',item->>'signature';END IF;
+   revised:=replace(revised,quote_literal(change->>'old'),quote_literal(change->>'new'));
+  END LOOP;
+  IF encode(sha256(convert_to(revised,'UTF8')),'hex')IS DISTINCT FROM item->>'afterDefinitionSha'
+  THEN RAISE EXCEPTION 'COMMERCIAL246_PAYMENT_REBIND_INVALID:%',item->>'signature';END IF;
+  EXECUTE revised;
+  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=proc.oid
+   AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=item->>'afterDefinitionSha'
+   AND md5(p.prosrc)=item->>'afterBodyMd5' AND p.proowner=proc.proowner
+   AND p.proacl IS NOT DISTINCT FROM proc.proacl AND p.proconfig IS NOT DISTINCT FROM proc.proconfig
+   AND p.prosecdef=proc.prosecdef AND p.provolatile=proc.provolatile)
+  THEN RAISE EXCEPTION 'COMMERCIAL246_PAYMENT_POSTCONDITION_INVALID:%',item->>'signature';END IF;
+ END LOOP;
+ IF saas.built_in_payment_methods_preflight() IS DISTINCT FROM true
+  OR saas.payment_provider_keyed_lifecycle_preflight() IS DISTINCT FROM true
+  OR saas.iyzico_iframe_tenant_activation_runtime_preflight() IS DISTINCT FROM true
+  OR saas.quick_order_hosted_payment_authority_preflight() IS DISTINCT FROM true
+  OR saas.shipping_provider_preflight() IS DISTINCT FROM true
+ THEN RAISE EXCEPTION 'COMMERCIAL246_RUNTIME_PAYMENT_PREFLIGHT';END IF;
+END $commercial246_payment_compatibility$;
+
 UPDATE saas.commercial246_original_functions SET published_sha256=encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(signature)),'UTF8')),'hex');
 DO $functions_acl$DECLARE f regprocedure;BEGIN FOR f IN SELECT p.oid::regprocedure FROM pg_proc p WHERE p.pronamespace='saas'::regnamespace AND p.proname LIKE 'commercial_%' LOOP EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,celebix_saas_app,celebix_saas_identity,celebix_saas_workflow,celebix_saas_bootstrap,celebix_saas_host_resolver,celebix_saas_observability,celebix_saas_migrator,celebix_saas_platform_operator',f);END LOOP;END $functions_acl$;
 GRANT EXECUTE ON FUNCTION saas.commercial_default_starter_version() TO celebix_saas_bootstrap;

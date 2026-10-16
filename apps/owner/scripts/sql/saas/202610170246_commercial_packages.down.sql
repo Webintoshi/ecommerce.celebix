@@ -6,6 +6,8 @@ SELECT pg_advisory_xact_lock(hashtextextended('saas.commercial.release246',0));
 DO $safe$BEGIN
  IF EXISTS(SELECT 1 FROM saas.subscriptions WHERE plan_id IN(SELECT plan_id FROM saas.commercial_plan_policies)) OR EXISTS(SELECT 1 FROM saas.commercial_upgrade_requests) OR EXISTS(SELECT 1 FROM saas.commercial_order_reservations) THEN RAISE EXCEPTION 'COMMERCIAL246_FORWARD_RECOVERY_REQUIRED';END IF;
  IF EXISTS(SELECT 1 FROM saas.commercial246_original_functions WHERE encode(sha256(convert_to(pg_get_functiondef(to_regprocedure(signature)),'UTF8')),'hex')<>published_sha256) THEN RAISE EXCEPTION 'COMMERCIAL246_DOWN_FUNCTION_DRIFT';END IF;
+ -- Includes the four active payment verifier bodies captured by the compatibility rebind.
+ IF EXISTS(SELECT 1 FROM saas.commercial246_original_functions b LEFT JOIN pg_proc p ON p.oid=to_regprocedure(b.signature) WHERE encode(sha256(convert_to(b.definition,'UTF8')),'hex')<>b.original_sha256 OR p.oid IS DISTINCT FROM b.function_oid OR p.proowner IS DISTINCT FROM b.function_owner OR p.proacl IS DISTINCT FROM b.function_acl OR p.proconfig IS DISTINCT FROM b.function_config) THEN RAISE EXCEPTION 'COMMERCIAL246_DOWN_AUTHORITY_DRIFT';END IF;
 END $safe$;
 DO $triggers$DECLARE t text;BEGIN
  FOREACH t IN ARRAY ARRAY['products','product_variants','memberships','merchant_phone_staff','product_media','store_media_operations','storefront_assets'] LOOP EXECUTE format('DROP TRIGGER commercial246_capacity_lock ON saas.%I',t);EXECUTE format('DROP TRIGGER commercial246_capacity ON saas.%I',t);END LOOP;

@@ -17,6 +17,18 @@ def tx(s,plan=FREE,code='free_starter',version=2):return sql('BEGIN;'+setup(plan
 checks=[]
 def test(name,fn):fn();checks.append(name);print('PASS',len(checks),name,flush=True)
 def eq(a,b):assert a==b,(a,b)
+def runtime_payment_preflights():
+ # These are the actual startup probes; their nested source hashes must accept246.
+ # Schema-only fixture restoration omits immutable global provider seeds.
+ sql("BEGIN;SET LOCAL ROLE celebix_saas_owner;INSERT INTO saas.merchant_provider_definitions(provider_code,capability,enabled,allows_verification_without_execution_authority,created_at)VALUES('paytr_iframe','payment_processing',true,false,'2026-07-27T00:00:00Z'),('iyzico_iframe','payment_processing',true,true,'2026-07-27T00:00:00Z')ON CONFLICT(provider_code,capability)DO NOTHING;INSERT INTO saas.shipping_provider_definitions(provider_code,display_name,capability_version,supports_quote,supports_shipment,supports_label,supports_cancel,supports_return,supports_tracking,supports_cod,enabled,environment,adapter_version,created_at,updated_at)VALUES('basit_kargo','Basit Kargo',1,true,true,true,true,true,true,true,true,'live',1,'2026-08-06T00:00:00Z','2026-08-06T00:00:00Z')ON CONFLICT(provider_code)DO NOTHING;COMMIT;")
+ q="SELECT saas.built_in_payment_methods_preflight(),saas.payment_provider_keyed_lifecycle_preflight(),saas.iyzico_iframe_tenant_activation_runtime_preflight(),saas.quick_order_hosted_payment_authority_preflight(),saas.shipping_provider_preflight();"
+ for role in ('celebix_saas_app','celebix_saas_workflow'):
+  eq(sql('BEGIN READ ONLY;SET LOCAL ROLE '+role+';'+q+'ROLLBACK;'),'t|t|t|t|t')
+ eq(sql('BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_owner;SELECT saas.paytr_iframe_activation_preflight(),saas.payment_method_single_active_provider_preflight(),saas.iyzico_iframe_tenant_evidence_preflight();ROLLBACK;'),'t|t|t')
+test('actual panel startup payment and Iyzico authority preflights accept reviewed246',runtime_payment_preflights)
+def payment_source_drift_rejected():
+ sql("BEGIN;SET LOCAL ROLE celebix_saas_owner;DO $t$DECLARE original text;BEGIN SELECT pg_get_functiondef('saas.payment_attempt_begin(uuid,timestamptz,uuid,text,uuid,text,bigint,text,text)'::regprocedure)INTO original;EXECUTE replace(original,'AS $function$','AS $function$/* unapproved source drift */');BEGIN PERFORM saas.paytr_iframe_activation_preflight();RAISE EXCEPTION 'expected strict hash denial';EXCEPTION WHEN raise_exception THEN IF SQLERRM NOT LIKE 'PAYTR_IFRAME_ACTIVATION_PREFLIGHT_FUNCTION_INVALID:%' THEN RAISE;END IF;END;END$t$;ROLLBACK;")
+test('payment activation verifier still rejects any unapproved business source drift',payment_source_drift_rejected)
 def rpc_read():
  v=json.loads(tx('RESET ROLE;SET LOCAL ROLE celebix_saas_app;'+call()));eq(set(v),{'plan','usage'});eq(v['plan'],{'planId':FREE,'planCode':'free_starter','version':2});eq(v['usage']['staff'],1);eq(v['usage']['monthlyOrders'],0)
 test('owner RPC exact current plan and owner-inclusive usage',rpc_read)
