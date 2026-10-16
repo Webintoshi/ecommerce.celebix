@@ -1,6 +1,10 @@
 import {accountingExact,accountingInteger,parseAccountingFilters} from './validation.ts';
 
-export interface AccountingProfitabilityFilters {readonly dateFrom:string;readonly dateTo:string;readonly currency?:string;}
+export interface AccountingProfitabilityFilters {readonly dateFrom:string;readonly dateTo:string;readonly currency?:string;readonly profitScope?:'known_cost';}
+export interface AccountingKnownProfit {
+ readonly includedOrderCount:number;readonly excludedOrderCount:number;readonly unallocatedAdjustmentCount:number;
+ readonly salesCents:number;readonly discountCents:number;readonly netSalesCents:number;readonly costCents:number;readonly grossProfitCents:number|null;
+}
 export interface AccountingProfitabilityCurrency {
  readonly currency:string;
  readonly salesCents:number;readonly returnCents:number;readonly discountCents?:number;readonly netSalesCents:number;
@@ -10,12 +14,14 @@ export interface AccountingProfitabilityCurrency {
  readonly catalogCostOrderCount?:number;readonly catalogCostCents?:number;
  readonly missingCostOrderCount:number;readonly unresolvedReturnCount:number;readonly unclassifiedSupplierPaymentCount:number;
  readonly grossProfitCents:number|null;readonly profitCents:number|null;
+ readonly knownProfit?:AccountingKnownProfit;
 }
-export interface AccountingProfitability {readonly dateFrom:string;readonly dateTo:string;readonly currencies:readonly AccountingProfitabilityCurrency[];}
+export interface AccountingProfitability {readonly dateFrom:string;readonly dateTo:string;readonly profitScope?:'known_cost';readonly currencies:readonly AccountingProfitabilityCurrency[];}
 function fail():never{throw new TypeError('invalid_accounting_profitability');}
 export function parseAccountingProfitabilityFilters(value:unknown):Readonly<AccountingProfitabilityFilters>{
- const b=accountingExact(value,['dateFrom','dateTo'],['currency']);
- parseAccountingFilters(b);
+ const b=accountingExact(value,['dateFrom','dateTo'],['currency','profitScope']);
+ if(Object.hasOwn(b,'profitScope')&&b.profitScope!=='known_cost')fail();
+ const{profitScope,...dateFilters}=b;parseAccountingFilters(dateFilters);
  if(String(b.dateFrom).startsWith('0000-')||String(b.dateTo).startsWith('0000-'))fail();
  const days=(Date.parse(String(b.dateTo)+'T00:00:00Z')-Date.parse(String(b.dateFrom)+'T00:00:00Z'))/86400000+1;
  if(days<1||days>366)fail();
@@ -23,8 +29,22 @@ export function parseAccountingProfitabilityFilters(value:unknown):Readonly<Acco
 }
 const MONEY=['salesCents','returnCents','netSalesCents','collectionsCents','refundsCents','expensesCents','supplierPaymentsCents','operatingExpensesCents','commissionCents','netCashCents','knownCostCents','costedSalesCents'] as const;
 const COUNTS=['missingCostOrderCount','unresolvedReturnCount','unclassifiedSupplierPaymentCount'] as const;
-function currencyRow(value:unknown):Readonly<AccountingProfitabilityCurrency>{
- const b=accountingExact(value,['currency',...MONEY,...COUNTS,'grossProfitCents','profitCents'],['discountCents','catalogCostOrderCount','catalogCostCents']);
+function knownProfit(value:unknown):Readonly<AccountingKnownProfit>{
+ const counts=['includedOrderCount','excludedOrderCount','unallocatedAdjustmentCount'],money=['salesCents','discountCents','netSalesCents','costCents'];
+ const b=accountingExact(value,[...counts,...money,'grossProfitCents']);
+ for(const key of counts)accountingInteger(b[key]);
+ for(const key of money)accountingInteger(b[key],Number.MIN_SAFE_INTEGER);
+ if(b.grossProfitCents!==null)accountingInteger(b.grossProfitCents,Number.MIN_SAFE_INTEGER);
+ const n=(key:string)=>BigInt(b[key] as number);
+ if(n('netSalesCents')!==n('salesCents')-n('discountCents'))fail();
+ if(b.includedOrderCount===0&&money.some(key=>b[key]!==0))fail();
+ if((b.includedOrderCount as number)>0&&b.unallocatedAdjustmentCount===0){if(b.grossProfitCents===null||n('grossProfitCents')!==n('netSalesCents')-n('costCents'))fail();}else if(b.grossProfitCents!==null)fail();
+ return Object.freeze(b) as unknown as AccountingKnownProfit;
+}
+function currencyRow(value:unknown,scoped:boolean):Readonly<AccountingProfitabilityCurrency>{
+ const b=accountingExact(value,['currency',...MONEY,...COUNTS,'grossProfitCents','profitCents'],['discountCents','catalogCostOrderCount','catalogCostCents','knownProfit']);
+ if(Object.hasOwn(b,'knownProfit')!==scoped)fail();
+ if(scoped)b.knownProfit=knownProfit(b.knownProfit);
  if(typeof b.currency!=='string'||! /^[A-Z]{3}$/.test(b.currency))fail();
  for(const key of MONEY)accountingInteger(b[key],Number.MIN_SAFE_INTEGER);
  if(Object.hasOwn(b,'discountCents'))accountingInteger(b.discountCents,Number.MIN_SAFE_INTEGER);
@@ -40,10 +60,11 @@ function currencyRow(value:unknown):Readonly<AccountingProfitabilityCurrency>{
  return Object.freeze(b) as unknown as AccountingProfitabilityCurrency;
 }
 export function parseAccountingProfitability(value:unknown):Readonly<AccountingProfitability>{
- const b=accountingExact(value,['dateFrom','dateTo','currencies']);
+ const b=accountingExact(value,['dateFrom','dateTo','currencies'],['profitScope']);
+ if(Object.hasOwn(b,'profitScope')&&b.profitScope!=='known_cost')fail();
  parseAccountingProfitabilityFilters({dateFrom:b.dateFrom,dateTo:b.dateTo});
  if(!Array.isArray(b.currencies)||b.currencies.length>100)fail();
- const currencies=b.currencies.map(currencyRow);
+ const currencies=b.currencies.map(row=>currencyRow(row,b.profitScope==='known_cost'));
  if(new Set(currencies.map(row=>row.currency)).size!==currencies.length)fail();
  return Object.freeze({...b,currencies:Object.freeze(currencies)}) as unknown as AccountingProfitability;
 }

@@ -60,3 +60,37 @@ test('empty report has one useful next action and denied roles perform no report
 test('zero cash outflows do not show a misleading minus zero',async()=>{
  await mounted(component(async()=>report),{canRead:true,scopeKey:'store:actor'},async host=>{await flush();assert.doesNotMatch(host.textContent,/-₺0,00/);});
 });
+
+const knownProfit={includedOrderCount:3,excludedOrderCount:2,unallocatedAdjustmentCount:0,salesCents:700000,discountCents:20000,netSalesCents:680000,costCents:300000,grossProfitCents:380000};
+test('partial profit shows only the same known sales and costs while full sales and cash stay visible',async()=>{
+ const partial={...row,discountCents:40000,netSalesCents:860000,missingCostOrderCount:2,grossProfitCents:null,profitCents:null,knownProfit,catalogCostOrderCount:4,catalogCostCents:350000};
+ await mounted(component(async()=>({...report,profitScope:'known_cost',currencies:[partial]}) as AccountingProfitability),{canRead:true,scopeKey:'store:actor'},async host=>{
+  await flush();const cards=host.querySelector('dl[aria-label="Satış, tahsilat ve kâr"]'),profit=host.querySelector('section[aria-label="TRY kâr hesabı"]'),cash=host.querySelector('section[aria-label="TRY para hareketleri"]');
+  assert.match(cards.textContent,/Net satış.*8\.600,00/);assert.match(cards.textContent,/Bilinen satışların kârı.*3\.800,00/);
+  assert.match(host.textContent,/3 satış dahil, 2 satış hariç/);assert.match(profit.textContent,/Hesaba alınan satışlar.*7\.000,00/);
+  assert.match(profit.textContent,/İskonto.*200,00/);assert.match(profit.textContent,/Ürün maliyeti.*3\.000,00/);assert.doesNotMatch(profit.textContent,/4\.000,00/);
+  assert.match(profit.textContent,/İşletme gideri ve komisyon düşülmedi/);assert.doesNotMatch(host.textContent,/tamamlanmadan kâr gösterilmez/);
+  assert.match(cash.textContent,/Tahsilat.*5\.000,00/);assert.match(cash.textContent,/Tahsilattan kalan.*3\.400,00/);
+  assert.doesNotMatch(profit.textContent,/4 satış, güncel ürün maliyetiyle hesaplandı/);
+ });
+});
+test('all unknown sales do not turn an empty known subset into zero profit',async()=>{
+ const partial={...row,missingCostOrderCount:2,grossProfitCents:null,profitCents:null,knownProfit:{...knownProfit,includedOrderCount:0,salesCents:0,discountCents:0,netSalesCents:0,costCents:0,grossProfitCents:null}};
+ await mounted(component(async()=>({...report,profitScope:'known_cost',currencies:[partial]}) as AccountingProfitability),{canRead:true,scopeKey:'store:actor'},async host=>{
+  await flush();assert.match(host.querySelector('dl[aria-label="Satış, tahsilat ve kâr"]').textContent,/Bilinen satışların kârıMaliyeti bilinen satış yok/);assert.match(host.textContent,/0 satış dahil, 2 satış hariç/);
+ });
+});
+test('unmatched adjustments keep partial profit unavailable with a specific explanation',async()=>{
+ const partial={...row,missingCostOrderCount:2,grossProfitCents:null,profitCents:null,knownProfit:{...knownProfit,unallocatedAdjustmentCount:1,grossProfitCents:null}};
+ await mounted(component(async()=>({...report,profitScope:'known_cost',currencies:[partial]}) as AccountingProfitability),{canRead:true,scopeKey:'store:actor'},async host=>{
+  await flush();assert.match(host.querySelector('dl[aria-label="Satış, tahsilat ve kâr"]').textContent,/Bilinen satışların kârıHesaplanamıyor/);assert.match(host.textContent,/1 iskonto veya iade eşleştirilemedi/);
+ });
+});
+test('partial profit can show a loss and complete profit keeps its existing expense deductions',async()=>{
+ for(const partial of[true,false]){
+  const value=partial?{...row,missingCostOrderCount:2,grossProfitCents:null,profitCents:null,knownProfit:{...knownProfit,costCents:682500,grossProfitCents:-2500}}:{...row,knownProfit};
+  await mounted(component(async()=>({...report,profitScope:'known_cost',currencies:[value]}) as AccountingProfitability),{canRead:true,scopeKey:'store:actor'},async host=>{
+   await flush();const cards=host.querySelector('dl[aria-label="Satış, tahsilat ve kâr"]');if(partial)assert.match(cards.textContent,/Bilinen satışların kârı.*-₺25,00/);else{assert.match(cards.textContent,/Hesaplanan kâr.*3\.700,00/);assert.doesNotMatch(cards.textContent,/Bilinen satışların kârı/);}
+  });
+ }
+});
