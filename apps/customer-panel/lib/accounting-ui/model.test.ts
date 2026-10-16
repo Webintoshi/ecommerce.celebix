@@ -14,6 +14,14 @@ test("collection preview never nets refund due against remaining debt or blends 
   assert.deepEqual(m.previewCollection([refund,row("open","2026-09-01T12:00:00Z",50000)],50000),[{receivableId:"open",orderId:"open",amountCents:50000}]);
   assert.throws(()=>m.previewCollection([row("try","2026-09-01T12:00:00Z",50000),{...row("usd","2026-10-01T12:00:00Z",50000),currency:"USD"}],50000));
 });
+
+test("settlement totals require safe nonnegative cash and discount with a positive combined debt reduction",()=>{
+  assert.equal(typeof m.collectionSettlementTotal,"function");
+  assert.equal(m.collectionSettlementTotal(200000,40000),240000);
+  assert.equal(m.collectionSettlementTotal(0,40000),40000);
+  assert.equal(m.collectionSettlementTotal(200000,0),200000);
+  for(const pair of [[0,0],[-1,4],[1,-1],[1,null],[Number.MAX_SAFE_INTEGER,1]])assert.equal(m.collectionSettlementTotal(pair[0],pair[1]),null);
+});
 test("CSV quotes fields and neutralizes spreadsheet formula prefixes",()=>{
   assert.equal(typeof m.toExpenseCsv,"function");const csv=m.toExpenseCsv([{id:"1",kind:"expense",currency:"TRY",amountCents:12500,accountId:null,customerId:null,orderId:null,channel:null,paymentMethod:null,note:'=HYPERLINK("url")',category:"Kira, ofis",documentNumber:null,metadata:{},actorMembershipId:"actor",occurredAt:"2026-10-02T00:00:00Z",createdAt:"2026-10-02T00:00:00Z",reversesEventId:null,reversed:false,allocations:[]}]);
   assert.match(csv,/Kira, ofis/);assert.match(csv,/'=HYPERLINK/);assert.match(csv,/125,00/);

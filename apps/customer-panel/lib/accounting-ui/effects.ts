@@ -3,6 +3,7 @@ import type { AccountingAccount, AccountingCustomerAccount, AccountingEvent, Acc
 export type AccountingEffectInput = {
   kind: AccountingMutation;
   amountCents: number | null;
+  discountCents?: number | null;
   commissionCents?: number | null;
   currency: string;
   accounts: readonly AccountingAccount[];
@@ -53,12 +54,13 @@ function balances(debt: AccountingReceivable): { due: number; refund: number } {
   const sale = BigInt(money(debt.saleCents));
   const collected = BigInt(money(debt.collectedCents));
   const returned = BigInt(money(debt.returnCents));
+  const discount = BigInt(money(debt.discountCents ?? 0));
   const refunded = BigInt(money(debt.refundedCents));
-  const refundBeforePayment = collected - sale + returned;
-  if (returned > sale || refunded > (refundBeforePayment > ZERO ? refundBeforePayment : ZERO)) {
+  const refundBeforePayment = collected - sale + returned + discount;
+  if (returned + discount > sale || refunded > (refundBeforePayment > ZERO ? refundBeforePayment : ZERO)) {
     throw new Error("Borç ve iade bilgilerini yenileyip tekrar dene.");
   }
-  const due = sale - returned - collected;
+  const due = sale - returned - discount - collected;
   const refund = refundBeforePayment - refunded;
   return { due: safe(due > ZERO ? due : ZERO), refund: safe(refund > ZERO ? refund : ZERO) };
 }
@@ -166,19 +168,34 @@ export function previewAccountingEffects(input: AccountingEffectInput): Accounti
           allocated += BigInt(allocation.amountCents);
         }
         if (allocations.length && safe(allocated) !== amount) throw new Error("Kaydın borç dağılımını yenileyip tekrar dene.");
-        const complete = allocations.length > 0 && allocations.every(allocation => knownDebts.some(debt => debt.id === allocation.receivableId));
+        const discounts = new Map<string,number>();
+        const discount = original.kind === "collection" ? money(typeof original.metadata.discountCents === "number" ? original.metadata.discountCents : 0) : 0;
+        if (discount > 0) {
+          if (!Array.isArray(original.metadata.discountAllocations)) throw new Error("İskonto dağılımını yenileyip tekrar dene.");
+          let total = ZERO;
+          for (const item of original.metadata.discountAllocations) {
+            if (!item || typeof item !== "object" || typeof item.receivableId !== "string" || typeof item.amountCents !== "number" || money(item.amountCents) === 0 || discounts.has(item.receivableId)) throw new Error("İskonto dağılımını yenileyip tekrar dene.");
+            discounts.set(item.receivableId,item.amountCents);total += BigInt(item.amountCents);
+          }
+          if (safe(total) !== discount || safe(allocated) !== amount) throw new Error("İskonto dağılımını yenileyip tekrar dene.");
+          note("Ödemeyle birlikte uygulanan iskonto da geri alınır.");
+        }
+        const debtIds = new Set([...ids,...discounts.keys()]);
+        const complete = debtIds.size > 0 && [...debtIds].every(id => knownDebts.some(debt => debt.id === id));
         if (complete) {
           let dueDelta = ZERO;
           let refundDelta = ZERO;
-          for (const allocation of allocations) {
-            const debt = knownDebts.find(item => item.id === allocation.receivableId)!;
+          for (const id of debtIds) {
+            const allocation = allocations.find(item => item.receivableId === id) ?? { amountCents: 0 };
+            const debt = knownDebts.find(item => item.id === id)!;
             currencyMatches(debt.currency);
             const before = balances(debt);
-            if (original.kind === "opening_debt" && (debt.collectedCents > 0 || debt.returnCents > 0)) throw new Error("Ödeme alınmış eski borç bu işlemle kaldırılamaz.");
+            if (original.kind === "opening_debt" && (debt.collectedCents > 0 || debt.returnCents > 0 || (debt.discountCents ?? 0) > 0)) throw new Error("Ödeme veya iskonto uygulanmış eski borç bu işlemle kaldırılamaz.");
             const afterDebt = {
               ...debt,
               saleCents: original.kind === "opening_debt" ? debt.saleCents - allocation.amountCents : debt.saleCents,
               collectedCents: original.kind === "collection" ? debt.collectedCents - allocation.amountCents : debt.collectedCents,
+              discountCents: original.kind === "collection" ? (debt.discountCents ?? 0) - (discounts.get(id) ?? 0) : debt.discountCents,
               returnCents: original.kind === "return_credit" ? debt.returnCents - allocation.amountCents : debt.returnCents,
               refundedCents: original.kind === "refund" ? debt.refundedCents - allocation.amountCents : debt.refundedCents,
             };
@@ -196,7 +213,7 @@ export function previewAccountingEffects(input: AccountingEffectInput): Accounti
           note("Dağıtılan borçların tamamı bilinmediği için müşteri borcunun sonucu gösterilemiyor.");
         }
       }
-      if (["collection", "account_opening"].includes(original.kind)) accountEffect(original.accountId, -amount);
+      if (["collection", "account_opening"].includes(original.kind) && (amount > 0 || original.kind === "account_opening")) accountEffect(original.accountId, -amount);
       else if (["expense", "refund"].includes(original.kind)) accountEffect(original.accountId, amount);
       else if (["transfer", "card_settlement"].includes(original.kind)) {
         const targetId = typeof original.metadata.toAccountId === "string" ? original.metadata.toAccountId : undefined;
@@ -215,29 +232,33 @@ export function previewAccountingEffects(input: AccountingEffectInput): Accounti
       return result();
     }
 
+    if (input.kind === "collect" && input.discountCents === null) { note("Geçerli bir iskonto tutarı gir."); return result(); }
     if (input.amountCents === null) { note("Etkisini görmek için tutarı gir."); return result(); }
     const amount = money(input.amountCents);
-    if (amount === 0 && input.kind !== "openBalance") throw new Error("Sıfırdan büyük bir tutar gir.");
+    const discount = input.kind === "collect" ? money(input.discountCents ?? 0) : 0;
+    if (amount === 0 && input.kind !== "openBalance" && !(input.kind === "collect" && discount > 0)) throw new Error("Sıfırdan büyük bir tutar gir.");
 
     switch (input.kind) {
       case "collect": {
+        const reduction = safe(BigInt(amount) + BigInt(discount));
         const value = customer();
         const selected = selectedDebt();
         if (value) {
           const scoped = input.orderId ? value.receivables.filter(debt => debt.orderId === input.orderId) : value.receivables;
           const available = scoped.reduce((sum, debt) => sum + BigInt(balances(debt).due), ZERO);
-          if (BigInt(amount) > available) throw new Error("Tahsilat kalan borcu aşamaz.");
-          addRow("Müşterinin kalan borcu", value.dueCents, -amount);
+          if (BigInt(reduction) > available) throw new Error("Ödeme ve iskonto toplamı kalan borcu aşamaz.");
+          addRow("Müşterinin kalan borcu", value.dueCents, -reduction);
         } else if (selected) {
           const due = balances(selected).due;
-          if (amount > due) throw new Error("Tahsilat satışın kalan borcunu aşamaz.");
-          addRow("Satışın kalan borcu", due, -amount);
+          if (reduction > due) throw new Error("Ödeme ve iskonto toplamı satışın kalan borcunu aşamaz.");
+          addRow("Satışın kalan borcu", due, -reduction);
           note("Kalan borç bu satış içindir; müşterinin diğer kayıtlarını içermez.");
         } else {
-          addRow("Müşterinin kalan borcu", null, -amount);
+          addRow("Müşterinin kalan borcu", null, -reduction);
           note("Müşterinin güncel borcu bilinmiyor; yalnızca tahsilat etkisi gösteriliyor.");
         }
-        accountEffect(input.accountId, amount);
+        if (amount > 0) accountEffect(input.accountId, amount);
+        if (discount > 0) note("Bu iskonto kasaya veya bankaya para eklemez.");
         break;
       }
       case "openingDebt": {
@@ -273,7 +294,7 @@ export function previewAccountingEffects(input: AccountingEffectInput): Accounti
       case "returnCredit": {
         const debt = selectedDebt();
         if (!debt) { note("Borç ve iade etkisini görmek için satış bilgilerini aç."); break; }
-        if (amount > debt.saleCents - debt.returnCents) throw new Error("İade tutarı satışın kalan tutarını aşamaz.");
+        if (amount > debt.saleCents - debt.returnCents - (debt.discountCents ?? 0)) throw new Error("İade tutarı iskonto sonrası satış tutarını aşamaz.");
         debtEffects(debt, { ...debt, returnCents: changed(debt.returnCents, amount) });
         note("Bu kayıt satışın borç ve iade tutarını değiştirir; stok hareketi ayrıca kaydedilir.");
         break;

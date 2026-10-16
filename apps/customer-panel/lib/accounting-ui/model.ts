@@ -1,4 +1,9 @@
 import type { AccountingAllocation, AccountingEvent, AccountingFilters, AccountingReceivable } from "@celebix/saas-contracts";
+export function collectionSettlementTotal(amountCents:number|null,discountCents:number|null=0):number|null{
+  if(amountCents===null||discountCents===null||!Number.isSafeInteger(amountCents)||!Number.isSafeInteger(discountCents)||amountCents<0||discountCents<0)return null;
+  const total=BigInt(amountCents)+BigInt(discountCents);
+  return total>0n&&total<=BigInt(Number.MAX_SAFE_INTEGER)?Number(total):null;
+}
 export function previewCollection(rows:readonly AccountingReceivable[],amountCents:number,orderId:string|null=null):readonly AccountingAllocation[]{
   if(!Number.isSafeInteger(amountCents)||amountCents<1)throw new Error("Sıfırdan büyük bir tahsilat tutarı gir.");
   const debts=rows.filter(row=>row.dueCents>0&&(!orderId||row.orderId===orderId));

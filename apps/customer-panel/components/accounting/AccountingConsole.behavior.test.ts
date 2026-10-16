@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import type {AccountingAccount,AccountingReceivable,AccountingEvent,AccountingOverview,AccountingDebtSchedule,AccountingScheduleIntent,AccountingScheduleResult,AccountingSchedules} from "@celebix/saas-contracts";
+import type {AccountingMutationResult,AccountingAccount,AccountingReceivable,AccountingEvent,AccountingOverview,AccountingDebtSchedule,AccountingScheduleIntent,AccountingScheduleResult,AccountingSchedules} from "@celebix/saas-contracts";
 import { readFileSync } from "node:fs";
 import { resolve,dirname } from "node:path";
 import test from "node:test";
@@ -19,6 +19,67 @@ const ID="9e000000-0000-4000-8000-000000000001",BANK="9e000000-0000-4000-8000-00
 const cash:AccountingAccount={id:ID,name:"Kasa",type:"cash",currency:"TRY",balanceCents:500000,version:1,createdAt:date},bank:AccountingAccount={...cash,id:BANK,name:"Banka",type:"bank"};
 const row:AccountingReceivable={id:ID,customerId:ID,customerName:"Ayşe Kaya",customerPhone:"+905550001122",customerArchived:true,orderId:ID,orderNumber:"POS-1",channel:"POS",currency:"TRY",saleCents:1100000,collectedCents:500000,returnCents:0,refundedCents:0,dueCents:600000,refundDueCents:0,occurredAt:date,dueDate:null,version:1};
 const event:AccountingEvent={id:ID,kind:"expense",currency:"TRY",amountCents:12500,accountId:ID,customerId:null,orderId:null,channel:null,paymentMethod:"cash",note:"Ofis gideri",category:"Kira",documentNumber:null,metadata:{},actorMembershipId:ID,occurredAt:date,createdAt:date,reversesEventId:null,reversed:false,allocations:[]};
+
+test("manager settlement submits cash and discount separately after confirming their combined allocation",async()=>{
+ let sent:Record<string,unknown>|undefined,previewAmount=0;
+ await mounted("receivables",async(container,browser)=>{
+  await act(async()=>button(container,"Alınan ödemeyi kaydet").click());
+  await act(async()=>{await new Promise(r=>setTimeout(r,20));});
+  const dialog=container.querySelector<HTMLDialogElement>("dialog")!;
+  const discount=dialog.querySelector<HTMLInputElement>('input[name="discount"]');assert.ok(discount,"İskonto field must be available to manager");
+  await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,"2000");await fill(discount,"400");
+  await act(async()=>{await new Promise(r=>setTimeout(r,220));});
+  assert.equal(previewAmount,240000);assert.match(dialog.querySelector('section[aria-label="Kaydın etkisi"]')!.textContent??"",/İskonto|iskonto/);
+  await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true})as unknown as Event));
+  assert.equal(sent?.amountCents,200000);assert.equal(sent?.discountCents,40000);
+ },value=>{value.collectionPreview=async(input?:unknown)=>{previewAmount=(input as{amountCents:number}).amountCents;return{customerId:ID,currency:"TRY",version:1,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:previewAmount}]};};value.mutate=async(_kind,input,key)=>{sent=input as Record<string,unknown>;return{operationId:key,replayed:false,event:{...event,kind:"collection",amountCents:200000,customerId:ID,orderId:null,paymentMethod:"cash",note:null,metadata:{discountCents:40000,discountAllocations:[{receivableId:ID,orderId:ID,amountCents:40000}]}},account:null,customerAccount:null,finance:null};};});
+});
+
+test("standalone manager can close an already-paid residual with only discount while cashier has no field",async()=>{
+ let sent:Record<string,unknown>|undefined;
+ await mounted("collection",async(container,browser)=>{
+  const discount=container.querySelector<HTMLInputElement>('input[name="discount"]');assert.ok(discount);
+  await fill(discount,"400");await act(async()=>{await new Promise(r=>setTimeout(r,220));});
+  assert.equal(container.querySelector<HTMLInputElement>('input[name="amount"]')!.required,false);
+  await act(async()=>container.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true})as unknown as Event));
+  assert.equal(sent?.amountCents,0);assert.equal(sent?.discountCents,40000);assert.equal(sent?.accountId,null);
+ },value=>{value.mutate=async(_kind,input,key)=>{sent=input as Record<string,unknown>;return{operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null};};},undefined,{allowDiscount:true});
+ await mounted("collection",async(container)=>{assert.equal(container.querySelector('input[name="discount"]'),null);});
+});
+
+test("uncertain discounted settlement never clears its frozen command for an unrelated recovered receipt",async()=>{
+ let writes=0,lookups=0;
+ await mounted("receivables",async(container,browser)=>{
+  await act(async()=>button(container,"Alınan ödemeyi kaydet").click());await act(async()=>{await new Promise(r=>setTimeout(r,20));});
+  const dialog=container.querySelector<HTMLDialogElement>("dialog")!;
+  await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,"2000");await fill(dialog.querySelector<HTMLInputElement>('input[name="discount"]')!,"400");await act(async()=>{await new Promise(r=>setTimeout(r,220));});
+  await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true})as unknown as Event));
+  assert.equal(writes,1);assert.equal(dialog.querySelector<HTMLInputElement>('input[name="discount"]')!.disabled,true);
+  await act(async()=>button(dialog,"Aynı işlemi kontrol et").click());
+  assert.equal(lookups,1);assert.equal(writes,1);assert.equal(dialog.open,true);assert.ok(button(dialog,"Aynı işlemi kontrol et"));
+  const frozen=JSON.parse(browser.sessionStorage.getItem('celebix-accounting-operation:store:actor')!);assert.equal(frozen.intent.discountCents,40000);
+ },value=>{value.mutate=async()=>{writes++;throw new clientModule.AccountingUiError("unavailable",true);};value.getOperation=async()=>{lookups++;return{operationId:ID,replayed:true,event,account:null,customerAccount:null,finance:null};};});
+});
+
+for(const failure of ['throw','silent'] as const)test(`discount collection sends nothing when pending storage ${failure} fails`,async()=>{
+ let writes=0;
+ await mounted('receivables',async(container,browser)=>{
+  await act(async()=>button(container,'Alınan ödemeyi kaydet').click());await act(async()=>{await new Promise(r=>setTimeout(r,20));});
+  const dialog=container.querySelector<HTMLDialogElement>('dialog')!;
+  await fill(dialog.querySelector<HTMLInputElement>('input[name="amount"]')!,'2000');await fill(dialog.querySelector<HTMLInputElement>('input[name="discount"]')!,'400');await act(async()=>{await new Promise(r=>setTimeout(r,220));});
+  Object.defineProperty(browser.sessionStorage,'setItem',{configurable:true,value:()=>{if(failure==='throw')throw Error('quota');}});
+  await act(async()=>dialog.querySelector('form')!.dispatchEvent(new browser.Event('submit',{bubbles:true,cancelable:true})as unknown as Event));
+  assert.equal(writes,0);assert.equal(dialog.querySelector<HTMLInputElement>('input[name="discount"]')!.value,'400');assert.match(dialog.querySelector('[role="alert"]')?.textContent??'',/tarayıcıda korunamadı/);
+ },value=>{value.mutate=async()=>{writes++;throw Error('must not send');};value.collectionPreview=async()=>({customerId:ID,currency:'TRY',version:1,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:240000}]});});
+});
+
+test('malformed pending accounting command blocks a fresh payment without deleting evidence',async()=>{
+ await mounted('receivables',async(container,browser)=>{
+  assert.match(container.textContent??'',/Önceki işlem bilgileri okunamadı/);
+  await act(async()=>button(container,'Alınan ödemeyi kaydet').click());assert.equal(container.querySelector('dialog')?.open,false);
+  assert.equal(browser.sessionStorage.getItem('celebix-accounting-operation:store:actor'),'{bad');
+ },undefined,browser=>browser.sessionStorage.setItem('celebix-accounting-operation:store:actor','{bad'));
+});
 
 test("same accounting filters retain rows during refresh and keep errors visible",async()=>{
  let calls=0,reject!:(error:Error)=>void;
@@ -63,7 +124,7 @@ test("social channel selection requests POS receipts with social source",async()
   assert.deepEqual(sent,{channel:"POS",salesChannel:"social"});
  },value=>{value.overview=async(filters?:unknown)=>{sent=filters;return{currencies:[] as AccountingOverview["currencies"],accounts:[cash,bank],recentEvents:[]};};});
 });
-function api(){let n=10;return{newId:()=>`9e000000-0000-4000-8000-${String(n++).padStart(12,"0")}`,overview:async():Promise<AccountingOverview>=>({currencies:[] as AccountingOverview["currencies"],accounts:[cash,bank],recentEvents:[]}),accounts:async()=>({accounts:[cash,bank],events:[event]}),receivables:async()=>({receivables:[row]}),expenses:async()=>({expenses:[event]}),customerAccount:async()=>({customerId:ID,customerName:row.customerName,customerPhone:row.customerPhone,customerArchived:true,currency:"TRY",version:1,dueCents:600000,refundDueCents:0,receivables:[row],events:[]}),collectionPreview:async()=>({customerId:ID,currency:"TRY",version:1,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:200000}]}),orderFinance:async()=>({status:"partial",collectedCents:500000,dueCents:300000,refundDueCents:50000,version:1,receipts:[{id:ID,amountCents:500000,paymentMethod:"cash",receivedAt:date,actorMembershipId:ID,reversed:true}]}),schedules:async(_filters?:unknown):Promise<AccountingSchedules>=>({schedules:[{receivable:row,hasPlan:false,plannedCents:0,unplannedCents:row.dueCents,installments:[]}],today:"2026-10-15",hasMore:false}),schedule:async(_id?:string):Promise<AccountingDebtSchedule>=>({receivable:row,hasPlan:false,plannedCents:0,unplannedCents:row.dueCents,installments:[]}),saveSchedule:async(intent:AccountingScheduleIntent,key:string):Promise<AccountingScheduleResult>=>({operationId:key,replayed:false,schedule:{receivable:{...row,version:row.version+1},hasPlan:true,plannedCents:row.dueCents,unplannedCents:0,installments:intent.installments.map(part=>({...part,coveredCents:0,dueCents:part.amountCents}))}}),scheduleOperation:async(_id:string):Promise<AccountingScheduleResult|null>=>null,getOperation:async()=>null,mutate:async(_kind:string,_input:unknown,key:string)=>({operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null})};}
+function api(){let n=10;return{newId:()=>`9e000000-0000-4000-8000-${String(n++).padStart(12,"0")}`,overview:async():Promise<AccountingOverview>=>({currencies:[] as AccountingOverview["currencies"],accounts:[cash,bank],recentEvents:[]}),accounts:async()=>({accounts:[cash,bank],events:[event]}),receivables:async()=>({receivables:[row]}),expenses:async()=>({expenses:[event]}),customerAccount:async()=>({customerId:ID,customerName:row.customerName,customerPhone:row.customerPhone,customerArchived:true,currency:"TRY",version:1,dueCents:600000,refundDueCents:0,receivables:[row],events:[]}),collectionPreview:async()=>({customerId:ID,currency:"TRY",version:1,dueCents:600000,allocations:[{receivableId:ID,orderId:ID,amountCents:200000}]}),orderFinance:async()=>({status:"partial",collectedCents:500000,dueCents:300000,refundDueCents:50000,version:1,receipts:[{id:ID,amountCents:500000,paymentMethod:"cash",receivedAt:date,actorMembershipId:ID,reversed:true}]}),schedules:async(_filters?:unknown):Promise<AccountingSchedules>=>({schedules:[{receivable:row,hasPlan:false,plannedCents:0,unplannedCents:row.dueCents,installments:[]}],today:"2026-10-15",hasMore:false}),schedule:async(_id?:string):Promise<AccountingDebtSchedule>=>({receivable:row,hasPlan:false,plannedCents:0,unplannedCents:row.dueCents,installments:[]}),saveSchedule:async(intent:AccountingScheduleIntent,key:string):Promise<AccountingScheduleResult>=>({operationId:key,replayed:false,schedule:{receivable:{...row,version:row.version+1},hasPlan:true,plannedCents:row.dueCents,unplannedCents:0,installments:intent.installments.map(part=>({...part,coveredCents:0,dueCents:part.amountCents}))}}),scheduleOperation:async(_id:string):Promise<AccountingScheduleResult|null>=>null,getOperation:async():Promise<AccountingMutationResult|null>=>null,mutate:async(_kind:string,_input:unknown,key:string)=>({operationId:key,replayed:false,event,account:null,customerAccount:null,finance:null})};}
 type Api=ReturnType<typeof api>;
 function button(container:HTMLElement,label:string){return Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find(b=>b.textContent?.trim()===label)!;}
 async function fill(input:HTMLInputElement,value:string){const key=Object.keys(input).find(k=>k.startsWith("__reactProps$"))!;await act(async()=>{(input as unknown as Record<string,{onChange:(e:unknown)=>void}>)[key].onChange({target:{value}});});}

@@ -89,6 +89,7 @@ export function createAccountingHttpHandlers(deps:AccountingHttpDependencies){
       if(!Object.hasOwn(PATHS,kind))return failure('invalid_input');
       const auth=await authorize(deps,request,'POST',`/api/accounting/${PATHS[kind]}`,false,kind==='collect');if(auth instanceof Response)return auth;
       let operationId,intent;try{operationId=accountingUuid(request.headers.get('idempotency-key'));intent=parseAccountingIntent(kind,await body(request));}catch{return failure('invalid_input');}
+      if(kind==='collect'&&(parseAccountingIntent('collect',intent).discountCents??0)>0&&auth.tenantContext.membership.role==='cashier')return failure('membership_denied');
       const input={tenantContext:auth.tenantContext,now:auth.now,operationId};const repo=auth.runtime.accounting;
       switch(kind){
         case'collect':return execute(()=>repo.collect({...input,intent:parseAccountingIntent('collect',intent)}));

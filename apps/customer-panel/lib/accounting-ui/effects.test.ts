@@ -20,6 +20,40 @@ test("collection reduces customer debt and increases the chosen account", () => 
   assert.deepEqual(amounts(result), [[1_000, -400, 600], [2_000, 400, 2_400]]);
 });
 
+test("settlement discount closes debt without treating forgiven money as cash", () => {
+  const selected = debt({ saleCents: 240_000, dueCents: 240_000 });
+  const result = preview({ amountCents: 200_000, discountCents: 40_000, customerAccount: customer([selected], { dueCents: 240_000 }), accounts: [account("cash", 500_000)], accountId: "cash" });
+  assert.equal(result.error, null);
+  assert.deepEqual(amounts(result), [[240_000, -240_000, 0], [500_000, 200_000, 700_000]]);
+  assert.match(result.notes.join(" "), /iskonto.*para/i);
+});
+
+test("discount-only settlement creates no account movement and cannot exceed the selected debt", () => {
+  const selected = debt({ saleCents: 240_000, collectedCents: 200_000, dueCents: 40_000 });
+  const result = preview({ amountCents: 0, discountCents: 40_000, customerAccount: customer([selected], { dueCents: 40_000 }), accounts: [account()], accountId: "cash" });
+  assert.equal(result.error, null);
+  assert.deepEqual(amounts(result), [[40_000, -40_000, 0]]);
+  assert.ok(preview({ amountCents: 200, discountCents: 801, customerAccount: customer() }).error);
+  assert.ok(preview({ amountCents: 1, discountCents: -1, customerAccount: customer() }).error);
+});
+
+test("reversing a discounted payment restores debt and returns only actual collected cash", () => {
+  const selected = debt({ saleCents: 240_000, collectedCents: 200_000, discountCents: 40_000, dueCents: 0 });
+  const original = event({ amountCents: 200_000, allocations: [{ receivableId: "debt", orderId: "order", amountCents: 200_000 }], metadata: { discountCents: 40_000, discountAllocations: [{ receivableId: "debt", orderId: "order", amountCents: 40_000 }] } });
+  const result = preview({ kind: "reverse", selectedEvent: original, customerAccount: customer([selected], { dueCents: 0 }), accounts: [account("cash", 500_000)] });
+  assert.equal(result.error, null);
+  assert.deepEqual(amounts(result), [[0, 240_000, 240_000], [0, 0, 0], [500_000, -200_000, 300_000]]);
+});
+
+test("discounted return never offers the forgiven part as refundable cash", () => {
+  const selected = debt({ saleCents: 240_000, collectedCents: 200_000, discountCents: 40_000, dueCents: 0 });
+  const base = { kind: "returnCredit" as const, selectedDebt: selected, customerAccount: customer([selected], { dueCents: 0 }) };
+  assert.ok(preview({ ...base, amountCents: 240_000 }).error);
+  const result = preview({ ...base, amountCents: 200_000 });
+  assert.equal(result.error, null);
+  assert.deepEqual(amounts(result), [[0, 0, 0], [0, 200_000, 200_000]]);
+});
+
 test("collection cannot exceed the selected order while other customer debts remain", () => {
   const rows = [debt({ dueCents: 100, saleCents: 100 }), debt({ id: "other", orderId: "other-order", dueCents: 900, saleCents: 900 })];
   assert.ok(preview({ customerAccount: customer(rows), orderId: "order", amountCents: 101 }).error);

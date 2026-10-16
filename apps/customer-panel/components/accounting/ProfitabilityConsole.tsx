@@ -22,14 +22,14 @@ function CurrencySummary({row}:{row:Summary}){
  return<article className={styles.currency} aria-label={`${row.currency} gelir ve kâr özeti`}>
   <div className={styles.currencyHeading}><h2 className={shared.currencyLabel}>{row.currency}</h2><span>Dönem özeti</span></div>
   <dl className={styles.metrics} aria-label="Satış, tahsilat ve kâr">
-   <div><dt>Net satış</dt><dd>{money(row.netSalesCents,row.currency)}</dd><small>Satışlardan iade kayıtları çıkarıldı.</small></div>
+   <div><dt>Net satış</dt><dd>{money(row.netSalesCents,row.currency)}</dd><small>{row.discountCents?'İade ve iskontolar çıkarıldı.':'Satışlardan iade kayıtları çıkarıldı.'}</small></div>
    <div><dt>Tahsilat</dt><dd>{money(row.collectionsCents,row.currency)}</dd><small>Bu dönemde alınan ödeme; eski borçlar da dahil.</small></div>
    <div><dt>Hesaplanan kâr</dt><dd className={row.profitCents===null?styles.unavailable:undefined}>{row.profitCents===null?'Hesaplanamıyor':money(row.profitCents,row.currency)}</dd><small>{row.profitCents===null?'Eksik kayıtlar aşağıda gösteriliyor.':'Ürün maliyeti, kayıtlı işletme gideri ve komisyon sonrası.'}</small></div>
   </dl>
   {gaps.length?<div className={styles.gaps} role="note"><strong>Kâr hesabı için eksik kayıt var</strong><ul>{gaps.map(gap=><li key={gap}>{gap}</li>)}</ul><p>Eksik tutarlar sıfır sayılmaz; tamamlanmadan kâr gösterilmez.</p></div>:null}
   <div className={styles.breakdowns}>
    <section className={styles.breakdown} aria-label={`${row.currency} kâr hesabı`}><h3>Kâr hesabı</h3>
-    <dl><Amount label="Satış tutarı" value={row.salesCents} currency={row.currency}/><Amount label="İade kayıtları" value={-row.returnCents} currency={row.currency}/><Amount label="Net satış" value={row.netSalesCents} currency={row.currency} emphasis/>
+    <dl><Amount label="Satış tutarı" value={row.salesCents} currency={row.currency}/><Amount label="İade kayıtları" value={-row.returnCents} currency={row.currency}/>{row.discountCents?<Amount label="İskonto" value={-row.discountCents} currency={row.currency}/>:null}<Amount label="Net satış" value={row.netSalesCents} currency={row.currency} emphasis/>
      <Amount label="Kayıtlı ürün maliyeti" value={-row.knownCostCents} currency={row.currency}/><Amount label="Ürün maliyeti sonrası kalan" value={row.grossProfitCents} currency={row.currency} emphasis/>
      <Amount label="Ödenmiş işletme gideri" value={-row.operatingExpensesCents} currency={row.currency}/><Amount label="Kart komisyonu" value={-row.commissionCents} currency={row.currency}/><Amount label="Hesaplanan kâr" value={row.profitCents} currency={row.currency} emphasis/>
     </dl><p className={shared.muted}>Ürün maliyeti kayıtlı satış tutarı: {money(row.costedSalesCents,row.currency)}.</p>

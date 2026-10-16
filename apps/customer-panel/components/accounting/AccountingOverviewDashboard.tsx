@@ -54,6 +54,7 @@ export function AccountingOverviewDashboard({ overview }: { overview: Accounting
             ]} />
             <dl className={styles.secondary}>
               <div><dt>İade kaydı</dt><dd>{money(summary.returnCents, summary.currency)}</dd></div>
+              {summary.discountCents ? <div><dt>İskonto</dt><dd>{money(summary.discountCents, summary.currency)}</dd></div> : null}
               <div><dt>Kart komisyonu</dt><dd>{money(summary.commissionCents, summary.currency)}</dd></div>
               <div><dt>Kayıtlı web ödemeleri</dt><dd>{money(summary.recordedWebPaymentsCents, summary.currency)}</dd></div>
             </dl>

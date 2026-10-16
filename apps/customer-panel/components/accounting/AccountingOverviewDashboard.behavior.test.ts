@@ -40,6 +40,11 @@ test("overview retains every authoritative period and current value with separat
     assert.equal(host.querySelectorAll("button").length, 0);
   });
 });
+test("overview keeps settlement discounts separate from collected cash", async () => {
+ await mounted(AccountingOverviewDashboard,{overview:{currencies:[{...summary(),discountCents:4000}],accounts:[],recentEvents:[]}},async host=>{
+  const period=host.querySelector('[data-period-currency]');assert.match(period.textContent,/İskonto.*40,00/);assert.match(period.textContent,/Alınan ödeme.*100,00/);
+ });
+});
 
 test("no period summary never hides existing current accounts or fabricates zero debt", async () => {
   await mounted(AccountingOverviewDashboard, { overview: { currencies: [], accounts: [account("Kasa", "TRY", 2300)], recentEvents: [] } }, async host => {

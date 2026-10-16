@@ -22,6 +22,14 @@ test('profit report separates net sales, collections, registered profit and cash
   assert.equal(calls,1);assert.equal(host.querySelector('a[href="/accounting/suppliers"]')?.textContent,'Tedarikçi borçları');
  });
 });
+test('settlement discount is explicit in profit while actual cash totals stay unchanged',async()=>{
+ const discounted={...row,discountCents:40000,netSalesCents:860000,grossProfitCents:460000,profitCents:330000};
+ await mounted(component(async()=>({...report,currencies:[discounted]})),{canRead:true,scopeKey:'store:actor'},async host=>{
+  await flush();const profit=host.querySelector('section[aria-label="TRY kâr hesabı"]'),cash=host.querySelector('section[aria-label="TRY para hareketleri"]');
+  assert.match(profit.textContent,/İskonto.*400,00/);assert.match(profit.textContent,/Net satış.*8\.600,00/);
+  assert.doesNotMatch(cash.textContent,/İskonto/);assert.match(cash.textContent,/Tahsilat.*5\.000,00/);assert.match(cash.textContent,/Tahsilattan kalan.*3\.400,00/);
+ });
+});
 test('profit is unavailable for missing historical cost or unresolved return and supplier classification',async()=>{
  const incomplete={...report,currencies:[{...row,knownCostCents:0,costedSalesCents:0,missingCostOrderCount:2,unresolvedReturnCount:1,unclassifiedSupplierPaymentCount:1,grossProfitCents:null,profitCents:null}]};
  await mounted(component(async()=>incomplete),{canRead:true,scopeKey:'store:actor'},async host=>{await flush();const cards=host.querySelector('dl[aria-label="Satış, tahsilat ve kâr"]');assert.match(cards.textContent,/Hesaplanan kârHesaplanamıyor/);assert.match(host.textContent,/2 satış/);assert.match(host.textContent,/sipariş oluşturulurken/);assert.match(host.textContent,/1 iade/);assert.match(host.textContent,/1 tedarikçi ödemesi/);assert.doesNotMatch(host.textContent,/Gerçek kâr|Net kâr/);});

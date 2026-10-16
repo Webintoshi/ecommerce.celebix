@@ -3,7 +3,7 @@ import {accountingExact,accountingInteger,parseAccountingFilters} from './valida
 export interface AccountingProfitabilityFilters {readonly dateFrom:string;readonly dateTo:string;readonly currency?:string;}
 export interface AccountingProfitabilityCurrency {
  readonly currency:string;
- readonly salesCents:number;readonly returnCents:number;readonly netSalesCents:number;
+ readonly salesCents:number;readonly returnCents:number;readonly discountCents?:number;readonly netSalesCents:number;
  readonly collectionsCents:number;readonly refundsCents:number;
  readonly expensesCents:number;readonly supplierPaymentsCents:number;readonly operatingExpensesCents:number;readonly commissionCents:number;readonly netCashCents:number;
  readonly knownCostCents:number;readonly costedSalesCents:number;
@@ -23,13 +23,14 @@ export function parseAccountingProfitabilityFilters(value:unknown):Readonly<Acco
 const MONEY=['salesCents','returnCents','netSalesCents','collectionsCents','refundsCents','expensesCents','supplierPaymentsCents','operatingExpensesCents','commissionCents','netCashCents','knownCostCents','costedSalesCents'] as const;
 const COUNTS=['missingCostOrderCount','unresolvedReturnCount','unclassifiedSupplierPaymentCount'] as const;
 function currencyRow(value:unknown):Readonly<AccountingProfitabilityCurrency>{
- const b=accountingExact(value,['currency',...MONEY,...COUNTS,'grossProfitCents','profitCents']);
+ const b=accountingExact(value,['currency',...MONEY,...COUNTS,'grossProfitCents','profitCents'],['discountCents']);
  if(typeof b.currency!=='string'||! /^[A-Z]{3}$/.test(b.currency))fail();
  for(const key of MONEY)accountingInteger(b[key],Number.MIN_SAFE_INTEGER);
+ if(Object.hasOwn(b,'discountCents'))accountingInteger(b.discountCents,Number.MIN_SAFE_INTEGER);
  for(const key of COUNTS)accountingInteger(b[key]);
  for(const key of ['grossProfitCents','profitCents'])if(b[key]!==null)accountingInteger(b[key],Number.MIN_SAFE_INTEGER);
  const n=(key:string)=>BigInt(b[key] as number);
- if(n('netSalesCents')!==n('salesCents')-n('returnCents')||n('operatingExpensesCents')!==n('expensesCents')-n('supplierPaymentsCents')||n('netCashCents')!==n('collectionsCents')-n('refundsCents')-n('expensesCents')-n('commissionCents'))fail();
+ if(n('netSalesCents')!==n('salesCents')-n('returnCents')-BigInt((b.discountCents??0) as number)||n('operatingExpensesCents')!==n('expensesCents')-n('supplierPaymentsCents')||n('netCashCents')!==n('collectionsCents')-n('refundsCents')-n('expensesCents')-n('commissionCents'))fail();
  const costComplete=b.missingCostOrderCount===0&&b.unresolvedReturnCount===0;
  if(costComplete){if(b.grossProfitCents===null||n('grossProfitCents')!==n('netSalesCents')-n('knownCostCents'))fail();}else if(b.grossProfitCents!==null)fail();
  if(costComplete&&b.unclassifiedSupplierPaymentCount===0){if(b.profitCents===null||n('profitCents')!==n('grossProfitCents')-n('operatingExpensesCents')-n('commissionCents'))fail();}else if(b.profitCents!==null)fail();
