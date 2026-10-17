@@ -173,6 +173,27 @@ test("rejects a non-canonical credential locally without pool access", async () 
   assert.equal(h.connects, 0);
 });
 
+test("a native MFA-required session returns to sign-in without authority or an availability failure", async () => {
+  const audit: unknown[] = [];
+  const h = harness((text, values) => text.includes("issue_panel_session")
+    ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+    : { rows: [{ outcome: "mfa_required", authority: null }], rowCount: 1 },
+  { audit(event) { audit.push(event); } });
+  const credential = await codecCredential(h);
+  const result = await h.repository.resolveSession({ credential, requestId: "request_mfa_required", now: NOW });
+  assert.deepEqual(result, { kind: "unauthenticated" });
+  assert.equal(Object.isFrozen(result), true);
+  assert.deepEqual(audit.at(-1), { operation: "resolve", result: "unauthenticated" });
+});
+
+test("an unknown native session outcome remains rejected rather than being treated as signed out", async () => {
+  const h = harness((text, values) => text.includes("issue_panel_session")
+    ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+    : { rows: [{ outcome: "future_unknown_outcome", authority: null }], rowCount: 1 });
+  const credential = await codecCredential(h);
+  await assert.rejects(h.repository.resolveSession({ credential, requestId: "request_unknown_outcome", now: NOW }), /^Error: invalid$/);
+});
+
 test("resolves persisted authority into the frozen TenantContext contract", async () => {
   const h = harness((text, values) => {
     if (text.includes("issue_panel_session")) {

@@ -464,6 +464,7 @@ export function createPostgresPanelSessionRepository(
         [proof.tokenKeyId, proof.tokenDigest, now],
       )));
       if (executed.status !== "ok") return finish("resolve", { kind: "unavailable" });
+      if (executed.value.outcome === "mfa_required") return finish("resolve", { kind: "unauthenticated" });
       const kind = outcome(executed.value.outcome);
       if (kind !== "resolved") {
         if (kind === "unauthenticated" || kind === "membership_denied" || kind === "durable_authority_invalid" || kind === "unavailable") {
