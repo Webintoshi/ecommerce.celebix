@@ -15,6 +15,10 @@ import {
 } from "@celebix/saas-contracts";
 export type StorefrontDesignPreviewResourceStatus = "loading" | "ready" | "partial" | "empty" | "missing" | "unavailable";
 
+export function isStorefrontPreviewSupportEmail(value: unknown): value is string {
+  return typeof value === "string" && value.length <= 254 && /^[A-Za-z0-9!#$%&'*+/=?^_\x60{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_\x60{|}~-]+)*@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/.test(value);
+}
+
 export type StorefrontDesignPreviewProduct = Readonly<{
   id: string;
   slug: string;
@@ -29,6 +33,7 @@ export type StorefrontDesignPreviewProduct = Readonly<{
 
 export type StorefrontDesignPreviewResources = Readonly<{
   schemaVersion: 1;
+  presentation?: Readonly<{ logo?: PublicStorefrontAsset; supportEmail?: string }>;
   navigation?: Readonly<{ status: StorefrontDesignPreviewResourceStatus; value?: PublicStarterNavigation }>;
   productDetail?: Readonly<{ status: StorefrontDesignPreviewResourceStatus; value?: PublicProduct }>;
   relatedProducts?: readonly StorefrontDesignPreviewProduct[];
@@ -113,7 +118,7 @@ export function storefrontDesignPreviewDependencyKey(compositionInput: StarterTh
   });
 }
 
-function unresolvedStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, selectedStatus: "loading" | "unavailable", previewProductId?: string): StorefrontDesignPreviewResources {
+function unresolvedStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, selectedStatus: "loading" | "unavailable", previewProductId?: string, presentation?: StorefrontDesignPreviewResources["presentation"]): StorefrontDesignPreviewResources {
   const composition = normalizeStarterThemeCompositionV4(compositionInput);
   const sources = new Set<string>(), assets = new Set<string>(), mediaIds = new Set<string>(), hotspots = new Set<string>(); let needsCategories = false;
   if (composition.navigation.featuredAssetId) assets.add(composition.navigation.featuredAssetId);
@@ -131,15 +136,15 @@ function unresolvedStorefrontDesignPreviewResources(compositionInput: StarterThe
     else if (section.kind === "brand_story" && section.assetId) assets.add(section.assetId);
     else if (section.kind === "category_grid") { needsCategories = true; for (const mapping of section.categoryImages ?? []) assets.add(mapping.assetId); }
   }
-  return Object.freeze({ schemaVersion: 1, media: Object.freeze([...mediaIds].sort().map((id) => Object.freeze({ id, status: selectedStatus }))), categorySections: Object.freeze(composition.sections.flatMap((section) => section.enabled && section.kind === "category_grid" ? [Object.freeze({ sectionId: section.sectionId, status: selectedStatus })] : [])), dependencyKey: storefrontDesignPreviewDependencyKey(composition, previewProductId), navigation: Object.freeze({ status: selectedStatus }), productDetail: Object.freeze({ status: selectedStatus }), testimonials: Object.freeze({ status: selectedStatus, items: Object.freeze([]) }), productSources: Object.freeze([...sources].sort().map((key) => Object.freeze({ key, status: selectedStatus, items: Object.freeze([]) }))), assets: Object.freeze([...assets].sort().map((id) => Object.freeze({ id, status: selectedStatus }))), hotspots: Object.freeze([...hotspots].sort().map((productId) => Object.freeze({ productId, status: selectedStatus }))), categoryShowcase: Object.freeze({ status: needsCategories ? selectedStatus : "missing" as const }) });
+  return Object.freeze({ schemaVersion: 1, ...(presentation ? { presentation } : {}), media: Object.freeze([...mediaIds].sort().map((id) => Object.freeze({ id, status: selectedStatus }))), categorySections: Object.freeze(composition.sections.flatMap((section) => section.enabled && section.kind === "category_grid" ? [Object.freeze({ sectionId: section.sectionId, status: selectedStatus })] : [])), dependencyKey: storefrontDesignPreviewDependencyKey(composition, previewProductId), navigation: Object.freeze({ status: selectedStatus }), productDetail: Object.freeze({ status: selectedStatus }), testimonials: Object.freeze({ status: selectedStatus, items: Object.freeze([]) }), productSources: Object.freeze([...sources].sort().map((key) => Object.freeze({ key, status: selectedStatus, items: Object.freeze([]) }))), assets: Object.freeze([...assets].sort().map((id) => Object.freeze({ id, status: selectedStatus }))), hotspots: Object.freeze([...hotspots].sort().map((productId) => Object.freeze({ productId, status: selectedStatus }))), categoryShowcase: Object.freeze({ status: needsCategories ? selectedStatus : "missing" as const }) });
 }
 
-export function unavailableStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, previewProductId?: string): StorefrontDesignPreviewResources {
-  return unresolvedStorefrontDesignPreviewResources(compositionInput, "unavailable", previewProductId);
+export function unavailableStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, previewProductId?: string, presentation?: StorefrontDesignPreviewResources["presentation"]): StorefrontDesignPreviewResources {
+  return unresolvedStorefrontDesignPreviewResources(compositionInput, "unavailable", previewProductId, presentation);
 }
 
-export function loadingStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, previewProductId?: string): StorefrontDesignPreviewResources {
-  return unresolvedStorefrontDesignPreviewResources(compositionInput, "loading", previewProductId);
+export function loadingStorefrontDesignPreviewResources(compositionInput: StarterThemeComposition, previewProductId?: string, presentation?: StorefrontDesignPreviewResources["presentation"]): StorefrontDesignPreviewResources {
+  return unresolvedStorefrontDesignPreviewResources(compositionInput, "loading", previewProductId, presentation);
 }
 
 function publicFooter(composition: StarterThemeCompositionConfigV4, destinations: readonly StorefrontDesignDestinationOption[]): PublicStarterThemePresentationV3["footer"] {
@@ -310,6 +315,8 @@ export function composeDraftCampaignProjection(input: Readonly<{
   const presentation: PublicStarterThemePresentationV4 = Object.freeze({
     schemaVersion: 4,
     displayName: input.storeName,
+    ...(input.resources.presentation?.logo ? { logo: input.resources.presentation.logo } : {}),
+    ...(input.resources.presentation?.supportEmail ? { supportEmail: input.resources.presentation.supportEmail } : {}),
     theme: Object.freeze({
       colorScheme: composition.visual.colorScheme,
       headingStyle: composition.visual.headingStyle,

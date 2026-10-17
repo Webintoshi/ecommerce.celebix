@@ -27,7 +27,7 @@ function editorSurface(editor: StorefrontDesignEditorBridge | undefined, surface
   </div>;
 }
 
-export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHeader = true, showHomeSurfaces = true, editor, presentation, previewMode, navigationStatus }: Readonly<{
+export function StorefrontDesignRenderer({ design, storeName, now, children, compact = false, showHeader = true, showHomeSurfaces = true, showAnnouncement = true, editor, presentation, previewMode, navigationStatus, header, frame }: Readonly<{
   design: PublicStorefrontDesign;
   storeName: string;
   now: Date;
@@ -35,10 +35,13 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
   compact?: boolean;
   showHeader?: boolean;
   showHomeSurfaces?: boolean;
+  showAnnouncement?: boolean;
   editor?: StorefrontDesignEditorBridge;
   presentation?: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
   previewMode?: "desktop" | "mobile";
   navigationStatus?: "loading" | "ready" | "partial" | "empty" | "missing" | "unavailable";
+  header?: ReactNode;
+  frame?: Readonly<{ className?: string; visualTheme?: string; style?: DesignStyle; publishedDesign?: boolean }>;
 }>) {
   const visual = (presentation?.schemaVersion === 3 || presentation?.schemaVersion === 4) ? presentation.visual : undefined;
   const typography = createStorefrontTypographyResources(design.typography);
@@ -49,6 +52,7 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
     "--store-text": design.brand.textColor,
     ...typography.style,
     "--store-section-spacing": visual?.sectionSpacing === "compact" ? "40px" : visual?.sectionSpacing === "airy" ? "112px" : previewMode === "mobile" ? "64px" : "clamp(64px, 7vw, 112px)",
+    ...frame?.style,
   };
   const announcement = presentation ? { ...design.announcement, enabled: Boolean(presentation.announcement), items: presentation.announcement?.items ?? [] } : design.announcement;
   const announcementDestination = presentation?.announcement?.destination;
@@ -68,13 +72,13 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
       <link rel="preconnect" href="https://fonts.googleapis.com" />
       <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       <link rel="stylesheet" href={typography.stylesheetUrl} />
-      <div className="celebix-store-design" data-font={design.brand.fontFamily} data-compact={compact ? "true" : "false"} data-preview-mode={previewMode} style={style}>
-      {announcement.enabled ? editorSurface(editor, "announcement", "Duyuru şeridi", (
+      <div className={`celebix-store-design${frame?.className ? ` ${frame.className}` : ""}`} data-storefront-theme={frame?.visualTheme} data-published-design={frame?.publishedDesign === undefined ? undefined : String(frame.publishedDesign)} data-font={design.brand.fontFamily} data-compact={compact ? "true" : "false"} data-preview-mode={previewMode} style={style}>
+      {showAnnouncement && announcement.enabled ? editorSurface(editor, "announcement", "Duyuru şeridi", (
         <div className="celebix-store-announcement" data-speed={announcement.speed} data-direction={announcement.direction} data-animation={announcement.animation} aria-label="Mağaza duyuruları">
           <div>{announcement.items.map((item, index) => <span key={`${index}-${item}`}>{ICONS[announcement.icon] ? <i aria-hidden="true">{ICONS[announcement.icon]}</i> : null}{announcementDestination ? <a href={announcementDestination}>{item}</a> : item}</span>)}</div>
         </div>
       )) : null}
-      {showHeader ? <header className="celebix-store-header" data-layout={visual?.headerLayout} data-width={visual?.headerWidth} data-style={presentation?.visual.headerStyle}>
+      {header ?? (showHeader ? <header className="celebix-store-header" data-layout={visual?.headerLayout} data-width={visual?.headerWidth} data-style={presentation?.visual.headerStyle}>
         {editorSurface(editor, "brand", "Logo ve marka", <a className="celebix-store-brand" href="/" aria-label={`${storeName} ana sayfa`}>
           {design.brand.logo ? <img src={design.brand.logo.url} alt={design.brand.logo.altText || storeName} /> : <strong>{storeName}</strong>}
         </a>)}
@@ -84,7 +88,7 @@ export function StorefrontDesignRenderer({ design, storeName, now, children, com
           {navigationStatus && navigationStatus !== "ready" ? <small className="celebix-store-nav-state" role="status">{navigationStatus === "loading" ? "Menü kategorileri yükleniyor." : navigationStatus === "partial" ? "Bazı menü kategorileri kullanılamıyor." : navigationStatus === "empty" ? "Menü kategorisi seçilmedi." : "Seçili menü kategorileri önizlemede kullanılamıyor."}</small> : null}
         </>)}
         {editorSurface(editor, "cart", "Yan sepet", <span className="celebix-store-bag">Çanta <b>0</b></span>)}
-      </header> : null}
+      </header> : null)}
       {showHomeSurfaces && presentation?.schemaVersion !== 4 && design.hero.enabled && slides.length ? (
         editorSurface(editor, "hero", "Ana banner", <section className="celebix-store-hero-slider" aria-roledescription="carousel" aria-label="Mağaza bannerları" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}>
           <div className="celebix-store-hero-track">

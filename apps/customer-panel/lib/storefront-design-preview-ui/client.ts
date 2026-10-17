@@ -1,10 +1,10 @@
 import { parsePublicProduct, normalizeStarterThemeCompositionV4, type PublicStarterNavigationItem, type PublicStorefrontAsset, type StarterThemeComposition } from "@celebix/saas-contracts";
 
-import { storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResourceStatus, type StorefrontDesignPreviewResources } from "../storefront-design-preview-model.ts";
+import { isStorefrontPreviewSupportEmail, storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResourceStatus, type StorefrontDesignPreviewResources } from "../storefront-design-preview-model.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-const ASSET_PATH = /^\/stores\/[0-9a-f-]{36}\/storefront\/(?:logo|hero|social|favicon|category)\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
+const ASSET_PATH = /^\/stores\/[0-9a-f-]{36}\/storefront\/(?:logo|hero|social|favicon|category|collection)\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
 const DESIGN_MEDIA_PATH = /^\/stores\/[0-9a-f-]{36}\/design\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
 const PRODUCT_MEDIA_PATH = /^\/stores\/[0-9a-f-]{36}\/products\/[0-9a-f-]{36}\/[0-9a-f-]{36}\.(?:jpg|png|webp)$/;
 const MAX_RESPONSE_BYTES = 1_048_576;
@@ -69,8 +69,20 @@ function navigationItems(value: unknown, depth = 0): readonly PublicStarterNavig
 }
 
 export function parseStorefrontDesignPreviewResources(value: unknown, expectedKey: string): StorefrontDesignPreviewResources {
-  const root = record(value, ["schemaVersion", "dependencyKey", "productSources", "assets", "hotspots", "categoryShowcase"], ["productDetail", "relatedProducts", "testimonials", "navigation", "media", "categorySections"]);
+  const root = record(value, ["schemaVersion", "dependencyKey", "productSources", "assets", "hotspots", "categoryShowcase"], ["productDetail", "relatedProducts", "testimonials", "navigation", "media", "categorySections", "presentation"]);
   if (root.schemaVersion !== 1 || root.dependencyKey !== expectedKey) throw new StorefrontDesignPreviewApiError();
+  let presentation: StorefrontDesignPreviewResources["presentation"];
+  if (root.presentation !== undefined) {
+    const selected = record(root.presentation, [], ["logo", "supportEmail"]);
+    let logo;
+    if (selected.logo !== undefined) {
+      const image = record(selected.logo, ["url", "mediaType", "altText", "width", "height"]);
+      let path: string; try { path = new URL(String(image.url)).pathname; } catch { throw new StorefrontDesignPreviewApiError(); }
+      logo = asset(selected.logo, DESIGN_MEDIA_PATH.test(path));
+    }
+    if (selected.supportEmail !== undefined && !isStorefrontPreviewSupportEmail(selected.supportEmail)) throw new StorefrontDesignPreviewApiError();
+    presentation = Object.freeze({ ...(logo ? { logo } : {}), ...(selected.supportEmail !== undefined ? { supportEmail: selected.supportEmail as string } : {}) });
+  }
   const sourceKeys = new Set<string>();
   const productSources = list(root.productSources, Number.MAX_SAFE_INTEGER).map((entry) => { const parsed = record(entry, ["key", "status", "items"], ["categorySlug"]); const key = text(parsed.key, 96); if (sourceKeys.has(key) || (key !== "latest" && key !== "sale" && !/^category:[0-9a-f-]{36}$/.test(key) && !/^manual:home_[a-z0-9][a-z0-9_-]{2,74}$/.test(key))) throw new StorefrontDesignPreviewApiError(); sourceKeys.add(key); const categorySlug = parsed.categorySlug === undefined ? undefined : text(parsed.categorySlug, 100); if (categorySlug && !SLUG.test(categorySlug)) throw new StorefrontDesignPreviewApiError(); return Object.freeze({ key, status: status(parsed.status), items: Object.freeze(list(parsed.items, 48).map(previewProduct)), ...(categorySlug ? { categorySlug } : {}) }); });
   const assetIds = new Set<string>();
@@ -144,7 +156,7 @@ export function parseStorefrontDesignPreviewResources(value: unknown, expectedKe
     if ((selectedStatus === "ready" || selectedStatus === "partial") !== Boolean(value)) throw new StorefrontDesignPreviewApiError();
     navigation = Object.freeze({ status: selectedStatus, ...(value ? { value } : {}) });
   }
-  return Object.freeze({ schemaVersion: 1, dependencyKey: expectedKey, productSources: Object.freeze(productSources), assets: Object.freeze(assets), hotspots: Object.freeze(hotspots), categoryShowcase: Object.freeze({ status: categoryStatus, ...(categoryValue ? { value: categoryValue } : {}) }), ...(productDetail ? { productDetail } : {}), ...(relatedProducts ? { relatedProducts } : {}), ...(testimonials ? { testimonials } : {}), ...(navigation ? { navigation } : {}), ...(media ? { media } : {}), ...(categorySections ? { categorySections } : {}) });
+  return Object.freeze({ schemaVersion: 1, ...(presentation ? { presentation } : {}), dependencyKey: expectedKey, productSources: Object.freeze(productSources), assets: Object.freeze(assets), hotspots: Object.freeze(hotspots), categoryShowcase: Object.freeze({ status: categoryStatus, ...(categoryValue ? { value: categoryValue } : {}) }), ...(productDetail ? { productDetail } : {}), ...(relatedProducts ? { relatedProducts } : {}), ...(testimonials ? { testimonials } : {}), ...(navigation ? { navigation } : {}), ...(media ? { media } : {}), ...(categorySections ? { categorySections } : {}) });
 }
 
 async function responseJson(response: Response): Promise<unknown> {

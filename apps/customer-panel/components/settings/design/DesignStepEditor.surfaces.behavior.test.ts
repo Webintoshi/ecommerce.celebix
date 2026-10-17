@@ -47,3 +47,49 @@ test("legacy navigation step keeps its announcement editor reachable in advanced
   assert.deepEqual(changes.at(-1)?.composition.announcement.items, ["Yeni duyuru"]);
   assert.deepEqual(changes.at(-1)?.announcement.items, ["Yeni duyuru"]);
 }));
+
+test("invalid announcement text blocks Apply while keeping the visible buffer and last valid design", async () => withEditor(async ({ container, render, change }) => {
+  const writes: StorefrontDesignDocument[] = [];
+  function Editor() {
+    const [design, setDesign] = React.useState(DESIGN);
+    const [invalid, setInvalid] = React.useState(false);
+    return React.createElement(React.Fragment, null,
+      React.createElement(DesignStepEditor, { ...props, surface: "announcement", design, onChange: (next: StorefrontDesignDocument) => { writes.push(next); setDesign(next); }, onValidationChange: setInvalid }),
+      React.createElement("button", { disabled: invalid, "data-apply": true }, "Uygula"));
+  }
+  await render(React.createElement(Editor));
+  const input = container.querySelector("textarea"); assert.ok(input);
+  await change(input, "Geçerli değişiklik");
+  assert.deepEqual(writes.at(-1)?.composition.announcement.items, ["Geçerli değişiklik"]);
+  await change(input, "");
+  assert.equal(input.value, "");
+  assert.equal(input.getAttribute("aria-invalid"), "true");
+  assert.equal(container.querySelector<HTMLButtonElement>("[data-apply]")?.disabled, true);
+  assert.deepEqual(writes.at(-1)?.composition.announcement.items, ["Geçerli değişiklik"]);
+  await change(input, "Düzeltilmiş duyuru");
+  assert.equal(container.querySelector<HTMLButtonElement>("[data-apply]")?.disabled, false);
+  assert.equal(input.getAttribute("aria-invalid"), "false");
+  assert.deepEqual(writes.at(-1)?.composition.announcement.items, ["Düzeltilmiş duyuru"]);
+  assert.equal(writes.length, 2);
+}));
+
+test("an invalid campaign schedule blocks Apply until the date order is corrected", async () => withEditor(async ({ container, render, change }) => {
+  const writes: StorefrontDesignDocument[] = [];
+  function Editor() {
+    const [design, setDesign] = React.useState<StorefrontDesignDocument>({ ...DESIGN, promotion: { ...DESIGN.promotion, startsAt: "2026-09-26T09:00:00.000Z", endsAt: "2026-09-26T15:00:00.000Z" } });
+    const [invalid, setInvalid] = React.useState(false);
+    return React.createElement(React.Fragment, null,
+      React.createElement(DesignStepEditor, { ...props, step: "homepage", design, onChange: (next: StorefrontDesignDocument) => { writes.push(next); setDesign(next); }, onValidationChange: setInvalid }),
+      React.createElement("button", { disabled: invalid, "data-apply": true }, "Uygula"));
+  }
+  await render(React.createElement(Editor));
+  const end = container.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]')[1]; assert.ok(end);
+  await change(end, "2026-09-26T08:00");
+  assert.equal(container.querySelector<HTMLButtonElement>("[data-apply]")?.disabled, true);
+  assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /Bitiş başlangıçtan önce/);
+  assert.equal(writes.length, 0);
+  await change(end, "2026-09-26T16:00");
+  assert.equal(container.querySelector<HTMLButtonElement>("[data-apply]")?.disabled, false);
+  assert.equal(container.querySelector('[role="alert"]'), null);
+  assert.equal(writes.at(-1)?.promotion.endsAt, "2026-09-26T16:00:00.000Z");
+}));

@@ -23,12 +23,14 @@ function TextField({ label, value, maxLength, disabled, multiline, onChange }: R
   return <div className={styles.field}><label htmlFor={id}>{label}</label>{multiline ? <textarea id={id} value={value} maxLength={maxLength} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)} /> : <input id={id} value={value} maxLength={maxLength} disabled={disabled} onChange={(event) => onChange(event.currentTarget.value)} />}</div>;
 }
 
-export function DesignInspector({ section, design, storeName, timezone, media, destinations, canManage, onChange, onUpload, onMediaBusyChange }: Readonly<{ section: DesignSection; design: StorefrontDesignDocument; storeName: string; timezone: string; media: readonly StorefrontDesignMediaOption[]; destinations: readonly StorefrontDesignDestinationOption[]; canManage: boolean; onChange(design: StorefrontDesignDocument): void; onUpload(file: File, altText: string): Promise<StorefrontDesignMediaOption>; onMediaBusyChange?(id: string, busy: boolean): void }>) {
+export function DesignInspector({ section, design, storeName, timezone, media, destinations, canManage, onChange, onUpload, onMediaBusyChange, onValidationChange }: Readonly<{ section: DesignSection; design: StorefrontDesignDocument; storeName: string; timezone: string; media: readonly StorefrontDesignMediaOption[]; destinations: readonly StorefrontDesignDestinationOption[]; canManage: boolean; onChange(design: StorefrontDesignDocument): void; onUpload(file: File, altText: string): Promise<StorefrontDesignMediaOption>; onMediaBusyChange?(id: string, busy: boolean): void; onValidationChange?(invalid: boolean): void }>) {
   const disabled = !canManage;
   const latest = useRef(design); latest.current = design;
   const [scheduleError,setScheduleError] = useState("");
   const [announcementText,setAnnouncementText] = useState<string|null>(null);
   const [announcementError,setAnnouncementError] = useState("");
+  const invalid = section === "announcement" ? Boolean(announcementError) : section === "promotion" ? Boolean(scheduleError) : false;
+  useEffect(() => { onValidationChange?.(invalid); }, [invalid, onValidationChange]);
   const lastAnnouncementWrite=useRef<string|null>(null);
   const announcementIdentity=JSON.stringify(design.composition.announcement.items);
   useEffect(()=>{if(lastAnnouncementWrite.current!==announcementIdentity){setAnnouncementText(null);setAnnouncementError("");}},[announcementIdentity]);

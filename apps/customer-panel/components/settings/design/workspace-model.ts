@@ -6,17 +6,41 @@ import { STARTER_FOOTER_POLICIES } from "../starter-footer-options.ts";
 
 export type DesignEditorStatus = "applied" | "dirty" | "applying" | "error" | "conflict";
 export type DesignApplyToken = Readonly<{ revision: number; design: StorefrontDesignDocument; expectedPublishedVersion: number; operationId: string }>;
-export type DesignEditorState = Readonly<{ baseline: StorefrontDesignDocument; design: StorefrontDesignDocument; publishedVersion: number; revision: number; status: DesignEditorStatus; pending?: DesignApplyToken; homepageUndo?: HomepageUndo }>;
+type DesignHistory = Readonly<{ past: readonly StorefrontDesignDocument[]; future: readonly StorefrontDesignDocument[]; group?: string; editedAt?: number }>;
+export type DesignEditorState = Readonly<{ baseline: StorefrontDesignDocument; design: StorefrontDesignDocument; publishedVersion: number; revision: number; status: DesignEditorStatus; pending?: DesignApplyToken; homepageUndo?: HomepageUndo; history: DesignHistory }>;
+const emptyHistory = (): DesignHistory => ({ past: [], future: [] });
+const sameDesign = (a: StorefrontDesignDocument, b: StorefrontDesignDocument) => a === b || JSON.stringify(a) === JSON.stringify(b);
+function boundedHistory(documents: readonly StorefrontDesignDocument[]): readonly StorefrontDesignDocument[] {
+ let size = 0, start = documents.length;
+ while (start > 0 && documents.length - start < 30) {
+  const bytes = JSON.stringify(documents[start - 1]).length * 2;
+  if (size + bytes > 2_000_000) break;
+  size += bytes; start--;
+ }
+ return documents.slice(start);
+}
 export function editorAssetOptions(media:readonly StorefrontDesignEditorMediaOption[]):readonly StorefrontDesignAssetOption[] {
  return media.flatMap(option=>option.reference.kind==="asset"&&option.assetKind?[{id:option.reference.assetId,kind:option.assetKind,url:option.url,altText:option.altText,mediaType:option.mediaType,width:option.width,height:option.height}]:[]);
 }
 export function createDesignEditorState(workspace: Readonly<{design:StorefrontDesignDocument;publishedVersion:number}>): DesignEditorState {
- return Object.freeze({baseline:workspace.design,design:workspace.design,publishedVersion:workspace.publishedVersion,revision:0,status:"applied"});
+ return Object.freeze({baseline:workspace.design,design:workspace.design,publishedVersion:workspace.publishedVersion,revision:0,status:"applied",history:emptyHistory()});
 }
-export function applyDesignEdit(state:DesignEditorState, design:StorefrontDesignDocument, homepageUndo?:HomepageUndo):DesignEditorState {
- if(JSON.stringify(state.design)===JSON.stringify(design))return state;
- const {pending:_pending,...rest}=state;
- return Object.freeze({...rest,design,revision:state.revision+1,status:"dirty",...(homepageUndo?{homepageUndo}:{})});
+export function applyDesignEdit(state:DesignEditorState, design:StorefrontDesignDocument, homepageUndo?:HomepageUndo, edit?:Readonly<{group?:string;now:number}>):DesignEditorState {
+ if(sameDesign(state.design,design))return state;
+ const {pending:_pending,homepageUndo:_oldUndo,...rest}=state;
+ const grouped = Boolean(edit?.group && state.history.group === edit.group && edit.now >= (state.history.editedAt ?? 0) && edit.now - (state.history.editedAt ?? 0) <= 750);
+ const history = {past: grouped ? state.history.past : boundedHistory([...state.history.past,state.design]), future: [], group:edit?.group, editedAt:edit?.now};
+ return Object.freeze({...rest,design,revision:state.revision+1,status:state.status==="conflict"?"conflict":sameDesign(state.baseline,design)?"applied":"dirty",history,...(homepageUndo?{homepageUndo}:{})});
+}
+export function undoDesignEdit(state:DesignEditorState):DesignEditorState {
+ if(state.status==="applying"||state.status==="conflict"||!state.history.past.length)return state;
+ const design=state.history.past.at(-1)!;
+ return Object.freeze({...state,design,revision:state.revision+1,status:sameDesign(design,state.baseline)?"applied":"dirty",pending:undefined,homepageUndo:undefined,history:{past:state.history.past.slice(0,-1),future:boundedHistory([...state.history.future,state.design])}});
+}
+export function redoDesignEdit(state:DesignEditorState):DesignEditorState {
+ if(state.status==="applying"||state.status==="conflict"||!state.history.future.length)return state;
+ const design=state.history.future.at(-1)!;
+ return Object.freeze({...state,design,revision:state.revision+1,status:sameDesign(design,state.baseline)?"applied":"dirty",pending:undefined,homepageUndo:undefined,history:{past:boundedHistory([...state.history.past,state.design]),future:state.history.future.slice(0,-1)}});
 }
 export function cancelDesignEdit(state:DesignEditorState):DesignEditorState {return createDesignEditorState({design:state.baseline,publishedVersion:state.publishedVersion});}
 export function clearHomepageUndo(state:DesignEditorState):DesignEditorState {const {homepageUndo:_undo,...rest}=state;return Object.freeze(rest);}
@@ -26,7 +50,7 @@ export function beginDesignApply(state:DesignEditorState,operationId:string):Rea
 }
 export function failDesignApply(state:DesignEditorState,status:"error"|"conflict"):DesignEditorState {return Object.freeze({...state,status});}
 export function completeDesignApply(state:DesignEditorState,token:DesignApplyToken,mutation:StorefrontDesignApplyMutation):DesignEditorState {
- if(state.revision!==token.revision)return Object.freeze({...state,baseline:mutation.design,publishedVersion:mutation.publishedVersion,status:"dirty",pending:undefined});
+ if(state.revision!==token.revision)return Object.freeze({...state,baseline:mutation.design,publishedVersion:mutation.publishedVersion,status:"dirty",pending:undefined,history:{past:boundedHistory([mutation.design]),future:[]}});
  return createDesignEditorState({design:mutation.design,publishedVersion:mutation.publishedVersion});
 }
 

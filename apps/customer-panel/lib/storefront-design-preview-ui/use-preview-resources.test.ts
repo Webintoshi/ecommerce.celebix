@@ -52,13 +52,13 @@ test("returning to the already-applied dependency cancels an obsolete request", 
 test("hook exposes loading for a changed source and cancels it when dependencies revert", async () => {
   const initialComposition = createDefaultStarterThemeComposition();
   const changedComposition = { ...initialComposition, sections: [{ sectionId: "home_products", kind: "product_row", enabled: true, heading: "Products", source: "latest", limit: 4 }] } as StarterThemeComposition;
-  const initialResources = { schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(initialComposition), productSources: [], assets: [], hotspots: [], categoryShowcase: { status: "missing" } } as StorefrontDesignPreviewResources;
+  const initialResources = { schemaVersion: 1, dependencyKey: storefrontDesignPreviewDependencyKey(initialComposition), productSources: [], assets: [], hotspots: [], categoryShowcase: { status: "missing" }, presentation: { supportEmail: "destek@atlas.example" } } as StorefrontDesignPreviewResources;
   const pending = [deferred<StorefrontDesignPreviewResources>(), deferred<StorefrontDesignPreviewResources>()];
   const signals: AbortSignal[] = [];
   const api = { preview: async (_composition: StarterThemeComposition, signal?: AbortSignal) => { if (signal) signals.push(signal); return pending[signals.length - 1]!.promise; } };
   function Harness({ composition }: Readonly<{ composition: StarterThemeComposition }>) {
     const resources = useStorefrontDesignPreviewResources(composition, initialResources, api);
-    return React.createElement("output", null, `${resources.dependencyKey}:${resources.productSources[0]?.status ?? resources.categoryShowcase.status}`);
+    return React.createElement("output", { "data-support-email": resources.presentation?.supportEmail }, `${resources.dependencyKey}:${resources.productSources[0]?.status ?? resources.categoryShowcase.status}`);
   }
   const window = new Window({ url: "https://fixture.invalid/settings/design" });
   const previousWindow = globalThis.window;
@@ -73,6 +73,7 @@ test("hook exposes loading for a changed source and cancels it when dependencies
     await React.act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(Harness, { composition: initialComposition }))));
     await React.act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(Harness, { composition: changedComposition }))));
     assert.match(container.textContent ?? "", /:loading$/);
+    assert.equal(container.querySelector("output")?.getAttribute("data-support-email"), "destek@atlas.example");
     await React.act(async () => root.render(React.createElement(React.StrictMode, null, React.createElement(Harness, { composition: initialComposition }))));
     assert.equal(signals[0]?.aborted, true);
     pending[0]!.resolve(second);

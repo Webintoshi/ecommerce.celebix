@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeStorefrontDesignDocumentV5 } from "@celebix/saas-contracts";
 import { DESIGN } from "./design-editor-test-utils.ts";
-import { applyDesignEdit, beginDesignApply, cancelDesignEdit, compareDesignDrafts, completeDesignApply, createDesignEditorState, editorAssetOptions, failDesignApply } from "./workspace-model.ts";
+import { applyDesignEdit, beginDesignApply, cancelDesignEdit, compareDesignDrafts, completeDesignApply, createDesignEditorState, editorAssetOptions, failDesignApply, undoDesignEdit, redoDesignEdit } from "./workspace-model.ts";
 const design=()=>normalizeStorefrontDesignDocumentV5(DESIGN);
 test("editor assets retain their actual purpose and never convert product media into theme assets",()=>{
  const option={id:"40000000-0000-4000-8000-000000000001",url:"https://fixture.invalid/image.webp",altText:"One",mediaType:"image/webp" as const,width:1200,height:800};
@@ -62,4 +62,46 @@ test("conflict comparison keeps category order and social account changes unders
  assert.ok(rows.some(row=>row.field==="Tema · Menü · Menü kategorileri · 1. öğe"&&row.local==="Küpeler"&&row.remote==="Bileklikler"));
  assert.ok(rows.some(row=>row.local.includes("yenihesap")&&row.remote.includes("eski")));
  assert.doesNotMatch(JSON.stringify(rows),/40000000|https:|instagram\.com/);
+});
+
+
+test("undo restores brand, text and section removal; redo returns the exact local design without publishing",()=>{
+ const initial=createDesignEditorState({design:design(),publishedVersion:4});
+ const branded=applyDesignEdit(initial,{...initial.design,brand:{...initial.design.brand,primaryColor:"#123456"}});
+ const text=applyDesignEdit(branded,{...branded.design,promotion:{...branded.design.promotion,headline:"New campaign"}});
+ const removed=applyDesignEdit(text,{...text.design,composition:{...text.design.composition,sections:[]}});
+ const one=undoDesignEdit(removed),two=undoDesignEdit(one),three=undoDesignEdit(two);
+ assert.equal(one.design.composition.sections.length,initial.design.composition.sections.length);
+ assert.equal(two.design.promotion.headline,"Fixture");assert.equal(two.design.brand.primaryColor,"#123456");
+ assert.equal(three.design.brand.primaryColor,"#FF5A00");assert.equal(three.status,"applied");assert.equal(three.publishedVersion,4);
+ assert.deepEqual(redoDesignEdit(redoDesignEdit(redoDesignEdit(three))).design,removed.design);
+ assert.equal(removed.baseline.brand.primaryColor,"#FF5A00");
+});
+test("typing bursts are one undo step while another field, a pause or a discrete action remain separate",()=>{
+ let state=createDesignEditorState({design:design(),publishedVersion:4});
+ const headline=(text:string,key:string|undefined,now:number)=>{state=applyDesignEdit(state,{...state.design,promotion:{...state.design.promotion,headline:text}},undefined,{group:key,now});};
+ headline("A","headline",1000);headline("AB","headline",1200);headline("ABC","headline",1400);
+ assert.equal(undoDesignEdit(state).design.promotion.headline,"Fixture");
+ headline("Paused","headline",3000);assert.equal(undoDesignEdit(state).design.promotion.headline,"ABC");
+ headline("Different field","other",3100);assert.equal(undoDesignEdit(state).design.promotion.headline,"Paused");
+ headline("Button action",undefined,3200);assert.equal(undoDesignEdit(state).design.promotion.headline,"Different field");
+});
+test("editing after undo drops redo; Cancel and successful Apply reset the editing history",()=>{
+ const initial=createDesignEditorState({design:design(),publishedVersion:4});
+ const edited=applyDesignEdit(initial,{...initial.design,promotion:{...initial.design.promotion,headline:"Local"}});
+ const undone=undoDesignEdit(edited),branched=applyDesignEdit(undone,{...undone.design,promotion:{...undone.design.promotion,headline:"Branch"}});
+ assert.equal(redoDesignEdit(branched),branched);
+ const cancelled=cancelDesignEdit(edited);assert.equal(redoDesignEdit(cancelled),cancelled);assert.equal(undoDesignEdit(cancelled),cancelled);
+ const request=beginDesignApply(edited,"operation-a");assert.equal(undoDesignEdit(request.state),request.state);
+ const done=completeDesignApply(request.state,request.token,{design:normalizeStorefrontDesignDocumentV5(edited.design),publishedVersion:5,publishedAt:"2026-10-18T10:00:00Z",published:{} as never});
+ assert.equal(undoDesignEdit(done),done);assert.equal(redoDesignEdit(done),done);
+});
+test("history is bounded and redo does not retain a failed operation for another design",()=>{
+ let state=createDesignEditorState({design:design(),publishedVersion:4});
+ for(let i=1;i<=70;i++)state=applyDesignEdit(state,{...state.design,promotion:{...state.design.promotion,headline:String(i)}});
+ let count=0,next=undoDesignEdit(state);while(next!==state){count++;state=next;next=undoDesignEdit(state);}
+ assert.equal(count,30);assert.equal(state.design.promotion.headline,"40");
+ const first=beginDesignApply(redoDesignEdit(state),"failed-operation"),failed=failDesignApply(first.state,"error");
+ const changed=undoDesignEdit(failed);assert.equal(changed.pending,undefined);
+ assert.equal(beginDesignApply(redoDesignEdit(changed),"new-operation").token.operationId,"new-operation");
 });

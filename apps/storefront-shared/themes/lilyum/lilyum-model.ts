@@ -1,5 +1,4 @@
-import type { CampaignHomeProjection } from "@celebix/saas-data";
-import type { PublicStarterHomeSection, PublicStorefrontDesign, PublicStarterThemePresentation } from "@celebix/saas-contracts";
+import type { PublicProduct, PublicStarterHomeSection, PublicStorefrontDesign, PublicStarterThemePresentation } from "@celebix/saas-contracts";
 
 export const LILYUM_HERO_ASSET = "/themes/lilyum/flower-atelier-v1.webp";
 const LEGACY_HERO = "e89e5b56-0c5a-5a96-b33d-4daf6234c84c.jpg";
@@ -16,7 +15,7 @@ export function lilyumBrandTokens(design: PublicStorefrontDesign) {
   };
 }
 
-export function lilyumHomeModel(presentation: PublicStarterThemePresentation, design: PublicStorefrontDesign, projection?: CampaignHomeProjection | null) {
+export function lilyumHomeModel<Product extends Readonly<{ available: boolean }> = PublicProduct>(presentation: PublicStarterThemePresentation, design: PublicStorefrontDesign, projection?: Readonly<{ presentation?: PublicStarterThemePresentation; productRows: readonly Readonly<{ key: string; items: readonly Product[] }>[] }> | null) {
   const sections: readonly PublicStarterHomeSection[] = presentation.schemaVersion === 1 ? [] : presentation.sections;
   const banner = sections.find(section => section.kind === "banner");
   const legacy = sections.find(section => section.kind === "hero");

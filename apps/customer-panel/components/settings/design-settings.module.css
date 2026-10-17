@@ -628,3 +628,16 @@
 
 .catalogStatus{min-height:40px;min-width:0}.catalogStatus>p{margin:0;font-size:12px;color:var(--cp-text-secondary);line-height:1.5}
 @media(max-width:640px){.catalogStatus{min-height:64px}}
+
+/* Editing history remains available while a focused form scrolls. */
+.historyActions { position: sticky; top: -20px; z-index: 4; display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0 12px; margin-bottom: 12px; border-bottom: 1px solid var(--cp-border); background: var(--cp-canvas); }
+.historyActions button, .savedWorkNotice button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 14px; cursor: pointer; }
+.historyActions button:disabled { opacity: .45; cursor: default; }
+.savedWorkNotice { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 16px; margin-bottom: 20px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); color: var(--cp-text-primary); font-size: 14px; }
+.savedWorkNotice > div { min-width: 0; }
+.savedWorkNotice > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; }
+.savedWorkNotice p, .recoveryHint { margin: 4px 0 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
+.savedWorkNotice button:first-child { background: var(--cp-action-primary); border-color: var(--cp-action-primary); color: var(--cp-action-primary-text); }
+.savedWorkNotice button:focus-visible { outline: 2px solid var(--cp-graphite); outline-offset: 2px; }
+.recoveryHint { margin-bottom: 16px; }
+@media (max-width: 640px) { .historyActions { top: -16px; } .savedWorkNotice > div:last-child { width: 100%; } .savedWorkNotice button { flex: 1; } }

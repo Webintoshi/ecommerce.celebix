@@ -1,5 +1,7 @@
 "use client";
 
+import type { ReactNode } from "react";
+
 import {
   StorefrontDesignRenderer,
   ProductDetailPreview,
@@ -25,14 +27,24 @@ import { normalizeStorefrontDesignDocumentV5 } from "@celebix/saas-contracts";
 import { CampaignSectionContent } from "../../../../storefront-shared/components/CampaignSectionContent";
 import { ProductCardContent } from "../../../../storefront-shared/components/ProductCardContent";
 import { CampaignProductRowFrame } from "../../../../storefront-shared/components/CampaignProductRowFrame";
-import { GuzideFooter } from "../../../../storefront-shared/themes/guzide/GuzideFooter";
 import { guzideThemeFor } from "../../../../storefront-shared/themes/guzide/theme.ts";
+import { lilyumThemeFor } from "../../../../storefront-shared/themes/lilyum/theme.ts";
+import { LilyumHomeContent, LilyumProductCardsContent } from "../../../../storefront-shared/themes/lilyum/LilyumHomeContent";
+import { lilyumBrandTokens } from "../../../../storefront-shared/themes/lilyum/lilyum-model.ts";
 import "../../../../storefront-shared/themes/guzide/guzide.css";
+import "../../../../storefront-shared/themes/siora/siora.css";
+import "../../../../storefront-shared/themes/siora/siora-mobile.css";
+import "../../../../storefront-shared/themes/alpler/alpler.css";
+import "../../../../storefront-shared/themes/alpler/alpler-mobile.css";
+import "../../../../storefront-shared/themes/lilyum/lilyum.css";
+import "../../../../storefront-shared/themes/lilyum/lilyum-product.css";
 import { composeCampaignHomeSections } from "../../../../storefront-shared/components/campaign-home-sections";
+import { previewStorefront, previewVisualThemeFor, ThemePreviewHeader, ThemePreviewFooter } from "./StorefrontThemePreview";
 
 import type { DesignCanvasSurface, DesignCanvasTrigger } from "./design-surface-model";
 import { composeDraftCampaignProjection, type StorefrontDesignPreviewProduct, type StorefrontDesignPreviewResources } from "../../../lib/storefront-design-preview-model";
 import styles from "../design-settings.module.css";
+import themePreviewStyles from "./storefront-theme-preview.module.css";
 import { STARTER_FOOTER_POLICIES, STARTER_FOOTER_SYSTEM_LINKS } from "../starter-footer-options";
 import { STARTER_SOCIAL_NETWORK_OPTIONS, socialProfileAccount } from "../starter-footer-social";
 import { CategoryPlaceholderCards, ProductCards } from "../StarterThemePreviewScaffolds";
@@ -211,7 +223,8 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
   const normalizedDesign = normalizeStorefrontDesignDocumentV5(props.design);
   const preview = createPreviewStorefrontDesign({
     draft: normalizedDesign,
-    publishedVersion: props.publishedVersion,
+    // The canvas represents the result of the next Apply, including a first customization.
+    publishedVersion: props.publishedVersion + 1,
     publishedAt: props.publishedAt,
     media: props.media,
     destinations: props.destinations,
@@ -224,17 +237,40 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
   const campaignById = new Map(campaignSections.flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
   const projectedById = new Map((resolved?.projection.presentation.sections ?? []).flatMap((section) => "sectionId" in section && section.sectionId ? [[section.sectionId, section] as const] : []));
   const resolvedStates = new Map(resolved?.sectionStates.map((state) => [state.sectionId, state.status]) ?? []);
-  const visualTheme = props.storefront ? guzideThemeFor(props.storefront) : undefined;
+  const visualTheme = props.storefront ? previewVisualThemeFor(props.storefront) : undefined;
+  const guzideTheme = props.storefront ? guzideThemeFor(props.storefront) : undefined;
+  const themedStorefront = props.storefront && resolved ? previewStorefront(props.storefront, resolved.projection.presentation) : undefined;
   const locale = props.storefront?.locale ?? "tr";
   const renderPreviewNewsletter = () => <form className="retail-newsletter-form" onSubmit={event => event.preventDefault()} aria-label="Bülten formu önizlemesi"><label><span>E-posta adresi</span><span><input type="email" placeholder="E-posta adresi" readOnly/><button type="submit" disabled>Kaydol</button></span></label><label className="retail-newsletter-consent"><input type="checkbox" disabled/><span>{composition.footer.newsletter.consentLabel}</span></label></form>;
 
-  return <div className={styles.previewViewport} data-mode={props.mode} data-storefront-theme={visualTheme} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("a")) event.preventDefault(); }}>
+  const lilyum = Boolean(themedStorefront && lilyumThemeFor(themedStorefront));
+  const lilyumSectionIds = new Set((resolved?.projection.presentation.sections ?? []).filter(section => section.kind !== "product_row" || hasPreviewSectionContent(section, resolved?.projection.productRows ?? [])).flatMap(section => "sectionId" in section && section.sectionId ? [section.sectionId] : []));
+  const renderCampaignProductRow = (input: Readonly<{ section: Extract<PublicStarterHomeSection, { kind: "product_row" }>; products: readonly StorefrontDesignPreviewProduct[]; presentation: PublicStarterThemePresentationV2 | PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4; locale: string }>) => <CampaignProductRowFrame {...input} visualTheme={guzideTheme} prefetch={false} renderProductGrid={() => <div className={`product-grid ${styles.canvasSharedProductGrid}`}>{input.products.map(product => <article className={`product-card card-${input.presentation.visual.productCardStyle} image-${input.presentation.visual.productImageRatio}`} data-preview-product-card="true" key={product.id}><ProductCardContent product={product} locale={locale} cardStyle={input.presentation.visual.productCardStyle} imageRatio={input.presentation.visual.productImageRatio} prefetch={false}/><button className="product-card-cart" type="button" disabled>{product.available?"Sepete ekle":"Tükendi"}</button><button className="favorite-button" type="button" disabled aria-label={`${product.title} favori önizlemesi`}>♡</button></article>)}</div>}/>;
+  const renderCanvasSection = (config: StarterThemeSectionConfigV4, index: number, content?: ReactNode) => {
+            const section = campaignById.get(config.sectionId) ?? projectedById.get(config.sectionId);
+            const status = resolvedStates.get(config.sectionId) ?? "unavailable";
+            const hasContent = section && resolved && hasPreviewSectionContent(section, resolved.projection.productRows);
+            return <div key={config.sectionId} className={styles.canvasSectionWithGap}>
+              <button type="button" className={styles.canvasInsertGap} aria-label={`${index + 1}. konuma bölüm ekle`} data-insert-index={index} onClick={event => props.onInsertSection?.(index, event.currentTarget)}><span>＋ Bölüm ekle</span></button>
+              <section className={styles.canvasSurface} data-preview-section-kind={config.kind} data-preview-section-id={config.sectionId} data-preview-resource-status={status} data-section-hidden={!config.enabled ? "true" : undefined}>
+                {!config.enabled ? <div className={styles.canvasSectionSummary}><strong>{SECTION_LABELS[config.kind]}</strong><p>Gizli bölüm</p></div> : content !== undefined ? content : hasContent && section && resolved ? <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale={locale} prefetch={false} previewMode={props.mode} renderProductRow={renderCampaignProductRow} /> : <HomepagePreviewSection section={config} destinations={props.destinations} media={props.media} />}
+                {config.enabled && status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}
+                <button type="button" className={styles.canvasSurfaceButton} aria-label={`${SECTION_LABELS[config.kind]} ${index + 1} bölümünü düzenle`} aria-pressed={props.selectedSectionId===config.sectionId} onClick={event => props.onSelectSection?.(config.sectionId,event.currentTarget)}><span>{SECTION_LABELS[config.kind]}</span></button>
+              </section>
+            </div>;
+  };
+
+  return <div className={`${styles.previewViewport} ${themePreviewStyles.frame}`} data-mode={props.mode} data-storefront-theme={visualTheme} aria-label={`${props.mode === "desktop" ? "Masaüstü" : "Mobil"} mağaza tasarım tuvali`} onClickCapture={(event) => { const target = event.target as HTMLElement; if (target.closest("a")) event.preventDefault(); const announcement = target.closest<HTMLElement>(".lf-announcement"); if (announcement) { props.onSelectSurface("announcement", announcement); return; } if (target.closest(".lf-header, [data-storefront-header-bar]")) { const brand = target.closest<HTMLElement>(".lf-logo, [data-storefront-wordmark]"); props.onSelectSurface(brand ? "brand" : "navigation", brand ?? target); } }}>
     <div className={styles.previewNotice} role="note"><strong>Mağaza önizlemesi</strong><span>Penceredeki değişiklikler Uygula ile mağazaya yansır.</span></div>
     <StorefrontDesignRenderer
       design={preview}
       storeName={props.storeName}
       now={props.now}
       compact
+      showHomeSurfaces={!lilyum}
+      showAnnouncement={!lilyum}
+      frame={{ className: `starter-storefront campaign-storefront corners-${composition.visual.cornerStyle} theme-${composition.visual.colorScheme} heading-${composition.visual.headingStyle} card-${composition.visual.productCardStyle} image-${composition.visual.productImageRatio}`, visualTheme, publishedDesign: true, style: props.storefront && lilyumThemeFor(props.storefront) ? lilyumBrandTokens(preview) : undefined }}
+      header={themedStorefront ? <ThemePreviewHeader storefront={themedStorefront} design={preview} /> : undefined}
       presentation={resolved?.projection.presentation}
       previewMode={props.mode}
       navigationStatus={props.previewResources?.navigation?.status}
@@ -243,22 +279,20 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
         onSelectSurface: (surface, trigger) => props.onSelectSurface(editorSurface(surface), trigger),
       }}
     >
-      <div className={`${styles.canvasThemeFrame} starter-storefront campaign-storefront corners-${composition.visual.cornerStyle} theme-${composition.visual.colorScheme} heading-${composition.visual.headingStyle}`} data-preview-mode={props.mode} data-published-design="true">
+      <div className={`${styles.canvasThemeFrame} starter-storefront campaign-storefront corners-${composition.visual.cornerStyle} theme-${composition.visual.colorScheme} heading-${composition.visual.headingStyle} card-${composition.visual.productCardStyle} image-${composition.visual.productImageRatio}`} data-preview-mode={props.mode} data-published-design="true">
       <section data-design-surface="homepage" aria-label="Ana sayfa bölümleri önizlemesi">
         <div className={styles.canvasResolvedSections} data-campaign-home>
-          {visibleSections.map((config, index) => {
-            const section = campaignById.get(config.sectionId) ?? projectedById.get(config.sectionId);
-            const status = resolvedStates.get(config.sectionId) ?? "unavailable";
-            const hasContent = section && resolved && hasPreviewSectionContent(section, resolved.projection.productRows);
-            return <div key={config.sectionId} className={styles.canvasSectionWithGap}>
-              <button type="button" className={styles.canvasInsertGap} aria-label={`${index + 1}. konuma bölüm ekle`} data-insert-index={index} onClick={event => props.onInsertSection?.(index, event.currentTarget)}><span>＋ Bölüm ekle</span></button>
-              <section className={styles.canvasSurface} data-preview-section-kind={config.kind} data-preview-section-id={config.sectionId} data-preview-resource-status={status} data-section-hidden={!config.enabled ? "true" : undefined}>
-                {!config.enabled ? <div className={styles.canvasSectionSummary}><strong>{SECTION_LABELS[config.kind]}</strong><p>Gizli bölüm</p></div> : hasContent && section && resolved ? <CampaignSectionContent section={section} presentation={resolved.projection.presentation} productRows={resolved.projection.productRows} locale={locale} prefetch={false} previewMode={props.mode} renderProductRow={input => visualTheme ? <CampaignProductRowFrame {...input} visualTheme={visualTheme} prefetch={false} renderProductGrid={() => <div className={`product-grid ${styles.canvasSharedProductGrid}`}>{input.products.map(product => <article className={`product-card card-${input.presentation.visual.productCardStyle} image-${input.presentation.visual.productImageRatio}`} data-preview-product-card="true" key={product.id}><ProductCardContent product={product} locale={locale} cardStyle={input.presentation.visual.productCardStyle} imageRatio={input.presentation.visual.productImageRatio} prefetch={false}/><button className="product-card-cart" type="button" disabled>{product.available?"Sepete ekle":"Tükendi"}</button><button className="favorite-button" type="button" disabled aria-label={`${product.title} favori önizlemesi`}>♡</button></article>)}</div>}/> : <PreviewProductRow {...input} />} /> : <HomepagePreviewSection section={config} destinations={props.destinations} media={props.media} />}
-                {config.enabled && status !== "ready" ? <p className={styles.canvasResourceState} role="status">{PREVIEW_RESOURCE_LABELS[status]}</p> : null}
-                <button type="button" className={styles.canvasSurfaceButton} aria-label={`${SECTION_LABELS[config.kind]} ${index + 1} bölümünü düzenle`} aria-pressed={props.selectedSectionId===config.sectionId} onClick={event => props.onSelectSection?.(config.sectionId,event.currentTarget)}><span>{SECTION_LABELS[config.kind]}</span></button>
-              </section>
-            </div>;
-          })}
+          {lilyum && themedStorefront && resolved ? <>
+            <LilyumHomeContent storefront={themedStorefront} design={preview} projection={resolved.projection} now={props.now} previewMode={props.mode} assetBaseUrl={themedStorefront.canonicalUrl} prefetch={false}
+              renderProductCards={products => <LilyumProductCardsContent products={products} locale={locale} prefetch={false} renderFavorite={product => <button className="favorite-button" type="button" disabled aria-label={`${product.title} favori önizlemesi`}>♡</button>} />}
+              renderProductRow={renderCampaignProductRow}
+              renderSection={(section, content) => {
+                const sectionId = section && "sectionId" in section ? section.sectionId : undefined;
+                const index = visibleSections.findIndex(config => config.sectionId === sectionId);
+                return index < 0 ? content : renderCanvasSection(visibleSections[index]!, index, content);
+              }} />
+            {visibleSections.flatMap((config, index) => lilyumSectionIds.has(config.sectionId) ? [] : [renderCanvasSection(config, index)])}
+          </> : visibleSections.map((config, index) => renderCanvasSection(config, index))}
           {!visibleSections.length ? <div className={styles.canvasEmptyHomepage} data-empty-home="true"><strong>Ana sayfanız boş</strong><p>Bir bölüm ekleyin.</p></div> : null}
           <button type="button" className={styles.canvasInsertGap} aria-label="Footer öncesine bölüm ekle" data-insert-index={visibleSections.length} onClick={event => props.onInsertSection?.(visibleSections.length,event.currentTarget)}><span>＋ Bölüm ekle</span></button>
         </div>
@@ -282,7 +316,7 @@ export function VisualStorefrontCanvas(props: Readonly<VisualStorefrontCanvasPro
       </section>
 
       <section className={`${styles.canvasSurface} ${visualTheme ? "" : styles.canvasFooterPreview}`} data-design-surface="footer" data-tone={composition.footer.tone} aria-label="Footer önizlemesi">
-        {visualTheme && props.storefront && resolved ? <GuzideFooter storefront={props.storefront} presentation={resolved.projection.presentation} groups={resolved.projection.presentation.footer.groups} logo={preview.brand.logo} renderNewsletter={renderPreviewNewsletter} prefetch={false}/> : <>
+        {visualTheme && themedStorefront ? <ThemePreviewFooter storefront={themedStorefront} design={preview} renderNewsletter={renderPreviewNewsletter}/> : <>
         <div><strong>{props.storeName}</strong><small>Mağaza bilgileri</small></div>
         <div className={styles.canvasFooterGroups}>{composition.footer.groups.map((group, index) => <section key={`${group.heading}-${index}`}><strong>{group.heading}</strong><ul>{group.links.map((link, linkIndex) => { const resolved = footerLink(link, props.destinations); return <li key={`${link.kind}-${linkIndex}`}><span>{resolved.label}</span><small>{resolved.detail}</small></li>; })}</ul></section>)}</div>
         {composition.footer.newsletter.enabled ? <section className={styles.canvasFooterNewsletter}><strong>{composition.footer.newsletter.heading}</strong><p>{composition.footer.newsletter.body}</p><small>{composition.footer.newsletter.consentLabel}</small></section> : null}

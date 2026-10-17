@@ -193,6 +193,17 @@ test("renderer source owns exact brand tokens and no unsafe HTML path", async ()
   assert.doesNotMatch(source, /dangerouslySetInnerHTML|mediaId|resourceId/);
 });
 
+test("preview frame keeps the selected live theme classes and brand styles on the header's ancestor", async () => {
+  const Renderer = await loadStorefrontDesignRenderer();
+  const design = createPreviewStorefrontDesign({ draft: { ...DESIGN, brand: { ...DESIGN.brand, logo: null }, hero: { enabled: false, slides: [{ ...DESIGN.hero.slides[0]!, desktopImage: null, destination: { kind: "none" } }] } }, publishedVersion: 3, publishedAt: NOW, media: [], destinations: [] });
+  const markup = renderToStaticMarkup(createElement(Renderer, { design, storeName: "Lilyum", now: new Date(NOW), header: createElement("header", { className: "lf-header" }, "Lilyum"), frame: { className: "starter-storefront campaign-storefront", visualTheme: "lilyum-deniz", publishedDesign: true, style: { "--store-lilyum-primary": "#123456" } } }, createElement("main", null, "Ana sayfa")));
+  assert.match(markup, /class="celebix-store-design starter-storefront campaign-storefront" data-storefront-theme="lilyum-deniz"/);
+  assert.match(markup, /data-published-design="true"/);
+  assert.match(markup, /--store-lilyum-primary:#123456/);
+  assert.match(markup, /<header class="lf-header">Lilyum<\/header>/);
+  assert.doesNotMatch(markup, /class="celebix-store-header"/);
+});
+
 
 test("explicit mobile preview selects the mobile image regardless of browser width", async () => {
   const Renderer = await loadStorefrontDesignRenderer();

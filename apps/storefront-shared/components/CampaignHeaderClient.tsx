@@ -17,6 +17,7 @@ import {
 import { StoreUtilities, type StoreSearchControl } from "./StoreUtilities";
 import { categoryPath, productIndexPath, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-header.module.css";
+import { CampaignHeaderBar } from "./CampaignHeaderBar";
 
 const focusable =
   "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),summary,[tabindex]:not([tabindex='-1'])";
@@ -130,32 +131,7 @@ export function CampaignHeaderClient({
   return (
     <>
       <span className={styles.sentinel} ref={sentinelRef} aria-hidden="true" />
-      <div
-        data-storefront-header-bar
-        className={`${styles.bar} ${opaque && !nonHome ? styles.opaque : ""} ${nonHome}`}
-      >
-        <div className={styles.container} data-storefront-header-container inert={searchControl?.isOpen || undefined}>
-          {desktopNavigation}
-          {desktopSearch}
-          <Link
-            className={styles.wordmark}
-            data-storefront-wordmark
-            href="/"
-            aria-label={`${displayName} ana sayfa`}
-          >
-            {logo ? (
-              /* eslint-disable-next-line @next/next/no-img-element */ <img
-                src={logo.url}
-                alt={logo.altText || displayName}
-                width={logo.width ?? 180}
-                height={logo.height ?? 48}
-              />
-            ) : (
-              displayName
-            )}
-          </Link>
-          <div className={styles.actions} data-storefront-header-actions>
-            <StoreUtilities searchControl={searchControl} />
+      <CampaignHeaderBar displayName={displayName} logo={logo} desktopNavigation={desktopNavigation} desktopSearch={desktopSearch} className={`${opaque && !nonHome ? styles.opaque : ""} ${nonHome}`} inert={searchControl?.isOpen || undefined} utilities={<StoreUtilities searchControl={searchControl} />} menuButton={
             <button
               className={styles.menuButton}
               ref={triggerRef}
@@ -167,9 +143,7 @@ export function CampaignHeaderClient({
             >
               <Menu aria-hidden="true" />
             </button>
-          </div>
-        </div>
-      </div>
+      } />
       {open ? (
         <div className={styles.backdrop} onMouseDown={backdrop}>
           <section

@@ -97,6 +97,35 @@ function fixture(overrides: Readonly<{ storefront?: Record<string, unknown>; sho
   return { calls, publicStorefront, loader: createServerStorefrontDesignPreviewLoader({ publicStorefront, assets, merchantAdmin, ...(overrides.categories ? { categories: { listCategories: overrides.categories } } : {}) }) };
 }
 
+test("preview reuses the existing tenant storefront read for its safe public logo and support email", async () => {
+  const logo = { url: `https://media.saas-staging.celebix.site/stores/${STORE}/storefront/logo/${ASSET}.webp`, mediaType: "image/webp" as const, altText: "Atlas logosu", width: 800, height: 300 };
+  const app = fixture({ storefront: { presentation: { schemaVersion: 3, sections: [], logo, supportEmail: "destek@atlas.example", privateConfig: "must-not-leave" } } });
+  const selected = await app.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: composition([]) });
+  assert.deepEqual(selected.presentation, { logo, supportEmail: "destek@atlas.example" });
+  assert.deepEqual(app.calls.map(call => call.method), ["storefront"]);
+  const projected = composeDraftCampaignProjection({ composition: composition([]), storeName: "Atlas", resources: selected, destinations: [] });
+  assert.deepEqual(projected.projection.presentation.logo, logo);
+  assert.equal(projected.projection.presentation.supportEmail, "destek@atlas.example");
+});
+
+test("preview never forwards another tenant's logo or invalid public contact text", async () => {
+  for (const url of [`https://media.saas-staging.celebix.site/stores/${PRINCIPAL}/storefront/logo/${ASSET}.webp`, `https://foreign.invalid/stores/${STORE}/storefront/logo/${ASSET}.webp`]) {
+    const app = fixture({ storefront: { presentation: { schemaVersion: 3, sections: [], logo: { url, mediaType: "image/webp", altText: "Logo", width: 800, height: 300 }, supportEmail: "hello@example.com\ncc:private@example.com" } } });
+    const selected = await app.loader.load({ tenantContext: tenant(), now: NOW, workspace: workspace(), composition: composition([]) });
+    assert.equal(selected.presentation, undefined);
+    assert.deepEqual(app.calls.map(call => call.method), ["storefront"]);
+  }
+});
+test("preview retains same-tenant legacy design logos for the live Lilyum refinement", async () => {
+  const lilyum = "89e1e15f-8282-4e9b-ae3e-f417501bd54a";
+  const logo = { url: `https://media.saas-staging.celebix.site/stores/${lilyum}/design/c9c0df33-d646-59a4-ba36-a538b32d2a31.jpg`, mediaType: "image/jpeg" as const, altText: "Lilyum", width: 800, height: 300 };
+  const app = fixture({ storefront: { id: lilyum, presentation: { schemaVersion: 3, sections: [], logo } } });
+  const source = tenant(), context = tenant({ store: { ...source.store, id: lilyum }, resolvedHost: { ...source.resolvedHost!, storeId: lilyum } });
+  const selected = await app.loader.load({ tenantContext: context, now: NOW, workspace: workspace(), composition: composition([]) });
+  assert.deepEqual(selected.presentation?.logo, logo);
+  assert.deepEqual(app.calls.map(call => call.method), ["storefront"]);
+});
+
 test("navigation resolves the draft tenant hierarchy, active ordering, depth, and selected featured asset", async () => {
   const childA = "41000000-0000-4000-8000-000000000031", childB = "41000000-0000-4000-8000-000000000032", grandchild = "41000000-0000-4000-8000-000000000033", beyond = "41000000-0000-4000-8000-000000000034", archived = "41000000-0000-4000-8000-000000000035";
   let authority: unknown;

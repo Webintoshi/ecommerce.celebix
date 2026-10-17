@@ -207,7 +207,7 @@ export function StarterThemeComposer({
     if (lastAnnouncementWrite.current !== announcementIdentity) { setAnnouncementText(null); setAnnouncementError(""); }
   }, [announcementIdentity]);
   const [newSection, setNewSection] = useState<EditableSectionKind>("product_row");
-  const needsCategories = activePanel === "navigation" || activePanel === "home";
+  const needsCategories = activePanel === "navigation" || activePanel === "home" || activePanel === "footer";
   const needsProducts = showPreview || activePanel === "home";
   const needsAssets = showPreview || activePanel === "navigation" || activePanel === "home";
   const needsPages = activePanel === "footer";

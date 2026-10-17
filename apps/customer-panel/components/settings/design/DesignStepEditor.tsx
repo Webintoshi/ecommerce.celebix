@@ -90,6 +90,7 @@ export function DesignStepEditor({
     onChange={onChange}
     onUpload={onUpload}
     onMediaBusyChange={onMediaBusyChange}
+    onValidationChange={onValidationChange}
   />;
   const composer = (activePanel: "visual" | "navigation" | "product" | "cart" | "footer") => <ThemeEditorErrorBoundary resetKey={design.composition}>
     <StarterThemeComposer

@@ -10,13 +10,8 @@ import { useHydrated } from "../../components/use-hydrated";
 import { StoreIcon } from "../../components/StoreIcon";
 import { categoryPath, localizeStorefrontPath, productIndexPath } from "../../lib/storefront-routes.ts";
 import { LilyumIcon } from "./LilyumIcon";
+import { LilyumHeaderBar, LilyumMenuItems } from "./LilyumHeaderBar";
 
-function MenuItems({ items, locale, close }: { items: readonly PublicStarterNavigationItem[]; locale: string; close(): void }) {
-  return <ul>{items.map(item => <li key={`${item.slug}-${item.path ?? ""}`}>
-    <Link href={item.path ? localizeStorefrontPath(item.path, locale) : categoryPath(locale, item.slug)} onClick={close}>{item.name}<LilyumIcon name="arrow" /></Link>
-    {item.children.length ? <details><summary>{item.name} alt kategorileri</summary><MenuItems items={item.children} locale={locale} close={close} /></details> : null}
-  </li>)}</ul>;
-}
 
 export function LilyumHeaderClient({ displayName, logo, navigation, locale, announcement }: {
   displayName: string; logo?: PublicDesignMedia; navigation: readonly PublicStarterNavigationItem[]; locale: string; announcement: string;
@@ -47,25 +42,14 @@ export function LilyumHeaderClient({ displayName, logo, navigation, locale, anno
   const productRoute = /\/(?:urun\/|products\/)/.test(pathname);
   const catalog = productIndexPath(locale);
   return <>
-    <header className="lf-header">
-      {announcement ? <aside className="lf-announcement" aria-label="Mağaza duyuruları"><LilyumIcon name="truck" />{announcement}</aside> : null}
-      <div className="lf-header-row lf-container">
-        <Link className="lf-logo" href="/" aria-label={`${displayName} ana sayfa`}>{logo ? <img src={logo.url} alt={logo.altText || displayName} width="180" height="70" /> : displayName}</Link>
-        <nav className="lf-desktop-nav" aria-label="Ana menü">{navigation.map(item => <div className="lf-nav-item" key={item.slug}>
-          <Link href={item.path ? localizeStorefrontPath(item.path, locale) : categoryPath(locale, item.slug)}>{item.name}</Link>
-          {item.children.length ? <div className="lf-submenu"><MenuItems items={item.children} locale={locale} close={close} /></div> : null}
-        </div>)}</nav>
-        <nav className="lf-tools" aria-label="Mağaza araçları">
-          <Link href="/search" aria-label="Ara"><StoreIcon name="search" /></Link>
-          <Link className="lf-desktop-tool" href="/account" aria-label="Hesabım"><StoreIcon name="account" /></Link>
+    <LilyumHeaderBar displayName={displayName} logo={logo} navigation={navigation} locale={locale} announcement={announcement} close={close} cartButton={
           <button className={`lf-desktop-tool${productRoute ? " lf-product-cart" : ""}`} type="button" aria-label="Sepet" aria-haspopup="dialog" aria-expanded={drawerOpen} onClick={event => openDrawer(event.currentTarget)}><LilyumIcon name="bag" />{cartCount > 0 ? <small>{Math.min(cartCount, 999)}</small> : null}</button>
+    } menuButton={
           <button ref={trigger} className="lf-menu-trigger" aria-label="Menüyü aç" aria-controls={id} aria-expanded={menuOpen} onClick={() => setMenuOpen(true)} type="button"><LilyumIcon name="menu" /></button>
-        </nav>
-      </div>
-    </header>
+    } />
     <dialog ref={dialog} id={id} className="lf-menu" aria-label="Koleksiyonlar" onCancel={close} onClick={event => { if (event.target === event.currentTarget) close(); }}>
       <div className="lf-menu-top"><span>{displayName}</span><button type="button" autoFocus aria-label="Menüyü kapat" onClick={close}><LilyumIcon name="close" /></button></div>
-      <nav aria-label="Mobil menü"><Link className="lf-menu-all" href={catalog} onClick={close}>Tüm çiçekler<LilyumIcon name="arrow" /></Link><MenuItems items={navigation} locale={locale} close={close} /></nav>
+      <nav aria-label="Mobil menü"><Link className="lf-menu-all" href={catalog} onClick={close}>Tüm çiçekler<LilyumIcon name="arrow" /></Link><LilyumMenuItems items={navigation} locale={locale} close={close} /></nav>
       <Link className="lf-menu-account" href="/account" onClick={close}><StoreIcon name="account" />Hesabım</Link>
     </dialog>
     {!suppressTabs ? <nav className="lf-bottom-nav" aria-label="Alt gezinme">

@@ -7,6 +7,16 @@ import { createStorefrontDesignPreviewApi, parseStorefrontDesignPreviewResources
 
 function response(value: unknown, status = 200): Response { return Response.json(value, { status }); }
 
+test("preview response preserves only bounded public presentation fallback fields", () => {
+  const store = "71000000-0000-4000-8000-000000000002", image = "71000000-0000-4000-8000-000000000001";
+  const presentation = { logo: { url: `https://media.saas-staging.celebix.site/stores/${store}/storefront/logo/${image}.webp`, mediaType: "image/webp", altText: "Logo", width: 800, height: 300 }, supportEmail: "destek@atlas.example" };
+  const resources = { schemaVersion: 1, dependencyKey: "key", productSources: [], assets: [], hotspots: [], categoryShowcase: { status: "missing" }, presentation };
+  assert.deepEqual(parseStorefrontDesignPreviewResources(resources, "key").presentation, presentation);
+  const legacy = { ...presentation, logo: { ...presentation.logo, url: `https://media.saas-staging.celebix.site/stores/${store}/design/${image}.webp` } };
+  assert.deepEqual(parseStorefrontDesignPreviewResources({ ...resources, presentation: legacy }, "key").presentation, legacy);
+  for (const value of [{ ...presentation, secret: "private" }, { ...presentation, supportEmail: "mailto:hello@example.com" }, { ...presentation, logo: { ...presentation.logo, url: "https://foreign.invalid/logo.webp" } }]) assert.throws(() => parseStorefrontDesignPreviewResources({ ...resources, presentation: value }, "key"), StorefrontDesignPreviewApiError);
+});
+
 test("preview response preserves fifty sources and independently resolved category sections and design media", () => {
   const id = "71000000-0000-4000-8000-000000000001";
   const store = "71000000-0000-4000-8000-000000000002";

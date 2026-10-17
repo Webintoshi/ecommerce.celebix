@@ -3,12 +3,14 @@ import test from "node:test";
 import React,{type ReactNode} from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {normalizeStorefrontDesignDocumentV5,type StorefrontDesignDocument,type PublicStarterHomeSection} from "@celebix/saas-contracts";
-import {createPreviewStorefrontDesign} from "../../../../../packages/storefront-design-ui/src/model.ts";
+import {createPreviewStorefrontDesign,isStorefrontPromotionActive} from "../../../../../packages/storefront-design-ui/src/model.ts";
 import {normalizeProductDescriptionHtml} from "../../../../../packages/platform-config/src/product-description-rich-text.ts";
 import {compile,DESIGN,withEditor} from "./design-editor-test-utils.ts";
 const NOW="2026-09-30T10:00:00.000Z";
+const {StorefrontNavigationItems}=compile<{StorefrontNavigationItems:React.ComponentType<Record<string,unknown>>}>(new URL("../../../../../packages/storefront-design-ui/src/StorefrontNavigation.tsx",import.meta.url));
 const options={
- "@celebix/storefront-design-ui":{createPreviewStorefrontDesign,StorefrontDesignRenderer:({children}:{children:ReactNode})=>React.createElement("div",{"data-renderer":true},children),ProductDetailPreview:()=>React.createElement("div",null,"Product preview"),RepresentativeCartPreview:()=>React.createElement("div",null,"Cart preview")},
+ "next/link":{__esModule:true,default:({children,prefetch,...props}:React.AnchorHTMLAttributes<HTMLAnchorElement>&{prefetch?:boolean})=>React.createElement("a",props,children)},
+ "@celebix/storefront-design-ui":{createPreviewStorefrontDesign,isStorefrontPromotionActive,StorefrontNavigationItems,StorefrontDesignRenderer:({children,header}:{children:ReactNode;header?:ReactNode})=>React.createElement("div",{"data-renderer":true},header,children),ProductDetailPreview:()=>React.createElement("div",null,"Product preview"),RepresentativeCartPreview:()=>React.createElement("div",null,"Cart preview")},
  "@celebix/platform-config/src/product-description-rich-text.ts":{normalizeProductDescriptionHtml},
  "../../../../storefront-shared/components/CampaignSectionContent":{CampaignSectionContent:({section,productRows,presentation,renderProductRow}:{section:PublicStarterHomeSection;productRows:{key:string;items:unknown[]}[];presentation:unknown;renderProductRow:(props:unknown)=>ReactNode})=>section.kind==="product_row"?renderProductRow({section,presentation,locale:"tr",products:productRows.find(row=>row.key===section.key)?.items??[]}):React.createElement("article",{"data-shared-section":section.kind},"heading" in section?section.heading:section.kind)},
  "../../../../storefront-shared/components/ProductCardContent":{ProductCardContent:({product}:{product:{title:string;slug:string}})=>React.createElement("a",{href:`/products/${product.slug}`},product.title)},
@@ -18,6 +20,73 @@ const options={
 const {VisualStorefrontCanvas}=compile<{VisualStorefrontCanvas:(props:Record<string,unknown>)=>ReactNode}>(new URL("./VisualStorefrontCanvas.tsx",import.meta.url),options);
 function props(design:StorefrontDesignDocument,extra:Record<string,unknown>={}){return{design,storeName:"Fixture",publishedVersion:4,publishedAt:NOW,media:[],destinations:[],mode:"desktop",now:new Date(NOW),onSelectSurface:()=>{},...extra};}
 const baseline=()=>normalizeStorefrontDesignDocumentV5(DESIGN);
+test("theme preview prefers the next applied draft logo and clears it using only the actual inherited fallback",async()=>withEditor(async({container,render})=>{
+ const base=baseline(),inherited={url:"https://media.fixture.invalid/inherited.webp",mediaType:"image/webp",altText:"Inherited",width:800,height:300};
+ const identity={id:"9f1f6aed-8719-407e-b64c-fd8e956d3277",hostname:"fixture.invalid",canonicalUrl:"https://fixture.invalid",locale:"tr",currency:"TRY"},resources={schemaVersion:1,dependencyKey:"branding",productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"empty"},presentation:{logo:inherited,supportEmail:"destek@atlas.example"}};
+ const custom={...base,brand:{...base.brand,logo:{kind:"legacy_https" as const,url:"https://media.fixture.invalid/new-draft.webp"}}};
+ await render(React.createElement(VisualStorefrontCanvas,props(custom,{storefront:identity,publishedVersion:1,previewResources:resources})));
+ assert.equal(container.querySelector('.alpler-wordmark img')?.getAttribute("src"),"https://media.fixture.invalid/new-draft.webp");
+ await render(React.createElement(VisualStorefrontCanvas,props(base,{storefront:identity,publishedVersion:4,previewResources:resources})));
+ assert.equal(container.querySelector('.alpler-wordmark img')?.getAttribute("src"),inherited.url);
+ assert.equal(container.querySelector('.alpler-footer-contact')?.getAttribute("href"),"mailto:destek@atlas.example");
+ await render(React.createElement(VisualStorefrontCanvas,props(base,{storefront:identity,publishedVersion:4,previewResources:{...resources,presentation:{supportEmail:"destek@atlas.example"}}})));
+ assert.equal(container.querySelector('.alpler-wordmark img'),null);
+}));
+test("Lilyum's native announcement and promotion render once in the shared themed frame",()=>{
+ const {StorefrontDesignRenderer}=compile<{StorefrontDesignRenderer:React.ComponentType<Record<string,unknown>>}>(new URL("../../../../../packages/storefront-design-ui/src/StorefrontDesignRenderer.tsx",import.meta.url));
+ const {VisualStorefrontCanvas:ThemedCanvas}=compile<{VisualStorefrontCanvas:React.ComponentType<Record<string,unknown>>}>(new URL("./VisualStorefrontCanvas.tsx",import.meta.url),{...options,"@celebix/storefront-design-ui":{...options["@celebix/storefront-design-ui"],StorefrontDesignRenderer}});
+ const base=baseline(),design={...base,promotion:{...base.promotion,enabled:true,headline:"Tek promosyon"},composition:{...base.composition,announcement:{...base.composition.announcement,enabled:true,items:["Tek duyuru"]}}};
+ const resources={schemaVersion:1,dependencyKey:"announcements",productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"empty"}};
+ const identity={id:"89e1e15f-8282-4e9b-ae3e-f417501bd54a",hostname:"lilyum.fixture.invalid",canonicalUrl:"https://lilyum.fixture.invalid",locale:"tr",currency:"TRY"};
+ const markup=renderToStaticMarkup(React.createElement(ThemedCanvas,props(design,{storefront:identity,previewResources:resources})));
+ assert.equal((markup.match(/Tek duyuru/g)??[]).length,1);
+ assert.equal((markup.match(/Tek promosyon/g)??[]).length,1);
+ assert.match(markup,/class="celebix-store-design starter-storefront campaign-storefront/);
+});
+test("tenant canvas selects the same visual themes and header presentation as the live storefront",()=>{
+ const base=baseline(),resources={schemaVersion:1,dependencyKey:"theme",productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"empty"}};
+ for(const [id,theme,header] of [["89e1e15f-8282-4e9b-ae3e-f417501bd54a","lilyum-deniz","lf-header"],["9f1f6aed-8719-407e-b64c-fd8e956d3277","alpler-deniz","alpler-header"],["ff465e64-1491-40ef-8840-c66281155a1d","siora-deniz","siora-header"]]){
+  const markup=renderToStaticMarkup(React.createElement(VisualStorefrontCanvas,props(base,{storefront:{id,hostname:"fixture.invalid",canonicalUrl:"https://fixture.invalid",locale:"tr",currency:"TRY"},previewResources:resources})));
+  assert.match(markup,new RegExp(`data-storefront-theme="${theme}"`));
+  assert.match(markup,new RegExp(`class="${header}"`));
+  assert.doesNotMatch(markup,/data-shared-guzide-footer/);
+ }
+});
+test("theme preview branding opens its inspector and every native newsletter remains inert",async()=>withEditor(async({container,window,render,click})=>{
+ const originalFetch=globalThis.fetch;let requests=0;
+ globalThis.fetch=async()=>{requests++;return new Response("{}",{status:200});};
+ try {
+  const base=baseline(),selected:string[]=[],design={...base,composition:{...base.composition,announcement:{...base.composition.announcement,enabled:true,items:["Duyuru"]},footer:{...base.composition.footer,newsletter:{enabled:true,heading:"Haberler",body:"Yenilikler",consentLabel:"Onay"}}}},resources={schemaVersion:1,dependencyKey:"newsletter",productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"empty"}};
+  for(const id of ["89e1e15f-8282-4e9b-ae3e-f417501bd54a","9f1f6aed-8719-407e-b64c-fd8e956d3277","ff465e64-1491-40ef-8840-c66281155a1d"]){
+   await render(React.createElement(VisualStorefrontCanvas,props(design,{storefront:{id,hostname:"fixture.invalid",canonicalUrl:"https://fixture.invalid",locale:"tr",currency:"TRY"},previewResources:resources,onSelectSurface:(surface:string)=>selected.push(surface)})));
+   const brand=container.querySelector('.lf-logo,[data-storefront-wordmark]');assert.ok(brand);await click(brand);assert.equal(selected.at(-1),"brand");
+   const announcement=container.querySelector('.lf-announcement');if(announcement){await click(announcement);assert.equal(selected.at(-1),"announcement");}
+   const form=container.querySelector('form.retail-newsletter-form');assert.ok(form);assert.ok(form.querySelector('input[readonly]'));assert.ok(form.querySelector('button[disabled]'));assert.ok(form.querySelector('input[type="checkbox"][disabled]'));
+   const submit=new window.Event("submit",{bubbles:true,cancelable:true});await React.act(async()=>form.dispatchEvent(submit as unknown as Event));assert.equal(submit.defaultPrevented,true);
+  }
+  assert.equal(requests,0);
+ } finally {globalThis.fetch=originalFetch;}
+}));
+test("Lilyum canvas uses the live home layout and the selected mobile hero without mounting favorite or newsletter writes",async()=>withEditor(async({container,render})=>{
+ const base=baseline(),desktop="40000000-0000-4000-8000-000000000001",mobile="40000000-0000-4000-8000-000000000002";
+ const design={...base,composition:{...base.composition,sections:[{kind:"banner" as const,sectionId:"home_flowers" as const,enabled:true,layout:"single" as const,autoplay:false,presentation:"overlay" as const,slides:[{slideId:"slide_flowers",enabled:true,headline:"Yeni çiçekler",body:"Güncel banner",desktopImage:{kind:"asset" as const,assetId:desktop},mobileImage:{kind:"asset" as const,assetId:mobile},destination:{kind:"none" as const}}]}]}};
+ const resources={schemaVersion:1,dependencyKey:"flowers",productSources:[],assets:[{id:desktop,status:"ready",image:{url:"https://media.fixture.invalid/desktop.webp",altText:"Masaüstü çiçek",mediaType:"image/webp",width:1200,height:500}},{id:mobile,status:"ready",image:{url:"https://media.fixture.invalid/mobile.webp",altText:"Mobil çiçek",mediaType:"image/webp",width:500,height:600}}],hotspots:[],categoryShowcase:{status:"empty"}};
+ const identity={id:"89e1e15f-8282-4e9b-ae3e-f417501bd54a",hostname:"lilyum.fixture.invalid",canonicalUrl:"https://lilyum.fixture.invalid",locale:"tr",currency:"TRY"};
+ await render(React.createElement(VisualStorefrontCanvas,props(design,{storefront:identity,mode:"mobile",previewResources:resources})));
+ assert.equal(container.querySelector('.lf-home .lf-hero img')?.getAttribute("src"),"https://media.fixture.invalid/mobile.webp");
+ assert.match(container.querySelector('.lf-hero-copy')?.textContent??"",/Yeni çiçekler/);
+ assert.ok(container.querySelector('.lf-delivery'));
+ assert.ok(container.querySelector('.lf-footer'));
+ assert.equal(container.querySelectorAll('[data-preview-section-id="home_flowers"]').length,1);
+ assert.equal(container.querySelectorAll('[data-insert-index]').length,2);
+ const defaultArtwork={...design,composition:{...design.composition,sections:[{...design.composition.sections[0]!,slides:[{...design.composition.sections[0]!.slides[0]!,desktopImage:null,mobileImage:null}]}]}};
+ await render(React.createElement(VisualStorefrontCanvas,props(defaultArtwork,{storefront:identity,mode:"mobile",previewResources:resources})));
+ assert.equal(container.querySelector('.lf-home .lf-hero img')?.getAttribute("src"),"https://lilyum.fixture.invalid/themes/lilyum/flower-atelier-v1.webp");
+ const legacyLogo={url:`https://media.saas-staging.celebix.site/stores/${identity.id}/design/c9c0df33-d646-59a4-ba36-a538b32d2a31.jpg`,mediaType:"image/jpeg",altText:"Lilyum",width:800,height:300};
+ await render(React.createElement(VisualStorefrontCanvas,props(defaultArtwork,{storefront:identity,previewResources:{...resources,presentation:{logo:legacyLogo}}})));
+ assert.equal(container.querySelector('.lf-logo img')?.getAttribute("src"),"https://lilyum.fixture.invalid/themes/lilyum/logo-refined-v1.webp");
+ assert.equal(container.querySelector('.lf-footer-logo')?.getAttribute("data-refined-logo"),"true");
+}));
 test("enabled text-only overlay banner uses the live section renderer without requiring an image",()=>{
  const base=baseline(),design={...base,composition:{...base.composition,sections:[{kind:"banner" as const,sectionId:"home_text_banner" as const,enabled:true,layout:"single" as const,autoplay:false,presentation:"overlay" as const,slides:[{slideId:"slide_text_banner",enabled:true,headline:"Text-only banner",body:"Details",desktopImage:null,mobileImage:null,destination:{kind:"none" as const}}]}]}};
  const resources={schemaVersion:1,dependencyKey:"text-banner",productSources:[],assets:[],hotspots:[],categoryShowcase:{status:"empty"}};

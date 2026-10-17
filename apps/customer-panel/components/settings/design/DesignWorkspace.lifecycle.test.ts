@@ -122,3 +122,61 @@ test("Workspace media retry freezes the same File operation and description whil
  await React.act(async()=>{responses[3]!.resolve(result(app.mediaRequests[3]!));await afterSuccess;});
  assert.equal(app.requests.length,0);assert.equal(app.live.design.promotion.headline,"Published");assert.equal(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')?.value,"Changed title");
 }));
+
+test("editing actions expose undo and redo, while Cancel discards both history and recovery",async()=>withEditor(async({container,window,render,click,change})=>{
+ const app=fixture(),props={workspace:app.live,initialPreviewResources:{},canManage:true,recoveryScope:"undo-fixture"};
+ await render(React.createElement(app.DesignWorkspace,{...props,key:"first"}));await click(button(container,"Edit brand"));
+ await change(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!,"Local history");
+ await click(button(container,"Geri al"));assert.equal(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')?.value,"Published");assert.equal(button(container,"Uygula").disabled,true);
+ await click(button(container,"İleri al"));assert.equal(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')?.value,"Local history");assert.equal(app.requests.length,0);
+ await click(button(container,"Vazgeç"));await render(React.createElement(app.DesignWorkspace,{...props,key:"second"}));
+ assert.doesNotMatch(container.textContent??"",/Kaydedilmemiş düzenleme bulundu/);assert.equal(window.localStorage.length,0);
+ await click(button(container,"Edit brand"));assert.equal(button(container,"Geri al").disabled,true);assert.equal(button(container,"İleri al").disabled,true);
+}));
+test("after an unexpected reload recovery requires a user choice and never implicitly applies the recovered design",async()=>withEditor(async({container,window,render,click,change})=>{
+ const app=fixture(),props={workspace:app.live,initialPreviewResources:{},canManage:true,recoveryScope:"reload-fixture"};
+ await render(React.createElement(app.DesignWorkspace,{...props,key:"first"}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!,"Recover this");
+ await React.act(async()=>window.dispatchEvent(new window.Event("pagehide")));
+ await render(React.createElement(app.DesignWorkspace,{...props,key:"reload"}));
+ assert.match(container.textContent??"",/Kaydedilmemiş düzenleme bulundu/);assert.doesNotMatch(container.querySelector("output")?.textContent??"",/Recover this/);assert.equal(app.requests.length,0);
+ await click(button(container,"Düzenlemeye devam et"));assert.equal(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')?.value,"Recover this");assert.equal(app.requests.length,0);
+ await click(button(container,"Uygula"));assert.equal(app.live.design.promotion.headline,"Recover this");assert.equal(app.requests.length,1);assert.equal(window.localStorage.length,0);
+}));
+test("a recovery from an older publication blocks Apply until comparison and explicit latest-version choice",async()=>withEditor(async({container,window,render,click,change})=>{
+ const app=fixture(),props={initialPreviewResources:{},canManage:true,recoveryScope:"conflict-reload"};
+ await render(React.createElement(app.DesignWorkspace,{...props,workspace:app.live,key:"first"}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!,"Old local");
+ await React.act(async()=>window.dispatchEvent(new window.Event("pagehide")));app.remote();
+ await render(React.createElement(app.DesignWorkspace,{...props,workspace:app.live,key:"reload"}));await click(button(container,"Düzenlemeye devam et"));
+ assert.equal(button(container,"Uygula").disabled,true);assert.equal(app.requests.length,0);assert.equal(app.live.design.promotion.headline,"Remote");
+ await click(button(container,"Güncel sürümle karşılaştır"));assert.match(container.querySelector("table")?.textContent??"",/Remote/);assert.match(container.querySelector("table")?.textContent??"",/Old local/);
+}));
+test("retry after reloading a failed Apply keeps its original operation key and exact request",async()=>withEditor(async({container,window,render,click,change})=>{
+ const app=fixture(),props={workspace:app.live,initialPreviewResources:{},canManage:true,recoveryScope:"retry-reload"};
+ await render(React.createElement(app.DesignWorkspace,{...props,key:"first"}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!,"Retry after reload");app.fail();await click(button(container,"Uygula"));
+ await React.act(async()=>window.dispatchEvent(new window.Event("pagehide")));await render(React.createElement(app.DesignWorkspace,{...props,key:"reload"}));await click(button(container,"Düzenlemeye devam et"));await click(button(container,"Uygula"));
+ assert.equal(app.requests.length,2);assert.equal(app.requests[1]?.operationId,app.requests[0]?.operationId);assert.deepEqual(app.requests[1]?.input,app.requests[0]?.input);
+}));
+test("blocked browser storage does not stop normal editing or direct Apply",async()=>withEditor(async({container,window,render,click,change})=>{
+ Object.defineProperty(window,"localStorage",{configurable:true,get(){throw Error("storage blocked");}});
+ const app=fixture();await render(React.createElement(app.DesignWorkspace,{workspace:app.live,initialPreviewResources:{},canManage:true,recoveryScope:"blocked"}));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!,"Works without storage");
+ await click(button(container,"Uygula"));assert.equal(app.requests.length,1);assert.equal(app.live.design.promotion.headline,"Works without storage");
+}));
+
+test("invalid section input preserves the last valid recovery instead of destroying the saved work",async()=>withEditor(async({container,window,render,click,change})=>{
+ const initial=baseline(),app=fixture(true,undefined,{...initial,composition:{...initial.composition,sections:[{kind:"brand_story",sectionId:"home_story",enabled:true,heading:"Published story",body:"Published body"}]}});
+ const props={workspace:app.live,initialPreviewResources:{},canManage:true,recoveryScope:"invalid-recovery"};
+ await render(React.createElement(app.DesignWorkspace,{...props,key:"first"}));await click(button(container,"Edit section 1"));
+ const heading=()=>Array.from(container.querySelectorAll("label")).find(label=>label.textContent?.startsWith("Başlık"))!.querySelector<HTMLInputElement>("input")!;
+ await change(heading(),"Last valid story");await React.act(async()=>window.dispatchEvent(new window.Event("pagehide")));
+ await change(heading(),"");assert.equal(button(container,"Uygula").disabled,true);await React.act(async()=>window.dispatchEvent(new window.Event("pagehide")));
+ await render(React.createElement(app.DesignWorkspace,{...props,key:"reload"}));await click(button(container,"Düzenlemeye devam et"));assert.equal(heading().value,"Last valid story");assert.equal(app.requests.length,0);
+}));
+
+test("a refreshed server prop does not reopen recovery behind the active editor",async()=>withEditor(async({container,window,render,click,change})=>{
+ const app=fixture(),props={workspace:app.live,initialPreviewResources:{},canManage:true,recoveryScope:"refreshed-prop"};
+ await render(React.createElement(app.DesignWorkspace,props));await click(button(container,"Edit brand"));await change(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')!,"Active edit");
+ await React.act(async()=>window.dispatchEvent(new window.Event("pagehide")));
+ await render(React.createElement(app.DesignWorkspace,{...props,workspace:structuredClone(app.live)}));
+ assert.equal(Boolean(container.querySelector('[aria-label="Kaydedilmemiş düzenleme"]')),false);assert.equal(container.querySelector<HTMLInputElement>('input[aria-label="Fixture heading"]')?.value,"Active edit");
+ await click(button(container,"Vazgeç"));assert.equal(Boolean(container.querySelector('[aria-label="Kaydedilmemiş düzenleme"]')),false);
+}));

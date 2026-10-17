@@ -12,6 +12,7 @@ import {
 import type { CatalogAdminRepository, CatalogOnboardingRepository, MerchantAdminRepository, PublicStorefrontRepository, StorefrontAssetRepository } from "@celebix/saas-data";
 
 import {
+  isStorefrontPreviewSupportEmail,
   previewProductSourceKey,
   storefrontDesignPreviewDependencyKey,
   type StorefrontDesignPreviewProduct,
@@ -23,6 +24,7 @@ const HOSTNAME = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ASSET_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/storefront\/(?:logo|hero|social|favicon|category|collection)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
+const DESIGN_MEDIA_PATH = /^\/stores\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/design\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
 
 export class StorefrontDesignPreviewLoaderError extends Error {
   constructor(readonly code: "invalid_input" | "unavailable") {
@@ -83,11 +85,11 @@ function sourceResult(key: string, status: StorefrontDesignPreviewResourceStatus
   return Object.freeze({ key, status, items: Object.freeze(items.map(previewProduct)), ...(categorySlug ? { categorySlug } : {}) });
 }
 
-function safeAssetImage(asset: Awaited<ReturnType<StorefrontAssetRepository["listAssets"]>>[number]) {
-  if (!asset.altText || !["image/jpeg", "image/png", "image/webp"].includes(asset.mediaType)) return undefined;
+function safeAssetImage(asset: Pick<Awaited<ReturnType<StorefrontAssetRepository["listAssets"]>>[number], "publicUrl" | "altText" | "mediaType" | "width" | "height">, storeId: string, allowDesignMedia = false) {
+  if (!asset.altText || asset.altText.length > 500 || /[\u0000-\u001f\u007f]/.test(asset.altText) || ![asset.width, asset.height].every(value => Number.isSafeInteger(value) && value >= 1 && value <= 8192) || !["image/jpeg", "image/png", "image/webp"].includes(asset.mediaType)) return undefined;
   let url: URL; try { url = new URL(asset.publicUrl); } catch { return undefined; }
   const extension = asset.mediaType === "image/jpeg" ? ".jpg" : asset.mediaType === "image/png" ? ".png" : ".webp";
-  if (url.protocol !== "https:" || !["media.celebix.site", "media.saas-staging.celebix.site"].includes(url.hostname) || url.username || url.password || url.port || url.search || url.hash || !ASSET_PATH.test(url.pathname) || !url.pathname.endsWith(extension)) return undefined;
+  if (url.protocol !== "https:" || !["media.celebix.site", "media.saas-staging.celebix.site"].includes(url.hostname) || url.username || url.password || url.port || url.search || url.hash || !(ASSET_PATH.test(url.pathname) || allowDesignMedia && DESIGN_MEDIA_PATH.test(url.pathname)) || !url.pathname.startsWith(`/stores/${storeId}/`) || !url.pathname.endsWith(extension)) return undefined;
   return Object.freeze({ url: asset.publicUrl, mediaType: asset.mediaType, altText: asset.altText, width: asset.width, height: asset.height });
 }
 
@@ -124,6 +126,10 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
       try { storefront = await dependencies.publicStorefront.getPublicStorefront({ hostname: resolved.canonicalHostname, now }); }
       catch { throw failure(); }
       canonicalStorefront(tenantContext, storefront);
+      const inheritedLogo = storefront.presentation.logo;
+      const logo = inheritedLogo ? safeAssetImage({ ...inheritedLogo, publicUrl: inheritedLogo.url }, tenantContext.store.id, true) : undefined;
+      const supportEmail = isStorefrontPreviewSupportEmail(storefront.presentation.supportEmail) ? storefront.presentation.supportEmail : undefined;
+      const presentation = logo || supportEmail ? Object.freeze({ ...(logo ? { logo } : {}), ...(supportEmail ? { supportEmail } : {}) }) : undefined;
 
       const sourceLimits = new Map<string, number>();
       const assetIds = new Set<string>();
@@ -254,7 +260,7 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
           for (const [id, asset] of selected) selectedAssets.set(id, asset);
           for (const id of [...assetIds].sort()) {
             const asset = selected.get(id);
-            const image = asset ? safeAssetImage(asset) : undefined;
+            const image = asset ? safeAssetImage(asset, tenantContext.store.id) : undefined;
             assets.set(id, image ? Object.freeze({ id, status: "ready", image }) : Object.freeze({ id, status: asset ? "unavailable" : "missing" }));
           }
         } catch {
@@ -365,6 +371,7 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
       } catch { /* Only approved, tenant-owned reviews can be displayed. */ }
       return Object.freeze({
         schemaVersion: 1,
+        ...(presentation ? { presentation } : {}),
         dependencyKey: storefrontDesignPreviewDependencyKey(composition, previewProductId),
         productDetail,
         navigation,

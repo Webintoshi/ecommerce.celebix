@@ -38,12 +38,12 @@ export function useStorefrontDesignPreviewResources(composition: StarterThemeCom
   try { dependencyKey = storefrontDesignPreviewDependencyKey(composition, previewProductId); } catch { /* Keep the last resources until the input is complete. */ }
   const compositionRef = useRef(composition); compositionRef.current = composition;
   const resourcesRef = useRef(resources); resourcesRef.current = resources;
-  const coordinator = useMemo(() => createStorefrontDesignPreviewRequestCoordinator({ request: (selected, signal, productId) => api.preview(selected, signal, productId), apply: setResources, fail: (selected, productId) => setResources(unavailableStorefrontDesignPreviewResources(selected, productId)) }), [api]);
+  const coordinator = useMemo(() => createStorefrontDesignPreviewRequestCoordinator({ request: (selected, signal, productId) => api.preview(selected, signal, productId), apply: setResources, fail: (selected, productId) => setResources(unavailableStorefrontDesignPreviewResources(selected, productId, resourcesRef.current.presentation)) }), [api]);
   useEffect(() => {
     if (dependencyKey === null) { coordinator.cancel(); return () => coordinator.cancel(); }
     const selected = compositionRef.current;
     if (resourcesRef.current.dependencyKey === dependencyKey && !hasLoadingResource(resourcesRef.current)) { coordinator.cancel(); return () => coordinator.cancel(); }
-    setResources(loadingStorefrontDesignPreviewResources(selected, previewProductId));
+    setResources(loadingStorefrontDesignPreviewResources(selected, previewProductId, resourcesRef.current.presentation));
     void coordinator.refresh(selected, previewProductId);
     return () => coordinator.cancel();
   }, [coordinator, dependencyKey]);
