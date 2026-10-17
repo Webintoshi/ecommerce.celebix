@@ -16,6 +16,9 @@ const BACKFILL_ASSERTIONS = "202608120102_durable_abandoned_cart_rollout_backfil
 const IDENTITY_UP = "202608120103_abandoned_cart_product_customer_identity.up.sql";
 const IDENTITY_DOWN = "202608120103_abandoned_cart_product_customer_identity.down.sql";
 const IDENTITY_ASSERTIONS = "202608120103_abandoned_cart_product_customer_identity_assertions.sql";
+const LAST_ITEM_UP = "202610170247_abandoned_cart_last_item.up.sql";
+const LAST_ITEM_DOWN = "202610170247_abandoned_cart_last_item.down.sql";
+const LAST_ITEM_ASSERTIONS = "202610170247_abandoned_cart_last_item_assertions.sql";
 const DB = `durable_abandoned_${randomBytes(5).toString("hex")}`;
 const RESTORE_DB = `${DB}_restore`;
 const STORE = "10000000-0000-4000-8000-000000000101";
@@ -42,7 +45,7 @@ const OTHER_HOST = "other-durable-cart.example.test";
 const NOW = "2026-08-12T10:00:00.000Z";
 const DIGEST = "a".repeat(64);
 const DIGEST_TWO = "b".repeat(64);
-const TOTAL = 37;
+const TOTAL = 40;
 let completed = 0;
 
 function bin(name) {
@@ -159,6 +162,68 @@ function row(box, cart = CART, database = DB) {
   return JSON.parse(psql(box, `SELECT pg_catalog.row_to_json(selected)::text FROM (SELECT id,source_cart_id,status,subtotal_cents,total_cents,last_activity_at,abandoned_at,recovered_at,archived_at,recovered_order_id,version FROM saas.abandoned_carts WHERE store_id='${STORE}' AND source_cart_id='${cart}') selected;`, database).stdout.trim() || "null");
 }
 
+function abandonedLastItemRemoval(box, withCustomer) {
+  const suffix = withCustomer ? "131" : "130";
+  const cart = `60000000-0000-4000-8000-000000000${suffix}`;
+  const digest = (withCustomer ? "20" : "10").repeat(32);
+  const keyId = `last-item-${suffix}`;
+  const operation = `70000000-0000-4000-8000-000000000${suffix}`;
+  const mutateCart = withCustomer ? mutateWithCustomer : mutate;
+  const common = { cart, digest, keyId };
+  const created = mutateCart(box, { ...common, operation, quantity: 1, now: "2026-08-12T14:00:00Z" });
+  assert.equal(created.outcome, "committed");
+  psql(box, `BEGIN;SET LOCAL ROLE celebix_saas_owner;SELECT saas.reconcile_durable_abandoned_carts('${STORE}','2026-08-12T14:30:00Z');COMMIT;`);
+  const abandoned = row(box, cart);
+  assert.equal(abandoned.status, "abandoned");
+
+  const removal = {
+    ...common,
+    operation: `71000000-0000-4000-8000-000000000${suffix}`,
+    fingerprint: "d".repeat(64),
+    action: "remove",
+    expected: 1,
+    now: "2026-08-12T14:31:00Z",
+  };
+  // publicCall commits, so this also exercises both deferred projection triggers.
+  const removed = mutateCart(box, removal);
+  assert.equal(removed.outcome, "committed");
+  assert.deepEqual(removed.result.cart.items, []);
+  assert.equal(removed.result.cart.itemCount, 0);
+  assert.equal(removed.result.cart.totalCents, 0);
+  assert.equal(removed.result.cart.checkoutReady, false);
+  assert.equal(removed.result.cart.checkoutBlocker, "empty_cart");
+  const archived = row(box, cart);
+  assert.equal(archived.status, "archived");
+  assert.equal(archived.last_activity_at, abandoned.last_activity_at);
+  assert.equal(archived.abandoned_at, abandoned.abandoned_at);
+  assert.equal(archived.recovered_order_id, null);
+  assert.ok(Date.parse(archived.archived_at) >= Date.parse(removal.now));
+  assert.equal(psql(box, `SELECT count(*) FROM saas.abandoned_cart_items WHERE store_id='${STORE}' AND cart_id='${archived.id}';`).stdout.trim(), "0");
+
+  const refreshed = publicCall(box, `saas.public_cart_resolve('${HOST}','2026-08-12T14:32:00Z','${candidates(digest, keyId)}'::jsonb)`);
+  assert.equal(refreshed.outcome, "found");
+  assert.deepEqual(refreshed.result, removed.result.cart);
+  const replayed = mutateCart(box, removal);
+  assert.equal(replayed.outcome, "operation_replayed");
+  assert.deepEqual(replayed.result, removed.result);
+  assert.deepEqual(row(box, cart), archived);
+
+  const addedAgain = mutateCart(box, {
+    ...common, operation: `72000000-0000-4000-8000-000000000${suffix}`,
+    expected: removed.result.cart.version, quantity: 1, now: "2026-08-12T14:33:00Z",
+  });
+  assert.equal(addedAgain.outcome, "committed");
+  assert.equal(addedAgain.result.cart.itemCount, 1);
+  assert.equal(row(box, cart).status, "active");
+  const removedAgain = mutateCart(box, {
+    ...removal, operation: `73000000-0000-4000-8000-000000000${suffix}`,
+    expected: addedAgain.result.cart.version, now: "2026-08-12T14:34:00Z",
+  });
+  assert.equal(removedAgain.outcome, "committed");
+  assert.deepEqual(removedAgain.result.cart.items, []);
+  assert.equal(row(box, cart).status, "archived");
+}
+
 function baseMigrations() {
   const accepted = /(?:[.]up|[.]seed|[.]freeze|_grants|_assertions|catalog_assertions)[.]sql$/;
   return readdirSync(SQL).filter((file) => {
@@ -231,7 +296,7 @@ function seedPreexistingCart(box) {
 }
 
 async function main() {
-  for (const file of [UP, DOWN, ASSERTIONS, BACKFILL_UP, BACKFILL_DOWN, BACKFILL_ASSERTIONS, IDENTITY_UP, IDENTITY_DOWN, IDENTITY_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
+  for (const file of [UP, DOWN, ASSERTIONS, BACKFILL_UP, BACKFILL_DOWN, BACKFILL_ASSERTIONS, IDENTITY_UP, IDENTITY_DOWN, IDENTITY_ASSERTIONS, LAST_ITEM_UP, LAST_ITEM_DOWN, LAST_ITEM_ASSERTIONS]) assert.equal(existsSync(path.join(SQL, file)), true, file);
   let box;
   try {
     box = start();
@@ -433,6 +498,17 @@ async function main() {
       apply(box,IDENTITY_DOWN,DB,"SET celebix.allow_abandoned_cart_product_customer_identity_down='on';\n");
       assert.equal(psql(box,"SELECT count(*) FROM pg_catalog.pg_attribute WHERE attrelid='saas.abandoned_carts'::regclass AND attname='customer_id' AND NOT attisdropped;").stdout.trim(),"0");
       apply(box,IDENTITY_UP); apply(box,IDENTITY_ASSERTIONS);
+    });
+    apply(box, LAST_ITEM_UP); apply(box, LAST_ITEM_ASSERTIONS);
+    scenario("legacy cart command removes the last abandoned item and persists empty across refresh and replay", () => abandonedLastItemRemoval(box, false));
+    scenario("verified customer cart removes the last abandoned item and permits later add and remove", () => abandonedLastItemRemoval(box, true));
+    scenario("last-item migration rollback is guarded and reapply preserves cart history", () => {
+      const before = [row(box, "60000000-0000-4000-8000-000000000130"), row(box, "60000000-0000-4000-8000-000000000131")];
+      assert.notEqual(psql(box, readFileSync(path.join(SQL, LAST_ITEM_DOWN), "utf8"), DB, true).status, 0);
+      apply(box, LAST_ITEM_DOWN, DB, "SET celebix.allow_cart_empty247_down='on';\n");
+      assert.equal(psql(box, "SELECT encode(sha256(convert_to(pg_get_functiondef('saas.sync_durable_abandoned_cart(uuid,uuid,timestamptz)'::regprocedure),'UTF8')),'hex');").stdout.trim(), "8c6dc8a5206d3e1b58baac9ea99f16a3b8a115e6b459c0db345aca4a7357504b");
+      apply(box, LAST_ITEM_UP); apply(box, LAST_ITEM_ASSERTIONS);
+      assert.deepEqual([row(box, "60000000-0000-4000-8000-000000000130"), row(box, "60000000-0000-4000-8000-000000000131")], before);
     });
     scenario("disposable database has no leaked sessions", () => assert.equal(psql(box,"SELECT count(*) FROM pg_catalog.pg_stat_activity WHERE datname=current_database() AND pid<>pg_catalog.pg_backend_pid();").stdout.trim(),"0"));
     assert.equal(completed,TOTAL); process.stdout.write(`${TOTAL}/${TOTAL} PASS\n`);
