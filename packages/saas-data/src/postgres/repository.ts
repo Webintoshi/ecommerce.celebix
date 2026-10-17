@@ -163,7 +163,7 @@ class PostgresTransaction implements SaaSDataTransaction {
       findByCodeVersion: async (code: string, version: number) => this.loadPlan(code, version),
       findDefaultStarter: async () => {
         const response=await this.query('SELECT saas.commercial_default_starter_version() AS version');
-        if(response.rows.length!==1||Object.keys(response.rows[0]!).join()!=='version'||![1,2,'1','2'].includes(response.rows[0]!.version as string|number))throw new SaaSDataCorruptionError();
+        if(response.rows.length!==1||Object.keys(response.rows[0]!).join()!=='version'||![1,2,3,'1','2','3'].includes(response.rows[0]!.version as string|number))throw new SaaSDataCorruptionError();
         return this.loadPlan('free_starter',Number(response.rows[0]!.version));
       },
     };

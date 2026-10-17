@@ -63,18 +63,48 @@ function repository(
 }
 
 test('bootstrap chooses the native release-controlled default and rejects fabricated selector output',async()=>{
- for(const version of [1,2,'1','2',true,'02',3]){
+ for(const version of [1,2,3,'1','2','3',true,'02','03',0,4,'4',null,undefined,3.5]){
   class SelectorClient extends FakeClient{
    override async query(text:string,values:readonly unknown[]=[]):Promise<QueryResult<Record<string,unknown>>>{
     this.calls.push({text,values});const rows=text.includes('commercial_default_starter_version')?[{version}]:[];return{command:'SELECT',rowCount:rows.length,oid:0,fields:[],rows};
    }
   }
   const client=new SelectorClient(),transaction=await repository(client).beginTransaction();
-  if([1,2,'1','2'].includes(version as number|string)){
+  if([1,2,3,'1','2','3'].includes(version as number|string)){
    assert.equal(await transaction.plans.findDefaultStarter(),null);
    assert.deepEqual(client.calls.find(call=>call.text.includes('FROM saas.plans'))?.values,['free_starter',Number(version)]);
   }else await assert.rejects(()=>transaction.plans.findDefaultStarter(),SaaSDataCorruptionError);
   await transaction.rollback();
+ }
+});
+
+test('current Free v3 selector loads the actual 25-product plan through native plan, feature and limit rows',async()=>{
+ for(const selector of [3,'3']){
+  const planId='00000000-0000-4000-8000-000000000007',validFrom='2026-10-17T00:00:00.000Z';
+  const features=['catalog','orders','customers','content','media','analytics','checkout','integrations'];
+  const limits={products:25,staff:1,storageBytes:1_000_000_000,monthlyOrders:50,customDomains:0};
+  class CurrentPlanClient extends FakeClient{
+   override async query(text:string,values:readonly unknown[]=[]):Promise<QueryResult<Record<string,unknown>>>{
+    this.calls.push({text,values});let rows:Record<string,unknown>[]=[];
+    if(text.includes('commercial_default_starter_version'))rows=[{version:selector}];
+    else if(text.includes('FROM saas.plans')){assert.deepEqual(values,['free_starter',3]);rows=[{id:planId,plan_code:'free_starter',version:'3',status:'active',valid_from:validFrom,valid_until:null}];}
+    else if(text.includes('FROM saas.plan_features')){assert.deepEqual(values,[planId]);rows=features.map(feature_key=>({feature_key}));}
+    else if(text.includes('FROM saas.plan_limits')){assert.deepEqual(values,[planId]);rows=Object.entries(limits).map(([limit_key,value])=>({limit_key,effective_limit:String(value)}));}
+    return{command:'SELECT',rowCount:rows.length,oid:0,fields:[],rows};
+   }
+  }
+  const client=new CurrentPlanClient(),transaction=await repository(client).beginTransaction();
+  try{assert.deepEqual(await transaction.plans.findDefaultStarter(),{id:planId,code:'free_starter',version:3,status:'active',validFrom,features,limits});assert.equal(client.calls.filter(call=>/FROM saas\.(plans|plan_features|plan_limits)\b/.test(call.text)).length,3);}
+  finally{await transaction.rollback();}
+ }
+});
+
+test('malformed default selector projections fail before any plan read',async()=>{
+ for(const result of [[],[{version:3},{version:3}],[{version:3,extra:true}]]){
+  class InvalidSelectorClient extends FakeClient{override async query(text:string,values:readonly unknown[]=[]):Promise<QueryResult<Record<string,unknown>>>{this.calls.push({text,values});const rows=text.includes('commercial_default_starter_version')?result:[];return{command:'SELECT',rowCount:rows.length,oid:0,fields:[],rows};}}
+  const client=new InvalidSelectorClient(),transaction=await repository(client).beginTransaction();
+  try{await assert.rejects(()=>transaction.plans.findDefaultStarter(),SaaSDataCorruptionError);assert.equal(client.calls.some(call=>call.text.includes('FROM saas.plans')),false);}
+  finally{await transaction.rollback();}
  }
 });
 
