@@ -4,6 +4,7 @@
     "/accounting",
     "/accounting/accounts",
     "/accounting/cash-sessions",
+    "/accounting/commissions",
     "/accounting/expenses",
     "/accounting/invoicing-integration",
     "/accounting/invoicing-integration/[recordId]/edit",

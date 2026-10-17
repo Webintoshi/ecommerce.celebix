@@ -1,4 +1,4 @@
-import {parseAccountingAccess,parseAccountingProfitabilityFilters} from '@celebix/saas-contracts';
+import {parseAccountingAccess,parseAccountingProfitabilityFilters,parseAccountingCommissionsFilters,parseAccountingCommissions} from '@celebix/saas-contracts';
 import {parseAccountingSupplierIntent,parseAccountingSupplierFilters,ACCOUNTING_SUPPLIER_ACTIONS,type AccountingSupplierAction} from '@celebix/saas-contracts';
 import {accountingUuid,accountingInteger,parseAccountingFilters,parseAccountingIntent,isMerchantActionAllowed,type AccountingMutation,type TenantContext} from '@celebix/saas-contracts';
 import {parseAccountingScheduleIntent,parseAccountingScheduleFilters} from '@celebix/saas-contracts';
@@ -13,7 +13,7 @@ const STATUS:Readonly<Record<string,number>>={invalid_input:400,unauthenticated:
 function json(data:unknown,status=200,headers:HeadersInit={}){return Response.json(data,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff',...headers}});}
 function failure(code:string,status=STATUS[code]??503,headers:HeadersInit={}){return json({code},status,headers);}
 type Authorized=Readonly<{runtime:ServerAccountingRuntime;tenantContext:TenantContext;now:Date;canManageAccounting:boolean}>;
-async function authorize(deps:AccountingHttpDependencies,request:Request,method:'GET'|'POST',path:string,query=false,cashier=false):Promise<Authorized|Response>{
+async function authorize(deps:AccountingHttpDependencies,request:Request,method:'GET'|'POST',path:string,query=false,cashier=false,managerOnly=false):Promise<Authorized|Response>{
   try{
     if(request.method!==method)return failure('method_not_allowed',405,{allow:method});
     const runtime=await deps.resolveRuntime();if(!runtime)return failure('unavailable');
@@ -27,6 +27,7 @@ async function authorize(deps:AccountingHttpDependencies,request:Request,method:
     if(access.kind==='unauthenticated')return failure('unauthenticated');if(access.kind==='unauthorized')return failure('membership_denied');if(access.kind!=='authenticated')return failure('unavailable');
     if(method==='POST'&&!approvedPanelMutationOriginForStore(request,runtime.access.panelOrigin,access.tenantContext.store.slug))return failure('origin_denied');
     const role=access.tenantContext.membership.role;
+    if(managerOnly&&role!=='store_owner'&&role!=='admin')return failure('membership_denied');
     let canManageAccounting=isMerchantActionAllowed(role,'accounting.manage');
     if(role==='cashier')canManageAccounting=parseAccountingAccess(await runtime.accounting.access({tenantContext:access.tenantContext,now:new Date(now)})).canManageAccounting;
     if(!isMerchantActionAllowed(role,method==='GET'?'accounting.read':'accounting.manage')&&!canManageAccounting&&!(cashier&&role==='cashier'))return failure('membership_denied');
@@ -47,6 +48,11 @@ async function execute(run:()=>Promise<unknown>){try{return json({data:await run
 export function createAccountingHttpHandlers(deps:AccountingHttpDependencies){
   if(!deps||typeof deps.resolveRuntime!=='function'||typeof deps.now!=='function'||typeof deps.requestId!=='function')throw TypeError('accounting_http_invalid');
   return Object.freeze({
+    async commissions(request:Request){
+      const auth=await authorize(deps,request,'GET','/api/accounting/commissions',true,false,true);if(auth instanceof Response)return auth;
+      let filters;try{const params=new URL(request.url).searchParams;for(const key of params.keys())if(params.getAll(key).length!==1)throw TypeError('invalid_input');filters=parseAccountingCommissionsFilters(Object.fromEntries(params));}catch{return failure('invalid_input');}
+      return execute(async()=>{const report=parseAccountingCommissions(await auth.runtime.accounting.commissions({tenantContext:auth.tenantContext,now:auth.now,filters}));if(report.dateFrom!==filters.dateFrom||report.dateTo!==filters.dateTo)throw TypeError('invalid_commission_period');return report;});
+    },
     async profitability(request:Request){const auth=await authorize(deps,request,'GET','/api/accounting/profitability',true);if(auth instanceof Response)return auth;let filters;try{const params=new URL(request.url).searchParams;for(const key of params.keys())if(params.getAll(key).length!==1)throw TypeError('invalid_input');filters=parseAccountingProfitabilityFilters(Object.fromEntries(params));}catch{return failure('invalid_input');}return execute(()=>auth.runtime.accounting.profitability({tenantContext:auth.tenantContext,now:auth.now,filters}));},
     async suppliers(request:Request){const auth=await authorize(deps,request,'GET','/api/accounting/suppliers',true);if(auth instanceof Response)return auth;let filters;try{const params=new URL(request.url).searchParams;for(const key of params.keys())if(params.getAll(key).length!==1)throw TypeError('invalid_input');filters=parseAccountingSupplierFilters(Object.fromEntries(params));}catch{return failure('invalid_input');}return execute(()=>auth.runtime.accounting.suppliers({tenantContext:auth.tenantContext,now:auth.now,filters}));},
     async supplier(request:Request,rawId:unknown){let debtId;try{debtId=accountingUuid(rawId);}catch{return failure('invalid_input');}const auth=await authorize(deps,request,'GET',`/api/accounting/suppliers/${debtId}`);if(auth instanceof Response)return auth;return execute(()=>auth.runtime.accounting.supplier({tenantContext:auth.tenantContext,now:auth.now,debtId}));},

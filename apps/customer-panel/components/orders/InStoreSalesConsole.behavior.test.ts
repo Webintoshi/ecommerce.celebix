@@ -353,7 +353,7 @@ test("removing the selected customer returns collection to full while retaining 
 test("V3 customer creation keeps the form and original key when its result is uncertain",async()=>{const keys:string[]=[];await mounted(async(container,browser)=>{await act(async()=>button(container,"Müşteri / not ekle").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.ok(button(dialog,"Yeni müşteri"));await act(async()=>button(dialog,"Yeni müşteri").click());await fillInput(dialog.querySelector<HTMLInputElement>('input[name="firstName"]')!,"Ayşe");await fillInput(dialog.querySelector<HTMLInputElement>('input[name="lastName"]')!,"Kaya");await fillInput(dialog.querySelector<HTMLInputElement>('input[name="phone"]')!,"05550001122");for(let n=0;n<2;n++)await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal(keys.length,2);assert.equal(keys[0],keys[1]);assert.equal(dialog.querySelector<HTMLInputElement>('input[name="phone"]')?.value,"05550001122");assert.equal(dialog.open,true);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;api.searchCustomers=async()=>[];api.createCustomer=async(_input,key)=>{keys.push(key);throw new InStoreSalesUiError("unavailable",503,true);};});});
 test("V3 staff credit and collection permissions are individually editable",async()=>{let saved:unknown;await mounted(async(container)=>{await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Satış yetkileri"]')!.click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;const credit=dialog.querySelector<HTMLInputElement>('input[name="canSellOnCredit"]'),collect=dialog.querySelector<HTMLInputElement>('input[name="canCollectReceivables"]');assert.ok(credit);assert.ok(collect);assert.equal(credit.checked,false);assert.equal(collect.checked,false);await act(async()=>credit.click());await act(async()=>button(dialog,"Yetkiyi kaydet").click());assert.equal((saved as{canSellOnCredit:boolean}).canSellOnCredit,true);assert.equal((saved as{canCollectReceivables:boolean}).canCollectReceivables,false);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;const bootstrap=await api.bootstrap();api.bootstrap=async()=>({...bootstrap,permissions:{...bootstrap.permissions,canManageStaff:true}});const grant={membershipId:ID,label:"Çalışan",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:false,version:1};api.listStaff=async()=>[grant];api.setStaffGrant=async(_id,input)=>{saved=input;return{...grant,...input,version:2};};});});
 
-test("sales permission editor toggles the same accounting flag through staff V5 without changing the other rights",async()=>{
+test("sales permission editor toggles the same accounting flag through staff V6 without changing the other rights",async()=>{
   for(const initial of [undefined,false,true]){
     const calls:{version:string|null;body:Parameters<InStoreSalesUiClient["setStaffGrant"]>[1]}[]=[];
     await mounted(async(container)=>{
@@ -367,20 +367,20 @@ test("sales permission editor toggles the same accounting flag through staff V5 
       await act(async()=>accounting.click());
       await act(async()=>button(dialog,"Yetkiyi kaydet").click());
       assert.equal(calls.length,1);
-      assert.equal(calls[0]!.version,"5");
+      assert.equal(calls[0]!.version,"6");
       assert.deepEqual(calls[0]!.body,{
         expectedVersion:1,enabled:true,locationIds:[LOCATION],discountLimitBps:1000,
         canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,
-        canManageAccounting:initial!==true,
+        canManageAccounting:initial!==true,commissionEnabled:true,commissionRateBps:3500,
       });
       assert.equal(dialog.querySelector<HTMLInputElement>('input[name="canManageAccounting"]')?.checked,initial!==true);
     },"draft",async(api)=>{
       api.contractVersion=4;
       const base=await api.bootstrap();
       api.bootstrap=async()=>({...base,permissions:{...base.permissions,canManageStaff:true}});
-      const grant={membershipId:ID,label:"Kasiyer",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,version:1,...(initial===undefined?{}:{canManageAccounting:initial})};
+      const grant={membershipId:ID,label:"Kasiyer",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,commissionEnabled:true,commissionRateBps:3500,version:1,...(initial===undefined?{}:{canManageAccounting:initial})};
       api.listStaff=async()=>[grant];
-      const transport=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:5,fetch:async(_url,init)=>{
+      const transport=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:6,fetch:async(_url,init)=>{
         const body=JSON.parse(String(init?.body)) as Parameters<InStoreSalesUiClient["setStaffGrant"]>[1];
         calls.push({version:new Headers(init?.headers).get("x-celebix-in-store-version"),body});
         return new Response(JSON.stringify({data:{...grant,...body,version:2}}),{status:200,headers:{"content-type":"application/json"}});
@@ -388,6 +388,45 @@ test("sales permission editor toggles the same accounting flag through staff V5 
       api.setStaffGrant=transport.setStaffGrant;
     });
   }
+});
+
+test("legacy sales permissions validate and atomically preserve the commission percentage when disabled",async()=>{
+  const writes:Parameters<InStoreSalesUiClient["setStaffGrant"]>[1][]=[];
+  await mounted(async(container)=>{
+    await act(async()=>button(container,"Satış yetkileri").click());
+    const dialog=container.querySelector<HTMLDialogElement>("dialog")!;
+    const enabled=dialog.querySelector<HTMLInputElement>('[name="commissionEnabled"]')!;
+    const rate=dialog.querySelector<HTMLInputElement>('[name="commissionRate"]')!;
+    assert.equal(enabled.checked,false);assert.equal(rate.value,"0");assert.equal(rate.disabled,true);
+    await act(async()=>enabled.click());assert.equal(rate.required,true);assert.equal(rate.disabled,false);
+    await act(async()=>{rate.value="100,01";});await act(async()=>button(dialog,"Yetkiyi kaydet").click());assert.equal(writes.length,0);assert.match(dialog.querySelector('[role="alert"]')?.textContent??"",/Prim oranı/);
+    await act(async()=>{rate.value="35,25";});await act(async()=>enabled.click());assert.equal(rate.disabled,true);assert.equal(rate.value,"35,25");
+    await act(async()=>button(dialog,"Yetkiyi kaydet").click());
+    assert.equal(writes.length,1);assert.equal(writes[0]!.commissionEnabled,false);assert.equal(writes[0]!.commissionRateBps,3525);assert.equal(writes[0]!.canManageAccounting,true);assert.equal(writes[0]!.canCollectReceivables,false);
+  },"draft",async(api)=>{
+    api.contractVersion=4;const base=await api.bootstrap();api.bootstrap=async()=>({...base,permissions:{...base.permissions,canManageStaff:true}});
+    const grant={membershipId:ID,label:"Kasiyer",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,canManageAccounting:true,version:1};
+    api.listStaff=async()=>[grant];api.setStaffGrant=async(_id,input)=>{writes.push(input);return{...grant,...input,version:2};};
+  });
+});
+
+test("legacy permission save turns commission off after an invalid draft without losing its saved rate",async()=>{
+ for(const invalid of["wrong","100,01"]){
+  let saved:Parameters<InStoreSalesUiClient["setStaffGrant"]>[1]|undefined;
+  await mounted(async(container)=>{
+   await act(async()=>button(container,"Satış yetkileri").click());
+   const dialog=container.querySelector<HTMLDialogElement>("dialog")!;
+   await act(async()=>{dialog.querySelector<HTMLInputElement>('[name="commissionRate"]')!.value=invalid;});
+   await act(async()=>dialog.querySelector<HTMLInputElement>('[name="commissionEnabled"]')!.click());
+   await act(async()=>dialog.querySelector<HTMLInputElement>('[name="canEditPrice"]')!.click());
+   await act(async()=>button(dialog,"Yetkiyi kaydet").click());
+   assert.ok(saved,"a disabled invalid commission draft must not block other permissions");assert.equal(saved.commissionEnabled,false);assert.equal(saved.commissionRateBps,1250);assert.equal(saved.canEditPrice,false);assert.equal(dialog.querySelector('[role="alert"]'),null);
+  },"draft",async(api)=>{
+   api.contractVersion=4;const base=await api.bootstrap();api.bootstrap=async()=>({...base,permissions:{...base.permissions,canManageStaff:true}});
+   const grant={membershipId:ID,label:"Kasiyer",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,canManageAccounting:false,commissionEnabled:true,commissionRateBps:1250,version:1};
+   api.listStaff=async()=>[grant];api.setStaffGrant=async(_id,input)=>{saved=input;return{...grant,...input,version:2};};
+  });
+ }
 });
 
 test("granted cashier can collect a completed credit sale through the same POS dialog",async()=>{await mounted(async(container)=>{assert.ok(button(container,"Tahsilat ekle"));await act(async()=>button(container,"Tahsilat ekle").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.equal(dialog.open,true);assert.equal(dialog.querySelector('[data-collection-order]')?.getAttribute('data-collection-order'),ID);assert.equal(container.querySelectorAll('dialog[open]').length,1);},"completed",async(api)=>{const base=await api.bootstrap(),sale=await api.getSale(ID);api.bootstrap=async()=>({...base,permissions:{...base.permissions,canCollectReceivables:true},activeDraft:{...sale,contractVersion:3,customerId:LOCATION,orderId:ID,finance:{status:"partial",collectedCents:50000,dueCents:150000,refundDueCents:0,version:1,receipts:[]}}});});});

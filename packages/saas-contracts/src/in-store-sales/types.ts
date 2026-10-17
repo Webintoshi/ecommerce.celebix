@@ -63,6 +63,7 @@ export interface InStoreBootstrap {
 }
 export interface InStoreSalePage { readonly sales:readonly InStoreSale[];readonly nextCursor:string|null; }
 export interface InStoreStaffGrant {
+  readonly commissionEnabled?:boolean;readonly commissionRateBps?:number;
   readonly canManageAccounting?:boolean;
   readonly canSellOnCredit?:boolean;readonly canCollectReceivables?:boolean;
   readonly canEditPrice?:boolean;

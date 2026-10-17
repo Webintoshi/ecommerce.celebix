@@ -10,6 +10,7 @@ export interface PanelPublicChromeModel {
   readonly locale: string;
   readonly navigationMode?: "register";
   readonly cashierAccountingAvailable?: boolean;
+  readonly accountingCommissionsAvailable?: boolean;
 }
 
 export interface PanelClientStoreOption {

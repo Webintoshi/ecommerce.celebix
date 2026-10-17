@@ -190,3 +190,18 @@ test('staff v5 is independent of sale version and cannot substitute the saved ac
 test('staff v5 rejects a malformed original sale contract before acquiring a connection',async()=>{
  for(const contractVersion of[99,'4']){const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});await assert.rejects(()=>r.listStaff({...authority(),staffContractVersion:5,contractVersion}as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);}
 });
+
+test('staff v6 commission command is atomic and recovers only its exact versioned receipt',async()=>{
+ const grant={membershipId:MEMBERSHIP,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:true,commissionRateBps:2500,version:1};
+ const input={...authority(),contractVersion:4,staffContractVersion:6,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:true,commissionRateBps:2500};
+ const first=new Client({outcome:'committed',result_payload:grant},true),recovery=new Client({outcome:'found',result_payload:grant});assert.equal((await repo(first,recovery).setStaffGrant(input as never)).commissionRateBps,2500);
+ const q=first.queries.find(q=>q.text.includes('in_store_sales_set_staff_v6'))!;assert.ok(q);assert.deepEqual(q.values?.slice(-3),[false,true,2500]);assert.ok(recovery.queries.some(q=>q.text.includes('in_store_sales_recover_staff_v6')));assert.equal(recovery.queries.some(q=>q.text.includes('set_staff')),false);
+ const list=new Client({outcome:'found',result_payload:{staff:[grant]}});assert.equal((await repo(list).listStaff({...authority(),staffContractVersion:6}as never)).staff[0]?.commissionEnabled,true);assert.ok(list.queries.some(q=>q.text.includes('in_store_sales_list_staff_v6')));
+ const wrong=new Client({outcome:'committed',result_payload:{...grant,commissionRateBps:2000}});await assert.rejects(()=>repo(wrong).setStaffGrant(input as never),e=>inStoreSalesRepositoryErrorCode(e)==='unavailable');assert.equal(wrong.queries.at(-1)?.text,'ROLLBACK');
+ const uncertain=new Client({outcome:'committed',result_payload:grant},true),substituted=new Client({outcome:'found',result_payload:{...grant,commissionEnabled:false}});await assert.rejects(()=>repo(uncertain,substituted).setStaffGrant(input as never),e=>inStoreSalesRepositoryErrorCode(e)==='unavailable');assert.equal(substituted.queries.some(q=>q.text.includes('set_staff')),false);
+});
+test('staff v6 rejects missing, unsafe or zero enabled rate and leaves old staff versions unchanged',async()=>{
+ const input={...authority(),staffContractVersion:6,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:false,canManageAccounting:false,commissionEnabled:true,commissionRateBps:10000};
+ const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});
+ for(const patch of[{commissionRateBps:0},{commissionRateBps:10001},{commissionEnabled:'true'},{commissionRateBps:undefined},{staffContractVersion:5},{contractVersion:6}])await assert.rejects(()=>r.setStaffGrant({...input,...patch}as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);
+});

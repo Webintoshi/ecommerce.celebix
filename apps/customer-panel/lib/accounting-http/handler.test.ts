@@ -10,6 +10,23 @@ function setup(accounting:Record<string,unknown>,role='store_owner'){
   return createAccountingHttpHandlers({resolveRuntime:async()=>({accounting:{access:async()=>({canManageAccounting:false,canCollectReceivables:false}),...accounting},access:{readiness:{mode:'approved_staging'},panelOrigin:ORIGIN,resolveCredential:async()=>({kind:'authenticated',tenantContext:tenant})}} as never),now:()=>NOW,requestId:()=>RID});
 }
 const receipt={customerId:ID,orderId:null,amountCents:500000,currency:'TRY',paymentMethod:'cash',accountId:null,expectedVersion:1,note:null};
+const commissionReport={dateFrom:'2026-10-01',dateTo:'2026-10-31',basis:'net_product_sales',currency:'TRY',prospectiveOnly:true,rows:[],totals:{completedSaleCount:0,merchandiseSalesCents:0,returnAdjustmentCents:0,collectionDiscountCents:0,eligibleBaseCents:0,earnedCommissionCents:0}};
+test('commission report is manager-only even when a cashier has full accounting access',async()=>{
+ const path='/api/accounting/commissions?dateFrom=2026-10-01&dateTo=2026-10-31',calls:any[]=[];
+ for(const role of ['store_owner','admin']){const h=setup({commissions:async(input:any)=>{calls.push(input);return commissionReport;}},role) as any;assert.equal(typeof h.commissions,'function');const response=await h.commissions(request(path));assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');assert.deepEqual(await response.json(),{data:commissionReport});}
+ assert.equal(calls.length,2);assert.deepEqual(calls[0].filters,{dateFrom:'2026-10-01',dateTo:'2026-10-31'});assert.equal(calls[0].tenantContext.store.id,ID);
+ let grantReads=0;const cashier=setup({access:async()=>{grantReads++;return{canManageAccounting:true,canCollectReceivables:true};},commissions:async()=>{throw Error('private payroll must not be read');}},'cashier') as any;
+ assert.equal((await cashier.commissions(request(path))).status,403);assert.equal(grantReads,0);
+});
+test('commission filters reject duplicated forged and unbounded requests before the repository',async()=>{
+ let calls=0;const h=setup({commissions:async()=>{calls++;return commissionReport;}}) as any,path='/api/accounting/commissions?dateFrom=2026-10-01&dateTo=2026-10-31';
+ for(const input of [path+'&dateFrom=2026-10-01',path+'&storeId='+ID,path+'&commissionRateBps=2000','/api/accounting/commissions','/api/accounting/commissions?dateFrom=2025-01-01&dateTo=2026-10-31','/api/accounting/commissions?dateFrom=2026-02-31&dateTo=2026-03-01'])assert.equal((await h.commissions(request(input))).status,400);
+ assert.equal((await h.commissions(request(path,'POST'))).status,405);assert.equal((await h.commissions(request(path,'GET',undefined,{'x-membership-id':ID}))).status,400);assert.equal(calls,0);
+});
+test('commission report binds the period and rejects malformed native output',async()=>{
+ const path='/api/accounting/commissions?dateFrom=2026-10-01&dateTo=2026-10-31';
+ for(const value of [{...commissionReport,dateFrom:'2026-09-01'},{...commissionReport,prospectiveOnly:false},{...commissionReport,totals:{...commissionReport.totals,earnedCommissionCents:1}}]){const h=setup({commissions:async()=>value}) as any;assert.equal((await h.commissions(request(path))).status,503);}
+});
 test('a native full-accounting grant admits cashier reporting and discount collection without changing the role',async()=>{
  const calls:any[]=[];let reads=0;const h=setup({access:async(input:any)=>{reads++;assert.equal(input.tenantContext.membership.role,'cashier');return{canManageAccounting:true,canCollectReceivables:true};},overview:async(input:any)=>{calls.push(input);return{};},profitability:async(input:any)=>{calls.push(input);return{};},collect:async(input:any)=>{calls.push(input);return{};}},'cashier');
  assert.equal((await h.get(request('/api/accounting/overview'),'overview')).status,200);

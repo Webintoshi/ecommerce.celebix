@@ -63,6 +63,7 @@ export type PanelNavigationHref =
   | "/settings/artificial-intelligence"
   | "/accounting"
   | "/accounting/profitability"
+  | "/accounting/commissions"
   | "/accounting/receivables"
   | "/accounting/suppliers"
   | "/accounting/accounts"
@@ -246,6 +247,7 @@ const SETTINGS_CHILDREN = Object.freeze([
 const ACCOUNTING_CHILDREN = Object.freeze([
   item("accounting-summary", "Özet", "/accounting", "accounting"),
   item("accounting-profitability", "Gelir ve kâr", "/accounting/profitability", "analytics"),
+  item("accounting-commissions", "Primler", "/accounting/commissions", "accounting"),
   item("accounting-receivables", "Müşteri borçları", "/accounting/receivables", "customers"),
   item("accounting-suppliers", "Tedarikçi borçları", "/accounting/suppliers", "expenses"),
   item("accounting-accounts", "Kasa ve Banka", "/accounting/accounts", "accounts"),
@@ -288,16 +290,15 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
   item("setup", "Kurulum", "/setup", "setup"),
 ]);
 
-export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register"; cashierAccountingAvailable?: boolean }>): readonly PanelNavigationItem[] {
+export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register"; cashierAccountingAvailable?: boolean; accountingCommissionsAvailable?: boolean }>): readonly PanelNavigationItem[] {
   if (input?.navigationMode === "register") return Object.freeze([
     item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders"),
-    ...(input.cashierAccountingAvailable ? [item("accounting", "Muhasebe", "/accounting", "accounting", ACCOUNTING_CHILDREN)] : [item("cashier-receivables", "Müşteri borçları", "/accounting/receivables", "customers")]),
+    ...(input.cashierAccountingAvailable ? [item("accounting", "Muhasebe", "/accounting", "accounting", ACCOUNTING_CHILDREN.filter(child=>child.href!=="/accounting/commissions"))] : [item("cashier-receivables", "Müşteri borçları", "/accounting/receivables", "customers")]),
     ...(input.analyticsAvailable ? [item("analytics", "Analizler", "/analytics", "analytics")] : []),
     item("catalog", "Ürünler", "/products", "products", Object.freeze(CATALOG_CHILDREN.filter(entry => entry.href === "/products" || entry.href === "/products/new"))),
   ]);
-  return input?.analyticsAvailable === true
-    ? PANEL_NAVIGATION
-    : Object.freeze(PANEL_NAVIGATION.filter(({ key }) => key !== "analytics"));
+  const navigation=input?.analyticsAvailable === true ? PANEL_NAVIGATION : PANEL_NAVIGATION.filter(({ key }) => key !== "analytics");
+  return Object.freeze(navigation.map(entry=>entry.key==="accounting" && !input.accountingCommissionsAvailable ? Object.freeze({...entry,children:Object.freeze(entry.children?.filter(child=>child.href!=="/accounting/commissions")??[])}) : entry));
 }
 
 const presentation = (title: string): PanelRoutePresentation => Object.freeze({ title });
@@ -367,6 +368,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/settings/artificial-intelligence": presentation("Yapay Zeka"),
   "/accounting": presentation("Muhasebe"),
   "/accounting/profitability": presentation("Gelir ve kâr"),
+  "/accounting/commissions": presentation("Primler"),
   "/accounting/receivables": presentation("Müşteri borçları"),
   "/accounting/suppliers": presentation("Tedarikçi borçları"),
   "/accounting/accounts": presentation("Kasa ve Banka"),

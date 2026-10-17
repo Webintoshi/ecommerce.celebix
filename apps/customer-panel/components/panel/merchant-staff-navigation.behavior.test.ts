@@ -18,6 +18,7 @@ test('server derives staff navigation from actual role and excludes support even
   });
   renderToStaticMarkup(await PanelShell({tenantContext:{membership:{role},store:{id:'fixture'}},support:support?{}:undefined,children:null}));
   assert.equal(actual.staffManagementAvailable,role==='store_owner'&&!support);
+  assert.equal(actual.accountingCommissionsAvailable,role==='store_owner'||role==='admin');
  }
 });
 test('desktop drawer and navigation search expose staff only with server availability',async()=>{

@@ -1,3 +1,4 @@
+import {AccountingNavigationProvider} from "@/components/accounting/AccountingNavigation";
 import { SupportBanner } from "./SupportBanner";
 import type { SupportSidecar } from "@/lib/platform-support/policy";
 import type { TenantContext } from "@celebix/saas-contracts";
@@ -32,6 +33,7 @@ export async function PanelShell(props: PanelShellProps) {
   const model = Object.freeze({
     ...entitledModel,
     analyticsAvailable,
+    accountingCommissionsAvailable: context?.membership.role === "store_owner" || context?.membership.role === "admin",
     cashierAccountingAvailable: context?.membership.role === "cashier" && props.accountingAccess?.canManageAccounting === true,
     staffManagementAvailable: Boolean(context && context.membership.role === 'store_owner' && !props.support),
     ...(context?.entitlements ? { lockedNavigationHrefs: commercialNavigationLocks(context) } : {}),
@@ -42,5 +44,5 @@ export async function PanelShell(props: PanelShellProps) {
       storeOptions,
     } : {}),
   });
-  return <>{props.support && <SupportBanner support={props.support} />}<PanelLayoutClient model={model}>{props.children}</PanelLayoutClient></>;
+  return <>{props.support && <SupportBanner support={props.support} />}<PanelLayoutClient model={model}><AccountingNavigationProvider commissionsAvailable={model.accountingCommissionsAvailable}>{props.children}</AccountingNavigationProvider></PanelLayoutClient></>;
 }

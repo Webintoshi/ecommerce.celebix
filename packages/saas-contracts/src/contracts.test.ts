@@ -600,6 +600,8 @@ test("keeps the public runtime export surface frozen", () => {
     "parseAccountingCashSessions",
     "parseAccountingCollectionAccounts",
     "parseAccountingCollectionPreview",
+    "parseAccountingCommissions",
+    "parseAccountingCommissionsFilters",
     "parseAccountingCurrencySummary",
     "parseAccountingCustomerAccount",
     "parseAccountingDebtSchedule",

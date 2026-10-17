@@ -72,3 +72,17 @@ test('validated cashier class reaches native accounting grants without replacing
  for(const[method,input,result]of requests){const c=new Client({outcome:method==='saveSchedule'||method==='collect'?'committed':'found',result_payload:result});await (repo(c) as any)[method]({...authority('cashier'),...input});const q=c.queries.find(q=>q.text.includes('FROM saas.accounting_'));assert.ok(q,method);assert.deepEqual(q.values?.slice(0,7),[STORE,PRINCIPAL,MEMBER,PLAN,'growth',2,NOW]);}
  const denied=new Client({outcome:'membership_denied',result_payload:null});await assert.rejects(()=>repo(denied).profitability({...authority('cashier'),filters:profitPeriod}),e=>accountingRepositoryErrorCode(e)==='membership_denied');assert.equal(denied.queries.at(-1)?.text,'ROLLBACK');
 });
+
+const commissionPeriod={dateFrom:'2026-10-01',dateTo:'2026-10-31'};
+const commissionTotals={completedSaleCount:0,merchandiseSalesCents:0,returnAdjustmentCents:0,collectionDiscountCents:0,eligibleBaseCents:0,earnedCommissionCents:0};
+const commissionReport={...commissionPeriod,basis:'net_product_sales',currency:'TRY',prospectiveOnly:true,rows:[],totals:commissionTotals};
+test('commission report binds only manager authority and exact period to its own readonly RPC',async()=>{
+ const c=new Client({outcome:'found',result_payload:commissionReport}),r=repo(c)as any;assert.equal(typeof r.commissions,'function');assert.deepEqual(await r.commissions({...authority(),filters:commissionPeriod}),commissionReport);
+ const q=c.queries.find(q=>q.text.includes('accounting_commissions_read'))!;assert.deepEqual(q.values?.slice(0,7),[STORE,PRINCIPAL,MEMBER,PLAN,'growth',2,NOW]);assert.deepEqual(JSON.parse(q.values?.[7]as string),commissionPeriod);assert.equal(c.queries[0]?.text,'BEGIN READ ONLY');
+ for(const role of['cashier','analyst']){const pool=new Pool([]),r=new PostgresAccountingRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}})as any;await assert.rejects(()=>r.commissions({...authority(role),filters:commissionPeriod}),e=>accountingRepositoryErrorCode(e)==='membership_denied');assert.equal(pool.calls,0);}
+});
+test('commission report rejects foreign periods and authority fields before a receipt can pass',async()=>{
+ const c=new Client({outcome:'found',result_payload:{...commissionReport,dateTo:'2026-10-30'}});await assert.rejects(()=>(repo(c)as any).commissions({...authority(),filters:commissionPeriod}),e=>accountingRepositoryErrorCode(e)==='unavailable');assert.equal(c.queries.at(-1)?.text,'ROLLBACK');
+ const pool=new Pool([]),r=new PostgresAccountingRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}})as any;
+ for(const filters of[{...commissionPeriod,basis:'gross_profit'},{...commissionPeriod,dateFrom:'2026-02-30'}])await assert.rejects(()=>r.commissions({...authority(),filters}),e=>accountingRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);
+});

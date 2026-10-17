@@ -1,3 +1,4 @@
+import type {AccountingCommissions,AccountingCommissionsFilters} from '../../../saas-contracts/src/accounting/index.ts';
 import type {AccountingProfitability,AccountingProfitabilityFilters} from '../../../saas-contracts/src/accounting/index.ts';
 import type {AccountingSupplierAction,AccountingSupplierIntentMap,AccountingSupplierFilters,AccountingSupplierList,AccountingSupplierDetail,AccountingSupplierResult} from '../../../saas-contracts/src/accounting/index.ts';
 import type { TenantContext } from '@celebix/saas-contracts';
@@ -7,6 +8,7 @@ import type {AccountingScheduleFilters,AccountingDebtSchedule,AccountingSchedule
 import type {AccountingCashAction,AccountingCashIntentMap,AccountingCashResult,AccountingCashSessions} from '../../../saas-contracts/src/accounting/index.ts';
 export interface AccountingAuthorityInput { readonly tenantContext:TenantContext; readonly now:Date; }
 export interface AccountingReadInput extends AccountingAuthorityInput { readonly filters?:AccountingFilters; }
+export interface AccountingCommissionsInput extends AccountingAuthorityInput {readonly filters:AccountingCommissionsFilters;}
 export interface AccountingProfitabilityInput extends AccountingAuthorityInput {readonly filters:AccountingProfitabilityFilters;}
 export interface AccountingCustomerInput extends AccountingAuthorityInput { readonly customerId:string; readonly currency?:string; }
 export interface AccountingOrderInput extends AccountingAuthorityInput { readonly orderId:string; }
@@ -23,6 +25,7 @@ export interface AccountingSuppliersInput extends AccountingAuthorityInput {read
 export interface AccountingSupplierInput extends AccountingAuthorityInput {readonly debtId:string;}
 export interface AccountingSupplierMutationInput<K extends AccountingSupplierAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingSupplierIntentMap[K];}
 export interface AccountingRepository {
+ commissions(input:AccountingCommissionsInput):Promise<AccountingCommissions>;
  access(input:AccountingAuthorityInput):Promise<import('../../../saas-contracts/src/accounting/index.ts').AccountingAccess>;
  profitability(input:AccountingProfitabilityInput):Promise<AccountingProfitability>;
  suppliers(input:AccountingSuppliersInput):Promise<AccountingSupplierList>;

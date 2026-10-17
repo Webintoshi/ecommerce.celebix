@@ -106,6 +106,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/settings/store-tools",
       "/accounting",
       "/accounting/profitability",
+      "/accounting/commissions",
       "/accounting/receivables",
       "/accounting/suppliers",
       "/accounting/accounts",

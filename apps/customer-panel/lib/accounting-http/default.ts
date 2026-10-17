@@ -10,6 +10,7 @@ type Context=Readonly<{params:Promise<Readonly<{path:readonly string[]}>>}>;
 function missing(){return Response.json({code:'not_found'},{status:404,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});}
 export async function handleDefaultAccountingGet(request:Request,context:Context){
   const {path}=await context.params;
+  if(path.length===1&&path[0]==='commissions')return handlers.commissions(request);
   if(path.length===1&&path[0]==='profitability')return handlers.profitability(request);
   if(path.length===1&&path[0]==='suppliers')return handlers.suppliers(request);
   if(path.length===2&&path[0]==='suppliers')return handlers.supplier(request,path[1]);

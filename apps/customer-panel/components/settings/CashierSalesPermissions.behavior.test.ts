@@ -70,7 +70,7 @@ test('save uses the selected membership, server version and explicit flags witho
     await input(window, field(host, 'discount'), '20,25'); await toggle(host, 'canCollectReceivables'); await toggle(host, 'canEditPrice');
     await submit(host, window);
     assert.equal(writes.length, 1); assert.equal(saved, 1);
-    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false });
+    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false, commissionEnabled: false, commissionRateBps: 0 });
     assert.equal(writes[0].id, MEMBER); assert.ok(writes[0].key);
   });
 });
@@ -168,4 +168,53 @@ test('full accounting is saved atomically with existing sales flags and uncertai
   await toggle(host,'canManageAccounting');await submit(host,window);assert.equal(writes[0].body.canManageAccounting,true);assert.equal(writes[0].body.canCollectReceivables,false);assert.equal(field(host,'canManageAccounting').closest('fieldset').disabled,true);
   await submit(host,window);assert.deepEqual(writes[1],writes[0]);
  });
+});
+
+test('commission starts off at zero for legacy grants and retains the entered percentage when switched off',async()=>{
+ const writes:any[]=[];
+ await mounted(dialog(),props(client({setStaffGrant:async(_id:string,body:any)=>{writes.push(body);return{...grant,...body,version:5};}})),async(host,window)=>{
+  assert.equal(field(host,'commissionEnabled')?.checked,false);
+  assert.equal(field(host,'commissionRate')?.value,'0');assert.equal(field(host,'commissionRate').disabled,true);
+  await toggle(host,'commissionEnabled');assert.equal(field(host,'commissionRate').required,true);
+  await input(window,field(host,'commissionRate'),'27,50');
+  await toggle(host,'commissionEnabled');assert.equal(field(host,'commissionRate').value,'27,50');assert.equal(field(host,'commissionRate').disabled,true);
+  await submit(host,window);assert.equal(writes.length,1);assert.equal(writes[0].commissionEnabled,false);assert.equal(writes[0].commissionRateBps,2750);assert.equal(writes[0].canManageAccounting,false);
+ });
+});
+test('enabled commission validates hundredths through 100 percent without an arbitrary 20 percent cap',async()=>{
+ for(const [value,expected] of [['',null],['0',null],['0,001',null],['100,01',null],['0,01',1],['27,5',2750],['100',10000]] as const){
+  const writes:any[]=[];
+  await mounted(dialog(),props(client({setStaffGrant:async(_id:string,body:any)=>{writes.push(body);return{...grant,...body,version:5};}})),async(host,window)=>{
+   await toggle(host,'commissionEnabled');await input(window,field(host,'commissionRate'),value);await submit(host,window);
+   assert.equal(writes.length,expected===null?0:1,value);
+   if(expected===null){assert.match(host.querySelector('[role="alert"]').textContent,/Prim oranı/);assert.equal(field(host,'commissionRate').value,value);}
+   else{assert.equal(writes[0].commissionEnabled,true);assert.equal(writes[0].commissionRateBps,expected);}
+  });
+ }
+});
+test('commission shares the existing uncertain save key and its fields freeze until the result is known',async()=>{
+ const writes:any[]=[];
+ await mounted(dialog(),props(client({setStaffGrant:async(id:string,body:any,key:string)=>{writes.push({id,body,key});throw new clientModule.InStoreSalesUiError('unavailable',503,true);}})),async(host,window)=>{
+  await toggle(host,'commissionEnabled');await input(window,field(host,'commissionRate'),'35,25');await submit(host,window);
+  assert.equal(writes[0].body.commissionRateBps,3525);assert.equal(writes[0].body.commissionEnabled,true);
+  assert.equal(field(host,'commissionEnabled').closest('fieldset').disabled,true);
+  await submit(host,window);assert.deepEqual(writes[1],writes[0]);
+ });
+});
+
+test('editing another sales permission preserves the saved commission snapshot settings',async()=>{
+ let saved:any;
+ await mounted(dialog(),props(client({listStaff:async()=>[{...grant,commissionEnabled:true,commissionRateBps:1250}],setStaffGrant:async(_id:string,body:any)=>{saved=body;return{...grant,...body,version:5};}})),async(host,window)=>{
+  assert.equal(field(host,'commissionEnabled').checked,true);assert.equal(field(host,'commissionRate').value,'12,5');await toggle(host,'canEditPrice');await submit(host,window);assert.equal(saved.commissionEnabled,true);assert.equal(saved.commissionRateBps,1250);assert.equal(saved.canEditPrice,false);assert.equal(saved.canCollectReceivables,false);
+ });
+});
+
+test('switching commission off can save other rights after an invalid draft and retains the last saved rate',async()=>{
+ for(const invalid of['wrong','100,01']){
+  let saved:any;
+  await mounted(dialog(),props(client({listStaff:async()=>[{...grant,commissionEnabled:true,commissionRateBps:1250}],setStaffGrant:async(_id:string,body:any)=>{saved=body;return{...grant,...body,version:5};}})),async(host,window)=>{
+   await input(window,field(host,'commissionRate'),invalid);await toggle(host,'commissionEnabled');await toggle(host,'canEditPrice');await submit(host,window);
+   assert.ok(saved,'a disabled invalid commission draft must not block other permissions');assert.equal(saved.commissionEnabled,false);assert.equal(saved.commissionRateBps,1250);assert.equal(saved.canEditPrice,false);assert.equal(host.querySelector('[role="alert"]'),null);
+  });
+ }
 });
