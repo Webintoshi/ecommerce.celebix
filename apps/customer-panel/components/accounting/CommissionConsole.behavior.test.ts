@@ -7,7 +7,7 @@ const row={membershipId:'11111111-1111-4111-8111-111111111111',displayName:'Ayç
 const report={dateFrom:'2026-10-01',dateTo:'2026-10-17',basis:'net_product_sales',currency:'TRY',prospectiveOnly:true,rows:[row],totals:{completedSaleCount:2,merchandiseSalesCents:240000,returnAdjustmentCents:20000,collectionDiscountCents:20000,eligibleBaseCents:200000,earnedCommissionCents:5000}};
 const flush=()=>act(async()=>{await new Promise(done=>setTimeout(done,0));});
 async function fill(element:any,value:string){const key=Object.keys(element).find(k=>k.startsWith('__reactProps$'))!;await act(async()=>element[key].onChange({target:{value}}));}
-function component(read:(filters:any,signal?:AbortSignal)=>Promise<unknown>){return compile('components/accounting/CommissionConsole.tsx',{'@/lib/accounting-ui/client':{accountingUi:{commissions:read}}}).CommissionConsole;}
+function component(read:(filters:any,signal?:AbortSignal)=>Promise<unknown>){return compile('components/accounting/CommissionConsole.tsx',{'@/lib/accounting-ui/client':{accountingUi:{commissions:read}},'./CommissionPaymentsWorkspace':{CommissionPaymentsWorkspace:()=>null}}).CommissionConsole;}
 test('commission report shows real staff identity, masked phone and authoritative snapshot earnings without recalculating from current rate',async()=>{
  let calls=0;
  await mounted(component(async()=>{calls++;return report;}),{canRead:true,scopeKey:'store:manager'},async host=>{

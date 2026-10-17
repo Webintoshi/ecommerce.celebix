@@ -1,4 +1,5 @@
 import type {AccountingCommissions,AccountingCommissionsFilters} from '../../../saas-contracts/src/accounting/index.ts';
+import type {AccountingCommissionBalances,AccountingCommissionPaymentDetail,AccountingCommissionPaymentAction,AccountingCommissionPaymentIntentMap,AccountingCommissionPaymentResult} from '../../../saas-contracts/src/accounting/index.ts';
 import type {AccountingProfitability,AccountingProfitabilityFilters} from '../../../saas-contracts/src/accounting/index.ts';
 import type {AccountingSupplierAction,AccountingSupplierIntentMap,AccountingSupplierFilters,AccountingSupplierList,AccountingSupplierDetail,AccountingSupplierResult} from '../../../saas-contracts/src/accounting/index.ts';
 import type { TenantContext } from '@celebix/saas-contracts';
@@ -9,6 +10,8 @@ import type {AccountingCashAction,AccountingCashIntentMap,AccountingCashResult,A
 export interface AccountingAuthorityInput { readonly tenantContext:TenantContext; readonly now:Date; }
 export interface AccountingReadInput extends AccountingAuthorityInput { readonly filters?:AccountingFilters; }
 export interface AccountingCommissionsInput extends AccountingAuthorityInput {readonly filters:AccountingCommissionsFilters;}
+export interface AccountingCommissionPaymentsInput extends AccountingAuthorityInput {readonly membershipId:string;}
+export interface AccountingCommissionPaymentMutationInput<K extends AccountingCommissionPaymentAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingCommissionPaymentIntentMap[K];}
 export interface AccountingProfitabilityInput extends AccountingAuthorityInput {readonly filters:AccountingProfitabilityFilters;}
 export interface AccountingCustomerInput extends AccountingAuthorityInput { readonly customerId:string; readonly currency?:string; }
 export interface AccountingOrderInput extends AccountingAuthorityInput { readonly orderId:string; }
@@ -26,6 +29,10 @@ export interface AccountingSupplierInput extends AccountingAuthorityInput {reado
 export interface AccountingSupplierMutationInput<K extends AccountingSupplierAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingSupplierIntentMap[K];}
 export interface AccountingRepository {
  commissions(input:AccountingCommissionsInput):Promise<AccountingCommissions>;
+ commissionBalances(input:AccountingAuthorityInput):Promise<AccountingCommissionBalances>;
+ commissionPayments(input:AccountingCommissionPaymentsInput):Promise<AccountingCommissionPaymentDetail>;
+ commissionPaymentMutate<K extends AccountingCommissionPaymentAction>(input:AccountingCommissionPaymentMutationInput<K>):Promise<AccountingCommissionPaymentResult>;
+ commissionPaymentOperation(input:AccountingOperationInput):Promise<AccountingCommissionPaymentResult|null>;
  access(input:AccountingAuthorityInput):Promise<import('../../../saas-contracts/src/accounting/index.ts').AccountingAccess>;
  profitability(input:AccountingProfitabilityInput):Promise<AccountingProfitability>;
  suppliers(input:AccountingSuppliersInput):Promise<AccountingSupplierList>;

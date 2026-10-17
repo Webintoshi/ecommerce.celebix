@@ -1,4 +1,5 @@
 .root,.data,.loading{display:grid;gap:24px;min-width:0;max-width:100%}
+.sectionHeading{margin:0;padding-top:24px;border-top:1px solid var(--cp-border);color:var(--cp-text-primary);font-size:18px;font-weight:650}
 .summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:0;min-width:0}
 .summary>div{display:grid;gap:8px;min-width:0;padding:20px;border:1px solid var(--cp-border);border-radius:12px;background:var(--cp-surface)}
 .summary dt{color:var(--cp-text-secondary);font-size:13px}

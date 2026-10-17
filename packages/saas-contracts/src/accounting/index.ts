@@ -6,3 +6,4 @@ export * from './cash-sessions.ts';
 export * from './suppliers.ts';
 export * from './profitability.ts';
 export * from './commissions.ts';
+export * from './commission-payments.ts';

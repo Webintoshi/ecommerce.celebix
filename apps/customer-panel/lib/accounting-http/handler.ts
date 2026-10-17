@@ -1,4 +1,5 @@
 import {parseAccountingAccess,parseAccountingProfitabilityFilters,parseAccountingCommissionsFilters,parseAccountingCommissions} from '@celebix/saas-contracts';
+import {ACCOUNTING_COMMISSION_PAYMENT_ACTIONS,parseAccountingCommissionBalances,parseAccountingCommissionPaymentDetail,parseAccountingCommissionPaymentIntent,parseAccountingCommissionPaymentResult,accountingCommissionPaymentResultMatches,type AccountingCommissionPaymentAction} from '@celebix/saas-contracts';
 import {parseAccountingSupplierIntent,parseAccountingSupplierFilters,ACCOUNTING_SUPPLIER_ACTIONS,type AccountingSupplierAction} from '@celebix/saas-contracts';
 import {accountingUuid,accountingInteger,parseAccountingFilters,parseAccountingIntent,isMerchantActionAllowed,type AccountingMutation,type TenantContext} from '@celebix/saas-contracts';
 import {parseAccountingScheduleIntent,parseAccountingScheduleFilters} from '@celebix/saas-contracts';
@@ -48,6 +49,26 @@ async function execute(run:()=>Promise<unknown>){try{return json({data:await run
 export function createAccountingHttpHandlers(deps:AccountingHttpDependencies){
   if(!deps||typeof deps.resolveRuntime!=='function'||typeof deps.now!=='function'||typeof deps.requestId!=='function')throw TypeError('accounting_http_invalid');
   return Object.freeze({
+    async commissionBalances(request:Request){
+      const auth=await authorize(deps,request,'GET','/api/accounting/commission-balances',false,false,true);if(auth instanceof Response)return auth;
+      return execute(async()=>parseAccountingCommissionBalances(await auth.runtime.accounting.commissionBalances({tenantContext:auth.tenantContext,now:auth.now})));
+    },
+    async commissionPayments(request:Request,rawId:unknown){
+      let membershipId;try{membershipId=accountingUuid(rawId);}catch{return failure('invalid_input');}
+      const auth=await authorize(deps,request,'GET',`/api/accounting/commission-payments/${membershipId}`,false,false,true);if(auth instanceof Response)return auth;
+      return execute(async()=>{const detail=parseAccountingCommissionPaymentDetail(await auth.runtime.accounting.commissionPayments({tenantContext:auth.tenantContext,now:auth.now,membershipId}));if(detail.balance.membershipId!==membershipId)throw TypeError('invalid_commission_recipient');return detail;});
+    },
+    async commissionPaymentOperation(request:Request,rawId:unknown){
+      let operationId;try{operationId=accountingUuid(rawId);}catch{return failure('invalid_input');}
+      const auth=await authorize(deps,request,'GET',`/api/accounting/commission-payment-operations/${operationId}`,false,false,true);if(auth instanceof Response)return auth;
+      return execute(async()=>{const value=await auth.runtime.accounting.commissionPaymentOperation({tenantContext:auth.tenantContext,now:auth.now,operationId});if(value===null)return null;const result=parseAccountingCommissionPaymentResult(value);if(result.operationId!==operationId)throw TypeError('invalid_commission_operation');return result;});
+    },
+    async commissionPaymentMutate(request:Request,kind:AccountingCommissionPaymentAction){
+      if(!(ACCOUNTING_COMMISSION_PAYMENT_ACTIONS as readonly unknown[]).includes(kind))return failure('invalid_input');
+      const auth=await authorize(deps,request,'POST',`/api/accounting/commission-payments/actions/${kind}`,false,false,true);if(auth instanceof Response)return auth;
+      let operationId,intent;try{operationId=accountingUuid(request.headers.get('idempotency-key'));intent=parseAccountingCommissionPaymentIntent(kind,await body(request));}catch{return failure('invalid_input');}
+      return execute(async()=>{const result=parseAccountingCommissionPaymentResult(await auth.runtime.accounting.commissionPaymentMutate({tenantContext:auth.tenantContext,now:auth.now,operationId,kind,intent}));if(!accountingCommissionPaymentResultMatches(result,kind,intent,operationId))throw TypeError('invalid_commission_receipt');return result;});
+    },
     async commissions(request:Request){
       const auth=await authorize(deps,request,'GET','/api/accounting/commissions',true,false,true);if(auth instanceof Response)return auth;
       let filters;try{const params=new URL(request.url).searchParams;for(const key of params.keys())if(params.getAll(key).length!==1)throw TypeError('invalid_input');filters=parseAccountingCommissionsFilters(Object.fromEntries(params));}catch{return failure('invalid_input');}

@@ -8,6 +8,7 @@ import {accountingUi} from "@/lib/accounting-ui/client";
 import {accountingMoney as money} from "@/lib/accounting-ui/model";
 import {defaultProfitabilityPeriod,profitabilityFilters} from "@/lib/accounting-ui/profitability-model";
 import {AccountingNavigation} from "./AccountingNavigation";
+import {CommissionPaymentsWorkspace} from "./CommissionPaymentsWorkspace";
 import shared from "./accounting.module.css";
 import styles from "./commissions.module.css";
 
@@ -27,6 +28,8 @@ function CommissionWorkspace({canRead,scopeKey}:{canRead:boolean;scopeKey:string
  if(!canRead)return <PanelPageShell><PanelPageHeader title="Primler"/><h1 className="sr-only">Primler</h1><p className={shared.empty}>Primleri yalnızca mağaza sahibi veya yönetici görebilir.</p></PanelPageShell>;
  return <PanelPageShell><PanelPageHeader title="Primler"/><h1 className="sr-only">Primler</h1><div className={`${shared.console} ${styles.root}`}>
   <AccountingNavigation active="commissions"/>
+  <CommissionPaymentsWorkspace canManage={canRead} scopeKey={scopeKey}/>
+  <h2 className={styles.sectionHeading}>Dönem satışları ve hak edilen prim</h2>
   <div className={shared.toolbar}><form className={shared.filters} onSubmit={apply}>
    <label className={shared.filterField}><span>Başlangıç</span><input name="dateFrom" type="date" required value={draft.dateFrom} onChange={event=>setDraft(value=>({...value,dateFrom:event.target.value}))}/></label>
    <label className={shared.filterField}><span>Bitiş</span><input name="dateTo" type="date" required value={draft.dateTo} onChange={event=>setDraft(value=>({...value,dateTo:event.target.value}))}/></label>
@@ -48,6 +51,6 @@ function CommissionWorkspace({canRead,scopeKey}:{canRead:boolean;scopeKey:string
     </tr>)}</tbody></table></div>
    </>:<p className={shared.empty}>Bu dönemde prim kaydı yok. Başka bir tarih aralığı seçebilirsin.</p>:null}
   </div>
-  <p className={shared.muted}>Prim satışı yapan kasiyere aittir; tahsilatı başka biri yaparsa değişmez. Satıştaki oran korunur; güncel oran geçmiş kazancı değiştirmez. Bu ekran ödeme veya kasa hareketi oluşturmaz.</p>
+  <p className={shared.muted}>Prim satışı yapan kasiyere aittir; tahsilatı başka biri yaparsa değişmez. Satıştaki oran korunur; güncel oran geçmiş kazancı değiştirmez. Satıştan hesaplanan prim kasa ve banka bakiyesini kendiliğinden değiştirmez.</p>
  </div></PanelPageShell>;
 }

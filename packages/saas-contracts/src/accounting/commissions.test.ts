@@ -33,7 +33,7 @@ test('staff v6 commission opt-in supports over twenty percent without changing e
 
 test('commission report bounds rows and rejects accessor records without reading them',()=>{
  let reads=0;const accessor={...row};Object.defineProperty(accessor,'earnedCommissionCents',{enumerable:true,get(){reads++;return 2125;}});assert.throws(()=>parse({...report,rows:[accessor]}));assert.equal(reads,0);
- const sparse=[];sparse.length=1;assert.throws(()=>parse({...report,rows:sparse}));assert.throws(()=>parse({...report,rows:Array(1001).fill(row)}));
+ const sparse:unknown[]=[];sparse.length=1;assert.throws(()=>parse({...report,rows:sparse}));assert.throws(()=>parse({...report,rows:Array(1001).fill(row)}));
 });
 
 test('commission money requires a completed qualifying sale',()=>{
