@@ -191,7 +191,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
             >{children}</main>
           </PanelTopbarChromeProvider>
         </div>
-        <PanelMobileDock navigationMode={model.navigationMode} analyticsAvailable={model.analyticsAvailable}
+        <PanelMobileDock lockedNavigationHrefs={model.lockedNavigationHrefs} navigationMode={model.navigationMode} analyticsAvailable={model.analyticsAvailable}
           pathname={pathname}
           menuOpen={drawerOpen}
           menuButtonRef={menuButtonRef}

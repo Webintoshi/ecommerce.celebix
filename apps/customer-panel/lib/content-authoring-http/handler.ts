@@ -1,3 +1,4 @@
+import { hasCommercialCapability } from '@celebix/saas-contracts';
 import { parseContentAuthoringRequest, parseContentGenerationView } from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
 import { isMerchantActionAllowed, type TenantContext } from "@celebix/saas-contracts";
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
@@ -72,6 +73,7 @@ async function authorize(deps: Dependencies, request: Request, method: "GET" | "
   if (method === "POST" && !approvedPanelMutationOriginForStore(request, runtime.access.panelOrigin, tenantContext.store.slug)) return failure("origin_denied");
   if (tenantContext.store.status !== "active") return failure("store_inactive");
   if (tenantContext.membership.status !== "active" || !isMerchantActionAllowed(tenantContext.membership.role, "catalog_admin.manage")) return failure("membership_denied");
+  if (!hasCommercialCapability(tenantContext.entitlements, "ai")) return failure("feature_not_enabled", 403);
   if (!runtime.enabled(tenantContext)) return failure("feature_unavailable", 503);
   return { runtime, tenantContext, now };
 }

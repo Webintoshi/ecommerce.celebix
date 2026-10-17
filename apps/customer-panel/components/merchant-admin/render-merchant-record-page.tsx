@@ -1,5 +1,6 @@
 import {
   isMerchantActionAllowed,
+  hasCommercialCapability,
   type MerchantAction,
   type MerchantAdminRecordKind,
 } from "@celebix/saas-contracts";
@@ -18,7 +19,7 @@ export async function renderMerchantRecordPage(input: Readonly<{
 }>) {
   const { tenantContext } = await requireServerPanelAccess();
   if (input.kind === "blog_post" || input.kind === "page") {
-    return <MerchantContentEditor storeId={tenantContext.store.id} kind={input.kind} initialLocale={input.recordId ? 'tr' : await resolveInitialContentLocale(tenantContext)} recordId={input.recordId} aiEnabled={contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={contentResearchEnabled(tenantContext.store.id)} returnTo={input.returnTo} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+    return <MerchantContentEditor storeId={tenantContext.store.id} kind={input.kind} initialLocale={input.recordId ? 'tr' : await resolveInitialContentLocale(tenantContext)} recordId={input.recordId} aiEnabled={hasCommercialCapability(tenantContext.entitlements, "ai") && contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={hasCommercialCapability(tenantContext.entitlements, "ai") && contentResearchEnabled(tenantContext.store.id)} aiUpgradeAvailable={!hasCommercialCapability(tenantContext.entitlements, "ai")} returnTo={input.returnTo} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
   }
   return (
     <MerchantRecordEditor

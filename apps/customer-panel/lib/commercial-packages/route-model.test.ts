@@ -10,7 +10,7 @@ test('locked features are classified before consoles load; payment, shipping and
     }
     for (const path of ['/', '/settings/payment', '/settings/shipping', '/analytics', '/products', '/settings/plan', '/upgrade'])
         assert.equal(commercialRouteDecision(context(), path).kind, 'allowed', path);
-    assert.equal(commercialRouteDecision(context(1), '/orders/quick-links').kind, 'allowed');
+    assert.equal(commercialRouteDecision(context(1), '/orders/quick-links').kind, 'upgrade');
     assert.equal(commercialRouteDecision(context(2), '/discounts/popups').kind, 'allowed');
 });
 test('role denial wins over a package upgrade and cashiers require physical register capability', () => {
@@ -23,7 +23,7 @@ test('role denial wins over a package upgrade and cashiers require physical regi
     assert.equal(commercialRouteDecision(context(3, 'cashier'), '/orders/quick-links').kind, 'allowed');
 });
 test('finite paths and legacy plans retain compatible behavior without trusting route payloads', () => {
-    const old = { ...context(0), entitlements: { ...entitlement(3), planId: '00000000-0000-4000-8000-000000000001', planCode: 'pilot', version: 1 } };
+    const old = { ...context(0), entitlements: { ...entitlement(3), planId: '00000000-0000-4000-8000-000000000002', planCode: 'pilot', version: 1 } };
     assert.equal(commercialRouteDecision(old, '/accounting').kind, 'allowed');
     for (const path of ['/accountingevil', '//accounting', '/settings/plan?feature=accounting', 'https://evil.test/accounting', '/seo%2fcontent'])
         assert.equal(commercialRouteDecision(context(), path).kind, 'allowed');
@@ -38,4 +38,19 @@ test('only advanced analytics tabs require growth, and lock metadata contains sa
     assert.ok(!locks.includes('/analytics'));
     assert.ok(!locks.includes('/settings/payment'));
     assert.ok(!commercialNavigationLocks(context(0, 'editor')).includes('/accounting'));
+});
+
+
+test('every restricted menu, nested route and legacy manual entry uses its exact capability', () => {
+    for (const [path, capability] of [['/settings/analytics', 'advanced_analytics'], ['/marketing/phone/new', 'email_marketing'], ['/marketing/whatsapp/example/edit', 'email_marketing']] as const) {
+        assert.deepEqual(commercialRouteDecision(context(1), path), { kind: 'upgrade', capability }, path);
+        assert.equal(commercialRouteDecision(context(3), path).kind, 'allowed', path);
+    }
+    for (const role of ['store_owner', 'admin', 'cashier'] as const) {
+        for (const path of ['/orders/quick-links', '/orders/drafts', '/orders/drafts/new', '/orders/drafts/example', '/orders/payment-links']) {
+            assert.equal(commercialRouteDecision(context(2, role), path).kind, 'upgrade', `${role}:${path}`);
+            assert.equal(commercialRouteDecision(context(3, role), path).kind, 'allowed', `${role}:${path}`);
+        }
+    }
+    assert.ok(commercialNavigationLocks(context(1)).includes('/settings/analytics'));
 });

@@ -1,3 +1,4 @@
+import { hasCommercialCapability } from '@celebix/saas-contracts';
 import{isMerchantActionAllowed,parseContentResourceAuthoringRequest,parseContentResourceGenerationView,type TenantContext,type ContentResourceGeneration}from'@celebix/saas-contracts';
 import{readOrderPanelSessionCookie}from'../order-http/request-input.ts';
 import{approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape}from'../panel-origin-authority.ts';
@@ -29,6 +30,7 @@ async function authorize(deps:Deps,request:Request,method:'GET'|'POST',path:stri
  if(result.kind==='unauthenticated')return failure('unauthenticated');if(result.kind==='unauthorized')return failure('membership_denied');if(result.kind!=='authenticated')return failure('unavailable');
  const tenantContext=result.tenantContext;if(method==='POST'&&!approvedPanelMutationOriginForStore(request,runtime.access.panelOrigin,tenantContext.store.slug))return failure('origin_denied');
  if(tenantContext.store.status!=='active')return failure('store_inactive');if(tenantContext.membership.status!=='active'||!isMerchantActionAllowed(tenantContext.membership.role,'content.manage'))return failure('membership_denied');
+ if(!hasCommercialCapability(tenantContext.entitlements,"ai"))return json({code:"feature_not_enabled"},403);
  if(!runtime.enabled(tenantContext))return failure('feature_not_enabled');return{runtime,tenantContext};
 }
 export function createContentResourceAuthoringHttpHandlers(deps:Deps){

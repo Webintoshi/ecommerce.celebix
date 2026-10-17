@@ -1,4 +1,4 @@
-import { isMerchantActionAllowed } from "@celebix/saas-contracts";
+import { isMerchantActionAllowed, hasCommercialCapability } from "@celebix/saas-contracts";
 
 import { CustomerDetailConsole } from "@/components/customers/CustomerDetailConsole";
 import { requireServerPanelAccess } from "@/lib/server-access";
@@ -16,6 +16,7 @@ export default async function CustomerDetailPage({
   return (
     <CustomerDetailConsole
       customerId={customerId}
+      segmentsAvailable={hasCommercialCapability(access.tenantContext.entitlements, "growth_tools")}
       canManage={isMerchantActionAllowed(role, "customers.manage")}
       canArchive={isMerchantActionAllowed(role, "customers.archive")}
     />

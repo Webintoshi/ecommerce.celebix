@@ -23,7 +23,7 @@ const ProductAdvancedEditor = dynamic(() => import("@/components/catalog-onboard
   loading: () => <CatalogWorkspaceLoading layout="product" label="Form yükleniyor…" />,
 });
 
-export function ProductCreateForm({ initialMode = "choose" }: Readonly<{ initialMode?: "choose" | "quick" | "advanced" }>) {
+export function ProductCreateForm({ initialMode = "choose", aiAvailable = true }: Readonly<{ initialMode?: "choose" | "quick" | "advanced"; aiAvailable?: boolean }>) {
   const [options, setOptions] = useState<CatalogOnboardingOptions | null>(null);
   const [error, setError] = useState("");
   const [mode, setMode] = useState(initialMode);
@@ -123,7 +123,7 @@ export function ProductCreateForm({ initialMode = "choose" }: Readonly<{ initial
           <span><strong>Detaylı ürün</strong><small>Varyantlar · Gelişmiş ayarlar</small></span>
           <span className={styles.start}>{lastChoiceRef.current === "advanced" && productDraftIsDirty(draftSession) ? "Devam et" : "Başla"}<ArrowRight aria-hidden="true" /></span>
         </button>
-      </div> : mode === "advanced" && options ? <ProductAdvancedEditor options={options} draftSession={draftSession} onDraftSessionChange={setDraftSession} onBusyChange={setBusy} onCancel={() => selectMode("choose")} onCreated={(result) => finish(`/products/${result.product.id}`)} /> : mode === "quick" ? <ProductQuickCreateDialog
+      </div> : mode === "advanced" && options ? <ProductAdvancedEditor aiAvailable={aiAvailable} options={options} draftSession={draftSession} onDraftSessionChange={setDraftSession} onBusyChange={setBusy} onCancel={() => selectMode("choose")} onCreated={(result) => finish(`/products/${result.product.id}`)} /> : mode === "quick" ? <ProductQuickCreateDialog
           open
           mode="page"
           options={options}

@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, Home, Menu, Package, ShoppingBag } from "lucide-react";
+import { BarChart3, Home, Menu, Package, LockKeyhole, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import type { RefObject } from "react";
 import { isPanelNavigationPathActive } from "@/lib/panel-ui/navigation";
@@ -8,6 +8,7 @@ import styles from "./panel-shell.module.css";
 
 export function PanelMobileDock(props: {
   pathname: string;
+  lockedNavigationHrefs?: readonly string[];
   navigationMode?: "register";
   analyticsAvailable?: boolean;
   menuOpen: boolean;
@@ -31,7 +32,7 @@ export function PanelMobileDock(props: {
         return (
           <Link key={href} href={href} aria-current={active ? "page" : undefined}>
             <Icon aria-hidden="true" />
-            <span>{label}</span>
+            <span>{label}{props.lockedNavigationHrefs?.includes(href) ? <><LockKeyhole size={12} aria-hidden="true"/><span className="sr-only">İndirimli paketi incele</span></> : null}</span>
           </Link>
         );
       })}

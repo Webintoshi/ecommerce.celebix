@@ -78,7 +78,7 @@ const authorities = {
   platformDomainSuffix: "saas-staging.celebix.site",
 };
 
-test('new Free v2 result is exact while a prior Free v1 completion remains replayable',()=>{
+test('current Free result is exact while a prior Free v1 completion remains replayable',()=>{
  const free=COMMERCIAL_PACKAGES[0]!;
  const next={...result,plan:{...result.plan,planId:free.id,version:free.version,features:PLAN_FEATURE_KEYS.filter(key=>free.features.includes(key)),limits:{...free.limits}}};
  assert.equal(validateTenantCompletionResult(next,input,authorities),true);
@@ -107,4 +107,12 @@ test("tenant completion accepts only the exact safe persisted media readiness pr
       false,
     );
   }
+});
+
+test('Free v3 onboarding accepts the 25-product tariff and rejects a forged larger quota',()=>{
+ const free=COMMERCIAL_PACKAGES[0]!;
+ const next={...result,plan:{...result.plan,planId:'00000000-0000-4000-8000-000000000007',version:3,features:PLAN_FEATURE_KEYS.filter(key=>free.features.includes(key)),limits:{...free.limits,products:25}}};
+ assert.equal(validateTenantCompletionResult(next,input,authorities),true);
+ assert.equal(validateTenantCompletionResult({...next,plan:{...next.plan,limits:{...next.plan.limits,products:100}}},input,authorities),false);
+ assert.equal(validateTenantCompletionResult({...next,plan:{...next.plan,version:4}},input,authorities),false);
 });

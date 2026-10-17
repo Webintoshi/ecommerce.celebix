@@ -39,6 +39,7 @@ async function compile(url: URL, imports: Record<string, unknown>) {
   const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name.includes("CommercialFeatureLink")) return {CommercialFeatureLink:({capability}:any)=>createElement("a",{href:`/upgrade?feature=${capability}`},"İndirimli paketi incele")};
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });
@@ -463,5 +464,14 @@ test("advanced one Save publishes after uploading and accepts keyboard submissio
   assert.equal(intents[0].publish,true);
   assert.deepEqual(calls,["create","publish"]);
   assert.equal(finished[0].product.status,"active");
+ });
+});
+
+test('package locked product AI offers upgrade without opening generation while ordinary SEO fields stay editable',async()=>{
+ await withAdvanced({aiAvailable:false},async({container})=>{
+  assert.equal([...container.querySelectorAll('button')].some(button=>button.textContent==='AI ile SEO oluştur'),false);
+  assert.ok(container.querySelector('a[href="/upgrade?feature=ai"]'));
+  assert.ok(container.querySelector('input[name="seoTitle"]'));
+  assert.ok(container.querySelector('textarea[name="seoDescription"]'));
  });
 });

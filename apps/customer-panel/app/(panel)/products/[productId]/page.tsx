@@ -1,3 +1,4 @@
+import { hasCommercialCapability } from '@celebix/saas-contracts';
 import { isCatalogProductOperationAllowed, isMerchantActionAllowed } from "@celebix/saas-contracts";
 
 import { ProductDetailConsole } from "@/components/catalog/ProductDetailConsole";
@@ -9,11 +10,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   return (
     <ProductDetailConsole
       productId={productId}
+      aiAvailable={hasCommercialCapability(tenantContext.entitlements, "ai")}
       canManage={isCatalogProductOperationAllowed(role, "update")}
       canArchive={isCatalogProductOperationAllowed(role, "archive")}
       canDelete={isMerchantActionAllowed(role, "catalog_admin.delete")}
-      canReadPricing={isMerchantActionAllowed(role, "pricing.read")}
-      canManagePricing={isMerchantActionAllowed(role, "pricing.manage")}
+      canReadPricing={isMerchantActionAllowed(role, "pricing.read") && hasCommercialCapability(tenantContext.entitlements, "reference_pricing")}
+      canManagePricing={isMerchantActionAllowed(role, "pricing.manage") && hasCommercialCapability(tenantContext.entitlements, "reference_pricing")}
+      pricingUpgradeAvailable={isMerchantActionAllowed(role, "pricing.read") && !hasCommercialCapability(tenantContext.entitlements, "reference_pricing")}
     />
   );
 }

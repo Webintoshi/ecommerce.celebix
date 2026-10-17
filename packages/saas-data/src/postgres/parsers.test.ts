@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {COMMERCIAL_PACKAGES} from '@celebix/saas-contracts';
+import {COMMERCIAL_PACKAGES,getCommercialPackage} from '@celebix/saas-contracts';
 
 import {
   SaaSDataCorruptionError,
@@ -85,7 +85,7 @@ test("strict operation parser accepts a complete committed immutable snapshot", 
 });
 
 test('production commit and recovery parsers accept exact Free v2 and preserve v1 replay',()=>{
- const free=COMMERCIAL_PACKAGES[0]!;
+ const free=getCommercialPackage({planId:'00000000-0000-4000-8000-000000000003',planCode:'free_starter',version:2})!;
  const next={...result,plan:{...result.plan,planId:free.id,version:2,features:free.features,limits:free.limits}};
  assert.deepEqual(parseCreateStarterTenantResult(next,panelOrigin),next);
  assert.deepEqual(parseTenantOperationRow(committedRow({result_payload:next}),panelOrigin).result,next);
@@ -222,4 +222,12 @@ test("PostgreSQL errors map only known constraints and timeout codes without ret
     assert.equal(mapped.kind, kind);
     assert.doesNotMatch(mapped.message, /private|constraint|row/i);
   }
+});
+
+test('commit and recovery accept exact Free v3 and reject inflated product limits',()=>{
+ const free=COMMERCIAL_PACKAGES[0]!;
+ const next={...result,plan:{...result.plan,planId:'00000000-0000-4000-8000-000000000007',version:3,features:free.features,limits:{...free.limits,products:25}}};
+ assert.deepEqual(parseCreateStarterTenantResult(next,panelOrigin),next);
+ assert.deepEqual(parseTenantOperationRow(committedRow({result_payload:next}),panelOrigin).result,next);
+ assert.throws(()=>parseCreateStarterTenantResult({...next,plan:{...next.plan,limits:{...next.plan.limits,products:100}}},panelOrigin),SaaSDataCorruptionError);
 });

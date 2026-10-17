@@ -1,4 +1,4 @@
-import {COMMERCIAL_PACKAGES} from './catalog.ts';
+import {COMMERCIAL_PACKAGES,getCommercialPackage} from './catalog.ts';
 
 export interface CommercialUpgradeRequest {
  readonly requestId:string; readonly storeId:string; readonly planId:string;
@@ -10,6 +10,13 @@ export interface CommercialPlanOverview {
  readonly request?:CommercialUpgradeRequest;
 }
 export interface CommercialUpgradeIntent {readonly planId:string;readonly operationId:string}
+// Read already-recorded upgrade outcomes without offering their superseded tariffs again.
+const HISTORIC_UPGRADE_TARGETS=Object.freeze([
+ {planId:'00000000-0000-4000-8000-000000000003',planCode:'free_starter',version:2},
+ {planId:'00000000-0000-4000-8000-000000000004',planCode:'starter',version:1},
+ {planId:'00000000-0000-4000-8000-000000000005',planCode:'growth',version:1},
+ {planId:'00000000-0000-4000-8000-000000000006',planCode:'professional',version:1},
+]);
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 function invalid():never{throw new TypeError('commercial_plan_invalid');}
 function object(value:unknown,required:readonly string[],optional:readonly string[]=[]):Record<string,unknown>{
@@ -26,7 +33,8 @@ export function parseCommercialUpgradeRequest(value:unknown):CommercialUpgradeRe
  if(row.status!=='pending'&&row.status!=='applied')invalid();
  if(typeof row.createdAt!=='string'||row.createdAt.length>40||!/^\d{4}-\d{2}-\d{2}T/.test(row.createdAt)||!Number.isFinite(Date.parse(row.createdAt)))invalid();
  if(Object.hasOwn(row,'replayed')&&typeof row.replayed!=='boolean')invalid();
- const planId=commercialUuid(row.planId);if(!COMMERCIAL_PACKAGES.some(plan=>plan.id===planId))invalid();
+ const planId=commercialUuid(row.planId);
+ if(!COMMERCIAL_PACKAGES.some(plan=>plan.id===planId)&&!HISTORIC_UPGRADE_TARGETS.some(identity=>identity.planId===planId&&getCommercialPackage(identity)))invalid();
  return Object.freeze({requestId:commercialUuid(row.requestId),storeId:commercialUuid(row.storeId),planId,status:row.status,createdAt:row.createdAt,...Object.hasOwn(row,'replayed')?{replayed:row.replayed as boolean}:{}});
 }
 export function parseCommercialPlanOverview(value:unknown):CommercialPlanOverview{

@@ -9,7 +9,19 @@ test('plan overview copies a finite safe projection and validates money-independ
  for(const bad of [{...overview,storeId:STORE},{...overview,usage:{...overview.usage,variants:-1}},{...overview,plan:{...overview.plan,version:0}},{...overview,request:{...request,status:'paid'}}])assert.throws(()=>parseCommercialPlanOverview(bad));
 });
 test('request intent contains only known target and a canonical operation key',()=>{
- const intent={planId:request.planId,operationId:STORE};assert.deepEqual(parseCommercialUpgradeIntent(intent),intent);
+ const intent={planId:'00000000-0000-4000-8000-000000000010',operationId:STORE};assert.deepEqual(parseCommercialUpgradeIntent(intent),intent);
  for(const bad of [{...intent,storeId:STORE},{...intent,planId:STORE},{...intent,operationId:'unsafe'}])assert.throws(()=>parseCommercialUpgradeIntent(bad));
  assert.throws(()=>parseCommercialUpgradeRequest({...request,createdAt:'not a date'}));
+});
+
+test('historic upgrade outcomes remain readable but cannot be used as new upgrade targets',()=>{
+ for(const planId of ['00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000005','00000000-0000-4000-8000-000000000006']){
+  assert.equal(parseCommercialUpgradeRequest({...request,planId}).planId,planId);
+  assert.throws(()=>parseCommercialUpgradeIntent({planId,operationId:STORE}));
+ }
+ for(const planId of ['00000000-0000-4000-8000-000000000007','00000000-0000-4000-8000-000000000008','00000000-0000-4000-8000-000000000009','00000000-0000-4000-8000-000000000010']){
+  assert.equal(parseCommercialUpgradeRequest({...request,planId}).planId,planId);
+  assert.deepEqual(parseCommercialUpgradeIntent({planId,operationId:STORE}),{planId,operationId:STORE});
+ }
+ assert.throws(()=>parseCommercialUpgradeRequest({...request,planId:STORE}));
 });

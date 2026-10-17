@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, FileText, LayoutList, NotebookPen } from "lucide-react";
+import { ArrowUpRight, FileText, LockKeyhole, LayoutList, NotebookPen } from "lucide-react";
 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import {
@@ -22,12 +22,13 @@ const FAMILY_PRESENTATION: Readonly<Record<MerchantModuleFamily, Readonly<{
   settings: Object.freeze({ title: "Ayarlar", description: "Mağaza, ödeme, kargo ve görünüm yapılandırmalarını yönetin." }),
 });
 
-export function MerchantFamilyOverview({ family, canManage, embedded = false }: Readonly<{
+export function MerchantFamilyOverview({ family, canManage, embedded = false, lockedNavigationHrefs = [] }: Readonly<{
   family: MerchantModuleFamily;
   canManage: boolean;
   embedded?: boolean;
+  lockedNavigationHrefs?: readonly string[];
 }>) {
-  if (family === "settings") return <SettingsOverview embedded={embedded} />;
+  if (family === "settings") return <SettingsOverview embedded={embedded} lockedNavigationHrefs={lockedNavigationHrefs} />;
   const definitions = MERCHANT_MODULE_DEFINITIONS
     .filter((definition) => definition.family === family);
   const presentation = FAMILY_PRESENTATION[family];
@@ -41,7 +42,7 @@ export function MerchantFamilyOverview({ family, canManage, embedded = false }: 
           <Link className={styles.card} key={definition.route} href={definition.route}>
             {definition.kind === "blog_post" ? <NotebookPen aria-hidden="true" /> : definition.kind === "page" ? <LayoutList aria-hidden="true" /> : <FileText aria-hidden="true" />}
             <span className={styles.cardCopy}>
-              <strong>{definition.title}</strong>
+              <strong>{definition.title}{lockedNavigationHrefs.includes(definition.route) ? <><LockKeyhole size={14} aria-hidden="true"/><span className="sr-only">Paket seçeneklerini inceleyin</span></> : null}</strong>
               <span className="sr-only">{definition.description}</span>
             </span>
             <ArrowUpRight className={styles.arrow} aria-hidden="true" /><small className="sr-only">{canManage ? "Yönet" : "Görüntüle"}</small>

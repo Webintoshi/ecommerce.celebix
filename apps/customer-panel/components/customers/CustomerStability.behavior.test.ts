@@ -1,3 +1,4 @@
+import type { HTMLElement as HappyHTMLElement } from "happy-dom";
 import assert from "node:assert/strict";
 import test from "node:test";
 import React, { act, createElement, useState } from "react";
@@ -44,4 +45,16 @@ test("late customer detail responses cannot reveal a different record", async ()
     assert.doesNotMatch(host.textContent, /Eski müşteri/);
     assert.match(host.textContent, /Doğru müşteri/);
   });
+});
+
+test("locked segments never block basic customer detail or ordinary tag editing",async()=>{
+ let segmentReads=0;
+ const data={...customer("a","Ada"),tags:[{id:"tag-1",name:"VIP",color:"#667085"}],segments:[{id:"segment-1",name:"Eski segment"}]};
+ const Component=compile("components/customers/CustomerDetailConsole.tsx",{"@/lib/customer-ui/client":{CustomerApiError:Error,customerApi:{get:async()=>data,workspace:async()=>workspace,tags:async()=>[{id:"tag-1",name:"VIP",color:"#667085"}],segments:async()=>{segmentReads++;throw Error("feature_not_enabled");}}}}).CustomerDetailConsole;
+ await mounted(Component,{customerId:"a",canManage:true,canArchive:true,segmentsAvailable:false},async (host:HappyHTMLElement)=>{
+  assert.match(host.textContent??"",/Ada/);assert.equal(segmentReads,0);
+  assert.ok(host.querySelector('a[href="/upgrade?feature=growth_tools"]'));
+  const tag=Array.from(host.querySelectorAll('label')).find(label=>label.textContent?.includes('VIP'));
+  assert.ok(tag);const checkbox=tag.querySelector('input');assert.ok(checkbox);assert.equal(checkbox.disabled,false);
+ });
 });

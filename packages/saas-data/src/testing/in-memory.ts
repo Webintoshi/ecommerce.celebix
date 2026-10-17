@@ -22,16 +22,10 @@ import type {
 const DEFAULT_PLAN: PlanRecord = {
   id: COMMERCIAL_PACKAGES[0]!.id,
   code: "free_starter",
-  version: 2,
+  version: COMMERCIAL_PACKAGES[0]!.version,
   status: "active",
   features: COMMERCIAL_PACKAGES[0]!.features,
-  limits: {
-    products: 100,
-    staff: 1,
-    storageBytes: 1_000_000_000,
-    monthlyOrders: 50,
-    customDomains: 0,
-  },
+  limits: COMMERCIAL_PACKAGES[0]!.limits,
   validFrom: "2026-01-01T00:00:00.000Z",
 };
 
@@ -223,7 +217,7 @@ class InMemoryTransaction implements SaaSDataTransaction {
     this.plans = {
       findDefaultStarter: async () => {
         ensureActive();
-        return this.state.plans.find(record=>record.code==='free_starter'&&record.version===2)??null;
+        return this.state.plans.find(record=>record.code==='free_starter'&&record.version===COMMERCIAL_PACKAGES[0]!.version)??null;
       },
       findByCodeVersion: async (code: string, version: number) => {
         ensureActive();

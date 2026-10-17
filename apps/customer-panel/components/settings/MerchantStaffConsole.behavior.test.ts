@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';import test from 'node:test';import Reac
 import {compile,withEditor} from './design/design-editor-test-utils.ts';
 import type {MerchantStaffClient} from '../../lib/merchant-staff-ui/client.ts';
 const staffModule=compile<any>(new URL('../../lib/merchant-staff-ui/model.ts',import.meta.url));
-const {MerchantStaffConsole:Console}=compile<any>(new URL('./MerchantStaffConsole.tsx',import.meta.url),{'../../lib/merchant-staff-ui/model.ts':staffModule});
+const {MerchantStaffConsole:Console}=compile<any>(new URL('./MerchantStaffConsole.tsx',import.meta.url),{'../../lib/merchant-staff-ui/model.ts':staffModule,'next/link':{__esModule:true,default:({children,...props}:any)=>React.createElement('a',props,children)}});
 const ID='11111111-1111-4111-8111-111111111111';const state={version:4,enabled:true,staff:[{staffId:ID,displayName:'Ada',phoneMasked:'+90 ••• 2233',role:'editor' as const,enabled:true,version:2,phoneVerified:false}]};
 function client(overrides:Partial<MerchantStaffClient>={}):MerchantStaffClient{return{state:async()=>state,create:async()=>state,update:async()=>state,revoke:async()=>state,delete:async()=>state,...overrides};}
 async function settle(){await React.act(async()=>{await new Promise(r=>setTimeout(r,0));});}
@@ -50,5 +50,20 @@ test('staff deletion version conflict requires an explicit fresh version and cha
   await render(React.createElement(Console,{client:client({state:async()=>++reads===1?disabledState:{...disabledState,staff:[{...disabledState.staff[0],version:3},disabledState.staff[1]]},delete:async(id,input)=>{calls.push({id,input});if(calls.length===1)throw new MerchantStaffError('version_conflict');return {...state,staff:[disabledState.staff[1]]};}})}));await settle();await click(container.querySelector('[data-delete-staff]')!);await submit(window,container);
   const button=(label:string)=>Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(b=>b.textContent===label)!;
   assert.equal(container.querySelector<HTMLButtonElement>('[type="submit"]')!.disabled,true);await click(button('Güncel listeyi yükle'));assert.equal(calls.length,1);await click(button('Güncel sürümü kullan'));await submit(window,container);assert.equal(calls[1].input.expectedVersion,3);assert.notEqual(calls[1].input.operationId,calls[0].input.operationId);
+ });
+});
+
+test('lower package offers cashier upgrade and blocks a stale role choice without changing ordinary staff',async()=>{
+ let writes=0;
+ await withEditor(async({window,container,render,click,change})=>{
+  await render(React.createElement(Console,{cashierAvailable:false,client:client({create:async()=>{writes++;return state;}})}));await settle();
+  await click(container.querySelector('[data-add-staff]')!);
+  assert.equal(container.querySelector<HTMLOptionElement>('option[value="cashier"]')!.disabled,true);
+  assert.ok(container.querySelector('a[href="/upgrade?feature=cashier"]'));
+  await change(container.querySelector<HTMLInputElement>('[name="phone"]')!,'0555 111 22 33');
+  await change(container.querySelector<HTMLInputElement>('[name="displayName"]')!,'Grace');
+  await change(container.querySelector<HTMLSelectElement>('[name="role"]')!,'cashier');await submit(window,container);
+  assert.equal(writes,0);
+  await change(container.querySelector<HTMLSelectElement>('[name="role"]')!,'editor');await submit(window,container);assert.equal(writes,1);
  });
 });

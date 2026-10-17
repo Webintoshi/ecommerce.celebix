@@ -1,3 +1,4 @@
+import { hasCommercialCapability } from '@celebix/saas-contracts';
 import { isCatalogProductOperationAllowed } from "@celebix/saas-contracts";
 import { redirect } from "next/navigation";
 
@@ -8,5 +9,5 @@ export default async function NewProductPage({ searchParams }: Readonly<{ search
   const [query, { tenantContext }] = await Promise.all([searchParams, requireServerPanelAccess()]);
   if (!isCatalogProductOperationAllowed(tenantContext.membership.role, "create")) redirect("/unauthorized");
   const mode = query.mode === "advanced" ? "advanced" : query.mode === "quick" ? "quick" : "choose";
-  return <ProductCreateForm initialMode={mode} />;
+  return <ProductCreateForm initialMode={mode} aiAvailable={hasCommercialCapability(tenantContext.entitlements, "ai")} />;
 }

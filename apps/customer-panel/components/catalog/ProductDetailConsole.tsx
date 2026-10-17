@@ -1,4 +1,6 @@
 "use client";
+import { CommercialFeatureLink } from "@/components/commercial-packages/CommercialFeatureLink";
+
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
@@ -95,7 +97,9 @@ function ProductDetailConsoleWorkspace({
   canDelete = false,
   canReadPricing = false,
   canManagePricing = false,
-}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean; canDelete?: boolean; canReadPricing?: boolean; canManagePricing?: boolean }>) {
+  aiAvailable = true,
+  pricingUpgradeAvailable = false,
+}: Readonly<{ productId: string; canManage?: boolean; canArchive?: boolean; canDelete?: boolean; canReadPricing?: boolean; canManagePricing?: boolean; aiAvailable?: boolean; pricingUpgradeAvailable?: boolean }>) {
   const authoringIdentity = useRef<string>(crypto.randomUUID());
   const pendingOrigins = useRef<ContentAuthoringFieldOriginsInput>({});
   const savedDescriptionOrigin = useRef<ContentAuthoringFieldOriginsInput>({});
@@ -720,7 +724,7 @@ function ProductDetailConsoleWorkspace({
                     <fieldset disabled={busy !== ""}>
                       <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={product.title} /></label>
                       <input type="hidden" name="currency" value={product.currency} readOnly />
-                      <ProductDescriptionField className="field field-wide" rows={4} defaultValue={product.description ?? ""} initialOrigin={savedDescriptionOrigin.current.description ?? null} readOnly={busy !== ""} onValueChange={() => markDetailDirty("product")} onOriginChange={(origin) => { if (origin === null && !Object.hasOwn(savedDescriptionOrigin.current, "description")) return; pendingOrigins.current = {...pendingOrigins.current,description:origin}; }} authoring={{fields:["description","seoTitle","seoDescription"],canApplyField:(field,generation)=>seoAuthoringBridge.current?.canApply?.(field,generation,null) ?? false,applyField:(field,generation)=>seoAuthoringBridge.current?.apply(field,generation,null) ?? false,capture:()=>{
+                      <ProductDescriptionField aiAvailable={aiAvailable} className="field field-wide" rows={4} defaultValue={product.description ?? ""} initialOrigin={savedDescriptionOrigin.current.description ?? null} readOnly={busy !== ""} onValueChange={() => markDetailDirty("product")} onOriginChange={(origin) => { if (origin === null && !Object.hasOwn(savedDescriptionOrigin.current, "description")) return; pendingOrigins.current = {...pendingOrigins.current,description:origin}; }} authoring={{fields:["description","seoTitle","seoDescription"],canApplyField:(field,generation)=>seoAuthoringBridge.current?.canApply?.(field,generation,null) ?? false,applyField:(field,generation)=>seoAuthoringBridge.current?.apply(field,generation,null) ?? false,capture:()=>{
                         const data = generalFormRef.current ? new FormData(generalFormRef.current) : new FormData();
                         const seo = seoAuthoringBridge.current?.capture();
                         const current = captureCurrentProductDraft();
@@ -792,7 +796,7 @@ function ProductDetailConsoleWorkspace({
                       {measurementSummary(variant.measurements).length ? <div className={styles.variantCodes} aria-label="Ölçü ve teknik bilgiler">{measurementSummary(variant.measurements).map((measurement) => <small key={measurement}>{measurement}</small>)}</div> : null}
                       <div className={styles.variantActions}>
                         {canManage && !archived ? <button className={styles.smallAction} type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)} disabled={merchandisingState !== "ready" || !onboarding} aria-label={variant.title + " varyantını düzenle"}><Pencil aria-hidden="true" /></button> : null}
-                        {canReadPricing && !archived ? <button className={styles.smallAction} type="button" aria-expanded={pricingVariantId === variant.id} onClick={() => { if (!canDiscardVariantChanges()) return; closeDetailEditors(); setPricingVariantId(variant.id); }}>Fiyat yöntemi</button> : null}
+                        {pricingUpgradeAvailable && !archived ? <CommercialFeatureLink capability="reference_pricing" /> : null}{canReadPricing && !archived ? <button className={styles.smallAction} type="button" aria-expanded={pricingVariantId === variant.id} onClick={() => { if (!canDiscardVariantChanges()) return; closeDetailEditors(); setPricingVariantId(variant.id); }}>Fiyat yöntemi</button> : null}
                         {canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}
                       </div>
                     </>
@@ -819,6 +823,7 @@ function ProductDetailConsoleWorkspace({
             <section className={styles.asidePanel} aria-label="Satış ve SEO">
               <ProductAdvancedEditor
                 key={String(onboarding.editor.profile.version) + ":" + String(salesRevision)}
+                aiAvailable={aiAvailable}
                 presentation="rail"
                 options={onboarding.options}
                 editor={onboarding.editor}

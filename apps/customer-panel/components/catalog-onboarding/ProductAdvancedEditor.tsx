@@ -1,4 +1,6 @@
 "use client";
+import { CommercialFeatureLink } from "@/components/commercial-packages/CommercialFeatureLink";
+
 
 import Link from "next/link";
 import { ChevronDown, ImagePlus, Plus, Store, Trash2 } from "lucide-react";
@@ -47,6 +49,7 @@ type EditorApi = Pick<typeof catalogOnboardingClient, "createProduct" | "publish
 
 type ProductAdvancedEditorProps = Readonly<{
   options: CatalogOnboardingOptions;
+  aiAvailable?: boolean;
   onCancel(): void;
   /** Inline product detail rail. The default editor presentation is unchanged. */
   presentation?: "default" | "rail";
@@ -125,7 +128,7 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
   });
 }
 
-export function ProductAdvancedEditor({ options, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, galleryClient = productVariantMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, onAuthoringBridgeChange, captureProductAuthoringDraft, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
+export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, galleryClient = productVariantMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, onAuthoringBridgeChange, captureProductAuthoringDraft, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
   const editing = editor !== undefined;
   const [authoringDraftId] = useState(() => draftSession?.current.authoringDraftId ?? crypto.randomUUID());
   const [authoringSessionId] = useState(() => crypto.randomUUID());
@@ -296,7 +299,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
   }
   const seoAuthoringBridge:ContentAuthoringBridge={capture:()=>{const {request,sessionId,draftRevision}=captureAuthoring();return {request:{...request,fields:["seoTitle","seoDescription"]},lifecycle:{sessionId,draftRevision,selection:null}};},canApply:canApplyAuthoringField,apply:applyAuthoringField};
   useEffect(()=>{onAuthoringBridgeChange?.(seoAuthoringBridge);return ()=>onAuthoringBridgeChange?.(null);},[onAuthoringBridgeChange,seoAuthoringBridge]);
-  const seoAuthoringControls = <><button ref={seoAiTrigger} type="button" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>AI ile SEO oluştur</button>{seoAiOpen?<ContentAuthoringPanel fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</>;
+  const seoAuthoringControls = aiAvailable ? <><button ref={seoAiTrigger} type="button" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>AI ile SEO oluştur</button>{seoAiOpen?<ContentAuthoringPanel fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</> : <CommercialFeatureLink capability="ai" />;
   function requestCancel() {
     if (!editing && (lock.current || pendingBarcodeCountRef.current > 0 || attributeSavingRef.current)) return;
     if (editing) {
@@ -605,7 +608,7 @@ export function ProductAdvancedEditor({ options, onCancel, presentation = "defau
             </div>
           </section>
           {showValidation && validVariantCount < variants.length ? <p className={createStyles.fieldError} role="alert">Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
-          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField compact className={createStyles.description} rows={4} readOnly={busy || Boolean(creationRecovery)} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,canApplyField:canApplyAuthoringField,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
+          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField aiAvailable={aiAvailable} compact className={createStyles.description} rows={4} readOnly={busy || Boolean(creationRecovery)} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,canApplyField:canApplyAuthoringField,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
           <section id={kind === "variant" ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
             <div className={createStyles.sectionHeader}><h2 id="create-variants-title">Varyantlar{kind === "variant" ? <span className={createStyles.count}>{variants.length}</span> : null}</h2><button ref={variantAddRef} type="button" className={createStyles.inlineAction} disabled={createBlocked || variantBuilderOpen} onClick={openVariantBuilder} aria-expanded={variantBuilderOpen} aria-controls="create-variant-builder"><Plus aria-hidden="true" />Varyant ekle</button></div>
             {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantGalleryEditor media={media.map(item=>({id:item.localId!,url:item.preview,altText:item.altText}))} variants={galleryTargets} assignments={variants.flatMap((variant,index)=>variant.mediaIds === undefined?[]:[{variantId:galleryTargets[index]!.id,mediaIds:variant.mediaIds}])} onAssignmentsChange={changeDraftGalleries} canManage={!createBlocked && !creationRecovery}>

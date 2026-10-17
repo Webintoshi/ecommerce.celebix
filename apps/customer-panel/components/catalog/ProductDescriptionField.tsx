@@ -1,4 +1,6 @@
 "use client";
+import { CommercialFeatureLink } from "@/components/commercial-packages/CommercialFeatureLink";
+
 
 import { Extension, type Editor } from "@tiptap/core";
 import Link from "@tiptap/extension-link";
@@ -43,6 +45,7 @@ export { ProductDescriptionPreview } from "./ProductDescriptionPreview";
 
 type ProductDescriptionFieldProps = Readonly<{
   defaultValue?: string;
+  aiAvailable?: boolean;
   readOnly?: boolean;
   rows?: number;
   className?: string;
@@ -117,6 +120,7 @@ export function ProductDescriptionField({
   compact = false,
   onValueChange,
   authoring,
+  aiAvailable = true,
   initialOrigin = null,
   onOriginChange,
 }: ProductDescriptionFieldProps) {
@@ -278,7 +282,7 @@ export function ProductDescriptionField({
       <div className={`${styles.editor} ${editor?.isFocused ? styles.editorFocused : ""}`}>
         {!readOnly ? (
           <div className={styles.toolbar} role="toolbar" aria-label="Açıklama biçimlendirme araçları">
-            {authoring ? <button ref={aiTrigger} type="button" className={styles.focusButton} aria-expanded={aiOpen} onClick={() => setAiOpen(current=>!current)}><Sparkles aria-hidden="true" /> AI</button> : null}
+            {authoring && aiAvailable ? <button ref={aiTrigger} type="button" className={styles.focusButton} aria-expanded={aiOpen} onClick={() => setAiOpen(current=>!current)}><Sparkles aria-hidden="true" /> AI</button> : null}
             <select
               className={styles.blockSelect}
               aria-label="Metin biçimi"
@@ -313,7 +317,7 @@ export function ProductDescriptionField({
           </div>
         ) : null}
 
-        {aiOpen && authoring ? <ContentAuthoringPanel bridge={bridge} fields={authoring.fields} onClose={closeAi} /> : null}
+        {aiOpen && authoring && aiAvailable ? <ContentAuthoringPanel bridge={bridge} fields={authoring.fields} onClose={closeAi} /> : null}
 
         {linkPanel ? (
           <div className={styles.linkPanel} role="dialog" aria-label="Bağlantı düzenle">
@@ -339,6 +343,7 @@ export function ProductDescriptionField({
         <EditorContent editor={editor} />
       </div>
 
+      {authoring && !aiAvailable && !readOnly ? <CommercialFeatureLink capability="ai" /> : null}
       <input type="hidden" name="description" value={source} readOnly />
       {!readOnly ? (
         <div className={styles.footer}>

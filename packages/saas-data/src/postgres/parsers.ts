@@ -67,7 +67,7 @@ export function parseCreateStarterTenantResult(
     ? ["schemaVersion", "planId", "planCode", "version", "status", "features", "limits", "validFrom"]
     : ["schemaVersion", "planId", "planCode", "version", "status", "features", "limits", "validFrom", "validUntil"];
   const plan = exact(root.plan, planKeys);
-  if (plan.schemaVersion !== 1 || plan.planCode !== "free_starter" || (plan.version !== 1 && plan.version !== 2) || plan.status !== "active") corrupt();
+  if (plan.schemaVersion !== 1 || plan.planCode !== "free_starter" || (plan.version !== 1 && plan.version !== 2 && plan.version !== 3) || plan.status !== "active") corrupt();
   uuid(plan.planId); const validFrom = timestamp(plan.validFrom);
   if (plan.validUntil !== undefined && Date.parse(timestamp(plan.validUntil)) <= Date.parse(validFrom)) corrupt();
   if (!Array.isArray(plan.features) || plan.features.length === 0) corrupt();
@@ -81,8 +81,8 @@ export function parseCreateStarterTenantResult(
   }
   const limits = exact(plan.limits, LIMIT_KEYS);
   for (const key of LIMIT_KEYS) integer(limits[key]);
-  if(plan.version===2){
-    const tariff=getCommercialPackage({planId:String(plan.planId),planCode:'free_starter',version:2});
+  if(plan.version===2||plan.version===3){
+    const tariff=getCommercialPackage({planId:String(plan.planId),planCode:'free_starter',version:plan.version});
     if(!tariff||JSON.stringify(plan.features)!==JSON.stringify(tariff.features)||Object.entries(tariff.limits).some(([key,limit])=>limits[key]!==limit))corrupt();
   }
   const mediaStorage = exact(root.mediaStorage, ["schemaVersion", "status", "version"]);

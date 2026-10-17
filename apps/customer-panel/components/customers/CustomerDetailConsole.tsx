@@ -1,4 +1,6 @@
 "use client";
+import { CommercialFeatureLink } from "@/components/commercial-packages/CommercialFeatureLink";
+
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
@@ -41,6 +43,7 @@ type CustomerDetailPresentationProps = Readonly<{
   workspace: CustomerWorkspace;
   tags: readonly CustomerTag[];
   segments: readonly CustomerSegment[];
+  segmentsAvailable?: boolean;
   canManage: boolean;
   canArchive: boolean;
   busy: boolean;
@@ -56,6 +59,7 @@ export function CustomerDetailPresentation({
   workspace,
   tags,
   segments,
+  segmentsAvailable = true,
   canManage,
   canArchive,
   busy,
@@ -199,9 +203,9 @@ export function CustomerDetailPresentation({
             {tags.length ? <div className={styles.taxonomyChecks}>{tags.map((tag) => (
               <label key={tag.id}><input type="checkbox" disabled={!canManage || busy || data.status !== "active"} checked={data.tags.some((item) => item.id === tag.id)} onChange={(event) => onAssign("tags", event.target.checked ? [...data.tags.map((item) => item.id), tag.id] : data.tags.filter((item) => item.id !== tag.id).map((item) => item.id))} /><span className={styles.color} style={{ background: tag.color }} />{tag.name}</label>
             ))}</div> : <p className={styles.inlineEmpty}>Etiket yok.</p>}
-            <div className={styles.summaryHeading}><h2>Segmentler</h2><Link href="/customers/segments">Yönet</Link></div>
+            <div className={styles.summaryHeading}><h2>Segmentler</h2>{segmentsAvailable ? <Link href="/customers/segments">Yönet</Link> : <CommercialFeatureLink capability="growth_tools"/>}</div>
             {segments.length ? <div className={styles.taxonomyChecks}>{segments.map((segment) => (
-              <label key={segment.id}><input type="checkbox" disabled={!canManage || busy || data.status !== "active"} checked={data.segments.some((item) => item.id === segment.id)} onChange={(event) => onAssign("segments", event.target.checked ? [...data.segments.map((item) => item.id), segment.id] : data.segments.filter((item) => item.id !== segment.id).map((item) => item.id))} />{segment.name}</label>
+              <label key={segment.id}><input type="checkbox" disabled={!canManage || busy || data.status !== "active" || !segmentsAvailable} checked={data.segments.some((item) => item.id === segment.id)} onChange={(event) => onAssign("segments", event.target.checked ? [...data.segments.map((item) => item.id), segment.id] : data.segments.filter((item) => item.id !== segment.id).map((item) => item.id))} />{segment.name}</label>
             ))}</div> : <p className={styles.inlineEmpty}>Segment yok.</p>}
           </section>
 
@@ -222,7 +226,7 @@ export function CustomerDetailPresentation({
   );
 }
 
-export function CustomerDetailConsole({ customerId, canManage, canArchive }: Readonly<{ customerId: string; canManage: boolean; canArchive: boolean }>) {
+export function CustomerDetailConsole({ customerId, canManage, canArchive, segmentsAvailable = true }: Readonly<{ customerId: string; canManage: boolean; canArchive: boolean; segmentsAvailable?: boolean }>) {
   const [data, setData] = useState<CustomerDetail | null>(null);
   const [workspace, setWorkspace] = useState<CustomerWorkspace | null>(null);
   const [tags, setTags] = useState<readonly CustomerTag[]>([]);
@@ -247,7 +251,7 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
         customerApi.get(customerId),
         customerApi.workspace(customerId),
         customerApi.tags(),
-        customerApi.segments(),
+        segmentsAvailable ? customerApi.segments() : Promise.resolve([]),
       ]);
       if (request !== sequence.current || currentCustomerId.current !== customerId) return;
       if (detail.id !== customerId) throw new Error("invalid_customer_response");
@@ -262,7 +266,7 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
       setError(message(caught));
       if (!retainDetail) setState("error");
     }
-  }, [customerId]);
+  }, [customerId, segmentsAvailable]);
 
   useEffect(() => {
     customerScope.current += 1;
@@ -293,6 +297,7 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
   }
 
   async function assign(kind: "tags" | "segments", ids: readonly string[]) {
+    if (kind === "segments" && !segmentsAvailable) return;
     if (!data || data.id !== customerId || busy) return;
     const scope = customerScope.current;
     const isCurrent = () => scope === customerScope.current && currentCustomerId.current === customerId;
@@ -327,5 +332,5 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive }: Rea
   if (state === "error" || !data || !workspace) return (
     <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.state} role="alert"><div><p className={styles.error}>{error}</p><button className={styles.button} onClick={() => void load()}>Tekrar dene</button></div></div></PanelPageShell>
   );
-  return <CustomerDetailPresentation data={data} workspace={workspace} tags={tags} segments={segments} canManage={canManage} canArchive={canArchive} busy={busy} notice={notice} error={error} onAddNote={addNote} onAssign={(kind, ids) => void assign(kind, ids)} onArchive={() => void archive()} />;
+  return <CustomerDetailPresentation segmentsAvailable={segmentsAvailable} data={data} workspace={workspace} tags={tags} segments={segments} canManage={canManage} canArchive={canArchive} busy={busy} notice={notice} error={error} onAddNote={addNote} onAssign={(kind, ids) => void assign(kind, ids)} onArchive={() => void archive()} />;
 }

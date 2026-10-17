@@ -1,3 +1,4 @@
+import { hasCommercialCapability } from '@celebix/saas-contracts';
 import { isMerchantActionAllowed } from "@celebix/saas-contracts";
 
 import { MerchantContentEditor } from "@/components/content/MerchantContentEditor";
@@ -7,5 +8,5 @@ import { contentResourceAuthoringEnabled, contentResearchEnabled } from "@/lib/s
 
 export default async function NewContentPage() {
   const { tenantContext } = await requireServerPanelAccess();
-  return <MerchantContentEditor storeId={tenantContext.store.id} kind="page" initialLocale={await resolveInitialContentLocale(tenantContext)} aiEnabled={contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={contentResearchEnabled(tenantContext.store.id)} returnTo="/content/pages" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+  return <MerchantContentEditor storeId={tenantContext.store.id} kind="page" initialLocale={await resolveInitialContentLocale(tenantContext)} aiEnabled={hasCommercialCapability(tenantContext.entitlements, "ai") && contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={hasCommercialCapability(tenantContext.entitlements, "ai") && contentResearchEnabled(tenantContext.store.id)} aiUpgradeAvailable={!hasCommercialCapability(tenantContext.entitlements, "ai")} returnTo="/content/pages" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
 }

@@ -1,11 +1,13 @@
+import { COMMERCIAL_PACKAGES } from '@celebix/saas-contracts';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createContentAuthoringHttpHandlers } from './handler.ts';
+const commercialEntitlements=(index=3)=>{const p=COMMERCIAL_PACKAGES[index];return {schemaVersion:1,planId:p.id,planCode:p.code,version:p.version,status:'active',features:p.features,limits:p.limits,validFrom:'2026-01-01T00:00:00Z'};};
 const ID='72000000-0000-4000-8000-000000000001',NOW=new Date('2026-09-29T00:00:00.000Z');
 const COOKIE=`v1.panel.current.${Buffer.alloc(32,1).toString('base64url')}`;
 const body={draftId:ID,productId:null,productVersion:null,profileVersion:null,currentDraft:{title:'Draft'},action:'create',fields:['description'],locale:'tr',tone:'neutral',length:'short',note:'',selection:null};
 const generation={id:ID,draftId:ID,productId:null,status:'pending',draft:null,sourceFingerprint:'a'.repeat(64),usage:null,safeCode:null,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString(),finishedAt:null,secret:'never-public',provider:'deepseek'};
-function fixture(enabled=true,error?:unknown,requestBudgetMs?:number){let calls=0;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>({access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},membership:{status:'active',role:'editor'}}})},enabled:()=>enabled,service:{generateContent:async()=>{calls++;if(error)throw error;return generation;},getGeneration:async()=>{calls++;if(error)throw error;return generation;}}}as any),now:()=>NOW,requestId:()=>ID,requestBudgetMs}as any);return {h,count:()=>calls};}
+function fixture(enabled=true,error?:unknown,requestBudgetMs?:number,planIndex=3){let calls=0;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>({access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},entitlements:commercialEntitlements(planIndex),membership:{status:'active',role:'editor'}}})},enabled:()=>enabled,service:{generateContent:async()=>{calls++;if(error)throw error;return generation;},getGeneration:async()=>{calls++;if(error)throw error;return generation;}}}as any),now:()=>NOW,requestId:()=>ID,requestBudgetMs}as any);return {h,count:()=>calls};}
 function req(value:unknown=body,headers:HeadersInit={},get=false){return new Request('http://customer-panel:3400/api/content-ai/generations'+(get?'/'+ID:''),{method:get?'GET':'POST',headers:{cookie:`__Host-celebix_panel=${COOKIE}`,origin:'https://fixture.admin.saas-staging.celebix.site','content-type':'application/json','idempotency-key':ID,...Object.fromEntries(new Headers(headers))},...(get?{}:{body:JSON.stringify(value)})});}
 test('generation responses expose only strict view and are not cached',async()=>{const f=fixture();const r=await f.h.post(req());assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');const v=await r.json();assert.equal(v.generation.provider,undefined);assert.equal(v.generation.secret,undefined);assert.equal(v.generation.id,ID);});
 test('client store provider secrets and oversized body fail before service',async()=>{for(const extra of [{storeId:ID},{provider:'openai'},{secret:'secret'},{history:[]}]){const f=fixture();assert.equal((await f.h.post(req({...body,...extra}))).status,400);assert.equal(f.count(),0);}const f=fixture();assert.equal((await f.h.post(req({...body,note:'x'.repeat(50000)}))).status,400);assert.equal(f.count(),0);});
@@ -31,7 +33,7 @@ test('unresponsive initial runtime authority is bounded before authoring',async(
  const start=performance.now();const r=await h.post(req());assert.equal(r.status,504);assert.ok(performance.now()-start<300);
 });
 test('slow input reduces remaining server generation budget',async()=>{
- let received:any;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>{await new Promise(r=>setTimeout(r,15));return {access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},membership:{status:'active',role:'editor'}}})},enabled:()=>true,service:{generateContent:async(input:any)=>{received=input;return generation;}}}as any;},now:()=>NOW,requestId:()=>ID,requestBudgetMs:100}as any);
+ let received:any;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>{await new Promise(r=>setTimeout(r,15));return {access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},entitlements:commercialEntitlements(),membership:{status:'active',role:'editor'}}})},enabled:()=>true,service:{generateContent:async(input:any)=>{received=input;return generation;}}}as any;},now:()=>NOW,requestId:()=>ID,requestBudgetMs:100}as any);
  const r=await h.post(req());assert.equal(r.status,200);assert.ok(received.deadlineAt-performance.now()<90);assert.ok(received.deadlineAt-performance.now()>0);
 });
 
@@ -39,3 +41,5 @@ test('protected existing source is an actionable conflict without exposing sourc
  const f=fixture(true,Object.assign(Error('private product text'),{code:'source_preservation_required'}));const response=await f.h.post(req());
  assert.equal(response.status,409);assert.deepEqual(await response.json(),{code:'source_preservation_required'});
 });
+
+test('package denial blocks POST and GET before any authoring service even with rollout enabled',async()=>{const f=fixture(true,undefined,undefined,0);for(const response of [await f.h.post(req()),await f.h.get(req(body,{},true),{params:Promise.resolve({id:ID})})]){assert.equal(response.status,403);assert.deepEqual(await response.json(),{code:'feature_not_enabled'});}assert.equal(f.count(),0);});

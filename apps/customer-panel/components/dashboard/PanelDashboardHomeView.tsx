@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronDown, ChevronRight, CircleDollarSign, Package, Percent, ShoppingBag, Store, Tag, UserPlus, Users } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronDown, ChevronRight, CircleDollarSign, LockKeyhole, Package, Percent, ShoppingBag, Store, Tag, UserPlus, Users } from "lucide-react";
 import {
   ANALYTICS_PERIODS,
   type AbandonedCartSummary,
@@ -292,6 +292,7 @@ interface DashboardPresentationProps {
   readonly recentOrdersState?: LoadState;
   readonly recentOrdersResolved?: boolean;
   readonly activeVisitorsEnabled?: boolean;
+  readonly manualSalesAvailable?: boolean;
 }
 
 type AnalyticsView = MerchantDashboardViewModel["analytics"] extends AuthoritySlice<infer T> ? T : never;
@@ -583,7 +584,7 @@ export function PanelDashboardPresentation(props: DashboardPresentationProps) {
 
   return (
     <PanelPageShell>
-      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href="/orders/quick-links"><Store aria-hidden="true" />Manuel satış</PanelActionButton></div>} />
+      <PanelTopbarBridge title={props.dashboard.title} subtitle={props.dashboard.description} context={<DashboardTopbarContext analytics={analytics} activeVisitorsEnabled={props.activeVisitorsEnabled ?? true} period={period} onPeriodChange={props.onPeriodChange} />} actions={<div className={styles.dashboardTopbarActions}><PanelActionButton href={props.manualSalesAvailable === false ? "/upgrade?feature=manual_orders" : "/orders/quick-links"}>{props.manualSalesAvailable === false ? <LockKeyhole aria-hidden="true"/> : <Store aria-hidden="true" />}Manuel satış{props.manualSalesAvailable === false ? <span className="sr-only">İndirimli paketi incele</span> : null}</PanelActionButton></div>} />
       <div className={styles.dashboardPage}>
         <h1 className={styles.visuallyHidden}>Genel bakış</h1>
         <FocusBanner task={focusTask} taskState={taskState} hasStorefront={storefront?.status === "Doğrulandı"} />
@@ -685,5 +686,5 @@ export function PanelDashboardHomeView() {
   }, []);
 
   const dashboard = createMerchantDashboardViewModel(chrome, catalog, orders, carts, customers, analytics);
-  return <PanelDashboardPresentation dashboard={dashboard} onRefresh={reloadAll} onRefreshAnalytics={() => reload("analytics")} onRefreshOperations={reloadAll} onRefreshRecentOrders={() => recentOrdersReload.current?.()} onPeriodChange={changePeriod} period={period} recentOrders={recentOrders} recentOrdersState={recentOrdersState} recentOrdersResolved={recentOrdersResolved} state={state} ordersState={ordersState} cartsState={cartsState} customersState={customersState} analyticsState={analyticsState} activeVisitorsEnabled={chrome.analyticsAvailable} />;
+  return <PanelDashboardPresentation dashboard={dashboard} onRefresh={reloadAll} onRefreshAnalytics={() => reload("analytics")} onRefreshOperations={reloadAll} onRefreshRecentOrders={() => recentOrdersReload.current?.()} onPeriodChange={changePeriod} period={period} recentOrders={recentOrders} recentOrdersState={recentOrdersState} recentOrdersResolved={recentOrdersResolved} state={state} ordersState={ordersState} cartsState={cartsState} customersState={customersState} analyticsState={analyticsState} activeVisitorsEnabled={chrome.analyticsAvailable} manualSalesAvailable={!chrome.lockedNavigationHrefs?.includes("/orders/quick-links")} />;
 }
