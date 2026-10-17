@@ -590,6 +590,7 @@ test("keeps the public runtime export surface frozen", () => {
     "parseAbandonedCartListItem",
     "parseAbandonedCartMutationResult",
     "parseAbandonedCartSummary",
+    "parseAccountingAccess",
     "parseAccountingAccount",
     "parseAccountingAccounts",
     "parseAccountingAllocation",

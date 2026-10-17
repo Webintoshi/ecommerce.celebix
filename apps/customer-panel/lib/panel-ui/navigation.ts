@@ -288,10 +288,10 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
   item("setup", "Kurulum", "/setup", "setup"),
 ]);
 
-export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register" }>): readonly PanelNavigationItem[] {
+export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register"; cashierAccountingAvailable?: boolean }>): readonly PanelNavigationItem[] {
   if (input?.navigationMode === "register") return Object.freeze([
     item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders"),
-    item("cashier-receivables", "Müşteri borçları", "/accounting/receivables", "customers"),
+    ...(input.cashierAccountingAvailable ? [item("accounting", "Muhasebe", "/accounting", "accounting", ACCOUNTING_CHILDREN)] : [item("cashier-receivables", "Müşteri borçları", "/accounting/receivables", "customers")]),
     ...(input.analyticsAvailable ? [item("analytics", "Analizler", "/analytics", "analytics")] : []),
     item("catalog", "Ürünler", "/products", "products", Object.freeze(CATALOG_CHILDREN.filter(entry => entry.href === "/products" || entry.href === "/products/new"))),
   ]);

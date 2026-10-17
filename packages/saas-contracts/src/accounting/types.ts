@@ -30,3 +30,6 @@ export interface AccountingRefundIntent { readonly orderId:string; readonly acco
 export interface AccountingIntentMap { collect:AccountingCollectionIntent; openingDebt:AccountingOpeningDebtIntent; saveAccount:AccountingSaveAccountIntent; openBalance:AccountingOpeningBalanceIntent; expense:AccountingExpenseIntent; transfer:AccountingTransferIntent; settleCard:AccountingCardSettlementIntent; reverse:AccountingReversalIntent; returnCredit:AccountingReturnCreditIntent; refund:AccountingRefundIntent; }
 
 export interface AccountingCollectionAccounts { readonly accounts:readonly Pick<AccountingAccount,'id'|'name'|'type'|'currency'>[]; }
+
+/** UI policy from the authenticated durable accounting grant; never caller authority. */
+export interface AccountingAccess { readonly canManageAccounting:boolean; readonly canCollectReceivables:boolean; }

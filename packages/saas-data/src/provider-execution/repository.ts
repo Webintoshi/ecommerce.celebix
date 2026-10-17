@@ -242,12 +242,13 @@ export class PostgresMerchantProviderProfileRepository implements
     const authority = providerAuthority(parsed.tenantContext as never, parsed.now as Date);
     const capability = providerCapability(parsed.capability);
     return this.read({
-      text: "SELECT outcome,result_payload FROM saas.merchant_provider_profile_list($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text)",
+      text: "SELECT outcome,result_payload FROM saas."+(capability==="invoice_reconciliation"&&input.tenantContext.membership.role==="cashier"?"accounting_invoice_profiles_read":"merchant_provider_profile_list")+"($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz,$8::text)",
       values: [...authorityValues(authority), null],
     }, "listed", (value) => {
       const result = payload(value, ["items"]);
       if (!Array.isArray(result.items) || result.items.length > 100) throw unavailable();
-      const profiles = result.items.map(profile).filter((entry) => entry.capability === capability);
+      const allProfiles=result.items.map(profile);if(capability==="invoice_reconciliation"&&input.tenantContext.membership.role==="cashier"&&allProfiles.some(entry=>entry.capability!==capability))throw unavailable();
+      const profiles = allProfiles.filter((entry) => entry.capability === capability);
       return Object.freeze(profiles);
     });
   }

@@ -1,4 +1,4 @@
-import {parseAccountingProfitabilityFilters} from '@celebix/saas-contracts';
+import {parseAccountingAccess,parseAccountingProfitabilityFilters} from '@celebix/saas-contracts';
 import {parseAccountingSupplierIntent,parseAccountingSupplierFilters,ACCOUNTING_SUPPLIER_ACTIONS,type AccountingSupplierAction} from '@celebix/saas-contracts';
 import {accountingUuid,accountingInteger,parseAccountingFilters,parseAccountingIntent,isMerchantActionAllowed,type AccountingMutation,type TenantContext} from '@celebix/saas-contracts';
 import {parseAccountingScheduleIntent,parseAccountingScheduleFilters} from '@celebix/saas-contracts';
@@ -12,7 +12,7 @@ const PATHS:Readonly<Record<AccountingMutation,string>>={collect:'collections',o
 const STATUS:Readonly<Record<string,number>>={invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,feature_not_enabled:403,origin_denied:403,not_found:404,customer_not_found:404,order_not_found:404,account_not_found:404,resource_not_found:404,version_conflict:409,operation_mismatch:409,overpayment:409,insufficient_funds:409,amount_overflow:409,invalid_transition:409,currency_mismatch:409,durable_authority_invalid:503,unavailable:503,commit_unknown:503};
 function json(data:unknown,status=200,headers:HeadersInit={}){return Response.json(data,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff',...headers}});}
 function failure(code:string,status=STATUS[code]??503,headers:HeadersInit={}){return json({code},status,headers);}
-type Authorized=Readonly<{runtime:ServerAccountingRuntime;tenantContext:TenantContext;now:Date}>;
+type Authorized=Readonly<{runtime:ServerAccountingRuntime;tenantContext:TenantContext;now:Date;canManageAccounting:boolean}>;
 async function authorize(deps:AccountingHttpDependencies,request:Request,method:'GET'|'POST',path:string,query=false,cashier=false):Promise<Authorized|Response>{
   try{
     if(request.method!==method)return failure('method_not_allowed',405,{allow:method});
@@ -27,9 +27,11 @@ async function authorize(deps:AccountingHttpDependencies,request:Request,method:
     if(access.kind==='unauthenticated')return failure('unauthenticated');if(access.kind==='unauthorized')return failure('membership_denied');if(access.kind!=='authenticated')return failure('unavailable');
     if(method==='POST'&&!approvedPanelMutationOriginForStore(request,runtime.access.panelOrigin,access.tenantContext.store.slug))return failure('origin_denied');
     const role=access.tenantContext.membership.role;
-    if(!isMerchantActionAllowed(role,method==='GET'?'accounting.read':'accounting.manage')&&!(cashier&&role==='cashier'))return failure('membership_denied');
-    // Durable RPCs check the employee's collection grant for these narrow reads and mutations.
-    return {runtime,tenantContext:access.tenantContext,now:new Date(now)};
+    let canManageAccounting=isMerchantActionAllowed(role,'accounting.manage');
+    if(role==='cashier')canManageAccounting=parseAccountingAccess(await runtime.accounting.access({tenantContext:access.tenantContext,now:new Date(now)})).canManageAccounting;
+    if(!isMerchantActionAllowed(role,method==='GET'?'accounting.read':'accounting.manage')&&!canManageAccounting&&!(cashier&&role==='cashier'))return failure('membership_denied');
+    // Each durable financial RPC rechecks the current grant inside its own transaction.
+    return {runtime,tenantContext:access.tenantContext,now:new Date(now),canManageAccounting};
   }catch{return failure('unavailable');}
 }
 function query(request:Request,allowed:readonly string[]){const params=new URL(request.url).searchParams;for(const key of params.keys())if(!allowed.includes(key)||params.getAll(key).length!==1)throw TypeError('invalid_input');return parseAccountingFilters(Object.fromEntries(params));}
@@ -89,7 +91,7 @@ export function createAccountingHttpHandlers(deps:AccountingHttpDependencies){
       if(!Object.hasOwn(PATHS,kind))return failure('invalid_input');
       const auth=await authorize(deps,request,'POST',`/api/accounting/${PATHS[kind]}`,false,kind==='collect');if(auth instanceof Response)return auth;
       let operationId,intent;try{operationId=accountingUuid(request.headers.get('idempotency-key'));intent=parseAccountingIntent(kind,await body(request));}catch{return failure('invalid_input');}
-      if(kind==='collect'&&(parseAccountingIntent('collect',intent).discountCents??0)>0&&auth.tenantContext.membership.role==='cashier')return failure('membership_denied');
+      if(kind==='collect'&&(parseAccountingIntent('collect',intent).discountCents??0)>0&&!auth.canManageAccounting)return failure('membership_denied');
       const input={tenantContext:auth.tenantContext,now:auth.now,operationId};const repo=auth.runtime.accounting;
       switch(kind){
         case'collect':return execute(()=>repo.collect({...input,intent:parseAccountingIntent('collect',intent)}));

@@ -8,7 +8,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
 import * as model from "../../lib/in-store-sales-ui/model.ts";
-import { InStoreSalesUiError, type InStoreSalesUiClient } from "../../lib/in-store-sales-ui/client.ts";
+import { createInStoreSalesUiClient, InStoreSalesUiError, type InStoreSalesUiClient } from "../../lib/in-store-sales-ui/client.ts";
 import type { InStoreBootstrap, InStoreSale, InStoreSaleIntent } from "@celebix/saas-contracts";
 
 const ID="9e000000-0000-4000-8000-000000000001", LOCATION="9e000000-0000-4000-8000-000000000003", date="2026-09-26T00:00:00.000Z";
@@ -352,6 +352,43 @@ test("removing the selected customer returns collection to full while retaining 
 });
 test("V3 customer creation keeps the form and original key when its result is uncertain",async()=>{const keys:string[]=[];await mounted(async(container,browser)=>{await act(async()=>button(container,"Müşteri / not ekle").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.ok(button(dialog,"Yeni müşteri"));await act(async()=>button(dialog,"Yeni müşteri").click());await fillInput(dialog.querySelector<HTMLInputElement>('input[name="firstName"]')!,"Ayşe");await fillInput(dialog.querySelector<HTMLInputElement>('input[name="lastName"]')!,"Kaya");await fillInput(dialog.querySelector<HTMLInputElement>('input[name="phone"]')!,"05550001122");for(let n=0;n<2;n++)await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal(keys.length,2);assert.equal(keys[0],keys[1]);assert.equal(dialog.querySelector<HTMLInputElement>('input[name="phone"]')?.value,"05550001122");assert.equal(dialog.open,true);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;api.searchCustomers=async()=>[];api.createCustomer=async(_input,key)=>{keys.push(key);throw new InStoreSalesUiError("unavailable",503,true);};});});
 test("V3 staff credit and collection permissions are individually editable",async()=>{let saved:unknown;await mounted(async(container)=>{await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Satış yetkileri"]')!.click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;const credit=dialog.querySelector<HTMLInputElement>('input[name="canSellOnCredit"]'),collect=dialog.querySelector<HTMLInputElement>('input[name="canCollectReceivables"]');assert.ok(credit);assert.ok(collect);assert.equal(credit.checked,false);assert.equal(collect.checked,false);await act(async()=>credit.click());await act(async()=>button(dialog,"Yetkiyi kaydet").click());assert.equal((saved as{canSellOnCredit:boolean}).canSellOnCredit,true);assert.equal((saved as{canCollectReceivables:boolean}).canCollectReceivables,false);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;const bootstrap=await api.bootstrap();api.bootstrap=async()=>({...bootstrap,permissions:{...bootstrap.permissions,canManageStaff:true}});const grant={membershipId:ID,label:"Çalışan",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:false,version:1};api.listStaff=async()=>[grant];api.setStaffGrant=async(_id,input)=>{saved=input;return{...grant,...input,version:2};};});});
+
+test("sales permission editor toggles the same accounting flag through staff V5 without changing the other rights",async()=>{
+  for(const initial of [undefined,false,true]){
+    const calls:{version:string|null;body:Parameters<InStoreSalesUiClient["setStaffGrant"]>[1]}[]=[];
+    await mounted(async(container)=>{
+      await act(async()=>button(container,"Satış yetkileri").click());
+      const dialog=container.querySelector<HTMLDialogElement>("dialog")!;
+      const accounting=dialog.querySelector<HTMLInputElement>('input[name="canManageAccounting"]');
+      assert.ok(accounting,"managers can edit accounting from the existing sales permissions screen");
+      assert.equal(dialog.querySelectorAll('input[name="canManageAccounting"]').length,1);
+      assert.equal(accounting.closest("label")?.textContent,"Tüm muhasebeye erişebilir");
+      assert.equal(accounting.checked,initial===true,"a missing legacy flag defaults to off");
+      await act(async()=>accounting.click());
+      await act(async()=>button(dialog,"Yetkiyi kaydet").click());
+      assert.equal(calls.length,1);
+      assert.equal(calls[0]!.version,"5");
+      assert.deepEqual(calls[0]!.body,{
+        expectedVersion:1,enabled:true,locationIds:[LOCATION],discountLimitBps:1000,
+        canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,
+        canManageAccounting:initial!==true,
+      });
+      assert.equal(dialog.querySelector<HTMLInputElement>('input[name="canManageAccounting"]')?.checked,initial!==true);
+    },"draft",async(api)=>{
+      api.contractVersion=4;
+      const base=await api.bootstrap();
+      api.bootstrap=async()=>({...base,permissions:{...base.permissions,canManageStaff:true}});
+      const grant={membershipId:ID,label:"Kasiyer",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,version:1,...(initial===undefined?{}:{canManageAccounting:initial})};
+      api.listStaff=async()=>[grant];
+      const transport=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:5,fetch:async(_url,init)=>{
+        const body=JSON.parse(String(init?.body)) as Parameters<InStoreSalesUiClient["setStaffGrant"]>[1];
+        calls.push({version:new Headers(init?.headers).get("x-celebix-in-store-version"),body});
+        return new Response(JSON.stringify({data:{...grant,...body,version:2}}),{status:200,headers:{"content-type":"application/json"}});
+      }});
+      api.setStaffGrant=transport.setStaffGrant;
+    });
+  }
+});
 
 test("granted cashier can collect a completed credit sale through the same POS dialog",async()=>{await mounted(async(container)=>{assert.ok(button(container,"Tahsilat ekle"));await act(async()=>button(container,"Tahsilat ekle").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.equal(dialog.open,true);assert.equal(dialog.querySelector('[data-collection-order]')?.getAttribute('data-collection-order'),ID);assert.equal(container.querySelectorAll('dialog[open]').length,1);},"completed",async(api)=>{const base=await api.bootstrap(),sale=await api.getSale(ID);api.bootstrap=async()=>({...base,permissions:{...base.permissions,canCollectReceivables:true},activeDraft:{...sale,contractVersion:3,customerId:LOCATION,orderId:ID,finance:{status:"partial",collectedCents:50000,dueCents:150000,refundDueCents:0,version:1,receipts:[]}}});});});
 

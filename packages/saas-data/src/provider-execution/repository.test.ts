@@ -294,3 +294,11 @@ test("database outcomes map to a closed safe error union", async () => {
     (error: unknown) => error instanceof MerchantProviderProfileRepositoryError && error.code === "unavailable",
   );
 });
+
+test('cashier invoice profile lookup uses only the durable accounting scope and rejects foreign capabilities',async()=>{
+ const cashier={...tenant(),membership:{...tenant().membership,role:'cashier' as const}},invoice={...profile(),capability:'invoice_reconciliation'};
+ const c=new Client((text)=>text.includes('accounting_invoice_profiles_read')?[{outcome:'listed',result_payload:{items:[invoice]}}]:[]);
+ assert.deepEqual(await repository(new Pool([c])).list({tenantContext:cashier,now:NOW,capability:'invoice_reconciliation'}),[invoice]);assert.ok(c.calls.some(q=>q.text.includes('accounting_invoice_profiles_read')));assert.equal(c.calls.some(q=>q.text.includes('merchant_provider_profile_list')),false);
+ const foreign=new Client((text)=>text.includes('accounting_invoice_profiles_read')?[{outcome:'listed',result_payload:{items:[profile()]}}]:[]);
+ await assert.rejects(()=>repository(new Pool([foreign])).list({tenantContext:cashier,now:NOW,capability:'invoice_reconciliation'}),e=>e instanceof MerchantProviderProfileRepositoryError&&e.code==='unavailable');assert.equal(foreign.calls.at(-1)?.text,'ROLLBACK');
+});

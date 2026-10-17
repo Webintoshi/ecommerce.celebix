@@ -17,7 +17,7 @@ export async function renderMerchantRecordPage(input: Readonly<{
   recordId?: string;
   returnTo: string;
 }>) {
-  const { tenantContext } = await requireServerPanelAccess();
+  const { tenantContext, accountingAccess } = await requireServerPanelAccess();
   if (input.kind === "blog_post" || input.kind === "page") {
     return <MerchantContentEditor storeId={tenantContext.store.id} kind={input.kind} initialLocale={input.recordId ? 'tr' : await resolveInitialContentLocale(tenantContext)} recordId={input.recordId} aiEnabled={hasCommercialCapability(tenantContext.entitlements, "ai") && contentResourceAuthoringEnabled(tenantContext.store.id)} researchEnabled={hasCommercialCapability(tenantContext.entitlements, "ai") && contentResearchEnabled(tenantContext.store.id)} aiUpgradeAvailable={!hasCommercialCapability(tenantContext.entitlements, "ai")} returnTo={input.returnTo} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
   }
@@ -26,7 +26,7 @@ export async function renderMerchantRecordPage(input: Readonly<{
       kind={input.kind}
       recordId={input.recordId}
       returnTo={input.returnTo}
-      canManage={isMerchantActionAllowed(tenantContext.membership.role, input.permission)}
+      canManage={isMerchantActionAllowed(tenantContext.membership.role, input.permission) || (input.kind === "accounting_profile" || input.kind === "invoice_integration") && tenantContext.membership.role === "cashier" && accountingAccess?.canManageAccounting === true}
     />
   );
 }

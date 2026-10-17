@@ -9,6 +9,7 @@ export interface PanelChromeModel {
   readonly storefrontHostname?: string;
   readonly locale: string;
   readonly navigationMode?: "register";
+  readonly cashierAccountingAvailable?: boolean;
 }
 
 const ROLE_LABELS: Readonly<Record<StoreMembershipRole, string>> = Object.freeze({

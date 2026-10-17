@@ -141,3 +141,11 @@ test("discard validates its command before fetch and retains the caller key acro
 });
 
 test("V4 pending refund reports a known insufficient account balance without an unknown outcome",async()=>{const client=createInStoreSalesUiClient({contractVersion:4,fetch:async()=>reply({code:"insufficient_funds"},422)});await assert.rejects(client.returnPendingPart(SALE_ID,{expectedVersion:3,partId:LOCATION,reason:"Fiziksel iade yapıldı"},OP),(error:unknown)=>error instanceof InStoreSalesUiError&&error.code===("insufficient_funds" as never)&&!error.unknownResult);});
+
+test('new staff console negotiates only staff v5 and requires the accounting checkbox value',async()=>{
+ const grant={membershipId:SALE_ID,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,version:1,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false};const calls:{url:string;version:string|null;body:unknown}[]=[];
+ const client=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:5,fetch:async(url,init)=>{calls.push({url:String(url),version:new Headers(init?.headers).get('x-celebix-in-store-version'),body:init?.body?JSON.parse(String(init.body)):null});return reply({data:init?.method==='POST'?grant:{staff:[grant]}});}});
+ assert.equal(client.contractVersion,4);assert.equal((await client.listStaff())[0]?.canManageAccounting,false);
+ const input={expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false};await client.setStaffGrant(SALE_ID,input,OP);assert.deepEqual(calls.map(c=>c.version),['5','5']);assert.deepEqual(calls[1]?.body,input);
+ const missing={...input};delete(missing as any).canManageAccounting;await assert.rejects(()=>client.setStaffGrant(SALE_ID,missing,OP));assert.equal(calls.length,2);
+});

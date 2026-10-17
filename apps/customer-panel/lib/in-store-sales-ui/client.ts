@@ -41,12 +41,13 @@ export type UiPaymentPart=Readonly<{partId:string;paymentMethod:"cash"|"card"|"b
 export function validatePaymentParts(input:unknown):asserts input is readonly UiPaymentPart[]{if(!Array.isArray(input)||input.length>20)invalid();const ids=new Set<string>();for(const value of input){const part=object(value,["partId","paymentMethod","amountCents"]);const partId=id(part.partId);if(ids.has(partId)||!["cash","card","bank_transfer"].includes(String(part.paymentMethod)))invalid();ids.add(partId);integer(part.amountCents);}}
 export type InStoreSearchInput = Readonly<{locationId:string;barcode?:string;query?:string;limit?:number}>;
 type Fetch=(input:RequestInfo|URL,init?:RequestInit)=>Promise<Response>;
-export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;randomUUID?:()=>string;contractVersion?:1|2|3|4}>={}) {
-  object(options,[],["fetch","randomUUID","contractVersion"]);
+export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;randomUUID?:()=>string;contractVersion?:1|2|3|4;staffContractVersion?:5}>={}) {
+  object(options,[],["fetch","randomUUID","contractVersion","staffContractVersion"]);
   const contractVersion=options.contractVersion??1;if(contractVersion!==1&&contractVersion!==2&&contractVersion!==3&&contractVersion!==4)invalid();
+  const staffContractVersion=options.staffContractVersion??contractVersion;if(options.staffContractVersion!==undefined&&options.staffContractVersion!==5)invalid();
   const fetchImpl=options.fetch??((input,init)=>fetch(input,init));
   const randomUUID=options.randomUUID??(()=>crypto.randomUUID());
-  async function request(path:string,init:RequestInit,mutation=false,version:1|2|3|4=contractVersion):Promise<unknown> {
+  async function request(path:string,init:RequestInit,mutation=false,version:1|2|3|4|5=contractVersion):Promise<unknown> {
     let response:Response;
     try { response=await fetchImpl(`/api/orders/in-store${path}`,{credentials:"same-origin",cache:"no-store",...init,headers:{...Object.fromEntries(new Headers(init.headers)),...(version>=2?{"x-celebix-in-store-version":String(version)}:{})}}); }
     catch(error) { if(!mutation&&isAbort(error))throw error;throw new InStoreSalesUiError("unavailable",503,mutation); }
@@ -66,8 +67,8 @@ export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;random
     }
     try{return object(body,["data"]).data;}catch{throw new InStoreSalesUiError("unavailable",503,mutation);}
   }
-  async function read<T>(path:string,parser:(value:unknown)=>T,signal?:AbortSignal):Promise<T>{
-    const value=await request(path,{method:"GET",...(signal?{signal}:{})});
+  async function read<T>(path:string,parser:(value:unknown)=>T,signal?:AbortSignal,version:1|2|3|4|5=contractVersion):Promise<T>{
+    const value=await request(path,{method:"GET",...(signal?{signal}:{})},false,version);
     try{return parser(value);}catch{throw new InStoreSalesUiError("unavailable",503);}
   }
   async function mutate(path:string,body:unknown,operationId:string,method="POST",saleId?:string,version:1|2|3|4=contractVersion):Promise<InStoreSaleResult>{
@@ -110,14 +111,14 @@ export function createInStoreSalesUiClient(options:Readonly<{fetch?:Fetch;random
     async cancelSale(saleId:string,input:Readonly<{expectedVersion:number;confirmUnpaid:true}>,operationId:string,version:1|2|3|4=contractVersion){const body=versionBody(input,["confirmUnpaid"]);if(body.confirmUnpaid!==true)invalid();return mutate(`/sales/${id(saleId)}/cancel`,body,operationId,"POST",saleId,version);},
     async discardSale(saleId:string,input:Readonly<{expectedVersion:number;confirmUnpaid:true}>,operationId:string,version:1|2|3|4=contractVersion){const body=versionBody(input,["confirmUnpaid"]);if(body.confirmUnpaid!==true)invalid();const result=await mutate(`/sales/${id(saleId)}/discard`,body,operationId,"POST",saleId,version);if(result.sale.status!=="cancelled"||result.sale.paymentReceivedAt!==null||result.sale.orderId!==null)throw new InStoreSalesUiError("unavailable",503,true);return result;},
     async takeoverSale(saleId:string,input:Readonly<{expectedVersion:number}>,operationId:string,version:1|2|3|4=contractVersion){return mutate(`/sales/${id(saleId)}/takeover`,versionBody(input),operationId,"POST",saleId,version);},
-    listStaff(){return read("/staff",value=>{const list=object(value,["staff"]).staff;if(!Array.isArray(list)||list.length>100)invalid();return Object.freeze(list.map(v=>parseInStoreStaffGrant(v,contractVersion)));});},
-    async setStaffGrant(membershipId:string,input:Readonly<{expectedVersion:number;enabled:boolean;locationIds:readonly string[];discountLimitBps:number;canEditPrice?:boolean;canSellOnCredit?:boolean;canCollectReceivables?:boolean}>,operationId:string){
-      const body=object(input,contractVersion>=2?["expectedVersion","enabled","locationIds","discountLimitBps","canEditPrice",...(contractVersion>=3?["canSellOnCredit","canCollectReceivables"]:[])]:["expectedVersion","enabled","locationIds","discountLimitBps"]);integer(body.expectedVersion,0);if(contractVersion>=3&&(typeof body.canSellOnCredit!=="boolean"||typeof body.canCollectReceivables!=="boolean"))invalid();if(contractVersion>=2&&typeof body.canEditPrice!=="boolean")invalid();if(typeof body.enabled!=="boolean"||!Array.isArray(body.locationIds)||body.locationIds.length>100||new Set(body.locationIds).size!==body.locationIds.length)invalid();body.locationIds.forEach(id);integer(body.discountLimitBps,0,9999);
-      const value=await request(`/staff/${id(membershipId)}`,{method:"POST",headers:{"content-type":"application/json","idempotency-key":id(operationId)},body:JSON.stringify(body)},true);
-      try{return parseInStoreStaffGrant(value,contractVersion);}catch{throw new InStoreSalesUiError("unavailable",503,true);}
+    listStaff(){return read("/staff",value=>{const list=object(value,["staff"]).staff;if(!Array.isArray(list)||list.length>100)invalid();return Object.freeze(list.map(v=>parseInStoreStaffGrant(v,staffContractVersion)));},undefined,staffContractVersion);},
+    async setStaffGrant(membershipId:string,input:Readonly<{expectedVersion:number;enabled:boolean;locationIds:readonly string[];discountLimitBps:number;canEditPrice?:boolean;canSellOnCredit?:boolean;canCollectReceivables?:boolean;canManageAccounting?:boolean}>,operationId:string){
+      const body=object(input,staffContractVersion>=2?["expectedVersion","enabled","locationIds","discountLimitBps","canEditPrice",...(staffContractVersion>=3?["canSellOnCredit","canCollectReceivables"]:[]),...(staffContractVersion===5?["canManageAccounting"]:[])]:["expectedVersion","enabled","locationIds","discountLimitBps"]);integer(body.expectedVersion,0);if(staffContractVersion===5&&typeof body.canManageAccounting!=="boolean")invalid();if(staffContractVersion>=3&&(typeof body.canSellOnCredit!=="boolean"||typeof body.canCollectReceivables!=="boolean"))invalid();if(staffContractVersion>=2&&typeof body.canEditPrice!=="boolean")invalid();if(typeof body.enabled!=="boolean"||!Array.isArray(body.locationIds)||body.locationIds.length>100||new Set(body.locationIds).size!==body.locationIds.length)invalid();body.locationIds.forEach(id);integer(body.discountLimitBps,0,9999);
+      const value=await request(`/staff/${id(membershipId)}`,{method:"POST",headers:{"content-type":"application/json","idempotency-key":id(operationId)},body:JSON.stringify(body)},true,staffContractVersion);
+      try{return parseInStoreStaffGrant(value,staffContractVersion);}catch{throw new InStoreSalesUiError("unavailable",503,true);}
     },
   });
 }
 export type PosCustomer=InStorePosCustomer;
 export type InStoreSalesUiClient=ReturnType<typeof createInStoreSalesUiClient>;
-export const inStoreSalesUi=createInStoreSalesUiClient({contractVersion:4});
+export const inStoreSalesUi=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:5});

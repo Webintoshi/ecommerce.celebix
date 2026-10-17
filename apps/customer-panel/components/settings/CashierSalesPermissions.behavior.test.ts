@@ -70,7 +70,7 @@ test('save uses the selected membership, server version and explicit flags witho
     await input(window, field(host, 'discount'), '20,25'); await toggle(host, 'canCollectReceivables'); await toggle(host, 'canEditPrice');
     await submit(host, window);
     assert.equal(writes.length, 1); assert.equal(saved, 1);
-    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true });
+    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false });
     assert.equal(writes[0].id, MEMBER); assert.ok(writes[0].key);
   });
 });
@@ -154,4 +154,18 @@ test('dialog controls remain bounded and touch sized at mobile and desktop width
     assert.equal(form.minWidth, '0');
     const button = effectiveCss('components/settings/CashierSalesPermissions.module.css', '<button class="primary">Kaydet</button>', '.primary', width); assert.equal(button.minHeight, '44px');
   }
+});
+
+test('full accounting is off for all unsaved or older grants and uses exactly one explicit checkbox',async()=>{
+ for(const version of [0,4])await mounted(dialog(),props(client({listStaff:async()=>[{...grant,version}]})),async host=>{
+  assert.equal(host.querySelectorAll('[name="canManageAccounting"]').length,1);assert.equal(field(host,'canManageAccounting').checked,false);assert.match(field(host,'canManageAccounting').closest('label').textContent,/Tüm muhasebeye erişebilir/);
+ });
+ await mounted(dialog(),props(client({listStaff:async()=>[{...grant,canManageAccounting:true}]})),async host=>assert.equal(field(host,'canManageAccounting').checked,true));
+});
+test('full accounting is saved atomically with existing sales flags and uncertain retry preserves the exact choice',async()=>{
+ const writes:any[]=[];
+ await mounted(dialog(),props(client({setStaffGrant:async(id:string,body:any,key:string)=>{writes.push({id,body,key});throw new clientModule.InStoreSalesUiError('unavailable',503,true);}})),async(host,window)=>{
+  await toggle(host,'canManageAccounting');await submit(host,window);assert.equal(writes[0].body.canManageAccounting,true);assert.equal(writes[0].body.canCollectReceivables,false);assert.equal(field(host,'canManageAccounting').closest('fieldset').disabled,true);
+  await submit(host,window);assert.deepEqual(writes[1],writes[0]);
+ });
 });

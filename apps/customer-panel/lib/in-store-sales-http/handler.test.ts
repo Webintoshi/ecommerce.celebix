@@ -104,3 +104,13 @@ test('v4 routes confirm exactly one prepared part and keep abort/refund domain c
  assert.equal((await handlers.beginPendingAbort(req(`sales/${id}/abort`,{expectedVersion:3},{'x-celebix-in-store-version':'3'}),id)).status,400);
  assert.equal(calls.length,5);
 });
+
+test('staff version five stays scoped to list and set with strict boolean and ordinary session origin',async()=>{
+ const grant={membershipId:id,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[id],discountLimitBps:0,version:1,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:true};const calls:any[]=[];
+ const runtime={access:{panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext})},sales:{listStaff:async(input:unknown)=>{calls.push(input);return{staff:[grant]};},setStaffGrant:async(input:unknown)=>{calls.push(input);return grant;}}}as unknown as ServerInStoreSalesRuntime;
+ const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id}),headers={'x-celebix-in-store-version':'5'};
+ assert.equal((await h.listStaff(req('staff',undefined,headers))).status,200);
+ const input={expectedVersion:0,enabled:true,locationIds:[id],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:true};assert.equal((await h.setStaffGrant(req('staff/'+id,input,headers),id)).status,200);
+ assert.equal(calls[0]?.staffContractVersion,5);assert.equal(calls[0]?.contractVersion,4);assert.equal(calls[1]?.canManageAccounting,true);
+ const missing={...input};delete(missing as any).canManageAccounting;assert.equal((await h.setStaffGrant(req('staff/'+id,missing,headers),id)).status,400);assert.equal((await h.setStaffGrant(req('staff/'+id,input,{...headers,origin:'https://evil.test'}),id)).status,403);assert.equal((await h.bootstrap(req('bootstrap',undefined,headers))).status,400);assert.equal(calls.length,2);
+});

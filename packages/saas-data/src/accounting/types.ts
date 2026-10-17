@@ -23,6 +23,7 @@ export interface AccountingSuppliersInput extends AccountingAuthorityInput {read
 export interface AccountingSupplierInput extends AccountingAuthorityInput {readonly debtId:string;}
 export interface AccountingSupplierMutationInput<K extends AccountingSupplierAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingSupplierIntentMap[K];}
 export interface AccountingRepository {
+ access(input:AccountingAuthorityInput):Promise<import('../../../saas-contracts/src/accounting/index.ts').AccountingAccess>;
  profitability(input:AccountingProfitabilityInput):Promise<AccountingProfitability>;
  suppliers(input:AccountingSuppliersInput):Promise<AccountingSupplierList>;
  supplier(input:AccountingSupplierInput):Promise<AccountingSupplierDetail>;

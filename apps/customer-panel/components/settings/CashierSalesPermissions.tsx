@@ -23,10 +23,11 @@ type Draft = Readonly<{
   canEditPrice: boolean;
   canSellOnCredit: boolean;
   canCollectReceivables: boolean;
+  canManageAccounting: boolean;
 }>;
 const percent = (bps: number) => String(bps / 100).replace('.', ',');
 function draftFor(grant: InStoreStaffGrant): Draft {
-  return { enabled: grant.enabled, locationIds: grant.locationIds, discount: percent(grant.discountLimitBps), canEditPrice: grant.canEditPrice === true, canSellOnCredit: grant.canSellOnCredit === true, canCollectReceivables: grant.version === 0 || grant.canCollectReceivables === true };
+  return { enabled: grant.enabled, locationIds: grant.locationIds, discount: percent(grant.discountLimitBps), canEditPrice: grant.canEditPrice === true, canSellOnCredit: grant.canSellOnCredit === true, canCollectReceivables: grant.version === 0 || grant.canCollectReceivables === true, canManageAccounting: grant.canManageAccounting === true };
 }
 async function readSnapshot(client: CashierSalesPermissionsClient, membershipId: string): Promise<Snapshot> {
   const [bootstrap, grants] = await Promise.all([client.bootstrap(), client.listStaff()]);
@@ -100,7 +101,7 @@ export function CashierSalesPermissions({ membershipId, staff, active, client = 
       const discountLimitBps = parseMinorUnits(draft.discount);
       if (discountLimitBps === null || discountLimitBps > 9999) { setError('İndirim sınırı %0 ile %99,99 arasında olmalı.'); return; }
       if (draft.enabled && draft.locationIds.length === 0) { setError('Manuel satışı etkinleştirmek için en az bir satış deposu seçin.'); return; }
-      const input: GrantInput = { expectedVersion: snapshot.grant.version, enabled: draft.enabled, locationIds: draft.locationIds, discountLimitBps, canEditPrice: draft.canEditPrice, canSellOnCredit: draft.canSellOnCredit, canCollectReceivables: draft.canCollectReceivables };
+      const input: GrantInput = { expectedVersion: snapshot.grant.version, enabled: draft.enabled, locationIds: draft.locationIds, discountLimitBps, canEditPrice: draft.canEditPrice, canSellOnCredit: draft.canSellOnCredit, canCollectReceivables: draft.canCollectReceivables, canManageAccounting: draft.canManageAccounting };
       const fingerprint = JSON.stringify([membershipId, input]);
       if (request?.fingerprint !== fingerprint) {
         try { request = { fingerprint, membershipId, input, key: client.newId() }; }
@@ -154,9 +155,10 @@ export function CashierSalesPermissions({ membershipId, staff, active, client = 
             <label className={styles.check}><input type="checkbox" name="canEditPrice" checked={draft.canEditPrice} onChange={event => setDraft({ ...draft, canEditPrice: event.target.checked })}/><span>Fiyat düzenleyebilir</span></label>
             <label className={styles.check}><input type="checkbox" name="canSellOnCredit" checked={draft.canSellOnCredit} onChange={event => setDraft({ ...draft, canSellOnCredit: event.target.checked })}/><span>Veresiye satış yapabilir</span></label>
             <label className={styles.check}><input type="checkbox" name="canCollectReceivables" checked={draft.canCollectReceivables} onChange={event => setDraft({ ...draft, canCollectReceivables: event.target.checked })}/><span>Müşteri borcu tahsil edebilir</span></label>
+            <label className={styles.check}><input type="checkbox" name="canManageAccounting" checked={draft.canManageAccounting} onChange={event => setDraft({ ...draft, canManageAccounting: event.target.checked })}/><span>Tüm muhasebeye erişebilir</span></label>
           </fieldset>
           {conflict ? <div className={styles.conflict}>
-            {fresh ? <div className={styles.note}><strong>Güncel kayıt</strong><p>Manuel satış {fresh.grant.enabled ? 'etkin' : 'kapalı'} · İndirim %{percent(fresh.grant.discountLimitBps)}</p><p>Depolar: {fresh.grant.locationIds.map(id => fresh.bootstrap.locations.find(location => location.id === id)?.name ?? 'Listelenmeyen depo').join(', ') || 'Atanmamış'}</p><p>Fiyat düzenleme: {fresh.grant.canEditPrice ? 'Açık' : 'Kapalı'} · Veresiye: {fresh.grant.canSellOnCredit ? 'Açık' : 'Kapalı'} · Tahsilat: {fresh.grant.canCollectReceivables ? 'Açık' : 'Kapalı'}</p></div> : null}
+            {fresh ? <div className={styles.note}><strong>Güncel kayıt</strong><p>Manuel satış {fresh.grant.enabled ? 'etkin' : 'kapalı'} · İndirim %{percent(fresh.grant.discountLimitBps)}</p><p>Depolar: {fresh.grant.locationIds.map(id => fresh.bootstrap.locations.find(location => location.id === id)?.name ?? 'Listelenmeyen depo').join(', ') || 'Atanmamış'}</p><p>Fiyat düzenleme: {fresh.grant.canEditPrice ? 'Açık' : 'Kapalı'} · Veresiye: {fresh.grant.canSellOnCredit ? 'Açık' : 'Kapalı'} · Tahsilat: {fresh.grant.canCollectReceivables ? 'Açık' : 'Kapalı'} · Tüm muhasebe: {fresh.grant.canManageAccounting ? 'Açık' : 'Kapalı'}</p></div> : null}
             <div className={styles.actions}><button type="button" className={styles.secondary} disabled={saving || loading} onClick={() => void reload()}>{loading ? 'Yükleniyor…' : 'Güncel yetkileri yükle'}</button><button type="button" className={styles.secondary} disabled={saving || loading || !fresh} onClick={adoptVersion}>Güncel sürümü kullan</button></div>
           </div> : null}
           <footer className={styles.actions}><button type="button" className={styles.secondary} disabled={saving} onClick={close}>Vazgeç</button><button type="submit" className={styles.primary} disabled={saving || loading || conflict}>{saving ? 'Kaydediliyor…' : uncertain ? 'Aynı işlemi yeniden dene' : 'Kaydet'}</button></footer>

@@ -13,3 +13,10 @@ test('cashier page access denies ecommerce and near matches even when the sideba
     assert.equal(isCashierPanelPathAllowed(path), false, String(path));
   }
 });
+
+test('trusted full accounting access opens the whole accounting family without exposing ecommerce or lookalike paths',()=>{
+ for(const path of ['/accounting','/accounting/accounts','/accounting/expenses','/accounting/suppliers','/accounting/profitability','/accounting/cash-sessions','/accounting/settings','/accounting/invoicing-integration','/accounting/invoicing-integration/new','/accounting/invoicing-integration/11111111-1111-4111-8111-111111111111/edit']){
+  assert.equal(isCashierPanelPathAllowed(path,true),true,path);assert.equal(isCashierPanelPathAllowed(path,false),false,path);
+ }
+ for(const path of ['/accounting-evil','/accounting/../settings','/accounting/%2e%2e/settings','/accounting//accounts','/accounting?x=1','/orders','/settings/design','/marketing','/marketplaces'])assert.equal(isCashierPanelPathAllowed(path,true),false,path);
+});

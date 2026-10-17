@@ -12,7 +12,7 @@ const SERVER_CONTEXT_PROP = "tenant\u0043ontext" as const;
 
 type PanelShellProps = (
   | { children: React.ReactNode; model: PanelChromeModel; [SERVER_CONTEXT_PROP]?: never }
-  | { children: React.ReactNode; model?: never; [SERVER_CONTEXT_PROP]: TenantContext }) & { support?: SupportSidecar };
+  | { children: React.ReactNode; model?: never; [SERVER_CONTEXT_PROP]: TenantContext }) & { support?: SupportSidecar; accountingAccess?: Readonly<{canManageAccounting: boolean; canCollectReceivables: boolean}> };
 
 export async function PanelShell(props: PanelShellProps) {
   const entitledModel = props.model ?? createPanelChromeModel(props[SERVER_CONTEXT_PROP]);
@@ -32,6 +32,7 @@ export async function PanelShell(props: PanelShellProps) {
   const model = Object.freeze({
     ...entitledModel,
     analyticsAvailable,
+    cashierAccountingAvailable: context?.membership.role === "cashier" && props.accountingAccess?.canManageAccounting === true,
     staffManagementAvailable: Boolean(context && context.membership.role === 'store_owner' && !props.support),
     ...(context?.entitlements ? { lockedNavigationHrefs: commercialNavigationLocks(context) } : {}),
     ...(context ? {

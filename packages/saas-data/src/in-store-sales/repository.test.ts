@@ -171,3 +171,22 @@ test('v4 staff grant carries every permission, fingerprints changes, and recover
  assert.equal(command.values?.length,17);assert.deepEqual(command.values?.slice(-3),[true,true,false]);assert.equal(command.values?.[8],recovery.values?.[8]);
  const changed=new Client({outcome:'committed',result_payload:{...grant,canCollectReceivables:true}});await repo(changed).setStaffGrant({...input,canCollectReceivables:true});assert.notEqual(command.values?.[8],changed.queries.find(q=>q.text.includes('in_store_sales_set_staff_v4'))?.values?.[8]);
 });
+
+test('staff-only v5 binds the extra grant and recovers its own receipt without a repeated write',async()=>{
+ const grant={membershipId:MEMBERSHIP,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:true,version:1};
+ const first=new Client({outcome:'committed',result_payload:grant},true),recovery=new Client({outcome:'found',result_payload:grant}),r=repo(first,recovery);
+ const input={...authority(),contractVersion:4 as const,staffContractVersion:5 as const,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:true};
+ assert.equal((await r.setStaffGrant(input)).canManageAccounting,true);
+ const write=first.queries.find(q=>q.text.includes('in_store_sales_set_staff_v5'))!;assert.ok(write);assert.equal(write.values?.at(-1),true);assert.ok(recovery.queries.some(q=>q.text.includes('in_store_sales_recover_staff_v5')));assert.equal(recovery.queries.some(q=>q.text.includes('set_staff')),false);
+ const list=new Client({outcome:'found',result_payload:{staff:[grant]}});assert.equal((await repo(list).listStaff({...authority(),contractVersion:4,staffContractVersion:5}as never)).staff[0]?.canManageAccounting,true);assert.ok(list.queries.some(q=>q.text.includes('in_store_sales_list_staff_v5')));
+ await assert.rejects(()=>repo().bootstrap({...authority(),contractVersion:5}as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');
+ const noFlag={...input};delete (noFlag as any).canManageAccounting;await assert.rejects(()=>repo().setStaffGrant(noFlag),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');
+});
+test('staff v5 is independent of sale version and cannot substitute the saved accounting grant',async()=>{
+ const grant={membershipId:MEMBERSHIP,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,version:1};const input={...authority(),staffContractVersion:5 as const,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false};
+ const c=new Client({outcome:'committed',result_payload:grant});assert.equal((await repo(c).setStaffGrant(input)).canManageAccounting,false);assert.equal(c.queries.find(q=>q.text.includes('set_staff_v5'))?.values?.length,18);
+ const wrong=new Client({outcome:'committed',result_payload:{...grant,canManageAccounting:true}});await assert.rejects(()=>repo(wrong).setStaffGrant(input),e=>inStoreSalesRepositoryErrorCode(e)==='unavailable');assert.equal(wrong.queries.at(-1)?.text,'ROLLBACK');
+});
+test('staff v5 rejects a malformed original sale contract before acquiring a connection',async()=>{
+ for(const contractVersion of[99,'4']){const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});await assert.rejects(()=>r.listStaff({...authority(),staffContractVersion:5,contractVersion}as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);}
+});

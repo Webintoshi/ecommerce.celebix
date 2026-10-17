@@ -47,7 +47,9 @@ export interface ConfirmInStorePaymentInput extends VersionedInStoreSaleInput {
 export interface CancelInStoreSaleInput extends VersionedInStoreSaleInput {
     readonly confirmUnpaid: true;
 }
-export interface SetInStoreStaffGrantInput extends InStoreAuthorityInput {
+export interface InStoreStaffAuthorityInput extends InStoreAuthorityInput { readonly staffContractVersion?:5; }
+export interface SetInStoreStaffGrantInput extends InStoreStaffAuthorityInput {
+    readonly canManageAccounting?:boolean;
     readonly operationId: string;
     readonly membershipId: string;
     readonly expectedVersion: number;
@@ -85,7 +87,7 @@ export interface InStoreSalesRepository {
     cancelSale(input: CancelInStoreSaleInput): Promise<InStoreSaleResult>;
     discardSale(input: CancelInStoreSaleInput): Promise<InStoreSaleResult>;
     takeoverSale(input: VersionedInStoreSaleInput): Promise<InStoreSaleResult>;
-    listStaff(input: InStoreAuthorityInput): Promise<Readonly<{
+    listStaff(input: InStoreStaffAuthorityInput): Promise<Readonly<{
         staff: readonly InStoreStaffGrant[];
     }>>;
     setStaffGrant(input: SetInStoreStaffGrantInput): Promise<InStoreStaffGrant>;
