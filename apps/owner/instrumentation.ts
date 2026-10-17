@@ -16,8 +16,12 @@ export async function register(): Promise<void> {
   const emailMarketing = await import("./lib/email-marketing/default.ts")
     .then(module => module.startDefaultEmailMarketingProductionWorker())
     .catch(() => { console.error("email_marketing_worker_degraded"); return Object.freeze({ async stop() {} }); });
+  const nativeMarketing = await import("./lib/native-marketing/default.ts")
+    .then(module => module.startDefaultNativeMarketingProductionWorker())
+    .catch(() => { console.error("native_marketing_worker_degraded"); return Object.freeze({ async stop() {} }); });
   root[RUNTIME] = Object.freeze({
     emailMarketing,
+    nativeMarketing,
     merchantProvider: await startDefaultMerchantProviderProductionWorker(),
     storeDomains: await startDefaultStoreDomainProductionWorker(),
     orderEmail: await startDefaultOrderEmailProductionWorker(),

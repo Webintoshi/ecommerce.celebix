@@ -112,6 +112,19 @@ function routingFixture(options: { missingAuthority?: boolean; authenticated?: b
   return { ...subject, calls };
 }
 
+test("native marketing public routes bypass session only for exact paths and supported methods", async () => {
+  const fixture = routingFixture({ missingAuthority: true });
+  for (const [path, method] of [["/api/webhooks/resend/marketing-email", "POST"], ["/api/marketing/unsubscribe", "GET"], ["/api/marketing/unsubscribe", "POST"]] as const) {
+    const response = await fixture.middleware(new NextRequest(ownerOrigin + path, { method }));
+    assert.equal(response.headers.get("x-middleware-next"), "1");
+  }
+  assert.equal(fixture.calls.authorityEnvironment, 0);
+  for (const [path, method] of [["/api/webhooks/resend/marketing-email", "GET"], ["/api/webhooks/resend/marketing-email/extra", "POST"], ["/api/marketing/unsubscribe", "DELETE"]] as const) {
+    const response = await fixture.middleware(new NextRequest(ownerOrigin + path, { method }));
+    assert.notEqual(response.headers.get("x-middleware-next"), "1");
+  }
+});
+
 function post(path: string, sameOrigin = false) {
   return new NextRequest(ownerOrigin + path, {
     method: "POST",

@@ -30,6 +30,8 @@ const OWNER_PUBLIC_RUNTIME_API_PATH = "/api/public/runtime";
 const OWNER_PUBLIC_HEALTH_API_PATH = "/api/health";
 const OWNER_PUBLIC_REGISTRATION_PATH = "/api/self-serve/register";
 const OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH = "/api/webhooks/resend/order-email";
+const OWNER_PUBLIC_MARKETING_EMAIL_WEBHOOK_PATH = "/api/webhooks/resend/marketing-email";
+const OWNER_PUBLIC_MARKETING_UNSUBSCRIBE_PATH = "/api/marketing/unsubscribe";
 const OWNER_CONFIRM_PREFIX = "/auth/confirm";
 const OWNER_RECOVER_PATH = "/auth/recover";
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
@@ -149,6 +151,13 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname === OWNER_PUBLIC_ORDER_EMAIL_WEBHOOK_PATH) {
+    return withSecurity(request, nextResponse(request));
+  }
+
+  if (
+    (pathname === OWNER_PUBLIC_MARKETING_EMAIL_WEBHOOK_PATH && request.method === "POST") ||
+    (pathname === OWNER_PUBLIC_MARKETING_UNSUBSCRIBE_PATH && (request.method === "GET" || request.method === "POST"))
+  ) {
     return withSecurity(request, nextResponse(request));
   }
 

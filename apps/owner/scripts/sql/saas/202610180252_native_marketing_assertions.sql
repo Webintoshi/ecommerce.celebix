@@ -1,0 +1,15 @@
+BEGIN;
+SET LOCAL ROLE celebix_saas_owner;
+DO $assert$ DECLARE t text;f record;BEGIN
+ FOR t IN SELECT unnest(ARRAY['native_marketing_settings','native_marketing_store_limits','native_marketing_templates','native_marketing_campaigns','native_marketing_deliveries','native_marketing_operations','native_marketing_suppressions','native_marketing_provider_events','native_marketing_sender_budget','native_marketing_sender_attempts']) LOOP
+ IF NOT EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='saas' AND c.relname=t AND c.relrowsecurity AND c.relforcerowsecurity AND c.relowner=(SELECT oid FROM pg_roles WHERE rolname='celebix_saas_owner')) THEN RAISE EXCEPTION 'NATIVE_MARKETING252_TABLE_AUTHORITY_INVALID: %',t;END IF;
+ IF has_table_privilege('celebix_saas_app','saas.'||t,'SELECT,INSERT,UPDATE,DELETE') OR has_table_privilege('celebix_saas_host_resolver','saas.'||t,'SELECT,INSERT,UPDATE,DELETE') OR has_table_privilege('celebix_saas_workflow','saas.'||t,'SELECT,INSERT,UPDATE,DELETE') THEN RAISE EXCEPTION 'NATIVE_MARKETING252_RAW_TABLE_ACCESS: %',t;END IF;
+ END LOOP;
+ IF NOT has_function_privilege('celebix_saas_app','saas.native_marketing_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb)','EXECUTE') OR has_function_privilege('celebix_saas_host_resolver','saas.native_marketing_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb)','EXECUTE') OR has_function_privilege('celebix_saas_workflow','saas.native_marketing_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb)','EXECUTE') THEN RAISE EXCEPTION 'NATIVE_MARKETING252_ADMIN_AUTHORITY_INVALID';END IF;
+ IF NOT has_function_privilege('celebix_saas_host_resolver','saas.native_marketing_unsubscribe(text,timestamptz)','EXECUTE') OR has_function_privilege('celebix_saas_app','saas.native_marketing_unsubscribe(text,timestamptz)','EXECUTE') THEN RAISE EXCEPTION 'NATIVE_MARKETING252_PUBLIC_AUTHORITY_INVALID';END IF;
+ FOR f IN SELECT p.oid::regprocedure signature,p.proowner,p.proconfig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace WHERE n.nspname='saas' AND p.proname LIKE 'native_marketing_work_%' LOOP
+ IF NOT has_function_privilege('celebix_saas_workflow',f.signature,'EXECUTE') OR has_function_privilege('celebix_saas_app',f.signature,'EXECUTE') OR has_function_privilege('celebix_saas_host_resolver',f.signature,'EXECUTE') OR f.proowner<>(SELECT oid FROM pg_roles WHERE rolname='celebix_saas_owner') OR NOT('search_path=pg_catalog, saas'=ANY(f.proconfig)) THEN RAISE EXCEPTION 'NATIVE_MARKETING252_WORKFLOW_AUTHORITY_INVALID: %',f.signature;END IF;
+ END LOOP;
+ IF NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='saas.abandoned_cart_recovery_tokens'::regclass AND conname='abandoned_cart_recovery_tokens_exact_issuer') OR NOT EXISTS(SELECT 1 FROM pg_constraint WHERE conrelid='saas.abandoned_cart_recovery_tokens'::regclass AND conname='abandoned_cart_recovery_tokens_delivery_store_fk') THEN RAISE EXCEPTION 'NATIVE_MARKETING252_RECOVERY_ISSUER_INVALID';END IF;
+END $assert$;
+COMMIT;

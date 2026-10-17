@@ -1,6 +1,8 @@
 import {createPostgresEmailMarketingConnectionRepository,createPostgresEmailMarketingWebhookRepository,createEmailMarketingProviders} from '@celebix/saas-data';
 import {emailMarketingConfiguration} from '../server-email-marketing/config.ts';
 import {registerServerEmailMarketingRepository,registerServerEmailMarketingWebhookRepository} from '../server-email-marketing/runtime.ts';
+import {PostgresNativeMarketingRepository} from '@celebix/saas-data';
+import {nativeMarketingPublicConfiguration,registerServerNativeMarketingRepository} from '../server-native-marketing/runtime.ts';
 import "server-only";
 import {PostgresCommercialPlanRepository} from '@celebix/saas-data';
 import {registerServerCommercialPlanRepository} from '../server-commercial-plan/runtime.ts';
@@ -1135,6 +1137,11 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       if (emailConfiguration.enabled) {
         registerServerEmailMarketingRepository(access,createPostgresEmailMarketingConnectionRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS,keyring:providerCredentialKeyring,providers:createEmailMarketingProviders({fetch:(url,init)=>globalThis.fetch(url,init),now:()=>new Date()}),uuid:randomUUID}),emailConfiguration.providerAvailability);
       }
+    }
+    const nativeMarketingConfiguration=nativeMarketingPublicConfiguration(process.env);
+    if(nativeMarketingConfiguration){
+      const nativeMarketingReady=await pool.query("SELECT to_regprocedure('saas.native_marketing_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb)') IS NOT NULL AS ready").then(r=>r.rows[0]?.ready===true).catch(()=>false);
+      if(nativeMarketingReady)registerServerNativeMarketingRepository(access,new PostgresNativeMarketingRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}),nativeMarketingConfiguration);
     }
     if (googleMarketingReady) {
       registerServerGoogleMarketingRepository(access, createPostCommitInvalidatingRepository(
