@@ -352,5 +352,5 @@ DO $security$ DECLARE t text;f record;BEGIN
 END $security$;
 GRANT EXECUTE ON FUNCTION saas.native_marketing_command(uuid,uuid,uuid,uuid,text,bigint,timestamptz,text,jsonb) TO celebix_saas_app;
 GRANT EXECUTE ON FUNCTION saas.native_marketing_work_claim(text,timestamptz,timestamptz,integer,uuid,uuid[],boolean),saas.native_marketing_work_authorize(uuid,uuid,text,timestamptz),saas.native_marketing_work_seal(uuid,uuid,text,timestamptz,text,bytea,text,text,text,timestamptz,timestamptz),saas.native_marketing_work_finish(uuid,uuid,text,timestamptz,text,text,timestamptz),saas.native_marketing_provider_event_record(text,text,text,timestamptz,timestamptz,text) TO celebix_saas_workflow;
-GRANT EXECUTE ON FUNCTION saas.native_marketing_unsubscribe(text,timestamptz) TO celebix_saas_host_resolver;
+GRANT EXECUTE ON FUNCTION saas.native_marketing_unsubscribe(text,timestamptz) TO celebix_saas_host_resolver,celebix_saas_workflow;
 COMMIT;

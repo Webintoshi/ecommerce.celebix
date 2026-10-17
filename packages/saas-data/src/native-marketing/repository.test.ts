@@ -61,6 +61,9 @@ test("unsubscribe only accepts digests and never crosses into administrator role
   const client = new Client(sql => sql.includes("native_marketing_unsubscribe") ? [{ outcome: "unsubscribed", result_payload: null }] : []);
   await repo(client, "celebix_saas_host_resolver").unsubscribe({ tokenDigest: "a".repeat(64), now });
   assert.deepEqual(client.calls.find(x => x.sql.includes("native_marketing_unsubscribe"))?.values, ["a".repeat(64), now]);
+  await repo(client, "celebix_saas_workflow").unsubscribe({ tokenDigest: "b".repeat(64), now });
+  assert.equal(client.calls.some(x => x.sql === "SET LOCAL ROLE celebix_saas_workflow"), true);
+  assert.deepEqual(client.calls.filter(x => x.sql.includes("native_marketing_unsubscribe")).at(-1)?.values, ["b".repeat(64), now]);
   await assert.rejects(repo(client).unsubscribe({ tokenDigest: "a".repeat(64), now }));
   await assert.rejects(repo(client, "celebix_saas_host_resolver").unsubscribe({ tokenDigest: "raw_token", now }));
 });
