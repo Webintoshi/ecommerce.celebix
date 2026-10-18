@@ -119,3 +119,25 @@ test("a committed budget deferral before sealing stays queued without a terminal
   assert.equal(await createNativeMarketingWorker(options(repository, async () => { sends++; return { kind: "accepted", providerMessageId: DELIVERY }; })).runOnce(), "processed");
   assert.equal(sends, 0); assert.equal(repository.finished.length, 0); assert.deepEqual(repository.calls, ["claim", "seal_deferred"]);
 });
+test('real V2 rendering seals before authorization and dispatches the identical responsive request on retry', async () => {
+  const base = unsealed(); assert.equal(base.kind, 'unsealed');
+  const claim: NativeMarketingClaim = { ...base, projection: { ...base.projection, recipient: 'qa@example.test', isTest: true, recoveryNeeded: false,
+    template: { id: 'new_products', version: 1, subject: 'Blok testi', heading: 'Başlık', body: 'Gövde', buttonLabel: 'Keşfet', buttonPath: '/products', schemaVersion: 2, blocks: [
+      { id: '44444444-4444-4444-8444-444444444444', type: 'products', productIds: [STORE], columns: 2 },
+      { id: '55555555-5555-4555-8555-555555555555', type: 'button', label: 'Keşfet', path: '/products', color: '#292524', align: 'center' },
+    ] }, items: [{ productId: STORE, productName: 'Kanonik ürün', url: 'https://shop.example.test/products/urun', quantity: 1, unitPriceCents: 12500, currency: 'TRY' }],
+  } };
+  const repository = new Repository([claim]); let sent!: NativeMarketingProviderRequest;
+  const workerOptions = { ...options(repository, async (value, key) => { repository.calls.push('send'); sent = value; assert.equal(key, `native-marketing/v1/${DELIVERY}`); return { kind: 'retryable' as const, code: 'provider_unavailable' }; }), deliveryMode: 'test' as const, testRecipient: 'qa@example.test' };
+  assert.equal(await createNativeMarketingWorker(workerOptions).runOnce(), 'processed');
+  assert.deepEqual(repository.calls, ['claim', 'seal', 'authorize', 'send', 'finish']);
+  assert.match(sent.html, /<style>@media only screen/u); assert.match(sent.html, /class="email-stack"/u); assert.match(sent.html, /Kanonik ürün/u);
+  assert.equal(sent.to, 'qa@example.test'); assert.equal(sent.subject, '[TEST] Blok testi');
+  const sealed = repository.sealed[0]!;
+  assert.equal(sealed.recoveryTokenDigest, undefined);
+  assert.deepEqual(openNativeMarketingRequest({ version: 'nm1', keyId: sealed.sealKeyId, bytes: sealed.sealedRequest, digest: sealed.requestDigest }, keyring, { storeId: STORE, deliveryId: DELIVERY }), sent);
+  const retry = new Repository([{ kind: 'sealed', storeId: STORE, deliveryId: DELIVERY, attemptCount: 2, idempotencyKey: `native-marketing/v1/${DELIVERY}`, firstAttemptAt: sealed.firstAttemptAt.toISOString(), idempotencyExpiresAt: sealed.idempotencyExpiresAt.toISOString(), sealKeyId: sealed.sealKeyId, requestDigest: sealed.requestDigest, sealedRequest: sealed.sealedRequest.toString('base64') }]);
+  let retried!: NativeMarketingProviderRequest;
+  await createNativeMarketingWorker({ ...options(retry, async value => { retry.calls.push('send'); retried = value; return { kind: 'accepted', providerMessageId: DELIVERY }; }), deliveryMode: 'test', testRecipient: 'qa@example.test', token: () => { throw Error('retry must reuse frozen bytes'); } }).runOnce();
+  assert.deepEqual(retry.calls, ['claim', 'authorize', 'send', 'finish']); assert.deepEqual(retried, sent); assert.equal(retry.sealed.length, 0);
+});

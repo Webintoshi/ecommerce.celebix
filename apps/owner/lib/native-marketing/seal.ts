@@ -22,10 +22,21 @@ function text(value: unknown, max: number, multiline = false): string {
   if (typeof value !== "string" || !value || value.length > max || value !== value.trim() || (multiline ? /[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/u : CONTROL).test(value)) invalid();
   return value;
 }
+// Only the renderer's fixed layout CSS may be omitted from forbidden-tag inspection.
+// Preserve the original HTML in the request so sealing and retries keep exact bytes.
+const RESPONSIVE_STYLESHEET = '<style>@media only screen and (max-width:480px){.email-stack{display:block!important;width:100%!important;box-sizing:border-box}.email-content{padding:24px 16px!important}}</style>';
+const RENDERER_HEAD_PREFIX = '<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>';
+function htmlForForbiddenTagInspection(html: string): string {
+  const index = html.indexOf(RESPONSIVE_STYLESHEET);
+  if (index === -1) return html;
+  const titleEnd = html.indexOf('</title>', RENDERER_HEAD_PREFIX.length);
+  if (!html.startsWith(RENDERER_HEAD_PREFIX) || titleEnd === -1 || /[<>]/u.test(html.slice(RENDERER_HEAD_PREFIX.length, titleEnd)) || titleEnd + '</title>'.length !== index || !html.startsWith('</head><body ', index + RESPONSIVE_STYLESHEET.length) || html.indexOf(RESPONSIVE_STYLESHEET, index + RESPONSIVE_STYLESHEET.length) !== -1) invalid();
+  return html.slice(0, index) + html.slice(index + RESPONSIVE_STYLESHEET.length);
+}
 export function validateNativeMarketingRequest(value: unknown): NativeMarketingProviderRequest {
   const p = exact(value, ["from", "to", "subject", "html", "text", "headers", "tags"]);
   const from = text(p.from, 320), to = text(p.to, 320), html = text(p.html, 200_000);
-  if (!/^.{1,160} <[^<>\s@]+@[^<>\s@]+\.[A-Za-z]{2,63}>$/u.test(from) || !EMAIL.test(to) || /<(?:script|style|form|iframe|object|embed|link)\b|\bdata:/iu.test(html)) invalid();
+  if (!/^.{1,160} <[^<>\s@]+@[^<>\s@]+\.[A-Za-z]{2,63}>$/u.test(from) || !EMAIL.test(to) || /<(?:script|form|iframe|object|embed|link)\b|<\/?style\b|\bdata:/iu.test(htmlForForbiddenTagInspection(html))) invalid();
   const h = exact(p.headers, ["List-Unsubscribe", "List-Unsubscribe-Post"]), unsubscribe = text(h["List-Unsubscribe"], 2_048);
   if (h["List-Unsubscribe-Post"] !== "List-Unsubscribe=One-Click" || !/^<https:\/\/[^<>\s]+\/api\/marketing\/unsubscribe\?token=[A-Za-z0-9_-]{43}>$/u.test(unsubscribe)) invalid();
   const url = new URL(unsubscribe.slice(1, -1));
