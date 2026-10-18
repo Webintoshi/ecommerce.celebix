@@ -8,6 +8,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./testing": "./src/testing/index.ts",
+    "./native-marketing-document": "./src/native-marketing/document.ts",
     "./native-marketing-templates": "./src/native-marketing/templates.ts"
   },
   "scripts": {

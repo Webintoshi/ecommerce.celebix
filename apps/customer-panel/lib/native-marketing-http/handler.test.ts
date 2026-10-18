@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {NativeMarketingError} from '@celebix/saas-data';
 const api = await import('./handler.ts').catch(() => ({})) as typeof import('./handler.ts');
 const ORIGIN='https://panel.saas-staging.celebix.net',ID='25200000-0000-4000-8000-000000000001',OP='25200000-0000-4000-8000-000000000002';
 const BASE='/api/marketing/native-email',COOKIE=`__Host-celebix_panel=v1.panel.current.${Buffer.alloc(32,1).toString('base64url')}`;
@@ -53,4 +54,29 @@ test('settings, product selection and cancellation preserve explicit versions an
 });
 test('unknown backend errors expose no secret or arbitrary provider detail',async()=>{
  const h=fixture({overview:async()=>{throw new Error('private-secret-key');}});const r=await h.get(req(),'overview');assert.equal(r.status,503);assert.deepEqual(await r.json(),{code:'unavailable'});
+});
+const BLOCK_CONTENT={...CONTENT,schemaVersion:2,blocks:[{id:OP,type:'products',productIds:[ID],columns:2}]};
+test('block campaigns keep ordered canonical product references and reject cart or forged content',async()=>{
+ const calls:any[]=[];const h=fixture({queueCampaign:async(i:any)=>{calls.push(i);return{id:ID};},testCampaign:async(i:any)=>{calls.push(i);return{id:ID};}});
+ assert.equal((await h.post(req('/campaigns/send',{name:'Blok kampanya',templateId:'offer',content:BLOCK_CONTENT,productIds:[ID]}),'send')).status,200);
+ assert.deepEqual(calls[0].content,BLOCK_CONTENT);assert.deepEqual(calls[0].productIds,[ID]);
+ for(const content of [{...BLOCK_CONTENT,html:'<script />'},{...BLOCK_CONTENT,subject:' '.repeat(2)},{...BLOCK_CONTENT,blocks:[{id:OP,type:'button',label:'Git',path:'/%2f%2fattacker.test',color:'#222222',align:'left'}]}])assert.equal((await h.post(req('/campaigns/send',{name:'X',templateId:'offer',content,productIds:[ID]}),'send')).status,400);
+ assert.equal((await h.post(req('/campaigns/send',{name:'X',templateId:'offer',content:BLOCK_CONTENT,productIds:[]}),'send')).status,400);
+ assert.equal((await h.post(req('/test',{name:'X',templateId:'cart',content:BLOCK_CONTENT,productIds:[ID],recipient:'owner@example.test'}),'test')).status,400);
+ assert.equal(calls.length,1);
+});
+test('saved block templates use the same tenant operation and expected version; cart saves are refused',async()=>{
+ const calls:any[]=[];const h=fixture({saveTemplate:async(i:any)=>{calls.push(i);return{...i.template,version:2};}});
+ const body={expectedVersion:1,template:{...BLOCK_CONTENT,id:'offer',version:1}};
+ const response=await h.post(req('/templates',body),'template');assert.equal(response.status,200);assert.equal((await response.json()).version,2);
+ assert.equal(calls[0].tenantContext.store.id,ID);assert.equal(calls[0].operationId,OP);assert.equal(calls[0].expectedVersion,1);assert.deepEqual(calls[0].template,body.template);
+ for(const invalid of [{...body,storeId:ID},{...body,template:{...body.template,id:'cart'}},{...body,template:{...body.template,version:2}},{...body,template:{...body.template,url:'https://attacker.test'}}])assert.equal((await h.post(req('/templates',invalid),'template')).status,400);
+ assert.equal((await fixture({saveTemplate:async()=>{calls.push({});}},'cashier').post(req('/templates',body),'template')).status,403);assert.equal(calls.length,1);
+});
+test('unavailable canonical media or products return definitive template conflicts',async()=>{
+ for(const code of ['image_unavailable','product_unavailable']){
+  const h=fixture({saveTemplate:async()=>{throw new NativeMarketingError(code);}});
+  const response=await h.post(req('/templates',{expectedVersion:1,template:{...BLOCK_CONTENT,id:'offer',version:1}}),'template');
+  assert.equal(response.status,409);assert.deepEqual(await response.json(),{code});
+ }
 });

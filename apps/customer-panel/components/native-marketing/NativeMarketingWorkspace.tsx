@@ -1,19 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeMarketingSettings, NativeMarketingTemplate } from '@celebix/saas-data';
 import { EmailMarketingConnections } from '@/components/email-marketing/EmailMarketingConnections';
 import { PanelSkeletonBlock } from '@/components/panel/PanelPageShell';
 import { createNativeMarketingApi, type NativeMarketingApi, type NativeMarketingWorkspace as Workspace } from '@/lib/native-marketing-ui/client';
+import {nativeMarketingProductIds} from '@celebix/saas-data/native-marketing-document';
 import { clearMarketingCheckpoint, marketingSessionStorage, readMarketingCheckpoint, writeMarketingCheckpoint, parseMarketingCommand, marketingErrorCode, marketingErrorMessage, marketingDate, MARKETING_STATUS_LABELS, MARKETING_TEMPLATE_LABELS, type MarketingCommand, type MarketingDraft } from '@/lib/native-marketing-ui/model';
-import { CampaignComposer } from './CampaignComposer';
+const CampaignComposer = lazy(() => import('./CampaignComposer').then(module => ({default:module.CampaignComposer})));
 import { CartReminderSettings } from './CartReminderSettings';
 import { CartReminderPreview } from './CartReminderPreview';
 import styles from './native-marketing.module.css';
 
 type Tab = 'campaigns' | 'cart' | 'connections';
 const TABS: readonly Readonly<{ id: Tab; label: string }>[] = [{ id: 'campaigns', label: 'Kampanyalar' }, { id: 'cart', label: 'Sepet hatırlatmaları' }, { id: 'connections', label: 'Bağlantılar' }];
-const DEFINITIVE = new Set(['invalid_input', 'invalid_schedule', 'address_required', 'forbidden', 'unauthorized', 'unauthenticated', 'feature_not_enabled', 'quota_exceeded', 'quota_reached', 'version_conflict', 'operation_conflict', 'not_configured', 'no_recipients', 'campaign_not_cancellable', 'already_sent', 'campaign_not_found', 'not_found']);
+const DEFINITIVE = new Set(['product_unavailable','image_unavailable','invalid_input', 'invalid_schedule', 'address_required', 'forbidden', 'unauthorized', 'unauthenticated', 'feature_not_enabled', 'quota_exceeded', 'quota_reached', 'version_conflict', 'operation_conflict', 'not_configured', 'no_recipients', 'campaign_not_cancellable', 'already_sent', 'campaign_not_found', 'not_found']);
 const number = (value: number) => new Intl.NumberFormat('tr-TR').format(value);
 const SKIP_LABELS: Readonly<Record<string, string>> = { missing_email: 'E-posta adresi yok', invalid_email: 'Geçersiz e-posta', no_consent: 'E-posta izni yok', missing_consent: 'E-posta izni yok', unsubscribed: 'Abonelikten çıktı', suppressed: 'Gönderim dışında', duplicate: 'Tekrarlanan adres' };
 
@@ -64,7 +65,7 @@ export function NativeMarketingWorkspace({ canManage, nativeConfigured = false, 
     if (!canManage || !nativeConfigured || pendingRef.current || !overview) return;
     const selected = template ?? overview.templates.find(item => item.id === 'new_products');
     if (!selected || selected.id === 'cart') return;
-    setDraft({ ...selected, templateId: selected.id, name: '', productIds: [], scheduledAt: '', recipient: '' }); setFeedback(''); setError('');
+    setDraft({ ...selected, templateId: selected.id, name: '', productIds: nativeMarketingProductIds(selected), scheduledAt: '', recipient: '' }); setFeedback(''); setError('');
   }
   async function execute(input: MarketingCommand) {
     if (!canManage || !nativeConfigured || mutationGuard.current) return;
@@ -78,7 +79,7 @@ export function NativeMarketingWorkspace({ canManage, nativeConfigured = false, 
       pendingRef.current = null; setPending(null);
       if (command.kind === 'cart-settings') setOverview(current => current ? { ...current, settings: result as NativeMarketingSettings } : current);
       else if (command.kind === 'send' || command.kind === 'schedule') setDraft(undefined);
-      setFeedback(command.kind === 'test' ? 'Test e-postası sıraya alındı.' : command.kind === 'cart-settings' ? 'Sepet hatırlatması ayarları uygulandı.' : command.kind === 'cancel' ? 'Kampanya iptal edildi.' : command.kind === 'schedule' ? 'Kampanya planlandı.' : 'Kampanya gönderim için sıraya alındı.');
+      setFeedback(command.kind === 'template' ? 'Şablon kaydedildi.' : command.kind === 'test' ? 'Test e-postası sıraya alındı.' : command.kind === 'cart-settings' ? 'Sepet hatırlatması ayarları uygulandı.' : command.kind === 'cancel' ? 'Kampanya iptal edildi.' : command.kind === 'schedule' ? 'Kampanya planlandı.' : 'Kampanya gönderim için sıraya alındı.');
       await load();
     } catch (caught) {
       if (!alive.current) return;
@@ -107,7 +108,7 @@ export function NativeMarketingWorkspace({ canManage, nativeConfigured = false, 
       <section id="native-email-panel-campaigns" role="tabpanel" aria-labelledby="native-email-tab-campaigns" hidden={tab !== 'campaigns'} className={styles.panel}>
         <div className={styles.summary}><span>Gönderime uygun <strong>{number(overview.eligibleRecipientCount)}</strong></span><span>Kalan gönderim <strong>{number(overview.quota.remaining)} / {number(overview.quota.limit)}</strong></span><small>Yenilenme: {marketingDate(overview.quota.periodEndsAt)}</small></div>
         <details className={styles.deliveryDetails}><summary>Gönderim bilgileri</summary><p>Gönderen: {overview.branding.storeName} · {overview.senderEmail}</p><p>{number(overview.summary.queued)} sırada · {number(overview.summary.sent)} gönderilen · {number(overview.summary.failed)} başarısız · {number(overview.summary.suppressed)} gönderim dışında</p>{skips.length ? <ul>{skips.map(([reason, count]) => <li key={reason}>{SKIP_LABELS[reason] ?? 'Diğer uygun olmayan adresler'}: {number(count)}</li>)}</ul> : null}</details>
-        {draft ? <CampaignComposer draft={draft} onChange={setDraft} templates={overview.templates} overview={overview} api={api} disabled={!canManage || locked} onCancel={() => { if (!locked) setDraft(undefined); }} onExecute={command => void execute(command)} /> : <>
+        {draft ? <Suspense fallback={<p role="status" className={styles.note}>E-posta düzenleyicisi yükleniyor…</p>}><CampaignComposer draft={draft} onChange={setDraft} templates={overview.templates} overview={overview} api={api} disabled={!canManage || locked} onCancel={() => { if (!locked) setDraft(undefined); }} onExecute={command => void execute(command)} /></Suspense> : <>
           <div className={styles.toolbar}><h2 className={styles.sectionTitle}>Gönderim geçmişi</h2>{canManage && campaigns.length ? <button className="button button-primary" disabled={locked || loading} onClick={() => start()}>Yeni kampanya</button> : null}<button className="button button-secondary" disabled={loading} onClick={() => void load()}>Yenile</button></div>
           {!campaigns.length ? <div className={styles.empty}><p>Henüz kampanya yok.</p><p className={styles.note}>Hazır bir şablon seçip mağazanızın ürünleriyle e-posta oluşturun.</p>{canManage ? <button className="button button-primary" disabled={locked || loading} onClick={() => start()}>Yeni kampanya</button> : null}</div> : <div className={styles.history}>{campaigns.map(campaign => <article key={campaign.id} className={styles.historyRow}><div><strong>{campaign.name}</strong><small>{MARKETING_TEMPLATE_LABELS[campaign.templateId]}{campaign.isTest ? ' · Test' : ''} · {marketingDate(campaign.scheduledAt)}</small></div><span>{MARKETING_STATUS_LABELS[campaign.status]}</span><span>{number(campaign.sentCount)} gönderilen / {number(campaign.recipientCount)} alıcı{campaign.failedCount ? ` · ${number(campaign.failedCount)} başarısız` : ''}</span>{canManage && ['scheduled', 'queued'].includes(campaign.status) ? <button className="button button-secondary" disabled={locked} aria-label={`${campaign.name} kampanyasını iptal et`} onClick={() => void execute({ kind: 'cancel', operationId: crypto.randomUUID(), campaignId: campaign.id, body: { expectedVersion: campaign.version } })}>İptal et</button> : null}</article>)}</div>}
         </>}

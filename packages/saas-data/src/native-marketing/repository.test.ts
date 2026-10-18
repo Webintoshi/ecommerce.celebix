@@ -83,3 +83,29 @@ test("sender budget deferral commits queue state before reporting deferred prepa
   await assert.rejects(repo(client, "celebix_saas_workflow").seal({ deliveryId: id(4), leaseId: id(5), workerId: "worker", now, sealKeyId: "native_01", sealedRequest: Buffer.alloc(40), requestDigest: "a".repeat(64), unsubscribeTokenDigest: "b".repeat(64), firstAttemptAt: now, idempotencyExpiresAt: new Date(now.getTime() + 86400000) }), (e: unknown) => e instanceof NativeMarketingError && e.code === "delivery_deferred");
   assert.equal(client.calls.at(-1)?.sql, "COMMIT");
 });
+
+const legacy = { subject: "Offer", heading: "Hello", body: "Details", buttonLabel: "Shop", buttonPath: "/products" };
+const blocks = { ...legacy, schemaVersion: 2 as const, blocks: [{ id: id(20), type: "products" as const, productIds: [id(7)], columns: 2 as const }, { id: id(21), type: "image" as const, assetId: id(22), alt: "", linkPath: "" }] };
+test("V2 campaign forwards the strict document with ordered aggregate products and unchanged replay fingerprint", async () => {
+  const client = new Client(sql => sql.includes("native_marketing_command") ? [{ outcome: "saved", result_payload: campaign }] : []);
+  const input = { tenantContext, now, operationId: id(6), templateId: "offer" as const, name: "Campaign", content: blocks, productIds: [id(7)] };
+  await repo(client).queueCampaign(input);
+  await repo(client).queueCampaign({ ...input, now: new Date(now.getTime() + 60000) });
+  const calls = client.calls.filter(x => x.sql.includes("native_marketing_command"));
+  assert.deepEqual(JSON.parse(String(calls[0]?.values[8])).value.content, blocks);
+  assert.equal(calls[0]?.values[8], calls[1]?.values[8]);
+  for (const productIds of [[], [id(8)], [id(8), id(7)]]) await assert.rejects(repo(client).queueCampaign({ ...input, productIds }), (e: unknown) => e instanceof NativeMarketingError && e.code === "invalid_input");
+  await assert.rejects(repo(client).preview({ ...input, templateId: "cart" }));
+  await assert.rejects(repo(client).saveTemplate({ ...input, expectedVersion: 1, template: { ...blocks, id: "cart", version: 1 } }));
+});
+
+test("V2 projection accepts only exact trusted same-store image references", async () => {
+  const response = { recipient: "preview@example.test", senderLabel: "Alpha", storeName: "Alpha", primaryColor: "#292524", storefrontOrigin: "https://alpha.example.test", supportUrl: "https://alpha.example.test/pages/contact", template: { ...blocks, id: "offer", version: 1 }, recoveryNeeded: false, isTest: true, items: [], blockImages: [{ assetId: id(22), url: `https://media.saas-staging.celebix.site/stores/${id(1)}/storefront/hero/${id(22)}.webp` }] };
+  const client = new Client(sql => sql.includes("native_marketing_command") ? [{ outcome: "found", result_payload: response }] : []);
+  const input = { tenantContext, now, templateId: "offer" as const, content: blocks, productIds: [id(7)] };
+  assert.deepEqual((await repo(client).preview(input)).blockImages, response.blockImages);
+  for (const blockImages of [[], [{ ...response.blockImages[0], assetId: id(23) }], [{ ...response.blockImages[0], url: `https://media.saas-staging.celebix.site/stores/${id(2)}/storefront/hero/${id(22)}.webp` }], [response.blockImages[0], response.blockImages[0]]]) {
+    const malformed = new Client(sql => sql.includes("native_marketing_command") ? [{ outcome: "found", result_payload: { ...response, blockImages } }] : []);
+    await assert.rejects(repo(malformed).preview(input), (e: unknown) => e instanceof NativeMarketingError && e.code === "unavailable");
+  }
+});

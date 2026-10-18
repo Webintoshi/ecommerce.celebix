@@ -3,8 +3,20 @@ import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.
 
 export const NATIVE_MARKETING_TEMPLATE_IDS = ["cart", "new_products", "offer", "welcome"] as const;
 export type NativeMarketingTemplateId = typeof NATIVE_MARKETING_TEMPLATE_IDS[number];
-export interface NativeMarketingContent { readonly subject: string; readonly heading: string; readonly body: string; readonly buttonLabel: string; readonly buttonPath: string }
-export interface NativeMarketingTemplate extends NativeMarketingContent { readonly id: NativeMarketingTemplateId; readonly version: number }
+export interface NativeMarketingLegacyContent { readonly subject: string; readonly heading: string; readonly body: string; readonly buttonLabel: string; readonly buttonPath: string }
+export type NativeMarketingBlock =
+  | Readonly<{ id: string; type: "heading"; text: string; align: "left" | "center" | "right"; color: string; size: "small" | "medium" | "large" }>
+  | Readonly<{ id: string; type: "text"; text: string; align: "left" | "center" | "right"; color: string }>
+  | Readonly<{ id: string; type: "image"; assetId: string; alt: string; linkPath: string }>
+  | Readonly<{ id: string; type: "image_text"; assetId: string; alt: string; heading: string; text: string; buttonLabel: string; buttonPath: string; imagePosition: "left" | "right" }>
+  | Readonly<{ id: string; type: "products"; productIds: readonly string[]; columns: 1 | 2 }>
+  | Readonly<{ id: string; type: "button"; label: string; path: string; color: string; align: "left" | "center" | "right" }>
+  | Readonly<{ id: string; type: "banner"; heading: string; text: string; backgroundColor: string; textColor: string }>
+  | Readonly<{ id: string; type: "divider"; color: string }>
+  | Readonly<{ id: string; type: "spacer"; height: 8 | 16 | 24 | 32 }>;
+export interface NativeMarketingBlockContent extends NativeMarketingLegacyContent { readonly schemaVersion: 2; readonly blocks: readonly NativeMarketingBlock[] }
+export type NativeMarketingContent = NativeMarketingLegacyContent | NativeMarketingBlockContent;
+export type NativeMarketingTemplate = NativeMarketingContent & Readonly<{ id: NativeMarketingTemplateId; version: number }>;
 export interface NativeMarketingSettings { readonly enabled: boolean; readonly cartReminderEnabled: boolean; readonly secondCartReminderEnabled: boolean; readonly firstDelayMinutes: 60; readonly secondDelayMinutes: 1440; readonly version: number }
 export interface NativeMarketingBranding { readonly storeName: string; readonly logoUrl?: string; readonly accentColor: string; readonly storeUrl: string; readonly supportUrl: string; readonly postalAddress?: string }
 export interface NativeMarketingQuota { readonly limit: number; readonly used: number; readonly reserved: number; readonly remaining: number; readonly periodEndsAt: string }
@@ -25,7 +37,7 @@ export interface NativeMarketingAdminRepository {
   cancelCampaign(input: NativeMarketingAuthority & Readonly<{ operationId: string; campaignId: string; expectedVersion: number }>): Promise<NativeMarketingCampaign>;
 }
 export interface NativeMarketingProjectionItem { readonly productId: string; readonly productName: string; readonly url: string; readonly imageUrl?: string; readonly quantity: number; readonly unitPriceCents: number; readonly currency: string }
-export interface NativeMarketingProjection { readonly recipient: string; readonly recipientName?: string; readonly senderLabel: string; readonly storeName: string; readonly primaryColor: string; readonly logoUrl?: string; readonly storefrontOrigin: string; readonly supportUrl: string; readonly postalAddress?: string; readonly template: NativeMarketingTemplate; readonly items: readonly NativeMarketingProjectionItem[]; readonly recoveryNeeded: boolean; readonly isTest: boolean }
+export interface NativeMarketingProjection { readonly recipient: string; readonly recipientName?: string; readonly senderLabel: string; readonly storeName: string; readonly primaryColor: string; readonly logoUrl?: string; readonly storefrontOrigin: string; readonly supportUrl: string; readonly postalAddress?: string; readonly template: NativeMarketingTemplate; readonly items: readonly NativeMarketingProjectionItem[]; readonly blockImages?: readonly Readonly<{ assetId: string; url: string }>[]; readonly recoveryNeeded: boolean; readonly isTest: boolean }
 interface NativeMarketingClaimBase { readonly deliveryId: string; readonly storeId: string; readonly attemptCount: number; readonly idempotencyKey: string }
 export interface UnsealedNativeMarketingClaim extends NativeMarketingClaimBase { readonly kind: "unsealed"; readonly projection: NativeMarketingProjection }
 export interface SealedNativeMarketingClaim extends NativeMarketingClaimBase { readonly kind: "sealed"; readonly firstAttemptAt: string; readonly idempotencyExpiresAt: string; readonly sealKeyId: string; readonly sealedRequest: string; readonly requestDigest: string }
