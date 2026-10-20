@@ -3,23 +3,18 @@ import {PostgresSaaSDataRepository} from '../../../packages/saas-data/src/postgr
 import {createStarterTenantService} from '../../../packages/saas-tenant-core/src/create-starter-tenant.ts';
 import assert from 'node:assert/strict';
 import {applyBaseline} from '../admin-login-security/baseline.mjs';
-import {mkdtempSync,mkdirSync,readFileSync,readdirSync,rmSync,existsSync,writeFileSync} from 'node:fs';
-import {spawnSync,spawn} from 'node:child_process';
-import {homedir} from 'node:os';
+import {readFileSync,readdirSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
-const root=path.resolve(import.meta.dirname,'../../..'),dir=path.join(root,'apps/owner/scripts/sql/saas'),bin=path.join(homedir(),'.codex/tmp/postgresql-16.14-install/bin');
-const temp=mkdtempSync('/tmp/starter-snapshots255-'),data=path.join(temp,'data'),sock=path.join(temp,'socket');mkdirSync(sock);
-const port=24000+Math.floor(Math.random()*10000),db='merchant_wa_isolated';
-const run=(name,args,input='')=>{const r=spawnSync(path.join(bin,name),args,{input,encoding:'utf8',timeout:120000,maxBuffer:64*1024*1024});if(r.status!==0)throw Error(`${name}: ${r.stderr}`);return r.stdout.trim();};
-const args=['-h',sock,'-p',String(port),'-U','postgres','-d',db,'-X','-qAt','-v','ON_ERROR_STOP=1'];
-const parallelSql=s=>new Promise((resolve,reject)=>{const c=spawn(path.join(bin,'psql'),args);let out='',err='';c.stdout.on('data',x=>out+=x);c.stderr.on('data',x=>err+=x);c.on('close',code=>code===0?resolve(out.trim()):reject(Error(err)));c.stdin.end(s);});
-const sql=s=>run('psql',args,s),j=s=>JSON.parse(sql(s)),lit=v=>`'${String(v).replaceAll("'","''")}'`,json=v=>lit(JSON.stringify(v))+'::jsonb',digest=s=>createHash('sha256').update(s).digest('hex');
+import {startDisposablePostgres} from './disposable-postgres.mjs';
+const root=path.resolve(import.meta.dirname,'../../..'),dir=path.join(root,'apps/owner/scripts/sql/saas');
+const fixture=startDisposablePostgres({database:'merchant_wa_isolated'});
+const {sql}=fixture;
+const j=s=>JSON.parse(sql(s)),lit=v=>`'${String(v).replaceAll("'","''")}'`,json=v=>lit(JSON.stringify(v))+'::jsonb',digest=s=>createHash('sha256').update(s).digest('hex');
 const cmd=(action,input)=>j(`SET ROLE celebix_saas_identity;SELECT row_to_json(x) FROM saas.merchant_whatsapp_command(${lit(action)},${json(input)}) x;`);
 
 let checks=0;const check=(name,fn)=>{fn();console.log(`PASS ${++checks} ${name}`);};
 try {
- run('initdb',['-D',data,'--auth=trust','--username=postgres','--no-locale','--encoding=UTF8']);run('pg_ctl',['-D',data,'-o',`-k ${sock} -p ${port} -h ''`,'-l',path.join(temp,'pg.log'),'start']);run('createdb',['-h',sock,'-p',String(port),'-U','postgres',db]);
  applyBaseline(sql,dir);
  const post=readdirSync(dir).filter(file=>/^\d{12}.*\.up\.sql$/.test(file)&&Number(file.slice(8,12))>227&&Number(file.slice(8,12))<=248).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12))||a.localeCompare(b));
  for(const file of post){sql(readFileSync(path.join(dir,file),'utf8'));console.log('Fixture applied '+file);}
@@ -29,7 +24,7 @@ try {
  const prepare=(phone)=>{const binding={pendingId:randomUUID(),pendingDigest:digest(randomUUID()),browserDigest:digest(randomUUID()),environment:'test'};
  const input={...binding,operationId:randomUUID(),purpose:'signup',phoneKeyId:'phone-v1',phoneDigest:digest(phone),phoneCiphertext:'encrypted.fixture',phoneMasked:'***2233',destinationHostname:'owner.example.test',ipDigest:null,recipientBudgetDigest:digest(phone),challengeId:randomUUID(),codeDigest:digest('001234')};
  assert.equal(cmd('prepare',input).outcome,'prepared');assert.equal(cmd('finish_delivery',{...binding,challengeId:input.challengeId,status:'accepted'}).outcome,'accepted');assert.equal(cmd('verify',{...binding,...candidate(),challengeId:input.challengeId,codeDigest:input.codeDigest}).outcome,'phone_verified');return binding;};
- const pool=new Pool({host:sock,port,user:'postgres',database:db,max:2});
+ const pool=new Pool(fixture.poolOptions);
  try {
  const failures=[];let loseCommit=false;const proxy={async connect(){const c=await pool.connect();return{async query(q,v){let r;try{r=await c.query(q,v);}catch(e){failures.push({code:e.code,constraint:e.constraint});throw e;}if(q==='COMMIT'&&loseCommit){loseCommit=false;throw Error('lost fixture acknowledgement');}return r;},release:x=>c.release(x)}}};
  const repo=new PostgresSaaSDataRepository({pool:proxy,generateId:()=>randomUUID(),audit:()=>{},timeouts:{poolCheckoutMs:1000,statementMs:5000,lockMs:2000,idleTransactionMs:8000},bootstrapRole:'celebix_saas_bootstrap',panelOrigin:'https://panel.saas-staging.celebix.net',adminOriginEnvironment:'staging_net'});
@@ -95,4 +90,4 @@ try {
  if(!process.argv.includes('--emit-post'))check('rollback refuses any persisted non-v1 snapshot',()=>assert.throws(()=>sql("SET celebix.allow_starter255_down='on';\n"+readFileSync(path.join(dir,downName),'utf8')),/STARTER255_DOWN_NON_V1_SNAPSHOTS/));
  console.log(`Starter255 PostgreSQL checks: ${checks}; external connections: 0`);
  } finally {await pool.end();}
-} finally {try{run('pg_ctl',['-D',data,'-m','immediate','stop']);}catch{}rmSync(temp,{recursive:true,force:true});}
+} finally {fixture.stop();}

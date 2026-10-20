@@ -14,7 +14,8 @@
     "deliver:analytics": "NODE_OPTIONS='--conditions=react-server' node --experimental-transform-types scripts/deliver-analytics-events.mjs",
     "deliver:seo": "node scripts/deliver-seo-events.mjs",
     "deliver:search": "node scripts/deliver-search-events.mjs",
-    "deliver:engagement": "node scripts/deliver-engagement-events.mjs"
+    "deliver:engagement": "node scripts/deliver-engagement-events.mjs",
+    "prebuild": "node ../../scripts/signup-release-proof.mjs"
   },
   "dependencies": {
     "@celebix/payment-adapters": "0.1.0",

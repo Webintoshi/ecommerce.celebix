@@ -31,7 +31,11 @@
     "build:coolify:storefront-shared": "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run build --workspace @celebix/storefront-shared",
     "create:store": "node ./scripts/create-store.mjs",
     "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs",
-    "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs"
+    "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs",
+    "check:signup-release": "node ./scripts/signup-release-proof.mjs",
+    "test:signup-release-guard": "node --test ./scripts/signup-release-proof.test.mjs",
+    "rehearse:signup-release": "node ./scripts/rehearse-signup-release.mjs",
+    "refresh:signup-release": "node ./scripts/rehearse-signup-release.mjs --refresh-proof"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",

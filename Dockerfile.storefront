@@ -9,6 +9,11 @@ COPY apps ./apps
 COPY packages ./packages
 COPY stores ./stores
 COPY scripts ./scripts
+# Verification inputs are used only by the build-stage signup release guard.
+COPY tests/saas-phase3/merchant-signup-profile ./tests/saas-phase3/merchant-signup-profile
+COPY tests/saas-phase3/admin-login-security/baseline.mjs tests/saas-phase3/admin-login-security/baseline-manifest.json ./tests/saas-phase3/admin-login-security/
+COPY .github/workflows/signup-release-guard.yml ./.github/workflows/signup-release-guard.yml
+COPY AGENTS.md nixpacks.toml Dockerfile.storefront ./
 
 RUN npm ci
 RUN npm run build:coolify:storefront-shared

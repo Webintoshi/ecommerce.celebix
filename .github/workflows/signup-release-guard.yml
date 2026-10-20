@@ -1,0 +1,41 @@
+name: Signup release guard
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signup-release-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  signup-release:
+    name: Current signup and package compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Use repository npm version
+        run: npm install -g npm@11.8.0
+      - name: Install dependencies
+        run: npm ci
+      - name: Install disposable PostgreSQL 16 binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-client-16
+      - name: Check source-bound release proof
+        run: npm run check:signup-release
+      - name: Verify release guard failure cases
+        run: npm run test:signup-release-guard
+      - name: Rehearse current signup and historical replay
+        env:
+          CELEBIX_TEST_PG_BIN: /usr/lib/postgresql/16/bin
+        run: npm run rehearse:signup-release
