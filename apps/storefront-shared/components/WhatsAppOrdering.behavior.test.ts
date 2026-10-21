@@ -21,10 +21,17 @@ for(const [name,path] of [['shared','./ProductPurchasePanel.tsx'],['Güzide','..
  });
 }
 
-test('fresh preview prepares a normal WhatsApp link with full message and does not mutate the cart',async()=>{
- const calls:unknown[]=[];const oldFetch=globalThis.fetch;globalThis.fetch=async(input,init)=>{calls.push({input,body:JSON.parse(String(init?.body))});return Response.json({policy,storeName:'Örnek mağaza',product,variantId:product.variants[1]!.id,quantity:2});};
- const load=componentLoader();const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:Component}>(new URL('./CommercePolicyProvider.tsx',import.meta.url));const {WhatsAppOrderButton:Button}=load<{WhatsAppOrderButton:Component}>(new URL('./WhatsAppOrderButton.tsx',import.meta.url));
- try{await withProductBrowser(async({container,render,click})=>{await render(React.createElement(Provider,{policy},React.createElement(Button,{product,variant:product.variants[1],quantity:2})));await click('button');const link=container.querySelector<HTMLAnchorElement>('a');assert.ok(link);assert.equal(new URL(link.href).hostname,'wa.me');const message=new URL(link.href).searchParams.get('text')!;assert.match(message,/Büyük — 2 adet/);assert.doesNotMatch(message,/₺|TRY/);assert.equal(calls.length,1);assert.deepEqual(calls[0],{input:'/api/whatsapp-order/preview',body:{kind:'product',productId:product.id,variantId:product.variants[1]!.id,quantity:2}});});}finally{globalThis.fetch=oldFetch;}
+test('one product click validates fresh data and navigates the same tab exactly once without a second link',async()=>{
+ await withRequestButton(async({container,show,click,complete,message,requests,navigations,events})=>{
+  await show(productRequest(1,2));
+  await React.act(async()=>{container.querySelector<HTMLButtonElement>('button')!.click();container.querySelector<HTMLButtonElement>('button')!.click();});
+  assert.equal(requests.length,1);assert.equal(navigations.length,0);assert.equal(events.length,0);
+  await complete(0,productPreview(1,2));assert.equal(navigations.length,1);assert.equal(new URL(navigations[0]!).hostname,'wa.me');
+  assert.match(message()??'',/Büyük — 2 adet/);assert.doesNotMatch(message()??'',/₺|TRY/);assert.equal(container.querySelector('a'),null);
+  assert.equal(requests[0]?.url,'/api/whatsapp-order/preview');assert.deepEqual(requests[0]?.input,{kind:'product',productId:product.id,variantId:product.variants[1]!.id,quantity:2});
+  assert.deepEqual(events,[{name:'whatsapp_click',data:{source:'whatsapp_order_request',productId:product.id}}]);
+  await click('button');assert.equal(requests.length,2);assert.equal(navigations.length,1);
+ });
 });
 
 test('hidden default and Siora drawers retain removal while suppressing totals checkout shipping and new quantities',async()=>{
@@ -48,16 +55,26 @@ test('the product card suppresses stale numeric prices and sale badges under a h
 });
 
 type RequestButtonBrowser = Parameters<Parameters<typeof withProductBrowser>[0]>[0] & {
- requests:{input:unknown;resolve:(response:Response)=>void}[];
+ requests:{url:unknown;input:unknown;resolve:(response:Response)=>void}[];
+ navigations:string[];
+ events:unknown[];
+ copies:string[];
+ copyWith(writer:(message:string)=>Promise<void>):void;
  show(props:Record<string,unknown>):Promise<void>;
- complete(index:number,preview:unknown):Promise<void>;
+ complete(index:number,preview:unknown,status?:number):Promise<void>;
  message():string|null;
 };
 async function withRequestButton(run:(context:RequestButtonBrowser)=>Promise<void>, selectedPolicy = policy) {
- const load=componentLoader();const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:Component}>(new URL('./CommercePolicyProvider.tsx',import.meta.url));const {WhatsAppOrderButton:Button}=load<{WhatsAppOrderButton:Component}>(new URL('./WhatsAppOrderButton.tsx',import.meta.url));
- const oldFetch=globalThis.fetch;const requests:{input:unknown;resolve:(response:Response)=>void}[]=[];
- globalThis.fetch=async(_url,init)=>new Promise<Response>(resolve=>requests.push({input:JSON.parse(String(init?.body)),resolve}));
- try { await withProductBrowser(async(browser)=>run({...browser,requests,show:(props:Record<string,unknown>)=>browser.render(React.createElement(Provider,{policy:selectedPolicy},React.createElement(Button,props))),complete:(index:number,preview:unknown)=>React.act(async()=>requests[index]!.resolve(Response.json({policy:selectedPolicy,storeName:'Örnek mağaza',...preview as object}))),message:()=>{const link=browser.container.querySelector<HTMLAnchorElement>('a');return link?new URL(link.href).searchParams.get('text'):null;}})); } finally {globalThis.fetch=oldFetch;}
+ const events:unknown[]=[],navigations:string[]=[],copies:string[]=[];
+ const load=componentLoader({'../lib/analytics/events.ts':{emitStorefrontCommerceEvent:(event:unknown)=>events.push(event)}});const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:Component}>(new URL('./CommercePolicyProvider.tsx',import.meta.url));const {WhatsAppOrderButton:Button}=load<{WhatsAppOrderButton:Component}>(new URL('./WhatsAppOrderButton.tsx',import.meta.url));
+ const oldFetch=globalThis.fetch,oldNavigator=Object.getOwnPropertyDescriptor(globalThis,'navigator');const requests:{url:unknown;input:unknown;resolve:(response:Response)=>void}[]=[];
+ let writeClipboard: (message:string)=>Promise<void> = async()=>{};
+ Object.defineProperty(globalThis,'navigator',{configurable:true,value:{clipboard:{writeText:(message:string)=>{copies.push(message);return writeClipboard(message);}}}});
+ globalThis.fetch=async(_url,init)=>new Promise<Response>(resolve=>requests.push({url:_url,input:JSON.parse(String(init?.body)),resolve}));
+ try { await withProductBrowser(async(browser)=>{
+  window.location.assign=destination=>{navigations.push(String(destination));};
+  await run({...browser,requests,navigations,events,copies,copyWith:(writer)=>{writeClipboard=writer;},show:(props:Record<string,unknown>)=>browser.render(React.createElement(Provider,{policy:selectedPolicy},React.createElement(Button,props))),complete:(index:number,preview:unknown,status=200)=>React.act(async()=>requests[index]!.resolve(Response.json({policy:selectedPolicy,storeName:'Örnek mağaza',...preview as object},{status}))),message:()=>{const destination=navigations.at(-1);return destination?new URL(destination).searchParams.get('text'):null;}});
+ }); } finally {globalThis.fetch=oldFetch;if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else Reflect.deleteProperty(globalThis,'navigator');}
 }
 const productRequest=(index:number,quantity:number)=>({product,variant:product.variants[index],quantity});
 const productPreview=(index:number,quantity:number)=>({product,variantId:product.variants[index]!.id,quantity});
@@ -65,34 +82,34 @@ const requestCart=(version:number,quantity:number)=>({version,currency:'TRY',ite
 
 const cartPreview=(version:number,quantity:number)=>{const cart=requestCart(version,quantity);return {cart,requestLines:cart.items.map(({title,variantTitle,slug,quantity,unitPriceCents,available})=>({title,variantTitle,slug,quantity,unitPriceCents,available}))};};
 
-test('prepared product links disappear immediately when selected variant or quantity changes',async()=>{
- await withRequestButton(async({container,show,click,complete,message})=>{
+test('each product variant or quantity requires a fresh single-click handoff',async()=>{
+ await withRequestButton(async({container,show,click,complete,message,navigations})=>{
   await show(productRequest(0,1));await click('button');await complete(0,productPreview(0,1));assert.match(message()??'',/Küçük — 1 adet/);
-  await show(productRequest(1,1));assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
+  await show(productRequest(1,1));assert.equal(navigations.length,1);assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
   await click('button');await complete(1,productPreview(1,1));assert.match(message()??'',/Büyük — 1 adet/);
-  await show(productRequest(1,2));assert.equal(container.querySelector('a')===null,true);await click('button');await complete(2,productPreview(1,2));assert.match(message()??'',/Büyük — 2 adet/);
+  await show(productRequest(1,2));assert.equal(navigations.length,2);assert.equal(container.querySelector('a')===null,true);await click('button');await complete(2,productPreview(1,2));assert.match(message()??'',/Büyük — 2 adet/);
  });
 });
 
-test('prepared cart requests disappear after a quantity change or the final removal',async()=>{
- await withRequestButton(async({container,show,click,complete,message})=>{
-  await show({cart:requestCart(1,2)});await click('button');await complete(0,cartPreview(1,2));assert.match(message()??'',/2 adet/);
-  await show({cart:requestCart(2,1)});assert.equal(container.querySelector('a')===null,true);await click('button');await complete(1,cartPreview(2,1));assert.match(message()??'',/1 adet/);
-  await show({cart:requestCart(3,0)});assert.equal(container.querySelector('a')===null,true);assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,true);
+test('cart handoffs use current quantities and the final removal disables requests',async()=>{
+ await withRequestButton(async({container,show,click,complete,message,navigations,requests,events})=>{
+  await show({cart:requestCart(1,2)});await click('button');await complete(0,cartPreview(1,2));assert.match(message()??'',/2 adet/);assert.deepEqual(events,[{name:'whatsapp_click',data:{source:'whatsapp_order_request'}}]);assert.equal(requests[0]?.url,'/api/whatsapp-order/preview');assert.deepEqual(requests[0]?.input,{kind:'cart'});
+  await show({cart:requestCart(2,1)});assert.equal(navigations.length,1);assert.equal(container.querySelector('a')===null,true);await click('button');await complete(1,cartPreview(2,1));assert.match(message()??'',/1 adet/);
+  await show({cart:requestCart(3,0)});assert.equal(container.querySelector('a')===null,true);assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,true);await click('button');assert.equal(requests.length,2);assert.equal(navigations.length,2);
  });
 });
 
 test('late product previews cannot publish after a pending selection change or replace a newer request',async()=>{
- await withRequestButton(async({container,show,click,complete,message,requests})=>{
+ await withRequestButton(async({container,show,click,complete,message,requests,navigations})=>{
   await show(productRequest(0,1));await click('button');await show(productRequest(1,2));assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,false);
   await click('button');assert.equal(requests.length,2);await complete(1,productPreview(1,2));assert.match(message()??'',/Büyük — 2 adet/);
-  await complete(0,productPreview(0,1));assert.match(message()??'',/Büyük — 2 adet/);assert.doesNotMatch(message()??'',/Küçük — 1 adet/);
+  await complete(0,productPreview(0,1));assert.equal(navigations.length,1);assert.match(message()??'',/Büyük — 2 adet/);assert.doesNotMatch(message()??'',/Küçük — 1 adet/);
  });
 });
 
 test('a late cart preview cannot restore the request removed from the current cart',async()=>{
- await withRequestButton(async({container,show,click,complete})=>{
-  await show({cart:requestCart(1,1)});await click('button');await show({cart:requestCart(2,0)});await complete(0,cartPreview(1,1));assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
+ await withRequestButton(async({container,show,click,complete,navigations,events})=>{
+  await show({cart:requestCart(1,1)});await click('button');await show({cart:requestCart(2,0)});await complete(0,cartPreview(1,1));assert.equal(navigations.length,0);assert.equal(events.length,0);assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
  });
 });
 
@@ -119,8 +136,8 @@ for(const explicit of [false,true])test(`Siora production detail wrapper require
 });
 
 test('returning to the same selection does not revive an earlier pending generation',async()=>{
- await withRequestButton(async({container,show,click,complete})=>{
-  await show(productRequest(0,1));await click('button');await show(productRequest(1,2));await show(productRequest(0,1));await complete(0,productPreview(0,1));assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
+ await withRequestButton(async({container,show,click,complete,navigations,events})=>{
+  await show(productRequest(0,1));await click('button');await show(productRequest(1,2));await show(productRequest(0,1));await complete(0,productPreview(0,1));assert.equal(navigations.length,0);assert.equal(events.length,0);assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
  });
 });
 
@@ -153,10 +170,89 @@ test('visible cart messages use fresh line prices instead of stale checkout pric
 });
 
 test('cart preview rejects malformed request lines and personal fields instead of building a link',async()=>{
- await withRequestButton(async({container,show,click,complete})=>{
+ await withRequestButton(async({container,show,click,complete,navigations,events})=>{
   const valid=cartPreview(1,1);const line=valid.requestLines[0]!;
   const invalid=[undefined,[],[{...line,quantity:'1'}],[{...line,slug:'https://other.example'}],[{...line,unitPriceCents:500}],[{...line,available:false}],[{...line,email:'private@example.com'}]];
   await show({cart:requestCart(1,1)});
-  for(const [index,requestLines] of invalid.entries()){await click('button');await complete(index,{cart:valid.cart,requestLines});assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);}
+  for(const [index,requestLines] of invalid.entries()){await click('button');await complete(index,{cart:valid.cart,requestLines});assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);assert.equal(navigations.length,0);assert.equal(events.length,0);}
+ });
+});
+
+
+test('server failure or disabled policy never navigates and permits a fresh retry',async()=>{
+ await withRequestButton(async({container,show,click,complete,requests,navigations,events})=>{
+  await show({...productRequest(0,1),disabled:true});await click('button');assert.equal(requests.length,0);
+  await show(productRequest(0,1));await click('button');await complete(0,{},503);assert.equal(navigations.length,0);assert.equal(events.length,0);
+  assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,false);
+  await click('button');await complete(1,{...productPreview(0,1),policy:{...policy,enabled:false}});assert.equal(navigations.length,0);assert.equal(events.length,0);
+  await click('button');await show({...productRequest(0,1),disabled:true});await complete(2,productPreview(0,1));assert.equal(navigations.length,0);assert.equal(events.length,0);
+ });
+});
+
+const longCartPreview=()=>{const preview=cartPreview(1,1);return {...preview,requestLines:Array.from({length:15},(_,index)=>({...preview.requestLines[0]!,title:`Uzun ürün ${index} ${'çiçek '.repeat(20)}`.trim()}))};};
+
+test('long requests copy the full message before a single same-tab plain-chat handoff',async()=>{
+ await withRequestButton(async({container,show,click,complete,copyWith,navigations,events,copies,requests})=>{
+  let finishCopy!:()=>void;copyWith(()=>new Promise<void>(resolve=>{finishCopy=resolve;}));
+  await show({cart:requestCart(1,1)});await click('button');await complete(0,longCartPreview());
+  assert.equal(navigations.length,0);assert.equal(events.length,0);assert.equal(copies.length,1);assert.match(copies[0]??'',/Uzun ürün 14/);assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,true);await click('button');assert.equal(requests.length,1);
+  await React.act(async()=>finishCopy());assert.deepEqual(navigations,['https://wa.me/905551112233']);assert.deepEqual(events,[{name:'whatsapp_click',data:{source:'whatsapp_order_request'}}]);assert.equal(container.querySelector('a'),null);
+ });
+});
+
+test('clipboard failure retains the full message and primary retry never opens an empty chat',async()=>{
+ await withRequestButton(async({container,show,click,complete,copyWith,navigations,events,copies})=>{
+  copyWith(async()=>{throw new Error('clipboard denied');});await show({cart:requestCart(1,1)});await click('button');await complete(0,longCartPreview());
+  const message=container.querySelector<HTMLTextAreaElement>('textarea')?.value;assert.ok(message);assert.equal(message,copies[0]);assert.match(message,/Uzun ürün 14/);
+  assert.equal(navigations.length,0);assert.equal(events.length,0);assert.equal(container.querySelector('a'),null);assert.equal(container.querySelectorAll('button').length,1);
+  assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,false);
+  copyWith(async()=>{});await click('button');assert.equal(container.querySelector<HTMLTextAreaElement>('textarea')?.value,message);await complete(1,longCartPreview());assert.equal(navigations.length,1);assert.equal(copies.length,2);assert.equal(events.length,1);
+ });
+});
+
+test('selection changes during clipboard copying cannot navigate or restore old recovery text',async()=>{
+ await withRequestButton(async({container,show,click,complete,copyWith,navigations,events})=>{
+  let finishCopy!:()=>void;copyWith(()=>new Promise<void>(resolve=>{finishCopy=resolve;}));await show({cart:requestCart(1,1)});await click('button');await complete(0,longCartPreview());
+  await show({cart:requestCart(2,0)});await React.act(async()=>finishCopy());assert.equal(navigations.length,0);assert.equal(events.length,0);assert.equal(container.querySelector('textarea'),null);
+ });
+});
+
+async function copyRecoveryMessage(container:HTMLElement, fail=false) {
+ const textarea=container.querySelector<HTMLTextAreaElement>('textarea');assert.ok(textarea);
+ const clipboard=new window.DataTransfer();
+ if(fail)clipboard.setData=()=>{throw new Error('copy unavailable');};
+ await React.act(async()=>textarea.dispatchEvent(new window.ClipboardEvent('copy',{bubbles:true,cancelable:true,clipboardData:clipboard})));
+ return clipboard.getData('text/plain');
+}
+
+test('manual full-message copy allows the same primary button to open chat after matching fresh validation',async()=>{
+ await withRequestButton(async({container,show,click,complete,copyWith,navigations,events,copies})=>{
+  copyWith(async()=>{throw new Error('clipboard denied');});await show({cart:requestCart(1,1)});await click('button');await complete(0,longCartPreview());
+  const message=container.querySelector<HTMLTextAreaElement>('textarea')!.value;assert.equal(await copyRecoveryMessage(container),message);
+  assert.equal(navigations.length,0);await click('button');assert.equal(navigations.length,0);await complete(1,longCartPreview());
+  assert.deepEqual(navigations,['https://wa.me/905551112233']);assert.equal(events.length,1);assert.equal(copies.length,1);assert.equal(container.querySelectorAll('button').length,1);
+ });
+});
+
+test('fresh message changes require a new full-message copy before plain-chat navigation',async()=>{
+ await withRequestButton(async({container,show,click,complete,copyWith,navigations,events})=>{
+  copyWith(async()=>{throw new Error('clipboard denied');});await show({cart:requestCart(1,1)});await click('button');await complete(0,longCartPreview());await copyRecoveryMessage(container);
+  const changed=longCartPreview();changed.requestLines[0]!.title='Güncellenmiş ürün';
+  await click('button');await complete(1,changed);assert.equal(navigations.length,0);assert.equal(events.length,0);assert.match(container.querySelector<HTMLTextAreaElement>('textarea')!.value,/Güncellenmiş ürün/);
+  await copyRecoveryMessage(container);await click('button');await complete(2,changed);assert.equal(navigations.length,1);assert.equal(events.length,1);
+ });
+});
+
+test('failed manual clipboard writes never authorize an empty plain-chat handoff',async()=>{
+ await withRequestButton(async({container,show,click,complete,copyWith,navigations,events})=>{
+  copyWith(async()=>{throw new Error('clipboard denied');});await show({cart:requestCart(1,1)});await click('button');await complete(0,longCartPreview());await copyRecoveryMessage(container,true);
+  await click('button');await complete(1,longCartPreview());assert.equal(navigations.length,0);assert.equal(events.length,0);assert.ok(container.querySelector('textarea'));
+ });
+});
+
+test('changing away and back cannot revive a manual copy from an earlier generation',async()=>{
+ await withRequestButton(async({container,show,click,complete,copyWith,navigations,events})=>{
+  copyWith(async()=>{throw new Error('clipboard denied');});await show({cart:requestCart(1,1)});await click('button');await complete(0,longCartPreview());await copyRecoveryMessage(container);
+  await show({cart:requestCart(2,2)});await show({cart:requestCart(1,1)});await click('button');await complete(1,longCartPreview());assert.equal(navigations.length,0);assert.equal(events.length,0);assert.ok(container.querySelector('textarea'));
  });
 });

@@ -36,11 +36,13 @@ export function WhatsAppOrderButton(props:Props) {
   const fingerprint=requestFingerprint(props,policy);
   const generation=useRef(0),currentFingerprint=useRef(fingerprint);
   const activeRequest=useRef<Readonly<{fingerprint:string;generation:number;controller:AbortController}>|null>(null);
+  const copiedRecovery=useRef<Readonly<{fingerprint:string;generation:number;message:string}>|null>(null);
   const [state,setState]=useState<RequestState|null>(null);
   useLayoutEffect(()=>{
+    copiedRecovery.current=null;
     currentFingerprint.current=fingerprint;
     generation.current+=1;
-    return ()=>{generation.current+=1;activeRequest.current?.controller.abort();};
+    return ()=>{copiedRecovery.current=null;generation.current+=1;activeRequest.current?.controller.abort();};
   },[fingerprint]);
 
   if (!policy.enabled) return null;
@@ -53,10 +55,13 @@ export function WhatsAppOrderButton(props:Props) {
 
   const prepare=async()=>{
     if(!enabled||pending||(activeRequest.current?.fingerprint===fingerprint && activeRequest.current.generation===generation.current))return;
+    const manuallyCopied=copiedRecovery.current?.fingerprint===fingerprint && copiedRecovery.current.generation===generation.current ? copiedRecovery.current.message : null;
+    copiedRecovery.current=null;
     const binding={fingerprint,generation:++generation.current,controller:new AbortController()};
+    let recovery=current?.destination??null;
     activeRequest.current=binding;
     const isCurrent=()=>generation.current===binding.generation && currentFingerprint.current===binding.fingerprint;
-    setState({fingerprint,generation:binding.generation,pending:true,status:'',destination:null});
+    setState({fingerprint,generation:binding.generation,pending:true,status:'',destination:recovery});
     try {
       const input=props.product?{kind:'product',productId:props.product.id,variantId:props.variant!.id,quantity:props.quantity}:{kind:'cart'};
       const response=await fetch('/api/whatsapp-order/preview',{method:'POST',credentials:'same-origin',cache:'no-store',signal:binding.controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify(input)});
@@ -71,27 +76,42 @@ export function WhatsAppOrderButton(props:Props) {
       const lines=props.product&&product&&variant?[{title:product.title,variantTitle:variant.title,slug:product.slug,quantity:preview.quantity!,unitPriceCents:variant.priceCents,available:variant.available}]:parseRequestLines(preview.requestLines,preview.policy.hidePrices);
       const message=buildWhatsAppOrderMessage({storeName:preview.storeName,origin:window.location.origin,intro:preview.policy.messageIntro,hidePrices:preview.policy.hidePrices,lines});
       const destination=whatsappOrderDestination(preview.policy.phone,message);
-      // Keep normal links after the current server check; no popup or order mutation.
-      if(isCurrent())setState({fingerprint,generation:binding.generation,pending:false,destination,status:destination.requiresCopy?'Mesaj uzun. Tamamını kopyalayıp WhatsApp sohbetine yapıştırın.':'Talebiniz hazır. WhatsApp üzerinden gönderebilirsiniz.'});
+      if(destination.requiresCopy){
+        recovery=destination;
+        if(manuallyCopied!==null && manuallyCopied!==destination.message){
+          if(isCurrent())setState({fingerprint,generation:binding.generation,pending:false,destination,status:'Sipariş bilgisi güncellendi. Tam mesajı yeniden kopyalayıp tekrar deneyin.'});
+          return;
+        }
+        if(manuallyCopied===null){
+          try { await navigator.clipboard.writeText(destination.message); }
+          catch {
+            if(isCurrent())setState({fingerprint,generation:binding.generation,pending:false,destination,status:'Mesaj kopyalanamadı. Tam mesajı aşağıdaki alandan seçip kopyalayabilir veya tekrar deneyebilirsiniz.'});
+            return;
+          }
+        }
+      }
+      if(!isCurrent())return;
+      setState({fingerprint,generation:binding.generation,pending:false,destination:null,status:'WhatsApp açılıyor…'});
+      emitStorefrontCommerceEvent({name:'whatsapp_click',data:{source:'whatsapp_order_request',...(props.product?{productId:props.product.id}:{})}});
+      window.location.assign(destination.url);
     }catch{
-      if(isCurrent())setState({fingerprint,generation:binding.generation,pending:false,destination:null,status:'Ürün veya mağaza bilgisi güncellenmiş olabilir. Sayfayı yenileyip tekrar deneyin.'});
+      if(isCurrent())setState({fingerprint,generation:binding.generation,pending:false,destination:recovery,status:'Ürün veya mağaza bilgisi güncellenmiş olabilir. Sayfayı yenileyip tekrar deneyin.'});
     }finally{
       if(activeRequest.current?.generation===binding.generation)activeRequest.current=null;
     }
   };
-  const copy=()=>{
-    if(!fallback||!current)return;
-    const binding=current;
-    const update=(message:string)=>{
-      if(generation.current!==binding.generation||currentFingerprint.current!==binding.fingerprint)return;
-      setState(previous=>previous?.generation===binding.generation?{...previous,status:message}:previous);
-    };
-    void navigator.clipboard.writeText(fallback.message).then(()=>update('Mesaj kopyalandı. WhatsApp sohbetine yapıştırabilirsiniz.')).catch(()=>update('Mesajı alandan seçip kopyalayabilirsiniz.'));
-  };
   return <div className="whatsapp-order-action">
     <button className={props.className??'store-button store-button-secondary'} type="button" disabled={!enabled||pending} onClick={()=>void prepare()}>{pending?'Hazırlanıyor…':'WhatsApp ile sipariş ver'}</button>
     {props.product&&!props.variant?<small>Önce bir seçenek seçin.</small>:null}
-    {fallback?<div>{fallback.requiresCopy?<><textarea readOnly value={fallback.message} aria-label="Sipariş talebi mesajının tamamı" onFocus={event=>event.currentTarget.select()}/><button type="button" onClick={copy}>Tam mesajı kopyala</button></>:null}<a className="store-button" href={fallback.url} target="_blank" rel="noopener noreferrer" onClick={() => emitStorefrontCommerceEvent({name:'whatsapp_click',data:{source:'whatsapp_order_request',...(props.product?{productId:props.product.id}:{})}})}>WhatsApp sohbetini aç</a></div>:null}
+    {fallback?.requiresCopy?<textarea readOnly value={fallback.message} aria-label="Sipariş talebi mesajının tamamı" onFocus={event=>event.currentTarget.select()} onCopy={event=>{
+      if(!current||generation.current!==current.generation||currentFingerprint.current!==current.fingerprint)return;
+      try {
+        event.clipboardData.setData('text/plain',fallback.message);
+        event.preventDefault();
+        copiedRecovery.current={fingerprint:current.fingerprint,generation:current.generation,message:fallback.message};
+        setState({...current,status:'Tam mesaj kopyalandı. WhatsApp’ı açmak için sipariş düğmesine tekrar basın.'});
+      }catch{copiedRecovery.current=null;}
+    }}/>:null}
     <p role="status" aria-live="polite">{status}</p>
   </div>;
 }
