@@ -35,19 +35,37 @@ export function redactStorefrontPrices<T>(value: T, policy: StorefrontCommercePo
 /** A request-local view. The actual repository and its authoritative prices are untouched. */
 export function projectPublicRepository<T extends object>(repository: T, policy: StorefrontCommercePolicy): T {
   if (!policy.hidePrices) return repository;
-  return new Proxy(repository, {
-    get(target, property, receiver) {
-      const method: unknown = Reflect.get(target, property, receiver);
-      if (typeof method !== 'function') return method;
-      return async (...args: unknown[]) => {
-        if ((property === 'queryPublicCatalog' || property === 'queryPublicCollection') && args[0] && typeof args[0] === 'object') {
-          const input = args[0] as Record<string, unknown>;
-          args[0] = { ...input, order: input.order === 'price-asc' || input.order === 'price-desc' ? 'featured' : input.order,
-            filter: input.filter === 'discounted' ? 'all' : input.filter === 'available_discounted' ? 'available' : input.filter };
-        }
-        return redactStorefrontPrices(await Reflect.apply(method, target, args), policy);
-      };
+  const read = (property: string | symbol): unknown => {
+    const method: unknown = Reflect.get(repository, property, repository);
+    if (typeof method !== 'function') return method;
+    return async (...args: unknown[]) => {
+      if ((property === 'queryPublicCatalog' || property === 'queryPublicCollection') && args[0] && typeof args[0] === 'object') {
+        const input = args[0] as Record<string, unknown>;
+        args[0] = { ...input, order: input.order === 'price-asc' || input.order === 'price-desc' ? 'featured' : input.order,
+          filter: input.filter === 'discounted' ? 'all' : input.filter === 'available_discounted' ? 'available' : input.filter };
+      }
+      return redactStorefrontPrices(await Reflect.apply(method, repository, args), policy);
+    };
+  };
+  // Frozen own methods cannot be replaced by a proxy get trap on the original target.
+  // Keep this separate target extensible and expose only the request-local read view.
+  return new Proxy(Object.create(null) as T, {
+    get: (_target, property) => read(property),
+    has: (_target, property) => Reflect.has(repository, property),
+    ownKeys: () => Reflect.ownKeys(repository),
+    getPrototypeOf: () => Reflect.getPrototypeOf(repository),
+    getOwnPropertyDescriptor(_target, property) {
+      const descriptor = Reflect.getOwnPropertyDescriptor(repository, property);
+      if (!descriptor) return undefined;
+      return 'value' in descriptor
+        ? { value: read(property), writable: false, enumerable: descriptor.enumerable, configurable: true }
+        : { get: descriptor.get ? () => read(property) : undefined, enumerable: descriptor.enumerable, configurable: true };
     },
+    set: () => false,
+    defineProperty: () => false,
+    deleteProperty: () => false,
+    setPrototypeOf: () => false,
+    preventExtensions: () => false,
   });
 }
 

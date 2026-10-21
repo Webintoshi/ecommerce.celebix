@@ -32,6 +32,54 @@ test('read-only repository decoration preserves method receiver and priced inter
   assert.deepEqual(await source.get(), { priceCents: 991 });
 });
 
+test('hidden repository supports frozen own methods without changing the authoritative facade', async () => {
+  const result = Object.freeze({ priceCents: 991 });
+  const source = Object.freeze({
+    async resolveCampaignHome() { assert.equal(this, source); return result; },
+  });
+  const view = projectPublicRepository(source, hidden);
+  assert.deepEqual(await view.resolveCampaignHome(), { priceCents: null, pricesHidden: true });
+  assert.equal(await source.resolveCampaignHome(), result);
+  assert.equal(Object.isFrozen(source), true);
+  assert.equal(projectPublicRepository(source, ordinary), source);
+});
+
+test('repository facade keeps optional capabilities and safe own-property reflection', async () => {
+  const capability = Symbol('capability');
+  const source = Object.freeze({
+    async resolveCampaignHome() { return { priceCents: 991 }; },
+    [capability]: 'public',
+  });
+  const view = projectPublicRepository(source, hidden);
+  assert.equal('resolveCampaignHome' in view, true);
+  assert.equal('queryPublicCollection' in view, false);
+  assert.equal((view as { queryPublicCollection?: unknown }).queryPublicCollection, undefined);
+  assert.deepEqual(Reflect.ownKeys(view), Reflect.ownKeys(source));
+  assert.deepEqual(Object.keys(view), Object.keys(source));
+  assert.equal(Object.getPrototypeOf(view), Object.getPrototypeOf(source));
+  assert.equal(view[capability], 'public');
+  const descriptor = Object.getOwnPropertyDescriptor(view, 'resolveCampaignHome');
+  assert.equal(descriptor?.configurable, true);
+  assert.deepEqual(await descriptor?.value(), { priceCents: null, pricesHidden: true });
+});
+
+test('repository facade preserves private-field receivers and normalizes queries without changing input', async () => {
+  class Repository {
+    #price = 991;
+    get amount() { return this.#price; }
+    async queryPublicCatalog(input: { order: string; filter: string }) {
+      return { priceCents: this.#price, ...input };
+    }
+  }
+  const source = Object.freeze(new Repository());
+  const view = projectPublicRepository(source, hidden);
+  const input = Object.freeze({ order: 'price-asc', filter: 'available_discounted' });
+  assert.equal(view.amount, 991);
+  assert.equal(Object.getPrototypeOf(view), Repository.prototype);
+  assert.deepEqual(await view.queryPublicCatalog(input), { priceCents: null, pricesHidden: true, order: 'featured', filter: 'available' });
+  assert.deepEqual(await source.queryPublicCatalog(input), { priceCents: 991, ...input });
+});
+
 test('catalog mode rejects add, buy now and increases but keeps decrease/removal', async () => {
   let writes = 0;
   const source = {
