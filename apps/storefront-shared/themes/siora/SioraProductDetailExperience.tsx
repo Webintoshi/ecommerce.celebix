@@ -34,7 +34,7 @@ export function SioraProductDetailExperience({ product, initialVariantId,storefr
   const sizeGuide = guide && renderStarterProductDescription(guide.body, guide.heading) ? <RichText body={guide.body} label={guide.heading} /> : undefined;
   const related = availableProductsFirst(relatedProducts);
   return <div className={styles.experience} data-siora-product-experience>
-    <ProductVariantMediaProvider key={`${product.id}:${initialVariantId??''}`} product={product} initialVariantId={initialVariantId??sioraInitialVariant(product)?.id}>
+    <ProductVariantMediaProvider key={`${product.id}:${initialVariantId??''}`} product={product} initialVariantId={initialVariantId} fallbackVariantId={sioraInitialVariant(product)?.id}>
       <section className={styles.stage} aria-label="Ürün detayları">
         <SioraProductGallery product={product} />
         <SioraProductPurchase product={product} initialVariantId={initialVariantId} storefrontId={storefrontId} locale={locale} options={options} showQuantitySelector={showQuantitySelector} sizeGuide={sizeGuide} sizeGuideHeading={guide?.heading} />
