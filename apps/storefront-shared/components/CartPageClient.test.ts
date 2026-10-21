@@ -135,7 +135,7 @@ test("cart renders promotion facts only when the quote matches the visible cart 
 
 test("cart serializes merchandise coupon and checkout interactions behind the first V2 quote", () => {
   assert.match(cart, /useState\(true\)/u);
-  assert.match(cart, /const interactionPending\s*=\s*pending\s*\|\|\s*promotionPending/u);
+  assert.match(cart, /const interactionPending\s*=\s*pending\s*\|\|\s*\(checkoutAllowed\s*&&\s*!pricesHidden\s*&&\s*promotionPending\)/u);
   assert.match(cart, /<CartLineControls[\s\S]*?disabled=\{interactionPending\}/u);
   assert.match(cart, /<PromotionCouponField[\s\S]*?pending=\{interactionPending\}/u);
   assert.match(cart, /!interactionPending\s*&&[\s\S]*?href="\/checkout"/u);

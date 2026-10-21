@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import ts from "typescript";
 import * as jsxRuntime from "react/jsx-runtime";
+import {createDefaultWhatsAppOrderConfig,resolveStorefrontCommercePolicy} from '@celebix/saas-contracts';
 import * as seo from "./public-seo.ts";
 import * as seoRead from "./public-seo-read.ts";
 import * as routes from "./storefront-routes.ts";
@@ -35,7 +36,7 @@ class RepositoryError extends Error { constructor(readonly code: string) { super
 async function pageModule(filename: string, kind: string, withSeo = true, storefrontId = "unrelated-store", locale = "tr") {
   const calls: Array<{ kind: string; id: string; hostname: string }> = [];
   const seoReader = { settings: async () => settings, key: async () => ({ key: null }), get: async (input: { kind: string; id: string; hostname: string }) => { calls.push(input); return { resource: { ...resource, effectiveCanonicalPath: kind === "category" ? "/kategori/canonical" : kind === "product" ? "/urun/canonical" : `/${kind === "blog" ? "blog" : "pages"}/canonical?lang=en-US` }, settings, links }; } };
-  const context = { storefront: { ...storefront, id: storefrontId, locale }, design: { brand: { favicon: null } }, campaign: null, tracker: null, runtime: { ...(withSeo ? { seo: seoReader } : {}), repository: { listPublicProductsByCategory: async () => ({ category: { id: "real-id", slug: "rings", name: "Visible category" }, items: [] }), getPublicProductBySlug: async () => ({ id: "real-id", slug: "ring", title: "Visible ring", priceCents: 12500, currency: "TRY", available: true, media: [], variants: [{ id: "variant", priceCents: 12500, available: true }] }) }, content: { getLocales: async () => ({ defaultLocale: "tr", enabledLocales: ["tr", "en-US"] }), getPageV2: async () => ({ ...content, kind: "page" }), getBlogPost: async () => ({ ...content, kind: "blog_post" }) } } };
+  const context = { commercePolicy:resolveStorefrontCommercePolicy(createDefaultWhatsAppOrderConfig()), storefront: { ...storefront, id: storefrontId, locale }, design: { brand: { favicon: null } }, campaign: null, tracker: null, runtime: { ...(withSeo ? { seo: seoReader } : {}), repository: { listPublicProductsByCategory: async () => ({ category: { id: "real-id", slug: "rings", name: "Visible category" }, items: [] }), getPublicProductBySlug: async () => ({ id: "real-id", slug: "ring", title: "Visible ring", priceCents: 12500, currency: "TRY", available: true, media: [], variants: [{ id: "variant", priceCents: 12500, available: true }] }) }, content: { getLocales: async () => ({ defaultLocale: "tr", enabledLocales: ["tr", "en-US"] }), getPageV2: async () => ({ ...content, kind: "page" }), getBlogPost: async () => ({ ...content, kind: "blog_post" }) } } };
   const source = await readFile(new URL(filename, import.meta.url), "utf8");
   const dependencies: Record<string, unknown> = {
     "react/jsx-runtime": jsxRuntime, "next/link": "a", "next/navigation": { notFound: () => { throw new Error("not_found"); }, permanentRedirect: () => { throw new Error("redirect"); } },
