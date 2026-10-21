@@ -51,8 +51,8 @@ export function buildPublicSeoMetadata(input: SeoInput): Metadata {
 export function serializeStructuredData(value: unknown): string {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
-type SchemaProduct = Readonly<{ title: string; currency: string; priceCents: number; available: boolean; media: readonly Readonly<{ url: string }>[]; variants: readonly Readonly<{id?:string; priceCents: number; available: boolean; sku?: string;merchantIdentifiers?:GoogleMerchantPublicIdentifiers }>[]; brand?: Readonly<{ name: string }> }>;
-export function buildProductStructuredData(product: SchemaProduct, canonical: string, description: string,selectedVariantId?:string,selectedImageUrls?:readonly string[]) {
+type SchemaProduct = Readonly<{ title: string; currency: string; priceCents: number | null; available: boolean; media: readonly Readonly<{ url: string }>[]; variants: readonly Readonly<{id?:string; priceCents: number | null; available: boolean; sku?: string;merchantIdentifiers?:GoogleMerchantPublicIdentifiers }>[]; brand?: Readonly<{ name: string }> }>;
+export function buildProductStructuredData(product: SchemaProduct, canonical: string, description: string,selectedVariantId?:string,selectedImageUrls?:readonly string[], offersAllowed = true) {
   const selected=selectedVariantId?product.variants.find(v=>v.id===selectedVariantId):undefined;
   const identifiers=selected?.merchantIdentifiers;
   const brand=identifiers?.brand??product.brand?.name;
@@ -64,7 +64,7 @@ export function buildProductStructuredData(product: SchemaProduct, canonical: st
     ...(brand ? { brand: { "@type": "Brand", name: plain(brand) } } : {}),
     ...(identifiers?.gtin?{[`gtin${identifiers.gtin.length}`]:identifiers.gtin}:{}),
     ...(identifiers?.mpn?{mpn:identifiers.mpn}:{}),
-    offers: variants.map((variant) => ({ "@type": "Offer", url: variantUrl(variant.id), priceCurrency: product.currency, price: (variant.priceCents / 100).toFixed(2), availability: `https://schema.org/${variant.available ? "InStock" : "OutOfStock"}`, ...(variant.sku ? { sku: variant.sku } : {}) })),
+    ...(offersAllowed && product.priceCents !== null && variants.every(variant => variant.priceCents !== null) ? { offers: variants.map((variant) => ({ "@type": "Offer", url: variantUrl(variant.id), priceCurrency: product.currency, price: (variant.priceCents! / 100).toFixed(2), availability: `https://schema.org/${variant.available ? "InStock" : "OutOfStock"}`, ...(variant.sku ? { sku: variant.sku } : {}) })) } : {}),
   };
 }
 export function buildBreadcrumbStructuredData(canonicalUrl: string, entries: readonly Readonly<{ name: string; path: string }>[]) {

@@ -57,7 +57,7 @@ const PRODUCT_POLICY_KEYS = Object.freeze([
 ] as const satisfies readonly StorefrontPolicyKey[]);
 
 async function product(slug: string) {
-  const { runtime, storefront, campaign, design, tracker } = requireStorefrontPage(
+  const { runtime, storefront, campaign, design, tracker, commercePolicy } = requireStorefrontPage(
     await resolveStorefrontPage(),
   );
   try {
@@ -70,6 +70,7 @@ async function product(slug: string) {
       campaign,
       design,
       tracker,
+      commercePolicy,
       product: item,
     };
   } catch (error) {
@@ -163,11 +164,11 @@ export async function renderProductPage({
   return (
     <StorefrontFrame storefront={storefront} design={selected.design} immersiveProduct={siora}>
       <span hidden data-contact-product-title={item.title} data-contact-product-path={productPath(storefront.locale, item.slug)} data-contact-product-canonical={seo.canonical} />
-      <SeoStructuredData value={buildProductStructuredData(item, seo.canonical, seo.description,initialVariantId,landing.imageUrls)} />
+      <SeoStructuredData value={buildProductStructuredData(item, seo.canonical, seo.description,initialVariantId,landing.imageUrls,selected.commercePolicy.checkoutAllowed)} />
       <SeoStructuredData value={buildBreadcrumbStructuredData(storefront.canonicalUrl, breadcrumbs)} />
       <StorefrontAnalyticsEvent
         tracker={selected.tracker}
-        event={productViewEvent(item.id, initialVariantId??(siora ? sioraInitialVariant(item)?.id : item.variants.find(({ available }) => available)?.id), item.primaryCategoryId, item.currency, item.priceCents)}
+        event={productViewEvent(item.id, initialVariantId??(siora ? sioraInitialVariant(item)?.id : item.variants.find(({ available }) => available)?.id), item.primaryCategoryId, item.currency, item.priceCents ?? undefined)}
         trigger="mount"
       />
       <RestockAlertsProvider config={restockConfig}>{siora ? <SioraProductDetailExperience product={item} initialVariantId={initialVariantId} storefrontId={storefront.id}

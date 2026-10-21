@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { redirect } from 'next/navigation';
 
 import { CheckoutForm } from "@/components/CheckoutForm";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -21,7 +22,8 @@ function intent(value: string | string[] | undefined): CheckoutIntentKind {
 export default async function CheckoutPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<{ intent?: string | string[] }> }>) {
-  const { storefront, design, runtime } = requireStorefrontPage(await resolveStorefrontPage());
+  const { storefront, design, runtime, commercePolicy } = requireStorefrontPage(await resolveStorefrontPage());
+  if (!commercePolicy.checkoutAllowed) redirect('/cart');
   const cookieHeader = (await cookies()).toString() || null;
   const account = runtime.identity ? await runtime.identity.session(storefront.hostname, cookieHeader).catch(() => null) : null;
   const candidateCodes = readCouponCandidateCookie(cookieHeader);

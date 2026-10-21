@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createDefaultStarterThemeComposition, type PublicProduct, type StarterThemeCompositionConfigV3 } from "@celebix/saas-contracts";
+import { createDefaultStarterThemeComposition, type PricedPublicProduct as PublicProduct, type StarterThemeCompositionConfigV3 } from "@celebix/saas-contracts";
 
 import { composeDraftCampaignProjection, loadingStorefrontDesignPreviewResources, storefrontDesignPreviewDependencyKey, type StorefrontDesignPreviewResources } from "./storefront-design-preview-model.ts";
 

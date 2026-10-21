@@ -1,12 +1,11 @@
+import { parsePricedPublicCart as parsePublicCart, parsePricedPublicCartV2 as parsePublicCartV2 } from '../storefront/priced.ts';
 import { types as nodeTypes } from "node:util";
 
 import {
   PROMOTION_CART_LINE_LIMIT_MESSAGE,
   normalizePromotionCode,
-  parsePublicCart,
-  parsePublicCartV2,
   parsePublicCheckoutQuoteV2,
-  type PublicCartLine,
+  type PricedPublicCartLine as PublicCartLine,
 } from "@celebix/saas-contracts";
 
 import {

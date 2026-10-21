@@ -6,7 +6,7 @@ import {
   PROMOTION_CART_LINE_LIMIT_MESSAGE,
   parsePublicCheckoutQuoteV2,
   parsePublicCheckoutReceiptV2,
-  type PublicCart,
+  type PricedPublicCart as PublicCart,
   type PublicCheckoutReceipt,
 } from "@celebix/saas-contracts";
 import { StorefrontCommerceRepositoryError, type StorefrontCommerceRepository } from "@celebix/saas-data";

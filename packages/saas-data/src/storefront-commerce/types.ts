@@ -1,5 +1,5 @@
 import type {
-  PublicCart,
+  PricedPublicCart as PublicCart,
   PublicCheckoutQuote,
   PublicCheckoutQuoteV2,
   PublicCheckoutReceipt,

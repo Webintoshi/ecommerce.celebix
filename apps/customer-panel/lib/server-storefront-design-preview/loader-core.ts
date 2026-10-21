@@ -63,13 +63,14 @@ function productSlug(workspace: StorefrontDesignWorkspace | StorefrontDesignEdit
 }
 
 function previewProduct(product: PublicProduct): StorefrontDesignPreviewProduct {
+  if (product.priceCents === null) throw failure();
   return Object.freeze({
     id: product.id,
     slug: product.slug,
     title: product.title,
     currency: product.currency,
     priceCents: product.priceCents,
-    ...(product.compareAtCents !== undefined ? { compareAtCents: product.compareAtCents } : {}),
+    ...(typeof product.compareAtCents === 'number' ? { compareAtCents: product.compareAtCents } : {}),
     available: product.available,
     ...(product.brand ? { brand: Object.freeze({ name: product.brand.name }) } : {}),
     media: Object.freeze(product.media.slice(0, 2).map((media) => Object.freeze({
@@ -213,7 +214,7 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
         const query = dependencies.publicStorefront.queryPublicCatalog;
         if (!query) {
           const listed = categorySlug ? await dependencies.publicStorefront.listPublicProductsByCategory({ storefront, now, slug: categorySlug, limit: 48 }) : await dependencies.publicStorefront.listPublicProducts({ storefront, now, limit: 48 });
-          return listed.items.filter((product) => product.available && (filter !== "available_discounted" || (product.compareAtCents ?? 0) > product.priceCents)).slice(0, limit);
+          return listed.items.filter((product) => product.available && product.priceCents !== null && (filter !== "available_discounted" || (product.compareAtCents ?? 0) > product.priceCents)).slice(0, limit);
         }
         const items: PublicProduct[] = []; let offset = 0;
         for (;;) {
@@ -305,6 +306,7 @@ export function createServerStorefrontDesignPreviewLoader(dependencies: Readonly
         try {
           const product = await dependencies.publicStorefront.getPublicProductBySlug({ storefront, now, slug });
           if (product.id !== productId || product.slug !== slug) { hotspots.push(Object.freeze({ productId, status: "missing" })); continue; }
+          if (product.priceCents === null) throw failure();
           hotspots.push(Object.freeze({ productId, status: "ready", value: Object.freeze({ productSlug: product.slug, title: product.title, priceCents: product.priceCents, currency: product.currency }) }));
         } catch { hotspots.push(Object.freeze({ productId, status: "unavailable" })); }
       }

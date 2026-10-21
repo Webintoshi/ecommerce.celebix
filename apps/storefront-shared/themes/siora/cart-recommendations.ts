@@ -7,7 +7,8 @@ export type SioraCartRecommendation = Readonly<{
   id: string;
   slug: string;
   title: string;
-  priceCents: number;
+  priceCents: number | null;
+  pricesHidden?: true;
   media: Readonly<{ url: string; altText: string; width?: number; height?: number }>;
 }>;
 
@@ -44,7 +45,7 @@ export function createSioraCartRecommendationsGet(resolve: () => Promise<SioraCa
         const image = product.media.find((media) => media.url && media.mediaType.startsWith("image/"));
         if (!image) continue;
         suggestions.push({
-          id: product.id, slug: product.slug, title: product.title, priceCents: product.priceCents,
+          id: product.id, slug: product.slug, title: product.title, priceCents: product.priceCents, ...(product.priceCents === null ? { pricesHidden: true as const } : {}),
           media: { url: image.url, altText: image.altText, ...(image.width === undefined ? {} : { width: image.width }), ...(image.height === undefined ? {} : { height: image.height }) },
         });
         if (suggestions.length === 12) break;

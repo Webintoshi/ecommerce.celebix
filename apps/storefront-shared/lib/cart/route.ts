@@ -18,6 +18,7 @@ import {
   clearCouponCandidateCookie,
   serializeCouponCandidateCookie,
 } from "../promotions/cookie.ts";
+import { StorefrontCommercePolicyError } from '../commerce-policy.ts';
 
 type Dependencies = Readonly<{
   selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
@@ -80,6 +81,7 @@ function authority(
 }
 function safeErrorCode(error: unknown): string | undefined {
   if (
+    error instanceof StorefrontCommercePolicyError ||
     error instanceof StorefrontCommerceRepositoryError ||
     error instanceof StorefrontHostedCheckoutRepositoryError ||
     error instanceof StorefrontCommerceRuntimeError ||
@@ -103,6 +105,7 @@ function failure(error: unknown): Response {
       "shipping_unavailable",
       "payment_unavailable",
       "operation_mismatch",
+      "whatsapp_only",
     ].includes(code)
   )
     return json({ code }, 409);

@@ -1,12 +1,12 @@
+import { parsePricedPublicCart as parsePublicCart, parsePricedPublicCartV2 as parsePublicCartV2 } from '../storefront/priced.ts';
 import { createHash } from "node:crypto";
 
 import {
-  parsePublicCart,
   parsePublicCheckoutQuote,
   parsePublicCheckoutQuoteV2,
   parsePublicCheckoutReceipt,
   parsePublicCheckoutReceiptV2,
-  type PublicCart,
+  type PricedPublicCart as PublicCart,
   type PublicCheckoutReceipt,
   type PublicCheckoutReceiptV2,
 } from "@celebix/saas-contracts";

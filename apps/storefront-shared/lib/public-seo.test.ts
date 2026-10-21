@@ -35,6 +35,13 @@ test("social settings are used when no resource image exists and hostile canonic
 });
 
 const product = { id: "product-id", title: "Ring", currency: "TRY", priceCents: 12500, available: true, media: [{ url: "https://media.example.test/ring.webp" }], variants: [{ id: "one", sku: "RING-1", priceCents: 12500, available: true }, { id: "two", priceCents: 15000, available: false }], brand: { name: "Real brand" }, categoryPath: [{ name: "Takılar", slug: "takilar" }] };
+test('catalog-only and hidden product structured data omit all price offers', () => {
+  const catalog = buildProductStructuredData(product, 'https://shop.example.test/urun/ring', 'Saved copy', undefined, undefined, false);
+  assert.equal(Object.hasOwn(catalog, 'offers'), false);
+  const hidden = buildProductStructuredData({ ...product, priceCents: null, variants: product.variants.map(item => ({ ...item, priceCents: null })) }, 'https://shop.example.test/urun/ring', 'Saved copy');
+  assert.equal(Object.hasOwn(hidden, 'offers'), false);
+  assert.equal(hidden.name, 'Ring');
+});
 test("Product offers expose each persisted variant price and stock without invented reviews", () => {
   const schema = buildProductStructuredData(product, "https://shop.example.test/urun/ring", "Saved copy");
   assert.equal(schema.name, "Ring");
@@ -81,7 +88,7 @@ test("resource sharing keeps its own SEO and product image when store social def
 test("Merchant landing structured data describes only the selected offer and gallery", () => {
  const schema=buildProductStructuredData(product,"https://shop.example.test/urun/ring","Saved copy","two",["https://media.example.test/variant.webp"]);
  assert.equal(schema.url,"https://shop.example.test/urun/ring?variant=two");
- assert.equal(schema.offers.length,1);assert.equal(schema.offers[0].price,"150.00");assert.equal(schema.offers[0].availability,"https://schema.org/OutOfStock");
+ assert.equal(schema.offers?.length,1);assert.equal(schema.offers?.[0].price,"150.00");assert.equal(schema.offers?.[0].availability,"https://schema.org/OutOfStock");
  assert.deepEqual(schema.image,["https://media.example.test/variant.webp"]);
 });
 test('selected Merchant variant exposes only verified identifiers, preserves retailer brand and never treats SKU as GTIN',()=>{

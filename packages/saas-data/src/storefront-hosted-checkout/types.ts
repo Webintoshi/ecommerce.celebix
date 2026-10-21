@@ -1,7 +1,7 @@
 import type {
   PublicAppliedPromotion,
-  PublicCartLine,
-  PublicCartLineV2,
+  PricedPublicCartLine as PublicCartLine,
+  PricedPublicCartLineV2 as PublicCartLineV2,
   PublicPromotionEvaluationStatus,
   PublicPromotionGift,
 } from "@celebix/saas-contracts";

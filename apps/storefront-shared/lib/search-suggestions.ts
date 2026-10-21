@@ -3,7 +3,7 @@ import type { PublicStorefrontContentRepository } from "@celebix/saas-data";
 import { productPath } from "./storefront-routes.ts";
 
 type Scope = Readonly<{ kind: "active"; storefront: { hostname: string; locale: string } }> | Readonly<{ kind: "not_found" | "unavailable" }>;
-export type SearchSuggestion = Readonly<{ id: string; title: string; href: string; priceCents: number; currency: string; available: boolean; imageUrl: string | null; imageAlt: string }>;
+export type SearchSuggestion = Readonly<{ id: string; title: string; href: string; priceCents: number | null; pricesHidden?: true; currency: string; available: boolean; imageUrl: string | null; imageAlt: string }>;
 export function createSearchSuggestionsHandler(dependencies: Readonly<{
   resolveStorefront(headers: Headers): Promise<Scope>;
   search: PublicStorefrontContentRepository["search"];
@@ -20,7 +20,7 @@ export function createSearchSuggestionsHandler(dependencies: Readonly<{
       const result: PublicProductSearch = await dependencies.search({ hostname: selected.storefront.hostname, now: new Date(), query, limit: 8 });
       const items: SearchSuggestion[] = result.items.slice(0, 8).map(product => ({
         id: product.id, title: product.title, href: productPath(selected.storefront.locale, product.slug),
-        priceCents: product.priceCents, currency: product.currency, available: product.available,
+        priceCents: product.priceCents, ...(product.priceCents === null ? { pricesHidden: true as const } : {}), currency: product.currency, available: product.available,
         imageUrl: product.media[0]?.url ?? null, imageAlt: product.media[0]?.altText ?? product.title,
       }));
       return json({ items });

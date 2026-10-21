@@ -11,6 +11,7 @@ import { ContactWidget } from "../components/ContactWidget";
 import { GoogleMarketingConsent } from "../components/GoogleMarketingConsent.tsx";
 import { hasGoogleMarketingTags } from "../lib/google-marketing.ts";
 import { StoreEngagement } from "../components/StoreEngagement";
+import { CommercePolicyProvider } from '../components/CommercePolicyProvider';
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import { lilyumLogoFor } from "../themes/lilyum/logo.ts";
 import "./globals.css";
@@ -50,9 +51,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <head>{googleMarketing?.verificationToken ? <meta name="google-site-verification" content={googleMarketing.verificationToken} /> : null}</head>
       <body>
         {page.kind === "active" && googleMarketing && nonce && hasGoogleMarketingTags(googleMarketing) ? <GoogleMarketingConsent storeId={page.context.storefront.id} hostname={page.context.storefront.primaryHostname} nonce={nonce} projection={googleMarketing} preferencesPlacement={guzideThemeFor(page.context.storefront) ? "footer" : "floating"} /> : null}
-        {page.kind === "active" && guzideThemeFor(page.context.storefront)
+        {page.kind === 'active' ? <CommercePolicyProvider policy={page.context.commercePolicy}>{guzideThemeFor(page.context.storefront)
           ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
-          : children}
+          : children}</CommercePolicyProvider> : children}
         <StorefrontNavigationScroll />
         {page.kind === "active" ? <StoreEngagement storefrontId={page.context.storefront.id} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} /> : null}
         {page.kind === "active" && page.context.contactWidget?.enabled && contactBrand ? <ContactWidget config={page.context.contactWidget} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} hostname={page.context.storefront.primaryHostname} logo={contactBrand.logo} fontFamily={contactBrand.fontFamily} /> : null}
