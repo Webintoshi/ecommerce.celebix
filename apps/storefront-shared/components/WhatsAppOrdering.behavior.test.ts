@@ -53,15 +53,17 @@ type RequestButtonBrowser = Parameters<Parameters<typeof withProductBrowser>[0]>
  complete(index:number,preview:unknown):Promise<void>;
  message():string|null;
 };
-async function withRequestButton(run:(context:RequestButtonBrowser)=>Promise<void>) {
+async function withRequestButton(run:(context:RequestButtonBrowser)=>Promise<void>, selectedPolicy = policy) {
  const load=componentLoader();const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:Component}>(new URL('./CommercePolicyProvider.tsx',import.meta.url));const {WhatsAppOrderButton:Button}=load<{WhatsAppOrderButton:Component}>(new URL('./WhatsAppOrderButton.tsx',import.meta.url));
  const oldFetch=globalThis.fetch;const requests:{input:unknown;resolve:(response:Response)=>void}[]=[];
  globalThis.fetch=async(_url,init)=>new Promise<Response>(resolve=>requests.push({input:JSON.parse(String(init?.body)),resolve}));
- try { await withProductBrowser(async(browser)=>run({...browser,requests,show:(props:Record<string,unknown>)=>browser.render(React.createElement(Provider,{policy},React.createElement(Button,props))),complete:(index:number,preview:unknown)=>React.act(async()=>requests[index]!.resolve(Response.json({policy,storeName:'Örnek mağaza',...preview as object}))),message:()=>{const link=browser.container.querySelector<HTMLAnchorElement>('a');return link?new URL(link.href).searchParams.get('text'):null;}})); } finally {globalThis.fetch=oldFetch;}
+ try { await withProductBrowser(async(browser)=>run({...browser,requests,show:(props:Record<string,unknown>)=>browser.render(React.createElement(Provider,{policy:selectedPolicy},React.createElement(Button,props))),complete:(index:number,preview:unknown)=>React.act(async()=>requests[index]!.resolve(Response.json({policy:selectedPolicy,storeName:'Örnek mağaza',...preview as object}))),message:()=>{const link=browser.container.querySelector<HTMLAnchorElement>('a');return link?new URL(link.href).searchParams.get('text'):null;}})); } finally {globalThis.fetch=oldFetch;}
 }
 const productRequest=(index:number,quantity:number)=>({product,variant:product.variants[index],quantity});
 const productPreview=(index:number,quantity:number)=>({product,variantId:product.variants[index]!.id,quantity});
 const requestCart=(version:number,quantity:number)=>({version,currency:'TRY',itemCount:quantity,subtotalCents:null,shippingCents:null,totalCents:null,pricesHidden:true,checkoutReady:false,checkoutBlocker:quantity?'whatsapp_only':'empty_cart',items:quantity?[{productId:product.id,variantId:product.variants[0]!.id,slug:product.slug,title:product.title,variantTitle:'Küçük',quantity,unitPriceCents:null,lineTotalCents:null,pricesHidden:true,available:true}]:[]});
+
+const cartPreview=(version:number,quantity:number)=>{const cart=requestCart(version,quantity);return {cart,requestLines:cart.items.map(({title,variantTitle,slug,quantity,unitPriceCents,available})=>({title,variantTitle,slug,quantity,unitPriceCents,available}))};};
 
 test('prepared product links disappear immediately when selected variant or quantity changes',async()=>{
  await withRequestButton(async({container,show,click,complete,message})=>{
@@ -74,8 +76,8 @@ test('prepared product links disappear immediately when selected variant or quan
 
 test('prepared cart requests disappear after a quantity change or the final removal',async()=>{
  await withRequestButton(async({container,show,click,complete,message})=>{
-  await show({cart:requestCart(1,2)});await click('button');await complete(0,{cart:requestCart(1,2)});assert.match(message()??'',/2 adet/);
-  await show({cart:requestCart(2,1)});assert.equal(container.querySelector('a')===null,true);await click('button');await complete(1,{cart:requestCart(2,1)});assert.match(message()??'',/1 adet/);
+  await show({cart:requestCart(1,2)});await click('button');await complete(0,cartPreview(1,2));assert.match(message()??'',/2 adet/);
+  await show({cart:requestCart(2,1)});assert.equal(container.querySelector('a')===null,true);await click('button');await complete(1,cartPreview(2,1));assert.match(message()??'',/1 adet/);
   await show({cart:requestCart(3,0)});assert.equal(container.querySelector('a')===null,true);assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,true);
  });
 });
@@ -90,7 +92,7 @@ test('late product previews cannot publish after a pending selection change or r
 
 test('a late cart preview cannot restore the request removed from the current cart',async()=>{
  await withRequestButton(async({container,show,click,complete})=>{
-  await show({cart:requestCart(1,1)});await click('button');await show({cart:requestCart(2,0)});await complete(0,{cart:requestCart(1,1)});assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
+  await show({cart:requestCart(1,1)});await click('button');await show({cart:requestCart(2,0)});await complete(0,cartPreview(1,1));assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);
  });
 });
 
@@ -130,5 +132,31 @@ for(const shared of [false,true])test(`enabling WhatsApp never promotes an autom
   await show(resolveStorefrontCommercePolicy(undefined));assert.equal(container.querySelector('output')?.textContent,product.variants[0]!.id);
   await show(policy);assert.equal(container.querySelector('output')?.textContent,'');await click('button');assert.equal(container.querySelector('output')?.textContent,product.variants[1]!.id);
   await show(resolveStorefrontCommercePolicy(undefined));await show(policy);assert.equal(container.querySelector('output')?.textContent,product.variants[1]!.id);
+ });
+});
+
+
+test('cart WhatsApp requests use freshly validated lines despite price-driven checkout unavailability',async()=>{
+ await withRequestButton(async({container,show,click,complete,message})=>{
+  const cart=requestCart(1,2);cart.items[0]!.available=false;
+  await show({cart});assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,false);await click('button');await complete(0,cartPreview(1,2));assert.match(message()??'',/Küçük — 2 adet/);assert.doesNotMatch(message()??'',/₺|TRY/);
+ });
+});
+
+test('visible cart messages use fresh line prices instead of stale checkout prices',async()=>{
+ const visiblePolicy=resolveStorefrontCommercePolicy({schemaVersion:1,enabled:true,phone:'+905551112233',hidePrices:false,hideAddToCart:false,messageIntro:'Merhaba'});
+ await withRequestButton(async({show,click,complete,message})=>{
+  const hidden=requestCart(1,1);const {pricesHidden:_cartMarker,...base}=hidden;const {pricesHidden:_lineMarker,...line}=base.items[0]!;
+  const cart={...base,subtotalCents:100,shippingCents:0,totalCents:100,checkoutBlocker:'stock_unavailable',items:[{...line,unitPriceCents:100,lineTotalCents:100,available:false}]};
+  await show({cart});await click('button');await complete(0,{cart,requestLines:[{title:line.title,variantTitle:line.variantTitle,slug:line.slug,quantity:1,unitPriceCents:500,available:true}]});assert.match(message()??'',/5,00/);assert.doesNotMatch(message()??'',/1,00/);
+ },visiblePolicy);
+});
+
+test('cart preview rejects malformed request lines and personal fields instead of building a link',async()=>{
+ await withRequestButton(async({container,show,click,complete})=>{
+  const valid=cartPreview(1,1);const line=valid.requestLines[0]!;
+  const invalid=[undefined,[],[{...line,quantity:'1'}],[{...line,slug:'https://other.example'}],[{...line,unitPriceCents:500}],[{...line,available:false}],[{...line,email:'private@example.com'}]];
+  await show({cart:requestCart(1,1)});
+  for(const [index,requestLines] of invalid.entries()){await click('button');await complete(index,{cart:valid.cart,requestLines});assert.equal(container.querySelector('a')===null,true);assert.doesNotMatch(container.textContent??'',/Talebiniz hazır/);}
  });
 });
