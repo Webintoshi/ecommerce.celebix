@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "e35e0a11d6811f85b6aba1aa67a8a0feb5d583777a278b731de8f2d2b099d8bb",
+  "inputDigest": "3de838212842666a32d8140640641bf074796d9501a109328500a6f98721c778",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -17,7 +17,7 @@
     },
     {
       "path": "Dockerfile.storefront",
-      "sha256": "0a3dca926702c10f7a744b5e08b0a920f0672bb13828d7644ecb66791141ce00"
+      "sha256": "516f2f963118b365ae4e2a08a00dc5380422c48b5ef083e54cefb5e9cea8e3aa"
     },
     {
       "path": "apps/admin/package.json",
@@ -5496,12 +5496,16 @@
       "sha256": "d13b44be4d7d5ad279a206b74a178b10a1e662ac30f03c56faff1ab98564a2e3"
     },
     {
+      "path": "scripts/signup-build-inputs/Dockerfile.storefront",
+      "sha256": "516f2f963118b365ae4e2a08a00dc5380422c48b5ef083e54cefb5e9cea8e3aa"
+    },
+    {
       "path": "scripts/signup-release-proof.mjs",
-      "sha256": "d99c5f3d4c89ac4e3194f86d4773eb03dc4d3bdbe2aa2e05263336479ff21e56"
+      "sha256": "4828563b358550fdf90d04aa635af065e26f3a846774a660eec5fdee0e499eb2"
     },
     {
       "path": "scripts/signup-release-proof.test.mjs",
-      "sha256": "3346b9ca5ea1141b8754e532cd251372fdc781656f7065bc92ea5f2931ba4244"
+      "sha256": "db211f07e062a1cd33d95345fa510ad39d6dbf704847bcd804844fd4bd4a4d63"
     },
     {
       "path": "scripts/tenant-wildcard-certificates.py",
