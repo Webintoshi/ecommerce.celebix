@@ -84,6 +84,12 @@ CREATE OR REPLACE FUNCTION saas.merchant_admin_authority_error(p_store_id uuid,p
 RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 DECLARE denied text;
 BEGIN
+ IF p_kind IN('contact_widget','restock_alerts') THEN
+  denied:=saas.merchant_admin_authority_error_before_whatsapp_order_256(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_kind,p_mutation);
+  IF denied IS NOT NULL THEN RETURN denied; END IF;
+  IF NOT saas.commercial_plan_has_capability(p_plan_id,'growth_tools') THEN RETURN 'feature_not_enabled'; END IF;
+  RETURN NULL;
+ END IF;
  IF p_kind IS DISTINCT FROM 'whatsapp_order_setting' THEN RETURN saas.merchant_admin_authority_error_before_whatsapp_order_256(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,p_kind,p_mutation); END IF;
  denied:=saas.merchant_action_authority_error(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now,'catalog',CASE WHEN p_mutation THEN 'configuration.manage' ELSE 'configuration.read' END);
  IF denied IS NOT NULL THEN RETURN denied; END IF;

@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {COMMERCIAL_PACKAGES} from '@celebix/saas-contracts';
 import type { ServerRestockRuntime } from '../server-restock/runtime.ts';
 import { createRestockStatsHandler } from './handler.ts';
 const NOW=new Date('2026-10-03T10:00:00Z'), REQ='78000000-0000-4000-8000-000000000001';
-const context={store:{id:'20000000-0000-4000-8000-000000000001'}};
-function harness(access='authenticated', fails=false) {
+const plan=COMMERCIAL_PACKAGES[2];const context={store:{id:'20000000-0000-4000-8000-000000000001'},membership:{role:'admin'},entitlements:{schemaVersion:1,planId:plan.id,planCode:plan.code,version:plan.version,status:'active',features:plan.features,limits:plan.limits,validFrom:'2026-01-01T00:00:00.000Z'}};
+function harness(access='authenticated', fails=false,tenantContext=context) {
  const calls:unknown[]=[];
- const runtime={access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:access,tenantContext:context})},restock:{getStats:async(v:unknown)=>{calls.push(v);if(fails)throw Error('secret');return {pendingConfirmed:2,awaitingConfirmation:0,sent:1,failed:0,recent:[]};}}} as unknown as ServerRestockRuntime;
+ const runtime={access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:access,tenantContext})},restock:{getStats:async(v:unknown)=>{calls.push(v);if(fails)throw Error('secret');return {pendingConfirmed:2,awaitingConfirmation:0,sent:1,failed:0,recent:[]};}}} as unknown as ServerRestockRuntime;
  return {calls,handle:createRestockStatsHandler({resolveRuntime:async()=>runtime,now:()=>NOW,requestId:()=>REQ})};
 }
 function request(headers:HeadersInit={},query='') {
@@ -22,3 +23,5 @@ test('missing or forbidden sessions cannot read subscriptions and exceptions do 
  const denied=harness('unauthorized');assert.equal((await denied.handle(request())).status,403);assert.equal(denied.calls.length,0);
  const broken=harness('authenticated',true);const response=await broken.handle(request());assert.equal(response.status,503);assert.deepEqual(await response.json(),{code:'unavailable'});
 });
+
+test('Starter cannot read growth-only restock statistics',async()=>{const p=COMMERCIAL_PACKAGES[1];const starter=harness('authenticated',false,{...context,entitlements:{...context.entitlements,planId:p.id,planCode:p.code,version:p.version,features:p.features,limits:p.limits}});assert.equal((await starter.handle(request())).status,403);assert.equal(starter.calls.length,0)});

@@ -118,3 +118,12 @@ test('WhatsApp paid Starter permits an admin save but rejects analyst mutation',
  assert.equal((await admin.save(request(path,'POST',{name:'WhatsApp',config,status:'active'}),'whatsapp_order_setting')).status,200);
  assert.equal((await analyst.save(request(path,'POST',{name:'WhatsApp',config,status:'active'}),'whatsapp_order_setting')).status,403);assert.equal(writes,1);
 });
+
+
+test('legacy contact and restock endpoints retain growth eligibility after opening the hub',async()=>{
+ let reads=0,writes=0;const merchantAdmin=repo({async list(){reads++;return[]},async save(){writes++;throw Error('should not mutate')}});
+ const p=COMMERCIAL_PACKAGES[1]!,entitlements={schemaVersion:1 as const,planId:p.id,planCode:p.code,version:p.version,status:'active' as const,features:p.features,limits:p.limits,validFrom:'2026-01-01T00:00:00.000Z'};
+ const starter=handlers(merchantAdmin,undefined,undefined,'admin',entitlements);
+ for(const kind of ['contact_widget','restock_alerts']){const path='/api/merchant-admin/records/'+kind;assert.equal((await starter.records(request(path),kind)).status,403);assert.equal((await starter.save(request(path,'POST',{name:'Setting',config:{},status:'active'}),kind)).status,403);}
+ assert.equal(reads,0);assert.equal(writes,0);
+});

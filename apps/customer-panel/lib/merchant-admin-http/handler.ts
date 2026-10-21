@@ -9,6 +9,7 @@ import {
   parseMerchantAdminRecord,
   isMerchantActionAllowed,
   hasWhatsAppOrderingAccess,
+  hasCommercialCapability,
   type MerchantProviderCapability,
   type MerchantAdminProviderRecordKind,
   type MerchantAdminRecordKind,
@@ -93,6 +94,10 @@ async function authorize(deps: Deps, request: Request, method: "GET" | "POST", p
 }
 
 function whatsappSettingAccess(authorized: Authorized, recordKind: MerchantAdminRecordKind | null, mutation = false): Response | null {
+  if(recordKind === 'contact_widget' || recordKind === 'restock_alerts') {
+    if(!isMerchantActionAllowed(authorized.tenantContext.membership.role, mutation ? 'configuration.manage' : 'configuration.read')) return error('membership_denied',403);
+    return hasCommercialCapability(authorized.tenantContext.entitlements,'growth_tools') ? null : error('feature_not_enabled',403);
+  }
   if(recordKind !== 'whatsapp_order_setting') return null;
   if(!isMerchantActionAllowed(authorized.tenantContext.membership.role, mutation ? 'configuration.manage' : 'configuration.read')) return error('membership_denied',403);
   return hasWhatsAppOrderingAccess(authorized.tenantContext.entitlements) ? null : error('feature_not_enabled',403);
