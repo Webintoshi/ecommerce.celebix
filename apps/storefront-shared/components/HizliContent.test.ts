@@ -37,3 +37,19 @@ test("Hızlı header preserves the localized published announcement destination"
   const legacy = HizliHeader({storefront:{locale:"tr",presentation:{schemaVersion:1,displayName:"Hızlı Kutu"}},design:{publicationVersion:1}});
   assert.equal(legacy.props.announcement,undefined);
 });
+
+test('Hızlı hidden catalog suppresses both desktop/mobile money controls and discards stale price selections',()=>{
+ let selection:any;
+ const load=componentLoader({
+  'next/link':{__esModule:true,default:({children,...props}:any)=>React.createElement('a',props,children)},
+  'next/navigation':{useRouter:()=>({push(){}})},
+  '../../components/CatalogProductList':{CatalogProductList:(props:any)=>{selection=props.selection;return React.createElement('div',{'data-catalog-products':true});}},
+ });
+ const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:React.ComponentType<any>}>(new URL('./CommercePolicyProvider.tsx',import.meta.url));
+ const {HizliProductExplorer:Explorer}=load<{HizliProductExplorer:React.ComponentType<any>}>(new URL('../themes/hizli-kutu/HizliProductExplorer.tsx',import.meta.url));
+ const policy={schemaVersion:1,enabled:true,phone:'+905551112233',hidePrices:true,hideAddToCart:false,checkoutAllowed:false,messageIntro:'Merhaba',version:1};
+ const props={selection:{query:'',filter:'discounted',order:'price-desc',offset:0},path:'/products',locale:'tr',total:1,products:[{id:'one'}],nextOffset:null};
+ const html=renderToStaticMarkup(React.createElement(Provider,{policy},React.createElement(Explorer,props)));
+ assert.doesNotMatch(html,/price-asc|price-desc|discounted|İndirimli|Fiyat:/);assert.equal(selection.filter,'all');assert.equal(selection.order,'featured');assert.match(html,/data-catalog-products/);
+ const normal=renderToStaticMarkup(React.createElement(Explorer,props));assert.match(normal,/price-asc/);assert.match(normal,/discounted/);assert.equal(selection.filter,'discounted');assert.equal(selection.order,'price-desc');
+});

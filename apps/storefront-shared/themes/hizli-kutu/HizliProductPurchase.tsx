@@ -1,4 +1,6 @@
 "use client";
+import { useCommercePolicy } from "../../components/CommercePolicyProvider";
+import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,6 +23,8 @@ export function HizliProductPurchase({ product, options, showQuantitySelector, q
   product: PublicProduct; options: StarterProductDetailConfigV2; showQuantitySelector: boolean; quickView?: boolean;
   beforePurchaseTransition?(kind: "add" | "buy"): Promise<Readonly<{ proceed: boolean; drawerTrigger?: HTMLElement | null }>>;
 }>) {
+  const policy = useCommercePolicy();
+  const pricesHidden = policy.hidePrices || product.pricesHidden === true;
   const router = useRouter(), restock = useRestockAlertsConfig();
   const { openDrawer, replaceCart, drawerOpen } = useCartStatus();
   const [selectedId, selectVariant] = useProductVariantSelection(product);
@@ -31,18 +35,18 @@ export function HizliProductPurchase({ product, options, showQuantitySelector, q
   const allowed = Boolean(product.available && variant?.available && quantity >= 1 && quantity <= limit);
   const amount = variant?.priceCents ?? product.priceCents;
   const pieces = variant ? packagePieces(variant.attributes) : undefined;
-  const unit = pieces ? amount / pieces : undefined;
+  const unit = !pricesHidden && pieces && amount !== null ? amount / pieces : undefined;
   const choices = product.variants.length > 1 || product.variants.some(item => !DEFAULT.has(item.title.trim().toLocaleLowerCase("tr-TR")));
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { setQuantity(1); setStatus(""); }, [selectedId, product.id]);
 
   async function run(kind: "add" | "buy", trigger: HTMLButtonElement) {
-    if (busy.current || !variant || !allowed) return;
+    if (policy.hideAddToCart || (kind === "buy" && !policy.checkoutAllowed) || busy.current || !variant || !allowed) return;
     busy.current = true; setPending(kind); setStatus("");
     const route = `${window.location.pathname}${window.location.search}`;
     const active = () => mounted.current && `${window.location.pathname}${window.location.search}` === route;
     const input = { productId: product.id, variantId: variant.id, quantity };
-    const data = { ...input, currency: product.currency, valueMinor: variant.priceCents * quantity, ...(product.primaryCategoryId ? { categoryId: product.primaryCategoryId } : {}) };
+    const data = { ...input, currency: product.currency, ...(variant.priceCents === null ? {} : { valueMinor: variant.priceCents * quantity }), ...(product.primaryCategoryId ? { categoryId: product.primaryCategoryId } : {}) };
     try {
       if (kind === "add" && !beforePurchaseTransition) {
         await addCartLineAndOpenDrawer(input, trigger, { add: storefrontCartClient.add, replaceCart,
@@ -54,14 +58,14 @@ export function HizliProductPurchase({ product, options, showQuantitySelector, q
           if (transition.proceed) openDrawer(transition.drawerTrigger ?? trigger);
         }
       }
-      emitStorefrontCommerceEvent({ name: "add_to_cart", data });
+      if (!pricesHidden) emitStorefrontCommerceEvent({ name: "add_to_cart", data });
       if (!active()) return;
       if (kind === "buy") {
         if (beforePurchaseTransition && !(await beforePurchaseTransition(kind)).proceed) return;
-        emitStorefrontCommerceEvent({ name: "begin_checkout", data });
+        if (!pricesHidden) emitStorefrontCommerceEvent({ name: "begin_checkout", data });
         router.push("/checkout");
       } else setStatus("Ürün sepete eklendi.");
-    } catch { if (active()) setStatus("İşlem tamamlanamadı. Lütfen yeniden deneyin."); }
+    } catch (error) { if (active()) setStatus(error instanceof Error && error.message === "whatsapp_only" ? "Sipariş talebinizi WhatsApp üzerinden iletebilirsiniz. Sayfayı yenileyin." : "İşlem tamamlanamadı. Lütfen yeniden deneyin."); }
     finally { busy.current = false; if (mounted.current) setPending(null); }
   }
 
@@ -71,15 +75,16 @@ export function HizliProductPurchase({ product, options, showQuantitySelector, q
     <div className="hk-product-title"><Title id={`${id}-title`}>{product.title}</Title><FavoriteButton productId={product.id} productTitle={product.title} /></div>
     {options.showSku && variant?.sku ? <p className="hk-product-sku">Ürün kodu: {variant.sku}</p> : null}
     {product.merchandising?.highlights.length ? <ul className="hk-product-highlights">{product.merchandising.highlights.map(text => <li key={text}>{text}</li>)}</ul> : null}
-    {choices ? <label className="hk-option-label" htmlFor={`${id}-variant`}>Ölçü ve paket seçimi<select id={`${id}-variant`} value={selectedId} disabled={pending !== null} onChange={event => { if (!busy.current) { selectVariant(event.currentTarget.value); setQuantity(1); setStatus(""); } }}>{product.variants.map(item => <option key={item.id} value={item.id} disabled={!item.available && !restock?.enabled}>{item.title} — {formatTry(item.priceCents)}{!item.available ? " · Tükendi" : ""}</option>)}</select></label> : null}
+    {choices ? <label className="hk-option-label" htmlFor={`${id}-variant`}>Ölçü ve paket seçimi<select id={`${id}-variant`} value={selectedId} disabled={pending !== null} onChange={event => { if (!busy.current) { selectVariant(event.currentTarget.value); setQuantity(1); setStatus(""); } }}>{policy.enabled && product.variants.length > 1 ? <option value="" disabled>Ölçü ve paket seçin</option> : null}{product.variants.map(item => <option key={item.id} value={item.id} disabled={!item.available && !restock?.enabled}>{item.title}{!pricesHidden ? ` — ${formatTry(item.priceCents)}` : ""}{!item.available ? " · Tükendi" : ""}</option>)}</select></label> : null}
     {variant && Object.keys(variant.attributes).length ? <dl className="hk-product-attributes">{Object.entries(variant.attributes).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl> : null}
-    <div className="hk-price" aria-live="polite"><strong>{formatTry(amount)}</strong>{variant?.compareAtCents && variant.compareAtCents > amount ? <del>{formatTry(variant.compareAtCents)}</del> : null}{unit !== undefined && unit >= 1 ? <span className="hk-unit-price">{formatTry(Math.round(unit))} / adet</span> : null}</div>
+    {!pricesHidden && amount !== null ? <div className="hk-price" aria-live="polite"><strong>{formatTry(amount)}</strong>{variant?.compareAtCents && variant.compareAtCents > amount ? <del>{formatTry(variant.compareAtCents)}</del> : null}{unit !== undefined && unit >= 1 ? <span className="hk-unit-price">{formatTry(Math.round(unit))} / adet</span> : null}</div> : null}
     {showQuantitySelector ? <div className="hk-quantity" aria-label="Sipariş adedi seçimi"><span>{pieces ? "Paket sayısı" : "Sipariş adedi"}</span><div><button type="button" aria-label="Adedi azalt" disabled={pending !== null || !allowed || quantity <= 1} onClick={() => setQuantity(value => decrementPurchaseQuantity(value, limit))}>−</button><output aria-label="Sipariş adedi" aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || !allowed || quantity >= limit} onClick={() => setQuantity(value => incrementPurchaseQuantity(value, limit))}>+</button></div></div> : null}
-    <div className="hk-total"><span>Toplam{pieces ? <small>{(pieces * quantity).toLocaleString("tr-TR")} adet</small> : null}</span><strong>{formatTry(amount * quantity)}</strong></div>
-    <div className="hk-purchase-actions"><button className="hk-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><HizliIcon name="bag" />{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button><button type="button" className="hk-button hk-buy" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}<HizliIcon name="arrow" /></button></div>
-    {!allowed && pending === null ? <p className="hk-unavailable">Bu seçenek şu anda mevcut değil.</p> : null}
+    {!pricesHidden && amount !== null ? <div className="hk-total"><span>Toplam{pieces ? <small>{(pieces * quantity).toLocaleString("tr-TR")} adet</small> : null}</span><strong>{formatTry(amount * quantity)}</strong></div> : null}
+    <div className="hk-purchase-actions">{!policy.hideAddToCart ? <button className="hk-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><HizliIcon name="bag" />{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}{policy.checkoutAllowed ? <button type="button" className="hk-button hk-buy" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}<HizliIcon name="arrow" /></button> : null}</div>
+    <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} className="hk-button" />
+    {!allowed && pending === null ? <p className="hk-unavailable">{!variant && product.available ? "Ölçü ve paket seçin." : "Bu seçenek şu anda mevcut değil."}</p> : null}
     <p className="hk-purchase-status" role="status" aria-live="polite">{status}</p>
     <RestockSubscriptionForm product={product} variant={variant} />
-    {options.mobileStickyPurchase && !quickView ? <div className="hk-purchase-sticky" hidden={drawerOpen}><div><small>Toplam</small><strong>{formatTry(amount * quantity)}</strong></div><button type="button" className="hk-button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : allowed ? "Sepete ekle" : "Tükendi"}<HizliIcon name="bag" /></button></div> : null}
+    {options.mobileStickyPurchase && !quickView ? <div className="hk-purchase-sticky" hidden={drawerOpen}>{!pricesHidden && amount !== null ? <div><small>Toplam</small><strong>{formatTry(amount * quantity)}</strong></div> : null}{!policy.hideAddToCart ? <button type="button" className="hk-button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : allowed ? "Sepete ekle" : "Tükendi"}<HizliIcon name="bag" /></button> : <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} className="hk-button" />}</div> : null}
   </section>;
 }
