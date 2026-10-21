@@ -1,4 +1,6 @@
 "use client";
+import { useCommercePolicy } from "../../components/CommercePolicyProvider";
+import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
@@ -17,7 +19,10 @@ import { OrderBumpOffers } from "../../components/OrderBumpOffers";
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
 export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ presentation?: PublicStarterThemePresentationV2["cart"]; locale: string }>) {
+  const policy = useCommercePolicy();
   const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
+  const pricesHidden = policy.hidePrices || cart?.pricesHidden === true;
+  const checkoutAllowed = policy.checkoutAllowed && cart?.checkoutBlocker !== "whatsapp_only";
   const closeRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [pendingVariant, setPendingVariant] = useState<string | null>(null);
@@ -67,7 +72,7 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
   const checkoutBlocked = cart?.checkoutBlocker === "stock_unavailable" || cart?.checkoutBlocker === "empty_cart";
 
   const mutate = async (line: PublicCartLine, quantity: number | null) => {
-    if (!cart || mutationBusy.current) return;
+    if (!cart || (quantity !== null && quantity > line.quantity && (policy.hideAddToCart || cart.checkoutBlocker === "whatsapp_only" && !pricesHidden)) || mutationBusy.current) return;
     mutationBusy.current = true;
     setPendingVariant(line.variantId);
     setStatus("");
@@ -110,23 +115,23 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
                     <div className={styles.copy}>
                       <Link className={styles.title} href={productPath(locale, line.slug)} onClick={closeDrawer}>{line.title}</Link>
                       <div className={styles.variant}><span>{line.quantity}</span>{line.variantTitle && line.variantTitle !== "Varsayılan" ? <span>{line.variantTitle}</span> : null}</div>
-                      {settings.showQuantitySelector ? <div className={styles.quantity} aria-label={`${line.title} adet`}><button type="button" aria-label={`${line.title} adet azalt`} disabled={pending || line.quantity <= 1} onClick={() => void mutate(line, line.quantity - 1)}>−</button><span>{line.quantity}</span><button type="button" aria-label={`${line.title} adet artır`} disabled={pending || line.quantity >= 99} onClick={() => void mutate(line, line.quantity + 1)}>+</button></div> : null}
+                      {settings.showQuantitySelector ? <div className={styles.quantity} aria-label={`${line.title} adet`}><button type="button" aria-label={`${line.title} adet azalt`} disabled={pending || line.quantity <= 1} onClick={() => void mutate(line, line.quantity - 1)}>−</button><span>{line.quantity}</span><button type="button" aria-label={`${line.title} adet artır`} disabled={pending || policy.hideAddToCart || line.quantity >= 99} onClick={() => void mutate(line, line.quantity + 1)}>+</button></div> : null}
                       {line.available ? null : <p className={styles.notice}>Stok veya fiyat bilgisi değişti.</p>}
-                      <div className={styles.lineBottom}><span className={styles.price}>{formatTry(line.lineTotalCents)}</span><button type="button" className={styles.remove} aria-label={`${line.title} ürününü sil`} disabled={pending} onClick={() => void mutate(line, null)}>{pendingVariant === line.variantId ? "Bekleyin…" : "Sil"}</button></div>
+                      <div className={styles.lineBottom}>{!pricesHidden ? <span className={styles.price}>{formatTry(line.lineTotalCents)}</span> : null}<button type="button" className={styles.remove} aria-label={`${line.title} ürününü sil`} disabled={pending} onClick={() => void mutate(line, null)}>{pendingVariant === line.variantId ? "Bekleyin…" : "Sil"}</button></div>
                     </div>
                   </article>;
                 })}</div>
                 <OrderBumpOffers cart={cart} placement="side_cart" locale={locale} active={typeof window !== "undefined" && !/^\/(?:checkout|payments|odeme)(?:\/|$)/iu.test(window.location.pathname)} disabled={pendingVariant !== null || bumpPending} beforeAdd={() => { if (mutationBusy.current) return false; mutationBusy.current = true; return true; }} onPendingChange={value => { setBumpPending(value); if (!value) mutationBusy.current = false; }} onAvailability={setCustomOffers} />
                 {!customOffers && suggestions.length ? <section className={styles.recommendations} aria-labelledby="siora-cart-recommendations"><h3 id="siora-cart-recommendations">Beğenebilecekleriniz</h3><div className={styles.suggestions}>{suggestions.map((item) => <Link className={styles.suggestion} key={item.id} href={productPath(locale, item.slug)} onClick={closeDrawer}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.media.url} alt={item.media.altText || item.title} width={item.media.width ?? 320} height={item.media.height ?? 400} loading="lazy" />
-                  <span>{item.title}</span><small>{formatTry(item.priceCents)}</small>
+                  <span>{item.title}</span>{!pricesHidden && item.priceCents !== null ? <small>{formatTry(item.priceCents)}</small> : null}
                 </Link>)}</div></section> : null}
               </div>
               <footer className={styles.footer}>
-                <FreeShippingProgress cart={cart} presentation={presentation} />
-                <div className={styles.subtotal}><span>Ara toplam</span><strong>{formatTry(cart.subtotalCents)}</strong></div>
+                {!pricesHidden ? <FreeShippingProgress cart={cart} presentation={presentation} /> : null}<WhatsAppOrderButton cart={cart} disabled={pendingVariant !== null || bumpPending} />
+                {!pricesHidden ? <div className={styles.subtotal}><span>Ara toplam</span><strong>{formatTry(cart.subtotalCents)}</strong></div> : null}
                 {checkoutBlocked ? <p className={styles.notice}>Sepetinizde stok veya fiyatı değişen bir ürün var. Devam etmeden önce sepetinizi güncelleyin.</p> : settings.showCheckoutReadiness && cart.checkoutBlocker === "payment_unavailable" ? <p className={styles.notice}>Ödeme yöntemi henüz yapılandırılmadı.</p> : settings.showCheckoutReadiness && cart.checkoutBlocker === "shipping_unavailable" ? <p className={styles.notice}>Teslimat yöntemi henüz yapılandırılmadı.</p> : null}
-                {checkoutBlocked || pendingVariant !== null || bumpPending ? <span className={styles.checkout} aria-disabled="true">Ödemeye geç</span> : <Link className={styles.checkout} href="/checkout" onClick={closeDrawer}>Ödemeye geç</Link>}
+                {!checkoutAllowed ? null : checkoutBlocked || pendingVariant !== null || bumpPending ? <span className={styles.checkout} aria-disabled="true">Ödemeye geç</span> : <Link className={styles.checkout} href="/checkout" onClick={closeDrawer}>Ödemeye geç</Link>}
                 <button className={styles.continue} type="button" onClick={closeDrawer}>Alışverişe devam et</button>
                 {settings.trustMessage ? <p className={styles.trust}>{settings.trustMessage}</p> : null}
               </footer>

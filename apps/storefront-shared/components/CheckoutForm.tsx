@@ -155,7 +155,7 @@ export function CheckoutForm({
         setAppliedCodes(selected.normalizedCodes);
         setPromotionStatus(selected.rejectedCodes.length ? "Bu kod şu anda uygulanamıyor." : "");
         for (const line of selected.quote.cart.items)
-          emitStorefrontCommerceEvent({
+          if (line.lineTotalCents !== null) emitStorefrontCommerceEvent({
             name: "begin_checkout",
             data: {
               productId: line.productId,
@@ -402,6 +402,7 @@ export function CheckoutForm({
     }
     const delivery = validation.value;
     for (const line of quote.cart.items) {
+      if (line.lineTotalCents === null) continue;
       const cohort = {
         productId: line.productId,
         variantId: line.variantId,

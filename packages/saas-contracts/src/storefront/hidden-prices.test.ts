@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { parsePublicProduct } from './validation.ts';
+import { parsePublicCart, parsePublicCheckoutReceipt } from './commerce.ts';
+const product = {id:'20000000-0000-4000-8000-000000000001',slug:'ornek-urun',title:'Örnek ürün',currency:'TRY',status:'active',priceCents:null,pricesHidden:true,available:true,variants:[{id:'30000000-0000-4000-8000-000000000001',title:'Varsayılan',priceCents:null,pricesHidden:true,stockTracking:false,stockQuantity:0,available:true,attributes:{}}],media:[]};
+const line={productId:product.id,variantId:product.variants[0]!.id,slug:product.slug,title:product.title,variantTitle:'Varsayılan',quantity:2,unitPriceCents:null,lineTotalCents:null,pricesHidden:true,available:true};
+const cart={version:1,currency:'TRY',itemCount:2,subtotalCents:null,shippingCents:null,totalCents:null,pricesHidden:true,checkoutReady:false,checkoutBlocker:'payment_unavailable',items:[line]};
+test('explicit hidden product money parses as null without fabricating zero',()=>{const result=parsePublicProduct(product);assert.equal(result.priceCents,null);assert.equal(result.variants[0]?.priceCents,null);assert.equal(result.pricesHidden,true);});
+test('hidden marker requires all money redacted and rejects unmarked null',()=>{assert.throws(()=>parsePublicProduct({...product,pricesHidden:undefined}));assert.throws(()=>parsePublicProduct({...product,priceCents:100}));assert.throws(()=>parsePublicProduct({...product,variants:[{...product.variants[0],priceCents:100}]}));});
+test('hidden cart preserves quantity and availability with no checkout',()=>{const result=parsePublicCart(cart);assert.equal(result.totalCents,null);assert.equal(result.items[0]?.quantity,2);assert.equal(result.pricesHidden,true);assert.throws(()=>parsePublicCart({...cart,checkoutReady:true,checkoutBlocker:null}));assert.throws(()=>parsePublicCart({...cart,totalCents:0}));assert.throws(()=>parsePublicCart({...cart,pricesHidden:undefined}));});
+test('historical receipts never accept hidden line money',()=>{assert.throws(()=>parsePublicCheckoutReceipt({...cart,orderReference:'ABC',paymentStatus:'pending',paymentMethod:{kind:'cash_on_delivery',label:'Kapıda',instructions:''},delivery:{recipientName:'Örnek',addressLine1:'Adres',city:'Ankara',country:'TR'},createdAt:'2026-10-21T00:00:00.000Z'}));});

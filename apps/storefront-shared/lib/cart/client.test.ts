@@ -286,3 +286,8 @@ test("promotion quote rejects malformed server projections instead of showing a 
     (error: unknown) => error instanceof StorefrontCartClientError && error.code === "invalid_response",
   );
 });
+
+test('WhatsApp-only refusal preserves its safe policy code for stale purchase and checkout controls',async()=>{
+ const client=createStorefrontCartClient(async()=>Response.json({code:'whatsapp_only'},{status:409}),()=>OPERATION);
+ await assert.rejects(client.add({productId:PRODUCT,variantId:VARIANT,quantity:1}),(error:unknown)=>error instanceof StorefrontCartClientError && error.code==='whatsapp_only');
+});

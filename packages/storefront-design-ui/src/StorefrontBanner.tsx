@@ -48,7 +48,7 @@ export function StorefrontBanner({ section, previewMode, destinationHrefs, prior
             {slide.destination ? <a className="celebix-store-banner-action" href={destinationHref(slide.destination)} tabIndex={visible ? undefined : -1}>Koleksiyonu keşfet</a> : null}
           </div></> : <h2 className="celebix-store-hero-title-sr">{slide.headline}</h2>}
           {slide.hotspot ? <a className="celebix-store-banner-hotspot" href={destinationHref(`/products/${slide.hotspot.productSlug}`)} tabIndex={visible ? undefined : -1} aria-label={`${slide.hotspot.title} ürününü incele`}>
-            <span aria-hidden="true">+</span><strong>{slide.hotspot.title}</strong><small>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(slide.hotspot.priceCents / 100)}</small>
+            <span aria-hidden="true">+</span><strong>{slide.hotspot.title}</strong>{slide.hotspot.priceCents !== null ? <small>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(slide.hotspot.priceCents / 100)}</small> : null}
           </a> : null}
         </article>;
       })}

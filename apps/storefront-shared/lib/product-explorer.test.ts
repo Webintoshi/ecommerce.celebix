@@ -63,3 +63,8 @@ test("explorer rejects no view mode and returns a new frozen selection", () => {
   assert.equal(Object.isFrozen(selected), true);
   assert.notEqual(selected, items);
 });
+
+test('hidden catalog ignores stale money filter and sorting instead of treating null as zero',()=>{
+ const items=[{...product('first','Bir',2000),priceCents:null,pricesHidden:true as const},{...product('second','İki',1000),priceCents:null,pricesHidden:true as const}];
+ assert.deepEqual(selectProducts(items,{query:'',filter:'discounted',order:'price-asc'}).map(({id})=>id),['first','second']);
+});

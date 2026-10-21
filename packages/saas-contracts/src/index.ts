@@ -721,3 +721,4 @@ export * from "./merchant-whatsapp/index.ts";
 export * from "./google-merchant/index.ts";
 export * from './commercial-packages/catalog.ts';
 export * from './commercial-packages/projection.ts';
+export type { PricedPublicProduct, PricedPublicProductVariant, PricedPublicCart, PricedPublicCartV2, PricedPublicCartLine, PricedPublicCartLineV2 } from './storefront/index.ts';

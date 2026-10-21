@@ -645,11 +645,11 @@ function parsePublicHomeSection(value: unknown, retail = false, modular = false)
     const parsed = exact(candidate, ["kind", "slides"]);
     const slides = Object.freeze(arrayValues(parsed.slides, 1, 3).map((slide) => {
       const selected = exact(slide, ["heading", "destination"], ["eyebrow", "body", "desktopImage", "mobileImage", "hotspot"]);
-      let hotspot: Readonly<{ productSlug: string; title: string; priceCents: number; currency: "TRY" }> | undefined;
+      let hotspot: Readonly<{ productSlug: string; title: string; priceCents: number | null; currency: "TRY" }> | undefined;
       if (Object.hasOwn(selected, "hotspot")) {
-        const raw = exact(selected.hotspot, ["productSlug", "title", "priceCents", "currency"]);
+        const raw = exact(selected.hotspot, ["productSlug", "title", "priceCents", "currency"], ["pricesHidden"]);
         if (raw.currency !== "TRY") invalid();
-        hotspot = Object.freeze({ productSlug: string(raw.productSlug, 3, 100, SLUG), title: string(raw.title, 1, 200), priceCents: integer(raw.priceCents, 0), currency: "TRY" });
+        hotspot = Object.freeze({ productSlug: string(raw.productSlug, 3, 100, SLUG), title: string(raw.title, 1, 200), priceCents: raw.priceCents === null ? null : integer(raw.priceCents, 0), currency: "TRY" });
       }
       return Object.freeze({ ...(Object.hasOwn(selected, "eyebrow") ? { eyebrow: string(selected.eyebrow, 1, 80) } : {}), heading: string(selected.heading, 1, 160), ...(Object.hasOwn(selected, "body") ? { body: string(selected.body, 1, 500) } : {}), ...(Object.hasOwn(selected, "desktopImage") ? { desktopImage: parseStorefrontAsset(selected.desktopImage) } : {}), ...(Object.hasOwn(selected, "mobileImage") ? { mobileImage: parseStorefrontAsset(selected.mobileImage) } : {}), destination: destination(selected.destination), ...(hotspot ? { hotspot } : {}) });
     }));
@@ -705,9 +705,9 @@ function parsePublicSectionV4(value: unknown): PublicStarterHomeSection {
     const slide = exact(entry, ["slideId", "enabled", "headline", "body", "desktopImage", "mobileImage", "destination"], ["eyebrow", "hotspot"]);
     let hotspot: PublicHomepageBannerSlide["hotspot"];
     if (Object.hasOwn(slide, "hotspot")) {
-      const raw = exact(slide.hotspot, ["productSlug", "title", "priceCents", "currency"]);
+      const raw = exact(slide.hotspot, ["productSlug", "title", "priceCents", "currency"], ["pricesHidden"]);
       if (raw.currency !== "TRY") invalid();
-      hotspot = Object.freeze({ productSlug: string(raw.productSlug, 1, 100, SLUG), title: string(raw.title, 1, 200), priceCents: integer(raw.priceCents, 0), currency: "TRY" });
+      hotspot = Object.freeze({ productSlug: string(raw.productSlug, 1, 100, SLUG), title: string(raw.title, 1, 200), priceCents: raw.priceCents === null ? null : integer(raw.priceCents, 0), currency: "TRY" });
     }
     return Object.freeze({ slideId: string(slide.slideId, 8, 80, /^slide_[a-z0-9_]{2,74}$/), enabled: boolean(slide.enabled), headline: string(slide.headline, 0, 160), body: string(slide.body, 0, 500), desktopImage: parsePublicBannerMedia(slide.desktopImage), mobileImage: parsePublicBannerMedia(slide.mobileImage), destination: slide.destination === null ? null : destination(slide.destination), ...(Object.hasOwn(slide, "eyebrow") ? { eyebrow: string(slide.eyebrow, 1, 80) } : {}), ...(hotspot ? { hotspot } : {}) });
   }));
@@ -848,13 +848,15 @@ export function parsePublicProductMedia(value: unknown): PublicProductMedia {
 }
 
 export function parsePublicProductVariant(value: unknown): PublicProductVariant {
-  const parsed = exact(value, ["id", "title", "priceCents", "stockTracking", "stockQuantity", "available", "attributes"], ["sku", "compareAtCents", "mediaIds", "merchantIdentifiers"]);
-  const priceCents = integer(parsed.priceCents, 0);
-  const compareAtCents = optionalInteger(parsed, "compareAtCents", priceCents, Number.MAX_SAFE_INTEGER);
+  const parsed = exact(value, ["id", "title", "priceCents", "stockTracking", "stockQuantity", "available", "attributes"], ["sku", "compareAtCents", "mediaIds", "merchantIdentifiers", "pricesHidden"]);
+  const hidden = Object.hasOwn(parsed, "pricesHidden");
+  if (hidden && (parsed.pricesHidden !== true || parsed.priceCents !== null || (Object.hasOwn(parsed, "compareAtCents") && parsed.compareAtCents !== null))) invalid();
+  const priceCents = hidden ? null : integer(parsed.priceCents, 0);
+  const compareAtCents = hidden ? (Object.hasOwn(parsed, "compareAtCents") ? null : undefined) : optionalInteger(parsed, "compareAtCents", priceCents!, Number.MAX_SAFE_INTEGER);
   const mediaIds = Object.hasOwn(parsed, "mediaIds") ? Object.freeze(arrayValues(parsed.mediaIds, 0, 16).map(uuid)) : undefined;
   if (mediaIds !== undefined && new Set(mediaIds).size !== mediaIds.length) invalid();
   const merchantIdentifiers=Object.hasOwn(parsed,'merchantIdentifiers')?parseGoogleMerchantPublicIdentifiers(parsed.merchantIdentifiers):undefined;
-  return Object.freeze({ id: uuid(parsed.id), ...(mediaIds === undefined ? {} : { mediaIds }), ...(merchantIdentifiers===undefined?{}:{merchantIdentifiers}), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 64, SKU) } : {}), priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), stockTracking: boolean(parsed.stockTracking), stockQuantity: integer(parsed.stockQuantity, 0), available: boolean(parsed.available), attributes: attributes(parsed.attributes) });
+  return Object.freeze({ id: uuid(parsed.id), ...(mediaIds === undefined ? {} : { mediaIds }), ...(merchantIdentifiers===undefined?{}:{merchantIdentifiers}), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "sku") ? { sku: string(parsed.sku, 1, 64, SKU) } : {}), priceCents, ...(hidden ? { pricesHidden: true as const } : {}), ...(compareAtCents === undefined ? {} : { compareAtCents }), stockTracking: boolean(parsed.stockTracking), stockQuantity: integer(parsed.stockQuantity, 0), available: boolean(parsed.available), attributes: attributes(parsed.attributes) });
 }
 
 function parsePublicProductMerchandising(value: unknown): PublicProductMerchandising {
@@ -871,11 +873,14 @@ function parsePublicProductMerchandising(value: unknown): PublicProductMerchandi
 }
 
 export function parsePublicProduct(value: unknown): PublicProduct {
-  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["primaryCategoryId", "description", "compareAtCents", "brand", "categoryPath", "merchandising", "reviews"]);
+  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media"], ["primaryCategoryId", "description", "compareAtCents", "brand", "categoryPath", "merchandising", "reviews", "pricesHidden"]);
   if (parsed.currency !== "TRY" || parsed.status !== "active" || !Array.isArray(parsed.variants) || !Array.isArray(parsed.media) || parsed.variants.length < 1 || parsed.variants.length > 100 || parsed.media.length > 16) invalid();
-  const priceCents = integer(parsed.priceCents, 0);
-  const compareAtCents = optionalInteger(parsed, "compareAtCents", priceCents, Number.MAX_SAFE_INTEGER);
+  const hidden = Object.hasOwn(parsed, "pricesHidden");
+  if (hidden && (parsed.pricesHidden !== true || parsed.priceCents !== null || (Object.hasOwn(parsed, "compareAtCents") && parsed.compareAtCents !== null))) invalid();
+  const priceCents = hidden ? null : integer(parsed.priceCents, 0);
+  const compareAtCents = hidden ? (Object.hasOwn(parsed, "compareAtCents") ? null : undefined) : optionalInteger(parsed, "compareAtCents", priceCents!, Number.MAX_SAFE_INTEGER);
   const variants = Object.freeze(parsed.variants.map(parsePublicProductVariant));
+  if (variants.some((variant) => Boolean(variant.pricesHidden) !== hidden)) invalid();
   const media = Object.freeze(parsed.media.map(parsePublicProductMedia));
   for (let index = 1; index < media.length; index += 1) if (media[index - 1]!.sortOrder >= media[index]!.sortOrder) invalid();
   const id = uuid(parsed.id);
@@ -886,11 +891,11 @@ export function parsePublicProduct(value: unknown): PublicProduct {
   const brand = Object.hasOwn(parsed, "brand") ? (() => { const value = exact(parsed.brand, ["name", "slug"]); return Object.freeze({ name: string(value.name, 1, 200), slug: string(value.slug, 1, 100, SLUG) }); })() : undefined;
   const merchandising = Object.hasOwn(parsed, "merchandising") ? parsePublicProductMerchandising(parsed.merchandising) : undefined;
   const reviews = Object.hasOwn(parsed, "reviews") ? Object.freeze(arrayValues(parsed.reviews, 0, 20).map(parsePublicReview)) : undefined;
-  return Object.freeze({ id, ...(Object.hasOwn(parsed, "primaryCategoryId") ? { primaryCategoryId: uuid(parsed.primaryCategoryId) } : {}), slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), ...(brand ? { brand } : {}), ...(categoryPath ? { categoryPath } : {}), currency: "TRY", status: "active", priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media, ...(merchandising ? { merchandising } : {}), ...(reviews ? { reviews } : {}) });
+  return Object.freeze({ id, ...(Object.hasOwn(parsed, "primaryCategoryId") ? { primaryCategoryId: uuid(parsed.primaryCategoryId) } : {}), slug: string(parsed.slug, 3, 100, SLUG), title: string(parsed.title, 1, 200), ...(Object.hasOwn(parsed, "description") ? { description: description(parsed.description) } : {}), ...(brand ? { brand } : {}), ...(categoryPath ? { categoryPath } : {}), currency: "TRY", status: "active", priceCents, ...(hidden ? { pricesHidden: true as const } : {}), ...(compareAtCents === undefined ? {} : { compareAtCents }), available: boolean(parsed.available), variants, media, ...(merchandising ? { merchandising } : {}), ...(reviews ? { reviews } : {}) });
 }
 
 export function parsePublicProductV2(value: unknown): PublicProductV2 {
-  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media", "seoTitle", "seoDescription"], ["primaryCategoryId", "description", "compareAtCents", "brand", "categoryPath", "merchandising", "reviews"]);
+  const parsed = exact(value, ["id", "slug", "title", "currency", "status", "priceCents", "available", "variants", "media", "seoTitle", "seoDescription"], ["primaryCategoryId", "description", "compareAtCents", "brand", "categoryPath", "merchandising", "reviews", "pricesHidden"]);
   const { seoTitle, seoDescription, ...base } = parsed;
   return Object.freeze({ ...parsePublicProduct(base), seoTitle: seoTitle === null ? null : string(seoTitle, 0, 200), seoDescription: seoDescription === null ? null : string(seoDescription, 0, 500) });
 }

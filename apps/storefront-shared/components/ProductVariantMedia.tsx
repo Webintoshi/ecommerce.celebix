@@ -3,19 +3,23 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { resolveProductGallerySelection, resolvePublicProductVariantMedia, type PublicProduct } from "@celebix/saas-contracts";
 
+import { useCommercePolicy } from "./CommercePolicyProvider";
+
 type VariantSelection = Readonly<{ productId: string; selectedId: string; selectVariant: (id: string) => void }>;
 const ProductVariantContext = createContext<VariantSelection | null>(null);
 
-function initialVariant(product: PublicProduct, preferredId?: string): string {
+function initialVariant(product: PublicProduct, preferredId?: string, explicit = false): string {
   if (preferredId && product.variants.some(({ id }) => id === preferredId)) return preferredId;
+  if (explicit && product.variants.length > 1) return "";
   return product.variants.find(({ available }) => available)?.id ?? product.variants[0]?.id ?? "";
 }
 
 /** A small client boundary coordinates the gallery and purchase controls around server-rendered content. */
 export function ProductVariantMediaProvider({ product, children, initialVariantId }: Readonly<{ product: PublicProduct; children: ReactNode; initialVariantId?: string }>) {
-  const [selection, setSelection] = useState(() => ({ productId: product.id, selectedId: initialVariant(product, initialVariantId) }));
+  const policy = useCommercePolicy();
+  const [selection, setSelection] = useState(() => ({ productId: product.id, selectedId: initialVariant(product, initialVariantId, policy.enabled) }));
   const selectedId = selection.productId === product.id && product.variants.some(({ id }) => id === selection.selectedId)
-    ? selection.selectedId : initialVariant(product, initialVariantId);
+    ? selection.selectedId : initialVariant(product, initialVariantId, policy.enabled);
   const selectVariant = useCallback((id: string) => {
     if (product.variants.some((variant) => variant.id === id)) setSelection({ productId: product.id, selectedId: id });
   }, [product]);
@@ -24,10 +28,11 @@ export function ProductVariantMediaProvider({ product, children, initialVariantI
 }
 
 export function useProductVariantSelection(product: PublicProduct): readonly [string, (id: string) => void] {
+  const policy = useCommercePolicy();
   const shared = useContext(ProductVariantContext);
-  const [localId, setLocalId] = useState(() => initialVariant(product));
+  const [localId, setLocalId] = useState(() => initialVariant(product, undefined, policy.enabled));
   if (shared?.productId === product.id) return [shared.selectedId, shared.selectVariant];
-  const selectedId = product.variants.some(({ id }) => id === localId) ? localId : initialVariant(product);
+  const selectedId = product.variants.some(({ id }) => id === localId) ? localId : initialVariant(product, undefined, policy.enabled);
   return [selectedId, setLocalId];
 }
 

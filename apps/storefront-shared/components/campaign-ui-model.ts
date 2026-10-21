@@ -28,9 +28,9 @@ export function sideCartPresentation(presentation?: PublicStarterThemePresentati
 }
 
 /** The published design owns the policy; the current server cart proves it can ship. */
-export function freeShippingProgress(presentation: Readonly<{ showShippingProgress?: boolean; freeShippingThresholdCents?: number }> | undefined, cart: Readonly<{ currency: string; subtotalCents: number; shippingCents: number; itemCount: number; checkoutBlocker: string | null }> | null): Readonly<{ remainingCents: number; percent: number; achieved: boolean }> | null {
+export function freeShippingProgress(presentation: Readonly<{ showShippingProgress?: boolean; freeShippingThresholdCents?: number }> | undefined, cart: Readonly<{ currency: string; subtotalCents: number | null; shippingCents: number | null; pricesHidden?:true; itemCount: number; checkoutBlocker: string | null }> | null): Readonly<{ remainingCents: number; percent: number; achieved: boolean }> | null {
   const threshold = presentation?.freeShippingThresholdCents;
-  if (!presentation?.showShippingProgress || !Number.isSafeInteger(threshold) || threshold! < 1 || threshold! > 100_000_000 || !cart || cart.currency !== "TRY" || cart.itemCount < 1 || !Number.isSafeInteger(cart.subtotalCents) || cart.subtotalCents < 0 || cart.checkoutBlocker === "shipping_unavailable" || cart.checkoutBlocker === "stock_unavailable" || cart.checkoutBlocker === "empty_cart") return null;
+  if (!presentation?.showShippingProgress || !Number.isSafeInteger(threshold) || threshold! < 1 || threshold! > 100_000_000 || !cart || cart.pricesHidden || cart.subtotalCents === null || cart.shippingCents === null || cart.currency !== "TRY" || cart.itemCount < 1 || !Number.isSafeInteger(cart.subtotalCents) || cart.subtotalCents < 0 || cart.checkoutBlocker === "shipping_unavailable" || cart.checkoutBlocker === "stock_unavailable" || cart.checkoutBlocker === "empty_cart") return null;
   const achieved = cart.subtotalCents >= threshold!;
   // A free base tariff needs no progress bar. A stale design/cart pair must not promise a waived fee.
   if ((!achieved && cart.shippingCents === 0) || (achieved && cart.shippingCents !== 0)) return null;

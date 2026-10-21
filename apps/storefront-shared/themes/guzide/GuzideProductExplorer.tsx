@@ -1,4 +1,6 @@
 "use client";
+import { useMemo } from "react";
+import { useCommercePolicy } from "../../components/CommercePolicyProvider";
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, useTransition, type KeyboardEvent } from "react";
@@ -12,7 +14,9 @@ import styles from "./guzide-product-explorer.module.css";
 const FILTERS = [["all", "Tüm ürünler"], ["available", "Stokta olanlar"], ["discounted", "İndirimli ürünler"]] as const;
 const ORDERS = [["featured", "Öne çıkanlar"], ["title-asc", "Ürün adı"], ["price-asc", "Fiyat: düşükten yükseğe"], ["price-desc", "Fiyat: yüksekten düşüğe"]] as const;
 
-export function GuzideProductExplorer({ products, locale, cardStyle, imageRatio, selection, total, nextOffset, path, catalog }: ProductExplorerProps) {
+export function GuzideProductExplorer({ products, locale, cardStyle, imageRatio, selection: initialSelection, total, nextOffset, path, catalog }: ProductExplorerProps) {
+  const policy = useCommercePolicy();
+  const selection = useMemo(() => policy.hidePrices ? { ...initialSelection, filter: initialSelection.filter === "discounted" ? "all" as const : initialSelection.filter, order: initialSelection.order.startsWith("price-") ? "featured" as const : initialSelection.order } : initialSelection, [initialSelection, policy.hidePrices]);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [draftFilter, setDraftFilter] = useState(selection.filter);
@@ -68,14 +72,14 @@ export function GuzideProductExplorer({ products, locale, cardStyle, imageRatio,
       <details ref={filter} className={styles.control} data-catalog-panel="filter" onKeyDown={escape}>
         <summary onClick={(event) => { if (pending) { event.preventDefault(); return; } setDraftFilter(selection.filter); dismiss(sort.current); }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18" /><path d="M8 3v6m8 0v6m-5 0v6" /></svg>Filtrele{selection.filter !== "all" ? <span className={styles.activeDot} aria-label="Etkin filtre" /> : null}</summary>
         <div className={styles.panel}><form onSubmit={(event) => { event.preventDefault(); dismiss(filter.current, true); navigate({ ...selection, filter: draftFilter }); }}>
-          <fieldset><legend>Ürünleri filtrele</legend>{FILTERS.map(([value, label]) => <label key={value} htmlFor={`${id}-filter-${value}`}><span>{label}</span><input id={`${id}-filter-${value}`} name="filter" type="radio" value={value} checked={draftFilter === value} onChange={() => setDraftFilter(value)} /></label>)}</fieldset>
+          <fieldset><legend>Ürünleri filtrele</legend>{FILTERS.filter(([value]) => !policy.hidePrices || value !== "discounted").map(([value, label]) => <label key={value} htmlFor={`${id}-filter-${value}`}><span>{label}</span><input id={`${id}-filter-${value}`} name="filter" type="radio" value={value} checked={draftFilter === value} onChange={() => setDraftFilter(value)} /></label>)}</fieldset>
           <button type="submit" disabled={pending}>Uygula</button>
         </form></div>
       </details>
       <details ref={sort} className={styles.control} data-catalog-panel="sort" onKeyDown={escape}>
         <summary onClick={(event) => { if (pending) { event.preventDefault(); return; } setDraftOrder(selection.order); dismiss(filter.current); }}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 4v16m-4-4 4 4 4-4m4-12v16m-4-12 4-4 4 4" /></svg>Sırala{selection.order !== "featured" ? <span className={styles.activeDot} aria-label="Etkin sıralama" /> : null}</summary>
         <div className={styles.panel}><form onSubmit={(event) => { event.preventDefault(); dismiss(sort.current, true); navigate({ ...selection, order: draftOrder }); }}>
-          <fieldset><legend>Ürünleri sırala</legend>{ORDERS.map(([value, label]) => <label key={value} htmlFor={`${id}-sort-${value}`}><span>{label}</span><input id={`${id}-sort-${value}`} name="sort" type="radio" value={value} checked={draftOrder === value} onChange={() => setDraftOrder(value)} /></label>)}</fieldset>
+          <fieldset><legend>Ürünleri sırala</legend>{ORDERS.filter(([value]) => !policy.hidePrices || !value.startsWith("price-")).map(([value, label]) => <label key={value} htmlFor={`${id}-sort-${value}`}><span>{label}</span><input id={`${id}-sort-${value}`} name="sort" type="radio" value={value} checked={draftOrder === value} onChange={() => setDraftOrder(value)} /></label>)}</fieldset>
           <button type="submit" disabled={pending}>Uygula</button>
         </form></div>
       </details>

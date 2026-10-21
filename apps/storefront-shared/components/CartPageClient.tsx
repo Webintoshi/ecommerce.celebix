@@ -1,4 +1,6 @@
 "use client";
+import { useCommercePolicy } from "./CommercePolicyProvider";
+import { WhatsAppOrderButton } from "./WhatsAppOrderButton";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -35,10 +37,12 @@ function CartLineControls({
   disabled: boolean;
   onPending(value: boolean): void;
 }>) {
+  const policy = useCommercePolicy();
   const { replaceCart, refresh } = useCartStatus();
   const [quantity, setQuantity] = useState(line.quantity);
   useEffect(() => setQuantity(line.quantity), [line.quantity]);
   const update = async () => {
+    if (policy.hideAddToCart && quantity > line.quantity) return;
     onPending(true);
     try {
       replaceCart(
@@ -63,7 +67,7 @@ function CartLineControls({
           expectedVersion: version,
         }),
       );
-      emitStorefrontCommerceEvent({
+      if (!policy.hidePrices && line.lineTotalCents !== null) emitStorefrontCommerceEvent({
         name: "remove_from_cart",
         data: {
           productId: line.productId,
@@ -86,12 +90,12 @@ function CartLineControls({
         <input
           type="number"
           min="1"
-          max="99"
+          max={policy.hideAddToCart ? line.quantity : 99}
           value={quantity}
           disabled={disabled}
           onChange={(event) =>
             setQuantity(
-              Math.max(1, Math.min(99, Number(event.currentTarget.value) || 1)),
+              Math.max(1, Math.min(policy.hideAddToCart ? line.quantity : 99, Number(event.currentTarget.value) || 1)),
             )
           }
         />
@@ -123,6 +127,7 @@ export function CartPageClient({
   adjustedItems?: number;
   initialNormalizedCodes?: readonly string[];
 }>) {
+  const policy = useCommercePolicy();
   const hydrated = useHydrated();
   const { cart, loading, refresh } = useCartStatus();
   const [pending, setPending] = useState(false);
@@ -133,11 +138,13 @@ export function CartPageClient({
     useState<readonly string[]>(initialNormalizedCodes);
   const [promotionStatus, setPromotionStatus] = useState("");
   const visibleCart = hydrated ? cart : null;
+  const pricesHidden = policy.hidePrices || visibleCart?.pricesHidden === true;
+  const checkoutAllowed = policy.checkoutAllowed && visibleCart?.checkoutBlocker !== "whatsapp_only";
   const visibleLoading = !hydrated || loading;
   useEffect(() => {
-    if (visibleCart && visibleCart.items.length > 0)
+    if (!pricesHidden && visibleCart && visibleCart.items.length > 0)
       for (const line of visibleCart.items)
-        emitStorefrontCommerceEvent({
+        if (line.lineTotalCents !== null) emitStorefrontCommerceEvent({
           name: "view_cart",
           data: {
             productId: line.productId,
@@ -150,7 +157,7 @@ export function CartPageClient({
         });
   }, [visibleCart]);
   useEffect(() => {
-    if (!visibleCart || visibleCart.items.length === 0)
+    if (!checkoutAllowed || pricesHidden || !visibleCart || visibleCart.items.length === 0)
       return;
     let active = true;
     setPromotionQuote(null);
@@ -280,7 +287,7 @@ export function CartPageClient({
   };
   const activePromotionQuote =
     promotionQuote?.cart.version === visibleCart.version ? promotionQuote : null;
-  const interactionPending = pending || promotionPending;
+  const interactionPending = pending || (checkoutAllowed && !pricesHidden && promotionPending);
   const summaryCart = activePromotionQuote?.cart ?? visibleCart;
   return (
     <>
@@ -317,8 +324,8 @@ export function CartPageClient({
               <div className="cart-line-copy">
                 <Link href={productPath(locale, line.slug)}>{line.title}</Link>
                 <span>{line.variantTitle}</span>
-                <strong>{formatTry(line.unitPriceCents)}</strong>
-                {activePromotionQuote?.cart.items.find((item) => item.variantId === line.variantId)?.discountCents ? (
+                {!pricesHidden ? <strong>{formatTry(line.unitPriceCents)}</strong> : null}
+                {!pricesHidden && activePromotionQuote?.cart.items.find((item) => item.variantId === line.variantId)?.discountCents ? (
                   <small className="cart-line-discount">Ürün indirimi sunucu tarafından uygulandı.</small>
                 ) : null}
                 {!line.available ? <em>Şu anda kullanılamıyor</em> : null}
@@ -330,16 +337,16 @@ export function CartPageClient({
                 disabled={interactionPending}
                 onPending={setPending}
               />
-              <strong className="cart-line-total">
+              {!pricesHidden ? <strong className="cart-line-total">
                 {formatTry(line.lineTotalCents)}
-              </strong>
+              </strong> : null}
             </article>
           ))}
         </section>
         <aside className="cart-summary">
           <span>SİPARİŞ ÖZETİ</span>
-          <h2>Sepet toplamı</h2>
-          <dl>
+          <h2>{pricesHidden ? "Sipariş talebi" : "Sepet toplamı"}</h2>
+          {!pricesHidden ? <dl>
             <div>
               <dt>Ara toplam</dt>
               <dd>{formatTry(summaryCart.subtotalCents)}</dd>
@@ -359,15 +366,16 @@ export function CartPageClient({
               <dt>Toplam</dt>
               <dd>{formatTry(summaryCart.totalCents)}</dd>
             </div>
-          </dl>
-          {activePromotionQuote ? <PromotionDetails quote={activePromotionQuote} /> : null}
-          <PromotionCouponField
+          </dl> : null}
+          {!pricesHidden && checkoutAllowed && activePromotionQuote ? <PromotionDetails quote={activePromotionQuote} /> : null}
+          {checkoutAllowed && !pricesHidden ? <PromotionCouponField
             codes={appliedCodes}
             pending={interactionPending}
             status={promotionStatus}
             onApply={applyCoupon}
             onRemove={removeCoupon}
-          />
+          /> : null}
+          <WhatsAppOrderButton cart={visibleCart} disabled={pending} />
           {blockerMessage ? (
             <span
               className={`cart-unavailable${configurationBlocker ? " is-configuration" : ""}`}
@@ -376,7 +384,7 @@ export function CartPageClient({
               {blockerMessage}
             </span>
           ) : null}
-          {!interactionPending &&
+          {checkoutAllowed && !interactionPending &&
           !stockBlocker &&
           (visibleCart.checkoutReady || configurationBlocker) ? (
             <Link className="store-button" href="/checkout">

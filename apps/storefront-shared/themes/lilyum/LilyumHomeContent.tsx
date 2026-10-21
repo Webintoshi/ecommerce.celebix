@@ -24,7 +24,7 @@ export function LilyumProductCardsContent<Product extends ProductCardContentProd
       {product.media[0] ? <img src={product.media[0].url} alt={product.media[0].altText || product.title} width={product.media[0].width ?? 540} height={product.media[0].height ?? 540} loading="lazy" decoding="async" /> : <span>Görsel yakında</span>}
     </Link>
     {renderFavorite(product)}
-    <div className="lf-product-copy"><Link prefetch={prefetch} href={productPath(locale, product.slug)}><h3>{product.title}</h3></Link><div className="lf-product-price"><strong>{formatTry(product.priceCents)}</strong><Link prefetch={prefetch} href={productPath(locale, product.slug)} aria-label={`${product.title} incele`}>İncele<LilyumIcon name="arrow" /></Link></div></div>
+    <div className="lf-product-copy"><Link prefetch={prefetch} href={productPath(locale, product.slug)}><h3>{product.title}</h3></Link><div className="lf-product-price">{product.priceCents !== null ? <strong>{formatTry(product.priceCents)}</strong> : null}<Link prefetch={prefetch} href={productPath(locale, product.slug)} aria-label={`${product.title} incele`}>İncele<LilyumIcon name="arrow" /></Link></div></div>
   </article>)}</div>;
 }
 

@@ -32,10 +32,10 @@ export function ProductCardContent({ product, locale, cardStyle, imageRatio, pre
     <div className="product-card-copy">
       {product.brand?.name ? <span className="product-card-brand">{product.brand.name}</span> : null}
       <h3>{product.title}</h3>
-      <div className="price-row">
+      {product.priceCents !== null ? <div className="price-row">
         {product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}
         <strong>{formatTry(product.priceCents)}</strong>
-      </div>
+      </div> : null}
     </div>
   </Link>;
 }

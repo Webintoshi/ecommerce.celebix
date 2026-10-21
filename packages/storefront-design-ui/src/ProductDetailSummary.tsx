@@ -17,7 +17,7 @@ export function ProductDetailSummary({ product, options, classes = {}, renderBra
       {options.showBrand && product.brand ? renderBrand ? renderBrand(product.brand.name) : <span className={classes.brand ?? "celebix-product-brand"}>{product.brand.name}</span> : null}
       {options.showSku && primaryVariant?.sku ? <p className={classes.sku ?? "celebix-product-sku"}>Ürün Kodu: {primaryVariant.sku}</p> : null}
     </div>
-    <div className={classes.price ?? "celebix-product-price"}>{product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{money(product.compareAtCents)}</del> : null}<strong>{money(product.priceCents)}</strong></div>
+    {product.priceCents !== null ? <div className={classes.price ?? "celebix-product-price"}>{product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{money(product.compareAtCents)}</del> : null}<strong>{money(product.priceCents)}</strong></div> : null}
     {product.merchandising?.highlights.length ? <ul className={classes.highlights ?? "celebix-product-highlights"}>{product.merchandising.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
   </>;
 }

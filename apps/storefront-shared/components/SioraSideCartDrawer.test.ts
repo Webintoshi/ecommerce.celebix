@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import React, { createContext, useContext, useState } from "react";
-import type { PublicCart, PublicCartLine } from "@celebix/saas-contracts";
+import type { PricedPublicCart as PublicCart, PricedPublicCartLine as PublicCartLine } from "@celebix/saas-contracts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
 type Component = React.ComponentType<Record<string, unknown>>;

@@ -37,6 +37,7 @@ export type PublicProductSearch = Readonly<{
 }>;
 
 export type PublicCartLine = Readonly<{
+  pricesHidden?: true;
   productId: string;
   categoryId?: string;
   variantId: string;
@@ -45,8 +46,8 @@ export type PublicCartLine = Readonly<{
   variantTitle: string;
   media?: PublicProductMedia;
   quantity: number;
-  unitPriceCents: number;
-  lineTotalCents: number;
+  unitPriceCents: number | null;
+  lineTotalCents: number | null;
   available: boolean;
 }>;
 
@@ -55,19 +56,26 @@ export type PublicCartCheckoutBlocker =
   | "stock_unavailable"
   | "shipping_unavailable"
   | "payment_unavailable"
+  | "whatsapp_only"
   | null;
 
 export type PublicCart = Readonly<{
+  pricesHidden?: true;
   version: number;
   currency: "TRY";
   itemCount: number;
-  subtotalCents: number;
-  shippingCents: number;
-  totalCents: number;
+  subtotalCents: number | null;
+  shippingCents: number | null;
+  totalCents: number | null;
   checkoutReady: boolean;
   checkoutBlocker: PublicCartCheckoutBlocker;
   items: readonly PublicCartLine[];
 }>;
+
+export type PricedPublicCartLine = Omit<PublicCartLine, "unitPriceCents" | "lineTotalCents" | "pricesHidden"> & Readonly<{unitPriceCents:number; lineTotalCents:number}>;
+export type PricedPublicCartLineV2 = Omit<PublicCartLineV2, "unitPriceCents" | "lineTotalCents" | "discountCents" | "payableCents" | "pricesHidden"> & Readonly<{unitPriceCents:number; lineTotalCents:number; discountCents:number; payableCents:number}>;
+export type PricedPublicCart = Omit<PublicCart, "subtotalCents" | "shippingCents" | "totalCents" | "items" | "pricesHidden"> & Readonly<{subtotalCents:number; shippingCents:number; totalCents:number; items:readonly PricedPublicCartLine[]}>;
+export type PricedPublicCartV2 = Omit<PublicCartV2, "subtotalCents" | "shippingCents" | "totalCents" | "lineDiscountCents" | "shippingDiscountCents" | "discountCents" | "items" | "pricesHidden"> & Readonly<{subtotalCents:number; shippingCents:number; totalCents:number; lineDiscountCents:number; shippingDiscountCents:number; discountCents:number; items:readonly PricedPublicCartLineV2[]}>;
 
 export type PublicOfflinePaymentMethod = Readonly<{
   kind: "bank_transfer" | "cash_on_delivery";
@@ -97,6 +105,7 @@ export type PublicCheckoutQuote = Readonly<{
 }>;
 
 export type PublicCartLineV2 = Readonly<{
+  pricesHidden?: true;
   productId: string;
   categoryId?: string;
   variantId: string;
@@ -105,23 +114,24 @@ export type PublicCartLineV2 = Readonly<{
   variantTitle: string;
   media?: PublicProductMedia;
   quantity: number;
-  unitPriceCents: number;
-  lineTotalCents: number;
-  discountCents: number;
-  payableCents: number;
+  unitPriceCents: number | null;
+  lineTotalCents: number | null;
+  discountCents: number | null;
+  payableCents: number | null;
   available: boolean;
 }>;
 
 export type PublicCartV2 = Readonly<{
+  pricesHidden?: true;
   version: number;
   currency: "TRY";
   itemCount: number;
-  subtotalCents: number;
-  shippingCents: number;
-  lineDiscountCents: number;
-  shippingDiscountCents: number;
-  discountCents: number;
-  totalCents: number;
+  subtotalCents: number | null;
+  shippingCents: number | null;
+  lineDiscountCents: number | null;
+  shippingDiscountCents: number | null;
+  discountCents: number | null;
+  totalCents: number | null;
   checkoutReady: boolean;
   checkoutBlocker: PublicCartCheckoutBlocker;
   items: readonly PublicCartLineV2[];
@@ -181,7 +191,7 @@ export type PublicCheckoutReceipt = Readonly<{
     postalCode?: string;
     country: "TR";
   }>;
-  items: readonly PublicCartLine[];
+  items: readonly PricedPublicCartLine[];
   createdAt: string;
 }>;
 
@@ -197,7 +207,7 @@ export type PublicCheckoutReceiptV2 = Readonly<{
   paymentStatus: "pending" | "completed";
   paymentMethod: PublicPaymentMethod;
   delivery: PublicCheckoutReceipt["delivery"];
-  items: readonly PublicCartLineV2[];
+  items: readonly PricedPublicCartLineV2[];
   promotionStatus: PublicPromotionEvaluationStatus;
   appliedPromotions: readonly PublicAppliedPromotion[];
   gifts: readonly PublicPromotionGift[];
@@ -286,9 +296,9 @@ function validTurkishIban(value: unknown): string {
   return iban;
 }
 
-function cartLines(value: unknown, minimum: number, maximum: number): readonly PublicCartLine[] {
+function cartLines(value: unknown, minimum: number, maximum: number): readonly PricedPublicCartLine[] {
   const rows = denseArray(value, minimum, maximum);
-  const output: PublicCartLine[] = [];
+  const output: PricedPublicCartLine[] = [];
   const variants = new Set<string>();
   for (const row of rows) {
     const parsed = exact(row, ["productId", "variantId", "slug", "title", "variantTitle", "quantity", "unitPriceCents", "lineTotalCents", "available"], ["categoryId", "media"]);
@@ -324,9 +334,9 @@ function cartLinesV2(
   minimum: number,
   maximum: number,
   uniqueVariants = true,
-): readonly PublicCartLineV2[] {
+): readonly PricedPublicCartLineV2[] {
   const rows = denseArray(value, minimum, maximum);
-  const output: PublicCartLineV2[] = [];
+  const output: PricedPublicCartLineV2[] = [];
   const variants = new Set<string>();
   for (const row of rows) {
     const parsed = exact(row, [
@@ -426,9 +436,9 @@ function promotionGifts(value: unknown): readonly PublicPromotionGift[] {
 }
 
 function frozenMerchandiseLines(
-  items: readonly PublicCartLineV2[],
+  items: readonly PricedPublicCartLineV2[],
   gifts: readonly PublicPromotionGift[],
-): readonly PublicCartLineV2[] {
+): readonly PricedPublicCartLineV2[] {
   const expectedGiftRows = gifts.flatMap((gift) => {
     if (!gift.autoAdd) return [];
     const rows: { variantId: string; quantity: number }[] = [];
@@ -476,7 +486,7 @@ function promotionEvaluationStatus(value: unknown): PublicPromotionEvaluationSta
 
 function promotionPresentation(
   value: Readonly<Record<string, unknown>>,
-  cart: PublicCartV2,
+  cart: PricedPublicCartV2,
   gifts: readonly PublicPromotionGift[],
   merchandiseLineCount: number,
 ) {
@@ -625,7 +635,31 @@ export function parsePublicProductSearch(value: unknown): PublicProductSearch {
   });
 }
 
+function hiddenCart(value: unknown, v2: boolean): PublicCart | PublicCartV2 {
+  const moneyKeys = ["subtotalCents", "shippingCents", "totalCents", ...(v2 ? ["lineDiscountCents", "shippingDiscountCents", "discountCents"] : [])];
+  const parsed = exact(value, ["version", "currency", "itemCount", "pricesHidden", "checkoutReady", "checkoutBlocker", "items", ...moneyKeys]);
+  if (parsed.pricesHidden !== true || parsed.currency !== "TRY" || parsed.checkoutReady !== false || moneyKeys.some(key => parsed[key] !== null)) invalid();
+  const lineKeys = ["unitPriceCents", "lineTotalCents", ...(v2 ? ["discountCents", "payableCents"] : [])];
+  const variants = new Set<string>();
+  const items = denseArray(parsed.items, 0, 100).map(value => {
+    const line = exact(value, ["productId", "variantId", "slug", "title", "variantTitle", "quantity", "available", "pricesHidden", ...lineKeys], ["categoryId", "media"]);
+    if (line.pricesHidden !== true || lineKeys.some(key => line[key] !== null)) invalid();
+    // Reuse the priced parser for all identity/media/quantity validation; zeros are local validation sentinels only.
+    const { pricesHidden: _marker, ...base } = line;
+    const validated = (v2 ? cartLinesV2 : cartLines)([{...base, ...Object.fromEntries(lineKeys.map(key => [key, 0]))}], 1, 1)[0]!;
+    if (variants.has(validated.variantId)) invalid();
+    variants.add(validated.variantId);
+    return Object.freeze({...validated, ...Object.fromEntries(lineKeys.map(key => [key, null])), pricesHidden:true as const});
+  });
+  const count = integer(parsed.itemCount, 0, 999_900);
+  if (count !== items.reduce((sum, item) => sum + item.quantity, 0)) invalid();
+  if (!(["empty_cart", "stock_unavailable", "shipping_unavailable", "payment_unavailable", "whatsapp_only"] as unknown[]).includes(parsed.checkoutBlocker)) invalid();
+  if ((parsed.checkoutBlocker === "empty_cart") !== (items.length === 0) || (parsed.checkoutBlocker === "stock_unavailable" && !items.some(item => !item.available))) invalid();
+  return Object.freeze({...parsed, version:integer(parsed.version,0), itemCount:count, items:Object.freeze(items)}) as PublicCart | PublicCartV2;
+}
+
 export function parsePublicCart(value: unknown): PublicCart {
+  if (typeof value === "object" && value !== null && Object.getOwnPropertyDescriptor(value, "pricesHidden")?.value === true) return hiddenCart(value, false) as PublicCart;
   const parsed = exact(value, ["version", "currency", "itemCount", "subtotalCents", "shippingCents", "totalCents", "checkoutReady", "checkoutBlocker", "items"]);
   if (parsed.currency !== "TRY") invalid();
   const items = cartLines(parsed.items, 0, 100);
@@ -644,6 +678,7 @@ export function parsePublicCart(value: unknown): PublicCart {
       || parsed.checkoutBlocker === "stock_unavailable"
       || parsed.checkoutBlocker === "shipping_unavailable"
       || parsed.checkoutBlocker === "payment_unavailable"
+      || parsed.checkoutBlocker === "whatsapp_only"
       ? parsed.checkoutBlocker
       : invalid();
   if (checkoutReady !== (checkoutBlocker === null)) invalid();
@@ -669,7 +704,7 @@ function publicCartV2(
   value: unknown,
   uniqueVariants: boolean,
   frozenGifts?: readonly PublicPromotionGift[],
-): PublicCartV2 {
+): PricedPublicCartV2 {
   const parsed = exact(value, [
     "version", "currency", "itemCount", "subtotalCents", "shippingCents", "lineDiscountCents",
     "shippingDiscountCents", "discountCents", "totalCents", "checkoutReady", "checkoutBlocker", "items",
@@ -701,6 +736,7 @@ function publicCartV2(
       || parsed.checkoutBlocker === "stock_unavailable"
       || parsed.checkoutBlocker === "shipping_unavailable"
       || parsed.checkoutBlocker === "payment_unavailable"
+      || parsed.checkoutBlocker === "whatsapp_only"
       ? parsed.checkoutBlocker
       : invalid();
   if (checkoutReady !== (checkoutBlocker === null)) invalid();
@@ -726,6 +762,7 @@ function publicCartV2(
 }
 
 export function parsePublicCartV2(value: unknown): PublicCartV2 {
+  if (typeof value === "object" && value !== null && Object.getOwnPropertyDescriptor(value, "pricesHidden")?.value === true) return hiddenCart(value, true) as PublicCartV2;
   return publicCartV2(value, true);
 }
 

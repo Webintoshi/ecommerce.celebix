@@ -5,6 +5,7 @@ import type { CheckoutIntentKind } from "@/lib/cart/types.ts";
 type PublicCartCheckoutBlocker = PublicCart["checkoutBlocker"];
 
 const CHECKOUT_BLOCKER_COPY = Object.freeze({
+  whatsapp_only: "Sipariş talebinizi WhatsApp üzerinden iletebilirsiniz.",
   empty_cart: "Sepetiniz boş.",
   stock_unavailable: "Sepetinizde stok veya fiyatı değişen bir ürün var.",
   shipping_unavailable: "Teslimat yöntemi henüz yapılandırılmadı.",
@@ -16,6 +17,7 @@ export function checkoutBlockerMessage(blocker: PublicCartCheckoutBlocker): stri
 }
 
 export function checkoutFailureMessage(code: unknown): string {
+  if (code === "whatsapp_only") return CHECKOUT_BLOCKER_COPY.whatsapp_only;
   if (code === "sales_paused") return "Mağaza şu anda yeni sipariş almıyor. Daha sonra tekrar deneyin.";
   if (code === "cart_empty") return CHECKOUT_BLOCKER_COPY.empty_cart;
   if (code === "price_changed" || code === "stock_unavailable") return CHECKOUT_BLOCKER_COPY.stock_unavailable;
@@ -26,7 +28,7 @@ export function checkoutFailureMessage(code: unknown): string {
 
 export function hostedCheckoutFailureMessage(code: unknown): string {
   if (code === "invalid_input") return "İletişim ve teslimat bilgilerinizi kontrol edin. Sorun devam ederse mağazayla iletişime geçin.";
-  if (code === "sales_paused" || code === "cart_empty" || code === "price_changed" || code === "stock_unavailable"
+  if (code === "whatsapp_only" || code === "sales_paused" || code === "cart_empty" || code === "price_changed" || code === "stock_unavailable"
     || code === "shipping_unavailable" || code === "payment_unavailable") return checkoutFailureMessage(code);
   return "Güvenli ödeme başlatılamadı. Lütfen yeniden deneyin.";
 }

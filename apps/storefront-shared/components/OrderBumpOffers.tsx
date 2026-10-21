@@ -1,4 +1,5 @@
 "use client";
+import { useCommercePolicy } from "./CommercePolicyProvider";
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
@@ -23,6 +24,7 @@ type Props = Readonly<{
 }>;
 
 export function OrderBumpOffers({ cart, placement, locale = "tr", active = true, disabled = false, beforeAdd, afterAdd, onPendingChange, onAvailability }: Props) {
+  const policy = useCommercePolicy();
   const { replaceCart } = useCartStatus();
   const [snapshot, setSnapshot] = useState<OrderBumpPublicOffers | null>(null);
   const [pending, setPending] = useState(false);
@@ -33,7 +35,7 @@ export function OrderBumpOffers({ cart, placement, locale = "tr", active = true,
   current.current = { cart, active, disabled, beforeAdd, afterAdd, onPendingChange, onAvailability };
   const headingId = useId();
   const version = cart?.version ?? null;
-  const eligible = active && Boolean(cart?.items.length) && cart?.checkoutBlocker !== "stock_unavailable";
+  const eligible = !policy.hidePrices && !policy.hideAddToCart && !cart?.pricesHidden && cart?.checkoutBlocker !== "whatsapp_only" && active && Boolean(cart?.items.length) && cart?.checkoutBlocker !== "stock_unavailable";
 
   useEffect(() => {
     let live = true;
@@ -53,7 +55,7 @@ export function OrderBumpOffers({ cart, placement, locale = "tr", active = true,
 
   const accept = async (offer: OrderBumpPublicOffer) => {
     const latest = current.current;
-    if (busy.current || !latest.active || latest.disabled || !latest.cart || latest.cart.version !== snapshot?.cartVersion || consumedVersion === latest.cart.version || latest.cart.items.some(line => line.productId === offer.productId)) return;
+    if (policy.hidePrices || policy.hideAddToCart || busy.current || !latest.active || latest.disabled || !latest.cart || latest.cart.version !== snapshot?.cartVersion || consumedVersion === latest.cart.version || latest.cart.items.some(line => line.productId === offer.productId)) return;
     if (latest.beforeAdd && !latest.beforeAdd()) return;
     busy.current = true;
     setPending(true);

@@ -1,4 +1,6 @@
 "use client";
+import { useCommercePolicy } from "./CommercePolicyProvider";
+import { WhatsAppOrderButton } from "./WhatsAppOrderButton";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "./RestockAlerts";
 
 import { useState } from "react";
@@ -35,6 +37,8 @@ export function ProductPurchasePanel({
   beforePurchaseTransition?(kind: "add" | "buy"): Promise<Readonly<{ proceed: boolean; drawerTrigger?: HTMLElement | null }>>;
 }>) {
   const router = useRouter();
+  const policy = useCommercePolicy();
+  const pricesHidden = policy.hidePrices || product.pricesHidden === true;
   const restockConfig = useRestockAlertsConfig();
   const { openDrawer, replaceCart } = useCartStatus();
   const [selectedId, setSelectedId] = useProductVariantSelection(product);
@@ -57,7 +61,7 @@ export function ProductPurchasePanel({
     );
 
   const run = async (kind: "add" | "buy", trigger: HTMLButtonElement) => {
-    if (!variant || !allowed || pending) {
+    if (policy.hideAddToCart || (kind === "buy" && !policy.checkoutAllowed) || !variant || !allowed || pending) {
       setStatus("Lütfen stokta olan bir varyant seçin.");
       return;
     }
@@ -77,7 +81,7 @@ export function ProductPurchasePanel({
             { add: storefrontCartClient.add, openDrawer, replaceCart },
           );
         }
-        emitStorefrontCommerceEvent({
+        if (!pricesHidden) emitStorefrontCommerceEvent({
           name: "add_to_cart",
           data: {
             productId: product.id,
@@ -87,7 +91,7 @@ export function ProductPurchasePanel({
               : {}),
             quantity,
             currency: product.currency,
-            valueMinor: variant.priceCents * quantity,
+            ...(variant.priceCents === null ? {} : { valueMinor: variant.priceCents * quantity }),
           },
         });
         setStatus("Ürün sepete eklendi.");
@@ -99,7 +103,7 @@ export function ProductPurchasePanel({
             quantity,
           }),
         );
-        emitStorefrontCommerceEvent({
+        if (!pricesHidden) emitStorefrontCommerceEvent({
           name: "add_to_cart",
           data: {
             productId: product.id,
@@ -109,11 +113,11 @@ export function ProductPurchasePanel({
               : {}),
             quantity,
             currency: product.currency,
-            valueMinor: variant.priceCents * quantity,
+            ...(variant.priceCents === null ? {} : { valueMinor: variant.priceCents * quantity }),
           },
         });
         if (beforePurchaseTransition && !(await beforePurchaseTransition("buy")).proceed) return;
-        emitStorefrontCommerceEvent({
+        if (!pricesHidden) emitStorefrontCommerceEvent({
           name: "begin_checkout",
           data: {
             productId: product.id,
@@ -123,13 +127,13 @@ export function ProductPurchasePanel({
               : {}),
             quantity,
             currency: product.currency,
-            valueMinor: variant.priceCents * quantity,
+            ...(variant.priceCents === null ? {} : { valueMinor: variant.priceCents * quantity }),
           },
         });
         router.push("/checkout");
       }
-    } catch {
-      setStatus("İşlem tamamlanamadı. Lütfen yeniden deneyin.");
+    } catch (error) {
+      setStatus(error instanceof Error && error.message === "whatsapp_only" ? "Sipariş talebinizi WhatsApp üzerinden iletebilirsiniz. Sayfayı yenileyin." : "İşlem tamamlanamadı. Lütfen yeniden deneyin.");
     } finally {
       setPending(null);
     }
@@ -169,7 +173,7 @@ export function ProductPurchasePanel({
                     {variantStockLabel(variant, showStockQuantity)}
                   </small>
                 </span>
-                <strong>{formatTry(variant.priceCents)}</strong>
+                {!pricesHidden ? <strong>{formatTry(variant.priceCents)}</strong> : null}
               </label>
             ))}
           </div>
@@ -210,24 +214,25 @@ export function ProductPurchasePanel({
           </div>
         ) : null}
         <div className="purchase-actions">
-          <button
+          {!policy.hideAddToCart ? <button
             className="store-button"
             type="button"
             disabled={pending !== null || !allowed}
             onClick={(event) => void run("add", event.currentTarget)}
           >
             {pending === "add" ? "Ekleniyor…" : "Sepete ekle"}
-          </button>
-          <button
+          </button> : null}
+          {policy.checkoutAllowed ? <button
             className="store-button store-button-secondary"
             type="button"
             disabled={pending !== null || !allowed}
             onClick={(event) => void run("buy", event.currentTarget)}
           >
             {pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}
-          </button>
+          </button> : null}
         </div>
       </div>
+      <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />
       <p className="purchase-status" aria-live="polite">
         {status}

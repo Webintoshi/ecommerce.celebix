@@ -1,4 +1,6 @@
 "use client";
+import { useCommercePolicy } from "../../components/CommercePolicyProvider";
+import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
@@ -20,6 +22,8 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
   product: PublicProduct; options: StarterProductDetailConfigV2; showQuantitySelector: boolean; children?: ReactNode;
 }>) {
   const router = useRouter();
+  const policy = useCommercePolicy();
+  const pricesHidden = policy.hidePrices || product.pricesHidden === true;
   const restockConfig = useRestockAlertsConfig();
   const { openDrawer, drawerOpen, replaceCart } = useCartStatus();
   const [selectedId, selectVariant] = useProductVariantSelection(product);
@@ -40,27 +44,27 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
   useEffect(() => { setQuantity(1); setStatus(""); }, [product.id, selectedId]);
 
   const run = async (kind: "add" | "buy", trigger: HTMLButtonElement) => {
-    if (requestPending.current) return;
+    if (policy.hideAddToCart || (kind === "buy" && !policy.checkoutAllowed) || requestPending.current) return;
     if (!variant || !allowed) { setStatus("Lütfen stokta olan bir seçenek seçin."); return; }
     requestPending.current = true; setPending(kind); setStatus("");
     const requestRoute = `${window.location.pathname}${window.location.search}`;
     const stillOnProduct = () => mounted.current && requestRoute === `${window.location.pathname}${window.location.search}`;
     const input = { productId: product.id, variantId: variant.id, quantity };
-    const data = { ...input, currency: product.currency, valueMinor: variant.priceCents * quantity, ...(product.primaryCategoryId ? { categoryId: product.primaryCategoryId } : {}) };
+    const data = { ...input, currency: product.currency, ...(variant.priceCents === null ? {} : { valueMinor: variant.priceCents * quantity }), ...(product.primaryCategoryId ? { categoryId: product.primaryCategoryId } : {}) };
     try {
       if (kind === "add") {
         await addCartLineAndOpenDrawer(input, trigger, { add: storefrontCartClient.add, replaceCart,
           openDrawer: opener => { if (stillOnProduct() && opener.isConnected) openDrawer(opener); } });
-        emitStorefrontCommerceEvent({ name: "add_to_cart", data });
+        if (!pricesHidden) emitStorefrontCommerceEvent({ name: "add_to_cart", data });
         if (stillOnProduct()) setStatus("Ürün sepete eklendi.");
       } else {
         replaceCart(await storefrontCartClient.add(input));
-        emitStorefrontCommerceEvent({ name: "add_to_cart", data });
+        if (!pricesHidden) emitStorefrontCommerceEvent({ name: "add_to_cart", data });
         if (!stillOnProduct()) return;
-        emitStorefrontCommerceEvent({ name: "begin_checkout", data });
+        if (!pricesHidden) emitStorefrontCommerceEvent({ name: "begin_checkout", data });
         router.push("/checkout");
       }
-    } catch { if (stillOnProduct()) setStatus("İşlem tamamlanamadı. Lütfen yeniden deneyin."); }
+    } catch (error) { if (stillOnProduct()) setStatus(error instanceof Error && error.message === "whatsapp_only" ? "Sipariş talebinizi WhatsApp üzerinden iletebilirsiniz. Sayfayı yenileyin." : "İşlem tamamlanamadı. Lütfen yeniden deneyin."); }
     finally { requestPending.current = false; if (mounted.current) setPending(null); }
   };
 
@@ -69,13 +73,13 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
       <div className="lf-product-title-row"><h1 id={titleId}>{product.title}</h1><FavoriteButton productId={product.id} productTitle={product.title} /></div>
       {options.showBrand && product.brand ? <Link className="lf-product-brand" href={`/search?q=${encodeURIComponent(product.brand.name)}`}>{product.brand.name}</Link> : null}
       {options.showSku && variant?.sku ? <p className="lf-product-sku">Ürün kodu: {variant.sku}</p> : null}
-      <div className="lf-purchase-price" aria-live="polite"><strong>{formatTry(amount)}</strong>{compareAt !== undefined && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}</div>
+      <div className="lf-purchase-price" aria-live="polite">{!pricesHidden ? <strong>{formatTry(amount)}</strong> : null}{!pricesHidden && typeof compareAt === "number" && amount !== null && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}</div>
       {!available ? <p className="lf-product-unavailable">Bu ürün şu anda mevcut değil.</p> : null}
       {product.merchandising?.highlights.length ? <ul className="lf-product-highlights">{product.merchandising.highlights.map(text => <li key={text}>{text}</li>)}</ul> : null}
       {choices ? <fieldset className="lf-product-choices" disabled={pending !== null}><legend>Seçenekler</legend>
         {product.variants.map(item => <label key={item.id} data-available={item.available ? "true" : "false"}>
           <input type="radio" name={`${titleId}-variant`} value={item.id} checked={item.id === selectedId} disabled={!item.available && !restockConfig?.enabled} onChange={() => { if (!requestPending.current) { selectVariant(item.id); setQuantity(1); setStatus(""); } }} />
-          <span>{item.title}<small>{item.available ? "Stokta" : "Tükendi"}</small></span><strong>{formatTry(item.priceCents)}</strong>
+          <span>{item.title}<small>{item.available ? "Stokta" : "Tükendi"}</small></span>{!pricesHidden ? <strong>{formatTry(item.priceCents)}</strong> : null}
         </label>)}
       </fieldset> : null}
       {showQuantitySelector ? <div className="lf-product-quantity" aria-label="Adet seçimi"><span>Adet</span>
@@ -84,16 +88,17 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
         <button type="button" aria-label="Adedi artır" disabled={pending !== null || !available || quantity >= quantityLimit} onClick={() => setQuantity(value => incrementPurchaseQuantity(value, quantityLimit))}>+</button>
       </div> : null}
       <div className="lf-purchase-actions">
-        <button className="lf-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><LilyumIcon name="bag" />{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button>
-        <button className="lf-button lf-purchase-buy" type="button" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}<LilyumIcon name="arrow" /></button>
+        {!policy.hideAddToCart ? <button className="lf-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><LilyumIcon name="bag" />{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
+        {policy.checkoutAllowed ? <button className="lf-button lf-purchase-buy" type="button" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}<LilyumIcon name="arrow" /></button> : null}
       </div>
       <p className="lf-purchase-status" role="status" aria-live="polite">{status}</p>
+      <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />
       {children}
     </section>
     {options.mobileStickyPurchase ? <div className="lf-product-sticky" data-lilyum-sticky-purchase hidden={drawerOpen}>
-      <div><span>{product.title}</span><strong>{formatTry(amount)}</strong></div>
-      <button className="lf-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><LilyumIcon name="bag" />{pending === "add" ? "Ekleniyor…" : available ? "Sepete ekle" : "Tükendi"}</button>
+      <div><span>{product.title}</span>{!pricesHidden ? <strong>{formatTry(amount)}</strong> : null}</div>
+      {!policy.hideAddToCart ? <button className="lf-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><LilyumIcon name="bag" />{pending === "add" ? "Ekleniyor…" : available ? "Sepete ekle" : "Tükendi"}</button> : null}{policy.hideAddToCart ? <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} /> : null}
     </div> : null}
   </>;
 }

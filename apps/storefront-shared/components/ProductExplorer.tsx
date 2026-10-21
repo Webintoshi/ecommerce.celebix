@@ -1,4 +1,6 @@
 "use client";
+import { useMemo } from "react";
+import { useCommercePolicy } from "./CommercePolicyProvider";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -35,7 +37,9 @@ export function ProductExplorer({ visualTheme, ...props }: ProductExplorerProps)
   return visualTheme === "siora-deniz" || visualTheme === "alpler-deniz" ? <SioraProductExplorer {...props} /> : <StandardProductExplorer {...props} />;
 }
 
-function StandardProductExplorer({ products, locale, cardStyle, imageRatio, selection, total, nextOffset, path, preserveOrder = false }: ProductExplorerProps) {
+function StandardProductExplorer({ products, locale, cardStyle, imageRatio, selection: initialSelection, total, nextOffset, path, preserveOrder = false }: ProductExplorerProps) {
+  const policy = useCommercePolicy();
+  const selection = useMemo(() => policy.hidePrices ? { ...initialSelection, filter: initialSelection.filter === "discounted" ? "all" as const : initialSelection.filter, order: initialSelection.order.startsWith("price-") ? "featured" as const : initialSelection.order } : initialSelection, [initialSelection, policy.hidePrices]);
   const router = useRouter();
   const [query, setQuery] = useState(selection.query);
   const [order, setOrder] = useState(selection.order);
@@ -51,12 +55,12 @@ function StandardProductExplorer({ products, locale, cardStyle, imageRatio, sele
     <div className="explorer-toolbar" role="search">
       <label className="explorer-search"><span>Ürün ara</span><input value={query} onChange={(event) => { if (isValidProductCatalogSearch(event.currentTarget.value)) setQuery(event.currentTarget.value); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); apply(); } }} maxLength={100} placeholder="Ürün adı, kodu veya marka ara" type="search" /></label>
       <label className="explorer-order"><span>Sıralama</span><select value={order} onChange={(event) => setOrder(event.currentTarget.value as typeof order)}>
-        <option value="featured">Öne çıkanlar</option><option value="title-asc">Ürün adı</option><option value="price-asc">Fiyat: artan</option><option value="price-desc">Fiyat: azalan</option>
+        <option value="featured">Öne çıkanlar</option><option value="title-asc">Ürün adı</option>{!policy.hidePrices ? <><option value="price-asc">Fiyat: artan</option><option value="price-desc">Fiyat: azalan</option></> : null}
       </select></label>
       <button type="button" onClick={apply}>Uygula</button>
     </div>
     <div className="explorer-filters" role="group" aria-label="Ürün filtresi">
-      {FILTERS.map(([value, label]) => <button aria-pressed={selection.filter === value} key={value} type="button" onClick={() => router.push(catalogHref(path, { ...selection, query: query.trim(), order, filter: value }, 0))}>{label}</button>)}
+      {FILTERS.filter(([value]) => !policy.hidePrices || value !== "discounted").map(([value, label]) => <button aria-pressed={selection.filter === value} key={value} type="button" onClick={() => router.push(catalogHref(path, { ...selection, query: query.trim(), order, filter: value }, 0))}>{label}</button>)}
     </div>
     <p className="explorer-count" aria-live="polite">{total} ürün bulundu</p>
     <CatalogProductList products={products} preserveOrder={preserveOrder} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} selection={selection} total={total} nextOffset={nextOffset} path={path} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />

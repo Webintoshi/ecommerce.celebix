@@ -29,7 +29,7 @@ export function CampaignHero({ section, locale, prefetch, previewMode }: Readonl
           </div>
           {slide.hotspot ? (
             <Link className={styles.hotspot} href={productPath(locale, slide.hotspot.productSlug)} prefetch={prefetch} aria-label={`${slide.hotspot.title} ürününü incele`}>
-              <span aria-hidden="true">+</span><strong>{slide.hotspot.title}</strong><small>{formatTry(slide.hotspot.priceCents)}</small>
+              <span aria-hidden="true">+</span><strong>{slide.hotspot.title}</strong>{slide.hotspot.priceCents !== null ? <small>{formatTry(slide.hotspot.priceCents)}</small> : null}
             </Link>
           ) : null}
         </article>

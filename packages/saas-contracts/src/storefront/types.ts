@@ -163,7 +163,7 @@ export type PublicStarterNavigationItem = Readonly<{
 export type PublicStarterNavigation = Readonly<{ items: readonly PublicStarterNavigationItem[] }>;
 
 export type PublicStarterHomeSectionV2 =
-  | Readonly<{ kind: "hero"; slides: readonly Readonly<{ eyebrow?: string; heading: string; body?: string; desktopImage?: PublicStorefrontAsset; mobileImage?: PublicStorefrontAsset; destination: string; hotspot?: Readonly<{ productSlug: string; title: string; priceCents: number; currency: "TRY" }> }>[] }>
+  | Readonly<{ kind: "hero"; slides: readonly Readonly<{ eyebrow?: string; heading: string; body?: string; desktopImage?: PublicStorefrontAsset; mobileImage?: PublicStorefrontAsset; destination: string; hotspot?: Readonly<{ productSlug: string; title: string; priceCents: number | null; pricesHidden?: true; currency: "TRY" }> }>[] }>
   | Readonly<{ kind: "category_grid"; heading: string; layout: CategoryShowcaseLayout; items: readonly Readonly<{ name: string; slug: string; image: PublicStorefrontAsset }>[] }>
   | Readonly<{ kind: "product_row"; key: string; heading: string; source: "latest" | "sale" | "category" | "manual"; categorySlug?: string; productIds?: readonly string[]; limit: 4 | 8 | 12 }>
   | Readonly<{ kind: "split_campaign"; panels: readonly Readonly<{ eyebrow?: string; heading: string; body?: string; image: PublicStorefrontAsset; destination: string }>[] }>
@@ -183,7 +183,7 @@ type PublicStarterHomeSectionContent =
   | Readonly<{ kind: "value_propositions"; items: readonly Readonly<{ icon: StarterValueIcon; heading: string; body: string }>[] }>
   | Readonly<{ kind: "testimonials"; heading: string; items: readonly PublicStarterReview[] }>;
 
-export type PublicHomepageBannerSlide = Readonly<{ slideId: string; enabled: boolean; headline: string; body: string; desktopImage: PublicStorefrontAsset | null; mobileImage: PublicStorefrontAsset | null; destination: string | null; eyebrow?: string; hotspot?: Readonly<{ productSlug: string; title: string; priceCents: number; currency: "TRY" }> }>;
+export type PublicHomepageBannerSlide = Readonly<{ slideId: string; enabled: boolean; headline: string; body: string; desktopImage: PublicStorefrontAsset | null; mobileImage: PublicStorefrontAsset | null; destination: string | null; eyebrow?: string; hotspot?: Readonly<{ productSlug: string; title: string; priceCents: number | null; pricesHidden?: true; currency: "TRY" }> }>;
 export type PublicStarterHomeSection = (PublicStarterHomeSectionContent
   | Readonly<{ kind: "banner"; layout: "single" | "slider" | "stacked"; autoplay: boolean; presentation: "image_only" | "overlay"; slides: readonly PublicHomepageBannerSlide[] }>
   | Readonly<{ kind: "product_row"; key: string; heading: string; source: "manual"; limit: 4 | 8 | 12; productIds?: readonly string[] }>) & Readonly<{ sectionId?: HomepageSectionId; style?: HomepageSectionStyle }>;
@@ -319,8 +319,9 @@ export type PublicProductVariant = Readonly<{
   merchantIdentifiers?: import('../google-merchant/index.ts').GoogleMerchantPublicIdentifiers;
   title: string;
   sku?: string;
-  priceCents: number;
-  compareAtCents?: number;
+  priceCents: number | null;
+  pricesHidden?: true;
+  compareAtCents?: number | null;
   stockTracking: boolean;
   stockQuantity: number;
   available: boolean;
@@ -346,8 +347,9 @@ export type PublicProduct = Readonly<{
   categoryPath?: readonly PublicProductCategoryPathItem[];
   currency: "TRY";
   status: "active";
-  priceCents: number;
-  compareAtCents?: number;
+  priceCents: number | null;
+  pricesHidden?: true;
+  compareAtCents?: number | null;
   available: boolean;
   variants: readonly PublicProductVariant[];
   media: readonly PublicProductMedia[];
@@ -358,3 +360,7 @@ export type PublicProduct = Readonly<{
 export type PublicProductList = Readonly<{ items: readonly PublicProduct[] }>;
 
 export type PublicProductV2 = Readonly<PublicProduct & { seoTitle: string | null; seoDescription: string | null }>;
+
+/** Authoritative catalog money remains numeric before public projection. */
+export type PricedPublicProductVariant = Omit<PublicProductVariant, "priceCents" | "compareAtCents" | "pricesHidden"> & Readonly<{ priceCents:number; compareAtCents?:number }>;
+export type PricedPublicProduct = Omit<PublicProduct, "priceCents" | "compareAtCents" | "pricesHidden" | "variants"> & Readonly<{ priceCents:number; compareAtCents?:number; variants:readonly PricedPublicProductVariant[] }>;

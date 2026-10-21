@@ -19,16 +19,17 @@ export function selectProducts(
   products: readonly PublicProduct[],
   selection: ProductExplorerSelection,
 ): readonly PublicProduct[] {
+  const pricesHidden = products.some(product => product.priceCents === null);
   const query = searchable(selection.query.trim());
   const filtered = products.filter((product) => {
     if (query && !searchable(product.title).includes(query)) return false;
     if (selection.filter === "available") return product.available;
-    if (selection.filter === "discounted") return product.compareAtCents !== undefined && product.compareAtCents > product.priceCents;
+    if (!pricesHidden && selection.filter === "discounted") return typeof product.compareAtCents === "number" && typeof product.priceCents === "number" && product.compareAtCents > product.priceCents;
     return true;
   });
   const selected = [...filtered];
   if (selection.order === "title-asc") selected.sort((left, right) => left.title.localeCompare(right.title, "tr-TR") || left.id.localeCompare(right.id));
-  if (selection.order === "price-asc") selected.sort((left, right) => left.priceCents - right.priceCents || left.id.localeCompare(right.id));
-  if (selection.order === "price-desc") selected.sort((left, right) => right.priceCents - left.priceCents || left.id.localeCompare(right.id));
+  if (!pricesHidden && selection.order === "price-asc") selected.sort((left, right) => (left.priceCents !== null && right.priceCents !== null ? left.priceCents - right.priceCents : 0) || left.id.localeCompare(right.id));
+  if (!pricesHidden && selection.order === "price-desc") selected.sort((left, right) => (left.priceCents !== null && right.priceCents !== null ? right.priceCents - left.priceCents : 0) || left.id.localeCompare(right.id));
   return availableProductsFirst(selected);
 }

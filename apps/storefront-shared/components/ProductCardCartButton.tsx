@@ -1,5 +1,7 @@
 "use client";
 
+import { useCommercePolicy } from "./CommercePolicyProvider";
+import { WhatsAppOrderButton } from "./WhatsAppOrderButton";
 import { useState } from "react";
 
 import type { PublicProduct } from "@celebix/saas-contracts";
@@ -12,6 +14,7 @@ import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
 import { useCartStatus } from "./CartStatusProvider";
 
 export function ProductCardCartButton({
+  product,
   productId,
   variantId,
   categoryId,
@@ -21,20 +24,22 @@ export function ProductCardCartButton({
   available,
   label = "Sepete ekle",
 }: Readonly<{
+  product: PublicProduct;
   productId: string;
   variantId: string;
   categoryId?: string;
   productTitle: string;
   currency: PublicProduct["currency"];
-  valueMinor: number;
+  valueMinor: number | null;
   available: boolean;
   label?: string;
 }>) {
+  const policy = useCommercePolicy();
   const { openDrawer, replaceCart } = useCartStatus();
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState("");
   const add = async (trigger: HTMLButtonElement) => {
-    if (!available || pending) return;
+    if (policy.hideAddToCart || !available || pending) return;
     setPending(true);
     setStatus("");
     try {
@@ -43,7 +48,7 @@ export function ProductCardCartButton({
         trigger,
         { add: storefrontCartClient.add, openDrawer, replaceCart },
       );
-      emitStorefrontCommerceEvent({
+      if (!policy.hidePrices && valueMinor !== null) emitStorefrontCommerceEvent({
         name: "add_to_cart",
         data: {
           productId,
@@ -55,22 +60,23 @@ export function ProductCardCartButton({
         },
       });
       setStatus(`${productTitle} sepete eklendi.`);
-    } catch {
-      setStatus("Ürün sepete eklenemedi.");
+    } catch (error) {
+      setStatus(error instanceof Error && error.message === "whatsapp_only" ? "Sipariş talebinizi WhatsApp üzerinden iletebilirsiniz. Sayfayı yenileyin." : "Ürün sepete eklenemedi.");
     } finally {
       setPending(false);
     }
   };
   return (
     <>
-      <button
+      {!policy.hideAddToCart ? <button
         className="product-card-cart"
         type="button"
         disabled={!available || pending}
         onClick={(event) => void add(event.currentTarget)}
       >
         {pending ? "Ekleniyor…" : available ? label : "Tükendi"}
-      </button>
+      </button> : null}
+      <WhatsAppOrderButton product={product} variant={product.variants.find(item => item.id === variantId)} quantity={1} className="product-card-cart" />
       <span className="sr-only" aria-live="polite">
         {status}
       </span>

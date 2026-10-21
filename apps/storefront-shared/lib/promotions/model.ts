@@ -44,6 +44,7 @@ export function buildPromotionPresentation(
   value: unknown,
 ): PromotionPresentation {
   const quote: PublicCheckoutQuoteV2 = parsePublicCheckoutQuoteV2(value);
+  if (quote.cart.pricesHidden || quote.cart.totalCents === null || quote.cart.lineDiscountCents === null || quote.cart.shippingDiscountCents === null || quote.cart.discountCents === null) throw new TypeError("promotion_prices_hidden");
   const gifts = quote.gifts.flatMap((gift) => {
     if (!gift.autoAdd) return [];
     const line = quote.cart.items.find(
@@ -68,10 +69,10 @@ export function buildPromotionPresentation(
   });
   return Object.freeze({
     discountFacts: Object.freeze({
-      lineDiscountCents: quote.cart.lineDiscountCents,
-      shippingDiscountCents: quote.cart.shippingDiscountCents,
-      discountCents: quote.cart.discountCents,
-      totalCents: quote.cart.totalCents,
+      lineDiscountCents: quote.cart.lineDiscountCents!,
+      shippingDiscountCents: quote.cart.shippingDiscountCents!,
+      discountCents: quote.cart.discountCents!,
+      totalCents: quote.cart.totalCents!,
     }),
     labels: Object.freeze(
       quote.appliedPromotions.map((promotion) =>

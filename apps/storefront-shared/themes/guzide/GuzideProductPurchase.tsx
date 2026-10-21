@@ -1,4 +1,6 @@
 "use client";
+import { useCommercePolicy } from "../../components/CommercePolicyProvider";
+import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
@@ -22,6 +24,8 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
   children?: ReactNode;
 }>) {
   const router = useRouter();
+  const policy = useCommercePolicy();
+  const pricesHidden = policy.hidePrices || product.pricesHidden === true;
   const restockConfig = useRestockAlertsConfig();
   const { openDrawer, drawerOpen, replaceCart } = useCartStatus();
   const [selectedId, selectVariant] = useProductVariantSelection(product);
@@ -52,7 +56,7 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
     setStatus("");
   };
   const run = async (kind: "add" | "buy", trigger: HTMLButtonElement) => {
-    if (requestPendingRef.current) return;
+    if (policy.hideAddToCart || (kind === "buy" && !policy.checkoutAllowed) || requestPendingRef.current) return;
     if (!variant || !allowed) { setStatus("Lütfen stokta olan bir seçenek seçin."); return; }
     requestPendingRef.current = true;
     setPending(kind);
@@ -60,7 +64,7 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
     const requestRoute = `${window.location.pathname}${window.location.search}`;
     const stillOnProduct = () => mountedRef.current && requestRoute === `${window.location.pathname}${window.location.search}`;
     const input = { productId: product.id, variantId: variant.id, quantity };
-    const data = { ...input, currency: product.currency, valueMinor: variant.priceCents * quantity, ...(product.primaryCategoryId ? { categoryId: product.primaryCategoryId } : {}) };
+    const data = { ...input, currency: product.currency, ...(variant.priceCents === null ? {} : { valueMinor: variant.priceCents * quantity }), ...(product.primaryCategoryId ? { categoryId: product.primaryCategoryId } : {}) };
     try {
       if (kind === "add") {
         await addCartLineAndOpenDrawer(input, trigger, {
@@ -68,17 +72,17 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
           openDrawer: (opener) => { if (stillOnProduct() && opener.isConnected) openDrawer(opener); },
           replaceCart,
         });
-        emitStorefrontCommerceEvent({ name: "add_to_cart", data });
+        if (!pricesHidden) emitStorefrontCommerceEvent({ name: "add_to_cart", data });
         if (stillOnProduct()) setStatus("Ürün sepete eklendi.");
       } else {
         replaceCart(await storefrontCartClient.add(input));
-        emitStorefrontCommerceEvent({ name: "add_to_cart", data });
+        if (!pricesHidden) emitStorefrontCommerceEvent({ name: "add_to_cart", data });
         if (!stillOnProduct()) return;
-        emitStorefrontCommerceEvent({ name: "begin_checkout", data });
+        if (!pricesHidden) emitStorefrontCommerceEvent({ name: "begin_checkout", data });
         router.push("/checkout");
       }
-    } catch {
-      if (stillOnProduct()) setStatus("İşlem tamamlanamadı. Lütfen yeniden deneyin.");
+    } catch (error) {
+      if (stillOnProduct()) setStatus(error instanceof Error && error.message === "whatsapp_only" ? "Sipariş talebinizi WhatsApp üzerinden iletebilirsiniz. Sayfayı yenileyin." : "İşlem tamamlanamadı. Lütfen yeniden deneyin.");
     } finally {
       requestPendingRef.current = false;
       if (mountedRef.current) setPending(null);
@@ -94,8 +98,8 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
       {options.showBrand && product.brand ? <Link className={styles.brand} href={`/search?q=${encodeURIComponent(product.brand.name)}`}>{product.brand.name}</Link> : null}
       {options.showSku && variant?.sku ? <p className={styles.sku}>Ürün kodu: {variant.sku}</p> : null}
       <div className={styles.price} aria-live="polite">
-        {compareAt !== undefined && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}
-        <strong>{formatTry(amount)}</strong>
+        {!pricesHidden && typeof compareAt === "number" && amount !== null && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}
+        {!pricesHidden ? <strong>{formatTry(amount)}</strong> : null}
       </div>
       {product.merchandising?.highlights.length ? <ul className={styles.highlights}>{product.merchandising.highlights.map((highlight) => <li key={highlight}>{highlight}</li>)}</ul> : null}
       {showVariantChoices ? <fieldset className={styles.variantChoices} disabled={pending !== null}>
@@ -103,7 +107,7 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
         {product.variants.map((item) => <label className={styles.variantOption} key={item.id} data-available={item.available ? "true" : "false"}>
           <input type="radio" name={`${titleId}-variant`} value={item.id} checked={selectedId === item.id} disabled={!item.available && !restockConfig?.enabled} onChange={() => changeVariant(item.id)} />
           <span className={styles.variantOptionCopy}><span>{item.title}</span><small>{item.available ? "Stokta" : "Tükendi"}</small></span>
-          <strong>{formatTry(item.priceCents)}</strong>
+          {!pricesHidden ? <strong>{formatTry(item.priceCents)}</strong> : null}
         </label>)}
       </fieldset> : null}
       {showQuantitySelector ? <div className={styles.quantity} aria-label="Adet seçimi">
@@ -113,16 +117,17 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
         <button type="button" aria-label="Adedi artır" disabled={pending !== null || !available || quantity >= quantityLimit} onClick={() => setQuantity((value) => incrementPurchaseQuantity(value, quantityLimit))}>+</button>
       </div> : null}
       <div className={styles.actions}>
-        <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button>
-        <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}</button>
+        {!policy.hideAddToCart ? <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
+        {policy.checkoutAllowed ? <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}</button> : null}
       </div>
       <p className={styles.status} aria-live="polite" role="status">{status}</p>
+      <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />
       {children}
     </section>
     {options.mobileStickyPurchase ? <div className={styles.sticky} hidden={drawerOpen} data-guzide-sticky-purchase>
-      <div className={styles.stickyCopy}><span>{product.title}</span><strong>{formatTry(amount)}</strong></div>
-      <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : available ? "Sepete ekle" : "Tükendi"}</button>
+      <div className={styles.stickyCopy}><span>{product.title}</span>{!pricesHidden ? <strong>{formatTry(amount)}</strong> : null}</div>
+      {!policy.hideAddToCart ? <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : available ? "Sepete ekle" : "Tükendi"}</button> : null}{policy.hideAddToCart ? <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} /> : null}
     </div> : null}
   </>;
 }

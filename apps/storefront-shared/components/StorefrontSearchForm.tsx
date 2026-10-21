@@ -1,10 +1,12 @@
 "use client";
+import { useCommercePolicy } from "./CommercePolicyProvider";
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { isValidProductCatalogSearch } from "../lib/product-catalog-query.ts";
 import type { SearchSuggestion } from "../lib/search-suggestions.ts";
 
 export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon, clientNavigation = false, onNavigate }: Readonly<{ defaultValue?: string; variant?: "page" | "header" | "panel"; icon?: ReactNode; clientNavigation?: boolean; onNavigate?: (href: string) => void }>) {
+  const policy = useCommercePolicy();
   const router = useRouter(), id = useId();
   const inputRef = useRef<HTMLInputElement>(null), requestRef = useRef<AbortController | null>(null);
   const [query, setQuery] = useState(defaultValue), [items, setItems] = useState<readonly SearchSuggestion[]>([]);
@@ -22,7 +24,7 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
         if (!response.ok) throw new Error("unavailable");
         const body = await response.json();
         if (!Array.isArray(body.items) || body.items.length > 8) throw new Error("invalid_results");
-        const selected: SearchSuggestion[] = body.items.filter((item: SearchSuggestion) => item && typeof item.title === "string" && typeof item.href === "string" && /^\/(urun|products)\/[a-z0-9-]+$/u.test(item.href) && Number.isSafeInteger(item.priceCents) && item.priceCents >= 0);
+        const selected: SearchSuggestion[] = body.items.filter((item: SearchSuggestion) => item && typeof item.title === "string" && typeof item.href === "string" && /^\/(urun|products)\/[a-z0-9-]+$/u.test(item.href) && (item.pricesHidden === true ? item.priceCents === null : typeof item.priceCents === "number" && Number.isSafeInteger(item.priceCents) && item.priceCents >= 0));
         if (!controller.signal.aborted) { setItems(selected); setState("ready"); }
       } catch { if (!controller.signal.aborted) setState("error"); }
     }, 250);
@@ -62,7 +64,7 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
         <a href={item.href} onClick={event => follow(event, item.href)}>
           {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAlt} width={48} height={48} loading="lazy" /> : <span className="store-search-image-placeholder" aria-hidden="true">◇</span>}
           <span>{item.title}{!item.available ? <small>Tükendi</small> : null}</span>
-          <strong>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: item.currency }).format(item.priceCents / 100)}</strong>
+          {!policy.hidePrices && item.priceCents !== null ? <strong>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: item.currency }).format(item.priceCents / 100)}</strong> : null}
         </a>
       </li>)}</ul>
       {state === "ready" && items.length ? <a className="store-search-all" href={`/search?q=${encodeURIComponent(query.trim())}`} onClick={clientNavigation || onNavigate ? event => follow(event, `/search?q=${encodeURIComponent(query.trim())}`) : undefined}>Tüm sonuçları gör →</a> : null}

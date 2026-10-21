@@ -24,3 +24,6 @@ export type { PublicAppliedPromotion, PublicCart, PublicCartLine, PublicCartLine
 
 export { normalizeStarterThemeCompositionV4, parseHomepageSectionStyle, parseBannerMediaReference, parseBannerDestination } from "./validation.ts";
 export type { BannerDestination, BannerMediaReference, HomepageBannerSlide, HomepageSectionStyle, PublicHomepageBannerSlide, PublicStarterThemePresentationV4, StarterThemeCompositionConfigV4, StarterThemeSectionConfigV4 } from "./types.ts";
+
+export type { PricedPublicProduct, PricedPublicProductVariant } from "./types.ts";
+export type { PricedPublicCart, PricedPublicCartV2, PricedPublicCartLine, PricedPublicCartLineV2 } from "./commerce.ts";

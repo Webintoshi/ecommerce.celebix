@@ -30,6 +30,7 @@ export function ProductCard({
       <ProductCardContent product={product} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />
       {purchaseVariant ? (
         <ProductCardCartButton
+          product={product}
           productId={product.id}
           variantId={purchaseVariant.id}
           categoryId={product.primaryCategoryId}
