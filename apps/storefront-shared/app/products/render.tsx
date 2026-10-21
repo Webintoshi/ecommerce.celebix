@@ -4,6 +4,7 @@ import { permanentRedirect } from "next/navigation";
 import { sioraThemeFor } from "../../themes/siora/theme.ts";
 import { alplerThemeFor } from "../../themes/alpler/theme.ts";
 import { guzideThemeFor } from "../../themes/guzide/theme.ts";
+import { hizliThemeFor } from "../../themes/hizli-kutu/theme.ts";
 import guzideCatalogStyles from "../../themes/guzide/guzide-product-explorer.module.css";
 import { ProductExplorer } from "@/components/ProductExplorer";
 import { parseProductCatalogQuery, PRODUCT_CATALOG_PAGE_SIZE } from "@/lib/product-catalog-query.ts";
@@ -56,7 +57,7 @@ export async function renderProductsPage(routeVariant: StorefrontRouteVariant, s
       <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.section}` : ""}`}>
         {!guzide ? <h1 className="sr-only">Ürünler</h1> : null}
         <ProductExplorer
-          visualTheme={guzide ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront)}
+          visualTheme={hizliThemeFor(storefront) ?? guzide ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront)}
           catalog={guzide ? { title: "Ürünler", navigation } : undefined}
           products={products.items}
           selection={selection}

@@ -10,6 +10,7 @@ import * as seoRead from "../lib/public-seo-read.ts";
 import * as guzide from "../themes/guzide/theme.ts";
 import * as siora from "../themes/siora/theme.ts";
 import * as alpler from "../themes/alpler/theme.ts";
+import * as hizli from "../themes/hizli-kutu/theme.ts";
 
 const GUZIDE = "a828862c-4cc1-475a-89cc-5fbee31eb43f";
 const navigation = { items: [{ name: "Admin Kolyeler", slug: "kolyeler", children: [] }] };
@@ -46,6 +47,7 @@ async function loadRoute(id: string, options: { queryAvailable?: boolean; queryE
     const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
     const module: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
     Function("require", "module", "exports", output)((name: string) => {
+      if (name.endsWith("/hizli-kutu/theme.ts")) return hizli;
       if (name in dependencies) return dependencies[name];
       if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
       throw new Error(`unexpected_dependency:${name}`);
@@ -59,6 +61,16 @@ async function loadRoute(id: string, options: { queryAvailable?: boolean; queryE
   }
   return { module: compile(source), listCalls, queryCalls, navigation, product };
 }
+
+test("Hızlı Kutu category and product index use the canonical catalog query and automatic pagination", async () => {
+  const category = await loadRoute(hizli.HIZLI_KUTU_STOREFRONT_ID);
+  const tree = await category.module.renderCategoryPage!({ params: Promise.resolve({ slug: "kolyeler" }), routeVariant: "localized", searchParams: Promise.resolve({ offset: "24", sort: "price-asc" }) } as never);
+  const explorer = nodes(tree).find(node => node.type === "ProductExplorer");
+  assert.equal(explorer?.props.visualTheme, "hizli-kutu-deniz");
+  assert.equal(category.queryCalls[0]?.categorySlug, "kolyeler");
+  assert.equal(category.queryCalls[0]?.offset, 24);
+  assert.equal(category.queryCalls[0]?.limit, 24);
+});
 
 test("Güzide category queries the real validated category and existing URL filters with 24-item paging", async () => {
   const { module, listCalls, queryCalls, product } = await loadRoute(GUZIDE);

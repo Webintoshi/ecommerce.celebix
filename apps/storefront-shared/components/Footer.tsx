@@ -23,6 +23,8 @@ import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { SharedFooterSignature } from "./SharedFooterSignature";
 import { LilyumFooter } from "../themes/lilyum/LilyumFooter";
 import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
+import { hizliThemeFor } from "../themes/hizli-kutu/theme.ts";
+import { HizliFooter } from "../themes/hizli-kutu/HizliFooter";
 
 const EMPTY_POLICY_INDEX = Object.freeze([]) as readonly PublicPolicyPage[];
 const LEGACY_GROUPS = Object.freeze([
@@ -71,6 +73,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
     const groups = mergePublishedRequiredPageFooterGroups(
       mergePublishedPolicyFooterGroups(storefront.presentation.footer.groups, policies), requiredPages,
     );
+    if (hizliThemeFor(storefront)) return <HizliFooter storefront={storefront} logo={logo} groups={groups} signature={signature} />;
     if (lilyumThemeFor(storefront)) return <LilyumFooter storefront={storefront} logo={logo} groups={groups} signature={signature} />;
     if (alplerThemeFor(storefront)) return <AlplerFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
     if (sioraThemeFor(storefront)) return <SioraFooter groups={groups} presentation={storefront.presentation} storefront={storefront} logo={logo} checkout={checkout} signature={signature} />;
@@ -88,6 +91,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
   }
   const { displayName, supportEmail } = storefront.presentation;
   const groups = mergePublishedRequiredPageFooterGroups(mergePublishedPolicyFooterGroups(LEGACY_GROUPS, policies), requiredPages);
+  if (hizliThemeFor(storefront)) return <HizliFooter storefront={storefront} logo={logo} groups={groups} signature={signature} />;
   return (
     <footer className="store-footer">
       <div className="store-container footer-grid">

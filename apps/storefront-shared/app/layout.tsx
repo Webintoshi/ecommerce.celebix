@@ -23,6 +23,7 @@ import "../themes/guzide/guzide.css";
 import "../themes/guzide/guzide-footer.css";
 import "../themes/lilyum/lilyum.css";
 import "../themes/lilyum/lilyum-product.css";
+import "../themes/hizli-kutu/hizli.css";
 import "../components/checkout/checkout.css";
 import "../components/google-marketing-consent.css";
 

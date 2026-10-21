@@ -9,6 +9,9 @@ import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { guzideThemeFor } from "../../themes/guzide/theme.ts";
+import { hizliThemeFor } from "../../themes/hizli-kutu/theme.ts";
+import { HizliProductExplorer } from "../../themes/hizli-kutu/HizliProductExplorer";
+import { parseProductCatalogQuery, PRODUCT_CATALOG_PAGE_SIZE } from "../../lib/product-catalog-query.ts";
 import guzideCatalogStyles from "../../themes/guzide/guzide-product-explorer.module.css";
 
 export const metadata: Metadata = {
@@ -32,13 +35,20 @@ function query(value: string | string[] | undefined): string | null {
 export default async function SearchPage({
   searchParams,
 }: Readonly<{
-  searchParams: Promise<{ q?: string | string[]; cursor?: string | string[] }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }>) {
   const { runtime, storefront, design } = requireStorefrontPage(
     await resolveStorefrontPage(),
   );
   const parameters = await searchParams;
   const selected = query(parameters.q);
+  if (hizliThemeFor(storefront)) {
+    const selection = parseProductCatalogQuery(parameters);
+    if (!selected) return <StorefrontFrame storefront={storefront} design={design}><section className="hk-container hk-section"><h1 className="hk-search-title">Ürün ara</h1><StorefrontSearchForm defaultValue={selected ?? ""} clientNavigation />{selected === null ? <p role="alert">Arama metni geçersiz.</p> : null}</section></StorefrontFrame>;
+    if (!runtime.repository.queryPublicCatalog) throw new Error("public_catalog_query_unavailable");
+    const result = await runtime.repository.queryPublicCatalog({ storefront, now: new Date(), categorySlug: null, query: selection.query, filter: selection.filter, order: selection.order, offset: selection.offset, limit: PRODUCT_CATALOG_PAGE_SIZE });
+    return <StorefrontFrame storefront={storefront} design={design}><section className="hk-container hk-section"><CommercePageEvent event={{ name: "search", data: {} }} /><HizliProductExplorer products={result.items} total={result.total} nextOffset={result.nextOffset} selection={selection} path="/search" locale={storefront.locale} cardStyle={storefront.presentation.theme.productCardStyle} imageRatio={storefront.presentation.theme.productImageRatio} /></section></StorefrontFrame>;
+  }
   const cursor =
     typeof parameters.cursor === "string" && isCatalogSearchCursor(parameters.cursor)
       ? parameters.cursor

@@ -5,6 +5,8 @@ import ts from "typescript";
 import * as jsxRuntime from "react/jsx-runtime";
 import { isCatalogSearchCursor } from "../../../packages/saas-data/src/catalog-search/common.ts";
 import * as guzide from "../themes/guzide/theme.ts";
+import * as hizli from "../themes/hizli-kutu/theme.ts";
+import * as catalogQuery from "../lib/product-catalog-query.ts";
 
 const GUZIDE = "a828862c-4cc1-475a-89cc-5fbee31eb43f";
 const cursor = `m1.${"a".repeat(64)}.48`;
@@ -29,6 +31,9 @@ async function loadSearch(id: string) {
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const module: { exports: { default?: (value: unknown) => Promise<unknown>; metadata?: unknown } } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "../../themes/hizli-kutu/theme.ts") return hizli;
+    if (name === "../../themes/hizli-kutu/HizliProductExplorer") return { HizliProductExplorer: "HizliProductExplorer" };
+    if (name === "../../lib/product-catalog-query.ts") return catalogQuery;
     if (name in dependencies) return dependencies[name];
     if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
     throw new Error(`unexpected_dependency:${name}`);

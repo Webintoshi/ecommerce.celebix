@@ -1,0 +1,1 @@
+import {products} from "../../../data";export function GET(request:Request){const q=new URL(request.url).searchParams.get('q')??'';return Response.json({items:products.filter(p=>p.title.includes(q)).slice(0,5).map(p=>({id:p.id,title:p.title,href:`/urun/${p.slug}`,currency:'TRY',priceCents:p.priceCents,available:true}))})}

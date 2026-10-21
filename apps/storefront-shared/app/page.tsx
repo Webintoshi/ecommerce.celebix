@@ -13,6 +13,8 @@ import { resolveStorefrontPage, resolveStorefrontHomePage } from "@/lib/page-con
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 import { LilyumHome } from "../themes/lilyum/LilyumHome";
+import { hizliThemeFor } from "../themes/hizli-kutu/theme.ts";
+import { HizliHome } from "../themes/hizli-kutu/HizliHome";
 import {
   localizePublicStorefrontDesign,
   localizeStorefrontPath,
@@ -42,6 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function HomePage() {
   const context = requireStorefrontPage(await resolveStorefrontHomePage());
   const { runtime, storefront, design } = context;
+  if (hizliThemeFor(storefront)) return <HizliHome storefront={storefront} design={design} projection={context.campaign} />;
   if (context.campaign && lilyumThemeFor(storefront)) return <LilyumHome storefront={storefront} design={design} projection={context.campaign} />;
   if (context.campaign)
     return (
