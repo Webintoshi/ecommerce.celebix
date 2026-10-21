@@ -205,3 +205,6 @@ export * from "./merchant-whatsapp/index.ts";
 export * from "./google-merchant/index.ts";
 export * from "./commercial-packages/repository.ts";
 export * from "./native-marketing/index.ts";
+
+export { PostgresPublicWhatsAppOrderRepository } from "./whatsapp-ordering/repository.ts";
+export type { PublicWhatsAppOrderRepository, PublicWhatsAppOrderProjection, PostgresPublicWhatsAppOrderRepositoryOptions } from "./whatsapp-ordering/repository.ts";

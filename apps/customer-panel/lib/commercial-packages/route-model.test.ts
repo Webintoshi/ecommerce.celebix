@@ -54,3 +54,9 @@ test('every restricted menu, nested route and legacy manual entry uses its exact
     }
     assert.ok(commercialNavigationLocks(context(1)).includes('/settings/analytics'));
 });
+
+test('Store tools hub opens by configuration role independently of growth entitlement',()=>{
+ for(const index of [0,1,2,3])assert.equal(commercialRouteDecision(context(index),'/settings/store-tools').kind,'allowed');
+ assert.equal(commercialRouteDecision(context(1,'cashier'),'/settings/store-tools').kind,'role_denied');
+ assert.ok(!commercialNavigationLocks(context(1)).includes('/settings/store-tools'));
+});

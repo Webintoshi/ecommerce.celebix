@@ -22,7 +22,7 @@ const RULES: readonly (readonly [
     ['/discounts/popups', 'growth_tools'], ['/discounts/lucky-wheel', 'growth_tools'], ['/discounts', 'coupons'],
     ['/marketing/google', 'google_connections'], ['/marketing/email', 'email_marketing'], ['/marketing/phone', 'email_marketing'], ['/marketing/whatsapp', 'email_marketing'], ['/marketing', 'growth_tools'],
     ['/marketplaces/google-merchant', 'google_merchant'], ['/marketplaces', 'google_connections'],
-    ['/settings/analytics', 'advanced_analytics'], ['/settings/store-tools', 'growth_tools'], ['/settings/promotion-banner', 'growth_tools'], ['/settings/artificial-intelligence', 'ai'], ['/toshi', 'ai'],
+    ['/settings/analytics', 'advanced_analytics'], ['/settings/promotion-banner', 'growth_tools'], ['/settings/artificial-intelligence', 'ai'], ['/toshi', 'ai'],
     ['/settings/domains', 'custom_domains'], ['/settings/administrators', 'staff_management'],
     ['/settings/pricing', 'reference_pricing'], ['/products/price-lists', 'reference_pricing'],
     ['/accounting', 'accounting'], ['/seo', 'seo_tools'],
@@ -40,6 +40,7 @@ export function commercialCapabilityDecision(context: CommercialPageContext, cap
 export function commercialRouteDecision(context: CommercialPageContext, pathname: string | null): CommercialPageDecision {
     if (!pathname || !/^\/(?:[a-zA-Z0-9_-]+\/?)*$/.test(pathname))
         return ALLOWED;
+    if(pathname === '/settings/store-tools') return isMerchantActionAllowed(context.membership.role, 'configuration.read') ? ALLOWED : {kind:'role_denied',capability:'growth_tools'};
     const rule = RULES.find(([base]) => pathname === base || pathname.startsWith(`${base}/`));
     if (!rule)
         return ALLOWED;

@@ -196,6 +196,7 @@ export const MERCHANT_MODULE_DEFINITIONS = Object.freeze([
   definition({ kind: "policy", family: "content", route: "/content/policies", title: "Politikalar", singular: "politika", description: "Mesafeli satış, gizlilik ve iade politikası sürümlerini yönetin.", fields: [field("policyType", "Politika türü"), field("locale", "Dil"), field("body", "Politika metni", "textarea"), field("effectiveAt", "Yürürlük zamanı")] }),
   definition({ kind: "marketplace_connection", family: "marketplaces", route: "/marketplaces", title: "Pazar Yerleri", singular: "pazar yeri bağlantısı", description: "Pazar yeri hesap eşlemesi ve senkronizasyon tercihlerini yönetin.", execution: "provider_required", notice: PROVIDER_NOTICE, workflow: { action: "synchronization", actionLabel: "Senkronizasyon hazırlığı", requiredFields: ["provider", "merchantReference", "syncEnabled"] }, fields: [field("provider", "Pazar yeri"), field("merchantReference", "Mağaza referansı"), field("syncEnabled", "Senkronizasyon isteği", "boolean")] }),
   definition({ kind: "general_setting", cardinality: "singleton", family: "settings", route: "/settings/general", title: "Genel Ayarlar", singular: "genel ayar profili", description: "Mağaza adı, destek adresi, saat dilimi ve isteğe bağlı SKU başlangıcını yönetin.", fields: [field("storeDisplayName", "Mağaza adı", "text", undefined, undefined, undefined, undefined, true), field("supportEmail", "Destek e-postası", "email", undefined, undefined, undefined, undefined, true), field("timezone", "Saat dilimi", "text", "Europe/Istanbul", undefined, undefined, undefined, true), field("skuPrefix", "SKU başlangıcı", "text", "Örn. RSA")] }),
+  definition({ kind: "whatsapp_order_setting", cardinality: "singleton", family: "settings", route: "/settings/store-tools", title: "WhatsApp ile sipariş ver", singular: "WhatsApp sipariş ayarı", description: "Sipariş talepleri ve katalog görünümü.", fields: [] }),
   definition({ kind: "restock_alerts", cardinality: "singleton", family: "settings", route: "/settings/store-tools", title: "Stok gelince haber ver", singular: "stok bildirimi", description: "Tükenen ürünlerin seçilen varyantı için tek seferlik stok bildirimi.", fields: [] }),
   definition({ kind: "contact_widget", cardinality: "singleton", family: "settings", route: "/settings/store-tools", title: "Mağaza araçları", singular: "iletişim balonu", description: "İletişim balonunun kanallarını, görünümünü ve gösterimini yönetin.", fields: [field("enabled", "İletişim balonu açık", "boolean")] }),
   definition({ kind: "language_setting", cardinality: "singleton", family: "settings", route: "/settings/language", title: "Dil Ayarları", singular: "dil profili", description: "Varsayılan ve etkin mağaza dillerini yönetin.", fields: [field("defaultLocale", "Varsayılan dil"), field("enabledLocales", "Etkin diller", "textarea", "Her satıra bir dil")] }),
@@ -267,6 +268,7 @@ export function buildMerchantModuleSummary(
 const SINGLETON_MERCHANT_MODULE_KINDS = Object.freeze([
   "general_setting",
   "contact_widget",
+  "whatsapp_order_setting",
   "notification_setting",
   "theme_setting",
   "hero_banner",

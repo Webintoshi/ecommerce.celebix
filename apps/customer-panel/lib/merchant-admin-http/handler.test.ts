@@ -1,11 +1,11 @@
-import assert from"node:assert/strict";import test from"node:test";import type{TenantContext}from"@celebix/saas-contracts";import{PostgresMerchantAdminRepository,type MerchantAdminRepository}from"@celebix/saas-data";import{createMerchantAdminHttpHandlers}from"./handler.ts";
+import assert from"node:assert/strict";import test from"node:test";import {COMMERCIAL_PACKAGES,type TenantContext}from"@celebix/saas-contracts";import{PostgresMerchantAdminRepository,type MerchantAdminRepository}from"@celebix/saas-data";import{createMerchantAdminHttpHandlers}from"./handler.ts";
 const ORIGIN="https://panel.saas-staging.celebix.site",OP="74000000-0000-4000-8000-000000000001",REQ="78000000-0000-4000-8000-000000000001",RECORD="71000000-0000-4000-8000-000000000001",NOW=new Date("2026-07-22T19:00:00.000Z"),CREDENTIAL=`v1.panel.current.${Buffer.alloc(32,1).toString("base64url")}`;
 const TENANT_ADMIN_ORIGIN="https://store.admin.saas-staging.celebix.site",TENANT_ADMIN_HOST="store.admin.saas-staging.celebix.site";
 const JOB="73000000-0000-4000-8000-000000000001";
 function tenant(role="store_owner"):TenantContext{return{schemaVersion:1,requestId:REQ,principal:{id:"10000000-0000-4000-8000-000000000001",issuer:"https://id.test/oidc",subject:"x"},store:{id:"20000000-0000-4000-8000-000000000001",slug:"store",status:"active"},membership:{id:"30000000-0000-4000-8000-000000000001",role,status:"active"},entitlements:{schemaVersion:1,planId:"40000000-0000-4000-8000-000000000001",planCode:"growth",version:2,status:"active",features:["catalog"],limits:{products:100,staff:5,storageBytes:100},validFrom:"2026-01-01T00:00:00.000Z"},locale:"tr-TR"}as TenantContext}
 function repo(overrides:Partial<MerchantAdminRepository>={}):MerchantAdminRepository{const reject=async()=>{throw new Error("unexpected")};return{list:reject,listEvents:reject,save:reject,archive:reject,...overrides}as MerchantAdminRepository}
 function request(path:string,method="GET",value?:unknown,origin=ORIGIN,headers?:HeadersInit){const prepared=new Headers(headers);prepared.set("cookie",`__Host-celebix_panel=${CREDENTIAL}`);if(method==="POST"){prepared.set("origin",origin);prepared.set("content-type","application/json");prepared.set("idempotency-key",OP)}return new Request(`http://internal:3400${path}`,{method,headers:prepared,body:value===undefined?undefined:JSON.stringify(value)})}
-function handlers(merchantAdmin:MerchantAdminRepository,profiles?:{list(input:unknown):Promise<readonly unknown[]>},registry?:{get(providerCode:string,capability:string):unknown},role="store_owner"){return createMerchantAdminHttpHandlers({async resolveRuntime(){return{merchantAdmin,access:{readiness:{mode:"approved_staging"},panelOrigin:ORIGIN,async resolveCredential(){return{kind:"authenticated",session:{},tenantContext:tenant(role)}},async rotateCredential(){return{kind:"unavailable"}},async revokeCredential(){return{kind:"unavailable"}}}}as never},async resolveProviderRuntime(){return profiles?{profiles,registry:{size:1,get:registry?.get??(()=>({}))}}as never:null},now:()=>new Date(NOW),requestId:()=>REQ})}
+function handlers(merchantAdmin:MerchantAdminRepository,profiles?:{list(input:unknown):Promise<readonly unknown[]>},registry?:{get(providerCode:string,capability:string):unknown},role="store_owner",entitlements?:TenantContext["entitlements"]){return createMerchantAdminHttpHandlers({async resolveRuntime(){return{merchantAdmin,access:{readiness:{mode:"approved_staging"},panelOrigin:ORIGIN,async resolveCredential(){return{kind:"authenticated",session:{},tenantContext:entitlements?{...tenant(role),entitlements}:tenant(role)}},async rotateCredential(){return{kind:"unavailable"}},async revokeCredential(){return{kind:"unavailable"}}}}as never},async resolveProviderRuntime(){return profiles?{profiles,registry:{size:1,get:registry?.get??(()=>({}))}}as never:null},now:()=>new Date(NOW),requestId:()=>REQ})}
 test("record detail GET binds exact kind and ID and rejects near paths and request authority",async()=>{
  const calls:unknown[]=[];
  const h=handlers(repo({async get(input){calls.push(input);return{id:RECORD,kind:"discount",name:"Yaz",config:{value:15},status:"active",version:1,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString()}}}));
@@ -101,4 +101,20 @@ test("cashier invoice jobs delegate to grant-scoped native profiles without perm
  assert.equal((await h.queueProviderJob(request(`/api/merchant-admin/provider-jobs/invoice_integration/${JOB}/queue`,"POST",payload),"invoice_integration",JOB)).status,200);
  assert.equal((await h.queueProviderJob(request(`/api/merchant-admin/provider-jobs/marketplace_connection/${JOB}/queue`,"POST",payload),"marketplace_connection",JOB)).status,403);
  assert.equal(reads,1);assert.equal(writes,1);
+});
+
+test('WhatsApp direct reads and writes require configuration role and paid additive entitlement',async()=>{
+ let writes=0;const merchantAdmin=repo({async save(){writes++;return{id:RECORD,kind:'whatsapp_order_setting',status:'active',version:1,updatedAt:NOW.toISOString(),replayed:false}},async list(){return[]}});
+ const config={schemaVersion:1,enabled:false,phone:'',hidePrices:false,hideAddToCart:false,messageIntro:'Merhaba'};
+ const free=handlers(merchantAdmin),path='/api/merchant-admin/records/whatsapp_order_setting';
+ assert.equal((await free.records(request(path),'whatsapp_order_setting')).status,403);assert.equal((await free.save(request(path,'POST',{name:'WhatsApp',config,status:'active'}),'whatsapp_order_setting')).status,403);assert.equal(writes,0);
+});
+
+
+test('WhatsApp paid Starter permits an admin save but rejects analyst mutation',async()=>{
+ const p=COMMERCIAL_PACKAGES[1]!,entitlements={schemaVersion:1 as const,planId:p.id,planCode:p.code,version:p.version,status:'active' as const,features:p.features,limits:p.limits,validFrom:'2026-01-01T00:00:00.000Z'};
+ let writes=0;const merchantAdmin=repo({async save(){writes++;return{id:RECORD,kind:'whatsapp_order_setting',status:'active',version:1,updatedAt:NOW.toISOString(),replayed:false}},async list(){return[]}}),path='/api/merchant-admin/records/whatsapp_order_setting',config={schemaVersion:1,enabled:false,phone:'',hidePrices:false,hideAddToCart:false,messageIntro:'Merhaba'};
+ const admin=handlers(merchantAdmin,undefined,undefined,'admin',entitlements),analyst=handlers(merchantAdmin,undefined,undefined,'analyst',entitlements);
+ assert.equal((await admin.save(request(path,'POST',{name:'WhatsApp',config,status:'active'}),'whatsapp_order_setting')).status,200);
+ assert.equal((await analyst.save(request(path,'POST',{name:'WhatsApp',config,status:'active'}),'whatsapp_order_setting')).status,403);assert.equal(writes,1);
 });

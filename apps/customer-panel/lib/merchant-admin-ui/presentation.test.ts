@@ -42,8 +42,8 @@ function record(
 }
 
 test("defines every durable merchant module with a unique kind and bounded route and field contract", () => {
-  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 36);
-  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 36);
+  assert.equal(MERCHANT_MODULE_DEFINITIONS.length, 37);
+  assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ kind }) => kind)).size, 37);
   assert.equal(new Set(MERCHANT_MODULE_DEFINITIONS.map(({ route }) => route)).size, 35);
 
   assert.equal(getMerchantModuleDefinition("discount").route, "/discounts");
@@ -72,7 +72,7 @@ test("defines every durable merchant module with a unique kind and bounded route
   for (const definition of MERCHANT_MODULE_DEFINITIONS) {
     assert.equal(Object.isFrozen(definition), true);
     assert.equal(Object.isFrozen(definition.fields), true);
-    if (definition.kind === "restock_alerts") {
+    if (definition.kind === "restock_alerts" || definition.kind === "whatsapp_order_setting") {
       assert.equal(definition.fields.length, 0);
       assert.equal(definition.route, "/settings/store-tools");
     } else assert.equal(definition.fields.length > 0, true);

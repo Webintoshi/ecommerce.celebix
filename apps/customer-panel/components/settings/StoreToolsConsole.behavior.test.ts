@@ -45,6 +45,7 @@ async function screen(options: { canManage?: boolean; workspace?: boolean; resto
     return compiled.exports;
   }
   const requireModule = (id: string) => {
+    if (id === "./WhatsAppOrderTool") return { WhatsAppOrderTool: () => null };
     if (id === "./OrderBumpTool") return { OrderBumpTool: options.orderBump ? ({ onOpenChange }: any) => {
       const [open, setOpen] = React.useState(false);
       return createElement("button", { "data-test-order-bump-toggle": true, onClick: () => { setOpen(!open); onOpenChange(!open); } }, open ? "Öneri aracını kapat" : "Öneri aracını aç");
