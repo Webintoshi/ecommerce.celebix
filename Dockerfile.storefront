@@ -13,7 +13,10 @@ COPY scripts ./scripts
 COPY tests/saas-phase3/merchant-signup-profile ./tests/saas-phase3/merchant-signup-profile
 COPY tests/saas-phase3/admin-login-security/baseline.mjs tests/saas-phase3/admin-login-security/baseline-manifest.json ./tests/saas-phase3/admin-login-security/
 COPY .github/workflows/signup-release-guard.yml ./.github/workflows/signup-release-guard.yml
-COPY AGENTS.md nixpacks.toml Dockerfile.storefront ./
+COPY AGENTS.md nixpacks.toml ./
+# Coolify adds ARGs to its executed recipe. Keep the exact reviewed source input
+# for the guard; publisher admission verifies the original recipe before mutation.
+COPY scripts/signup-build-inputs/Dockerfile.storefront ./Dockerfile.storefront
 
 RUN npm ci
 RUN npm run build:coolify:storefront-shared

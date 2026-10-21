@@ -1,0 +1,42 @@
+FROM node:22-bookworm AS build
+
+WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY package.json package-lock.json ./
+COPY tsconfig.base.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY stores ./stores
+COPY scripts ./scripts
+# Verification inputs are used only by the build-stage signup release guard.
+COPY tests/saas-phase3/merchant-signup-profile ./tests/saas-phase3/merchant-signup-profile
+COPY tests/saas-phase3/admin-login-security/baseline.mjs tests/saas-phase3/admin-login-security/baseline-manifest.json ./tests/saas-phase3/admin-login-security/
+COPY .github/workflows/signup-release-guard.yml ./.github/workflows/signup-release-guard.yml
+COPY AGENTS.md nixpacks.toml ./
+# Coolify adds ARGs to its executed recipe. Keep the exact reviewed source input
+# for the guard; publisher admission verifies the original recipe before mutation.
+COPY scripts/signup-build-inputs/Dockerfile.storefront ./Dockerfile.storefront
+
+RUN npm ci
+RUN npm run build:coolify:storefront-shared
+
+FROM node:22-bookworm AS runtime
+
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3450
+
+COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/apps ./apps
+COPY --from=build --chown=node:node /app/packages ./packages
+COPY --from=build --chown=node:node /app/stores ./stores
+COPY --from=build --chown=node:node /app/scripts ./scripts
+
+USER node
+EXPOSE 3450
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 CMD node -e "fetch('http://127.0.0.1:3450/health').then((response)=>{if(!response.ok)process.exit(1)}).catch(()=>process.exit(1))"
+
+CMD ["npm", "run", "start", "--workspace", "@celebix/storefront-shared"]

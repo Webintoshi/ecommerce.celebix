@@ -39,6 +39,28 @@ the verification inputs in its build stage only. Historical Dockerfile candidate
 predating this guard do not gain it retroactively; their explicit rollback or
 publication still needs the normal reviewed publisher admission.
 
+### Storefront recipe and platform build arguments
+
+`Dockerfile.storefront` has an exact committed mirror at
+`scripts/signup-build-inputs/Dockerfile.storefront`. Both must be regular files,
+contain identical bytes, and remain covered by the proof. Edit both together and
+refresh the native proof after a recipe change. Missing files, symlinks or a
+mismatch stop both checking and proof writing.
+
+Coolify adds build `ARG` declarations to its executed Dockerfile. The build stage
+copies the reviewed mirror to `/app/Dockerfile.storefront` before running the
+unchanged guard. This restores the original source input; it does not strip or
+ignore lines in proof comparison, and every other covered input remains checked.
+
+The publisher must run `npm run check:signup-release` on the exact committed
+candidate **before** platform mutation and bind that candidate to the application
+pin, `SOURCE_COMMIT` and official queue commit. The reviewed platform mutator must
+be confirmed to add only build arguments after `FROM`; review that assumption
+again if the platform implementation changes. The guard inside the image checks
+the installed canonical source inputs. It does not independently authenticate
+the raw recipe executed by the platform. Keep the outside-image candidate check
+and reviewed platform transformation as required publication admission.
+
 This protects against tested-source drift and the package/signup mismatch that
 caused the incident. It is not a signature against a malicious maintainer, and
 does not prove that a later live database change or external provider outage is

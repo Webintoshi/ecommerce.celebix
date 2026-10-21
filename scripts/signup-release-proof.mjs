@@ -10,7 +10,7 @@ export const EXCLUDED_GENERATED_FILES=Object.freeze([
  'packages/payment-adapters/src/providers/iyzico/build-metadata.generated.ts',
 ]);
 export const REQUIRED_INPUT_PATHS=Object.freeze([
- 'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront',
+ 'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront','scripts/signup-build-inputs/Dockerfile.storefront',
  '.github/workflows/signup-release-guard.yml','scripts/signup-release-proof.mjs','scripts/signup-release-proof.test.mjs','scripts/rehearse-signup-release.mjs',
  'scripts/verify-signup-edge.mjs','scripts/verify-signup-edge.test.mjs',
  'scripts/verify-tenant-wildcard-readiness.mjs','scripts/verify-tenant-wildcard-readiness.test.mjs',
@@ -72,6 +72,8 @@ function digestInputs(inputs){return hash(JSON.stringify({schemaVersion:1,postgr
 export function gatherInputs(root=DEFAULT_ROOT){
  root=normalizedRoot(root);const selected=new Set(REQUIRED_INPUT_PATHS);
  for(const name of REQUIRED_INPUT_PATHS)regularFile(root,name);
+ // The publisher checks these original recipe bytes before the platform adds ARGs.
+ if(!readFileSync(regularFile(root,'Dockerfile.storefront')).equals(readFileSync(regularFile(root,'scripts/signup-build-inputs/Dockerfile.storefront'))))fail('dockerfile_mirror_mismatch');
  collect(root,'apps/owner',selected,sourceFile);
  collect(root,'packages',selected,sourceFile);
  collect(root,'apps/customer-panel',selected,selectedPanelSource);

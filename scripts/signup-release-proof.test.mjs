@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync,symlinkSync,cpSync,copyFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {gatherInputs,checkReceipt,writeReceipt} from './signup-release-proof.mjs';
 
 const required=[
- 'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront',
+ 'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront','scripts/signup-build-inputs/Dockerfile.storefront',
  '.github/workflows/signup-release-guard.yml','scripts/signup-release-proof.mjs','scripts/signup-release-proof.test.mjs','scripts/rehearse-signup-release.mjs',
  'scripts/verify-signup-edge.mjs','scripts/verify-signup-edge.test.mjs',
  'scripts/verify-tenant-wildcard-readiness.mjs','scripts/verify-tenant-wildcard-readiness.test.mjs',
@@ -39,7 +39,7 @@ test('changed SQL, catalog, production package or shared authentication code inv
  }
 });
 test('new migrations, new signup scripts, deleted source and changed enforcement inputs cannot reuse an old proof',t=>{
- for(const source of ['apps/owner/scripts/sql/saas/202610210256_new_contract.up.sql','scripts/signup-new-policy.mjs','scripts/rehearse-signup-release.mjs','.github/workflows/signup-release-guard.yml','Dockerfile.storefront','apps/customer-panel/package.json','apps/storefront-new/package.json']){
+ for(const source of ['apps/owner/scripts/sql/saas/202610210256_new_contract.up.sql','scripts/signup-new-policy.mjs','scripts/rehearse-signup-release.mjs','.github/workflows/signup-release-guard.yml','apps/customer-panel/package.json','apps/storefront-new/package.json']){
   const root=fixture(t);writeReceipt(root,runs(),gatherInputs(root));put(root,source,'changed');assert.throws(()=>checkReceipt(root),/signup_release_proof_stale/);
  }
  const root=fixture(t);writeReceipt(root,runs(),gatherInputs(root));rmSync(path.join(root,'packages/saas-data/src/postgres/repository.ts'));assert.throws(()=>checkReceipt(root),/signup_release_proof_input_missing/);
@@ -100,4 +100,50 @@ test('the writer requires an authentic frozen gather snapshot and never overwrit
   assert.throws(()=>writeReceipt(root,runs(),invalid),/signup_release_proof_invalid_snapshot/);
   assert.deepEqual(readFileSync(path.join(root,'scripts/signup-release-proof.json')),previous);
  }
+});
+
+const dockerMirror='scripts/signup-build-inputs/Dockerfile.storefront';
+test('both Dockerfile inputs must be regular files with exactly equal bytes before checks or proof writes',t=>{
+ for(const changed of ['Dockerfile.storefront',dockerMirror]){
+  const root=fixture(t),tested=gatherInputs(root);writeReceipt(root,runs(),tested);
+  const previous=readFileSync(path.join(root,'scripts/signup-release-proof.json'));
+  put(root,changed,'FROM node:22-bookworm AS build\nARG PLATFORM_ADDED\n');
+  assert.throws(()=>gatherInputs(root),/signup_release_proof_dockerfile_mirror_mismatch/);
+  assert.throws(()=>checkReceipt(root),/signup_release_proof_dockerfile_mirror_mismatch/);
+  assert.throws(()=>writeReceipt(root,runs(),tested),/signup_release_proof_dockerfile_mirror_mismatch/);
+  assert.deepEqual(readFileSync(path.join(root,'scripts/signup-release-proof.json')),previous);
+ }
+ for(const input of ['Dockerfile.storefront',dockerMirror]){
+  const root=fixture(t);rmSync(path.join(root,input));assert.throws(()=>gatherInputs(root),/signup_release_proof_input_missing/);
+  symlinkSync(path.join(root,'package.json'),path.join(root,input));assert.throws(()=>gatherInputs(root),/signup_release_proof_symlink/);
+ }
+});
+test('matching Dockerfile edits remain covered source and require fresh native proof',t=>{
+ const root=fixture(t);writeReceipt(root,runs(),gatherInputs(root));
+ const changed='FROM node:22-bookworm AS build\nRUN echo changed-recipe\n';
+ put(root,'Dockerfile.storefront',changed);put(root,dockerMirror,changed);
+ assert.throws(()=>checkReceipt(root),/signup_release_proof_stale/);
+});
+test('the build-stage COPY restores reviewed Dockerfile bytes after platform ARG injection without weakening other source checks',t=>{
+ const context=fixture(t),build=fixture(t),canonical=readFileSync(new URL('../Dockerfile.storefront',import.meta.url),'utf8');
+ put(context,'Dockerfile.storefront',canonical);put(context,dockerMirror,canonical);
+ const tested=gatherInputs(context);writeReceipt(context,runs(),tested);
+ const mutated=canonical.replace(/^(FROM[^\n]+ AS build\n)/m,'$1ARG COOLIFY_BUILD_ARG\nARG SOURCE_COMMIT\n');
+ assert.notEqual(mutated,canonical);put(context,'Dockerfile.storefront',mutated);
+ assert.throws(()=>checkReceipt(context),/signup_release_proof_dockerfile_mirror_mismatch/);
+ cpSync(context,build,{recursive:true});let checks=0;
+ // Model the COPY instruction from the actual repository recipe, then execute
+ // the real guard at its build RUN. npm installation is unrelated to this case.
+ for(const line of mutated.split('\n')){
+  if(/^FROM .* AS runtime$/.test(line))break;
+  const restore=/^COPY (scripts\/signup-build-inputs\/Dockerfile[.]storefront) ([.]\/Dockerfile[.]storefront)$/.exec(line);
+  if(restore)copyFileSync(path.join(context,restore[1]),path.join(build,restore[2]));
+  if(line==='RUN npm run build:coolify:storefront-shared'){
+   assert.deepEqual(checkReceipt(build),receipt(context));checks++;
+  }
+ }
+ assert.equal(checks,1);assert.equal(readFileSync(path.join(build,'Dockerfile.storefront'),'utf8'),canonical);
+ assert.equal(readFileSync(path.join(context,'Dockerfile.storefront'),'utf8'),mutated);
+ put(build,'packages/saas-data/src/postgres/repository.ts','untested database source');
+ assert.throws(()=>checkReceipt(build),/signup_release_proof_stale/);
 });
