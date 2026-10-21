@@ -1,4 +1,5 @@
 "use client";
+import { useCommercePolicy } from "./CommercePolicyProvider";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parsePublicProduct, type PublicProduct } from "@celebix/saas-contracts";
@@ -9,7 +10,7 @@ import { ProductGrid } from "./ProductGrid";
 
 type Page = Readonly<{ items: readonly PublicProduct[]; total: number; nextOffset: number | null }>;
 type Snapshot = Page & Readonly<{ updatedAt: number; baseIds: readonly string[] }>;
-// Tab-memory only, keyed by merchant host and complete catalog selection.
+// Tab-memory only, keyed by merchant host, commerce policy and complete catalog selection.
 const snapshots = new Map<string, Snapshot>();
 const TTL = 5 * 60 * 1000;
 function append(first: readonly PublicProduct[], next: readonly PublicProduct[]) {
@@ -24,7 +25,9 @@ function readPage(value: unknown, offset: number): Page {
 }
 
 export function CatalogProductList(props: ProductExplorerProps & Readonly<{ emptyMessage?: string }>) {
-  const key = catalogHref(props.path, props.selection, props.selection.offset);
+  const policy = useCommercePolicy();
+  const policyKey = `${policy.version}:${Number(policy.enabled)}:${Number(policy.hidePrices)}:${Number(policy.hideAddToCart)}:${Number(policy.checkoutAllowed)}`;
+  const key = `${catalogHref(props.path, props.selection, props.selection.offset)}:commerce:${policyKey}`;
   return <InfiniteProducts key={key} {...props} catalogKey={key} />;
 }
 

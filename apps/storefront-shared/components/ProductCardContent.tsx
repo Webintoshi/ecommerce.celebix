@@ -1,11 +1,14 @@
+"use client";
+
 import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saas-contracts";
 import Link from "next/link";
 
 import { formatTry } from "../lib/format.ts";
 import { productPath } from "../lib/storefront-routes.ts";
+import { useCommercePolicy } from "./CommercePolicyProvider";
 import { productBadge } from "./product-card-model";
 
-export type ProductCardContentProduct = Pick<PublicProduct, "id" | "slug" | "title" | "currency" | "priceCents" | "compareAtCents" | "available"> & Readonly<{
+export type ProductCardContentProduct = Pick<PublicProduct, "id" | "slug" | "title" | "currency" | "priceCents" | "compareAtCents" | "available" | "pricesHidden"> & Readonly<{
   brand?: Readonly<{ name: string }>;
   media: readonly Readonly<{ url: string; altText: string; width?: number; height?: number }>[];
 }>;
@@ -17,9 +20,11 @@ export function ProductCardContent({ product, locale, cardStyle, imageRatio, pre
   imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"];
   prefetch?: boolean;
 }>) {
+  const policy = useCommercePolicy();
+  const pricesHidden = policy.hidePrices || product.pricesHidden === true || product.priceCents === null;
   const primary = product.media[0];
   const secondary = product.media[1];
-  const badge = productBadge(product);
+  const badge = productBadge(pricesHidden ? { ...product, priceCents:null, compareAtCents:null } : product);
   return <Link className="product-card-link" href={productPath(locale, product.slug)} prefetch={prefetch} data-product-card-content="true">
     <div className="product-image-shell">
       {primary ? <>
@@ -32,7 +37,7 @@ export function ProductCardContent({ product, locale, cardStyle, imageRatio, pre
     <div className="product-card-copy">
       {product.brand?.name ? <span className="product-card-brand">{product.brand.name}</span> : null}
       <h3>{product.title}</h3>
-      {product.priceCents !== null ? <div className="price-row">
+      {!pricesHidden && product.priceCents !== null ? <div className="price-row">
         {product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}
         <strong>{formatTry(product.priceCents)}</strong>
       </div> : null}

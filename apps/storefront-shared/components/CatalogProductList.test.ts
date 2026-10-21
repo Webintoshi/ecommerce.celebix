@@ -1,13 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
+import { resolveStorefrontCommercePolicy, createDefaultWhatsAppOrderConfig } from "@celebix/saas-contracts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
 const product = (n: number) => ({ id: `10000000-0000-4000-8000-${String(n).padStart(12,"0")}`, slug: `product-${n}`, title: `Ürün ${n}`, currency: "TRY", status: "active", priceCents: n * 100, available: true, media: [], variants: [{ id: `20000000-0000-4000-8000-${String(n).padStart(12,"0")}`, title: "Standart", priceCents: n * 100, stockTracking: false, stockQuantity: 0, available: true, attributes: {} }] });
 const base = { products: [product(1),product(2)], total: 4, nextOffset: 24, path: "/urunler", locale: "tr", cardStyle: "compact", imageRatio: "portrait", selection: { query: "", filter: "all", order: "featured", offset: 0 } };
 async function withList(run: (b: any) => Promise<void>) {
-  const load = componentLoader({ "./ProductGrid": { ProductGrid: ({ products, preserveOrder }: any) => React.createElement("div", {"data-test-products":products.map((p: any)=>p.title).join(","),"data-preserve-order":String(preserveOrder)}) } });
+  const load = componentLoader({ "./ProductGrid": { ProductGrid: ({ products, preserveOrder }: any) => React.createElement("div", {"data-test-products":products.map((p: any)=>p.title).join(","),"data-preserve-order":String(preserveOrder),"data-prices":products.map((p:any)=>String(p.priceCents)).join(",")}) } });
   const { CatalogProductList: List } = load<{ CatalogProductList: React.ComponentType<any> }>(new URL("./CatalogProductList.tsx",import.meta.url));
+  const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:React.ComponentType<any>}>(new URL("./CommercePolicyProvider.tsx",import.meta.url));
   await withProductBrowser(async b => {
     const oldFetch = globalThis.fetch;
     let observer: any;
@@ -15,7 +17,7 @@ async function withList(run: (b: any) => Promise<void>) {
     (window as any).IntersectionObserver = class { constructor(callback: any) { observer = callback; } observe() {} disconnect() {} };
     const queue: any[] = [];
     globalThis.fetch = async (url, options) => { requests.push({url:String(url),options}); return new Promise((resolve,reject)=>queue.push({resolve,reject})); };
-    const render = (props: any = {}) => b.render(React.createElement(List,{...base,...props}));
+    const render = (props: any = {}, policy = resolveStorefrontCommercePolicy(createDefaultWhatsAppOrderConfig())) => b.render(React.createElement(Provider,{policy},React.createElement(List,{...base,...props})));
     try { await render(); await run({...b,render,requests,queue,notify:async()=>React.act(async()=>observer([{isIntersecting:true}]))}); }
     finally { globalThis.fetch = oldFetch; }
   });
@@ -86,4 +88,16 @@ test("appending a page preserves the viewport instead of following the browser's
     await notify(); await React.act(async()=>queue[0].resolve(Response.json({items:[product(3)],total:4,nextOffset:48})));
     assert.deepEqual(scrolls,[{left:0,top:1600,behavior:'instant'}]);
   });
+});
+
+test("a policy version or mode change cannot restore old priced continuation products",async()=>{
+ await withList(async({container,notify,queue,render})=>{
+  await notify();await React.act(async()=>queue[0].resolve(Response.json({items:[product(3)],total:4,nextOffset:null})));
+  assert.match(container.querySelector('[data-test-products]')?.getAttribute('data-test-products')??'',/Ürün 3/);
+  const hidden=(p:ReturnType<typeof product>)=>({...p,priceCents:null,pricesHidden:true,variants:p.variants.map(v=>({...v,priceCents:null,pricesHidden:true}))});
+  const policy=resolveStorefrontCommercePolicy({schemaVersion:1,enabled:true,phone:'+905551112233',hidePrices:true,hideAddToCart:false,messageIntro:'Merhaba'},1);
+  await render({products:base.products.map(hidden)},policy);
+  assert.equal(container.querySelector('[data-test-products]')?.getAttribute('data-test-products'),'Ürün 1,Ürün 2');
+  assert.equal(container.querySelector('[data-test-products]')?.getAttribute('data-prices'),'null,null');
+ });
 });

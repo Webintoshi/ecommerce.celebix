@@ -38,3 +38,11 @@ test('hidden default and Siora drawers retain removal while suppressing totals c
  try{await withProductBrowser(async({container,render,click})=>{if(path.includes('siora')){const proto=Object.getPrototypeOf(window.document.createElement('dialog'));proto.showModal=function(){this.open=true;};proto.close=function(){this.open=false;};}await render(React.createElement(Provider,{policy},React.createElement(Drawer,{presentation:{showQuantitySelector:true,showShippingProgress:true,freeShippingThresholdCents:50000},locale:'tr'})));assert.doesNotMatch(container.textContent??'',/₺|Ara toplam|Toplam|Ücretsiz|Ödemeye geç/);assert.equal(container.querySelector('a[href="/checkout"]'),null);const increase=container.querySelector<HTMLButtonElement>('button[aria-label$="adet artır"]');assert.equal(increase?.disabled,true);const remove=Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(item=>/^(Sil|Kaldır)$/.test(item.textContent??''));assert.ok(remove);await click(path.includes('siora')?'button[aria-label$="ürününü sil"]':'.side-cart-remove');assert.equal(removals,1);});}finally{globalThis.fetch=oldFetch;}
  }
 });
+
+
+test('the product card suppresses stale numeric prices and sale badges under a hidden policy',async()=>{
+ const load=componentLoader({'next/link':{__esModule:true,default:({children,...props}:React.AnchorHTMLAttributes<HTMLAnchorElement>)=>React.createElement('a',props,children)}});
+ const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:Component}>(new URL('./CommercePolicyProvider.tsx',import.meta.url));
+ const {ProductCardContent:Card}=load<{ProductCardContent:Component}>(new URL('./ProductCardContent.tsx',import.meta.url));
+ await withProductBrowser(async({container,render})=>{await render(React.createElement(Provider,{policy},React.createElement(Card,{product:{...product,priceCents:10000,compareAtCents:20000},locale:'tr',cardStyle:'compact',imageRatio:'portrait'})));assert.doesNotMatch(container.textContent??'',/₺|İndirim/);assert.equal(container.querySelector('.price-row')===null,true);});
+});
