@@ -1,5 +1,6 @@
 import type { StorefrontPageResolution } from './page-context.ts';
 import { redactStorefrontPrices } from './commerce-policy.ts';
+import type { WhatsAppOrderMessageLine } from './whatsapp-order-message.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 function json(value: unknown, status = 200) {
@@ -31,8 +32,21 @@ export function createWhatsAppOrderPreview(dependencies: { resolve(): Promise<St
       const common = { policy, storeName: storefront.presentation.displayName };
       if (row.kind === 'cart' && Object.keys(row).length === 1) {
         const { cart } = await runtime.cart.resolveCart(storefront.hostname, request.headers.get('cookie'));
-        if (cart.itemCount < 1 || !cart.items.length || cart.items.some(line => !line.available)) return json({ code: 'stock_unavailable' }, 409);
-        return json({ ...common, cart: redactStorefrontPrices(cart, policy) });
+        if (cart.itemCount < 1 || !cart.items.length || cart.items.length > 100) return json({ code: 'stock_unavailable' }, 409);
+        // A checkout line also becomes unavailable on price drift. WhatsApp requests
+        // re-read catalog/stock independently instead of treating old prices as stock.
+        const products = await runtime.content.resolveProductIds({ hostname: storefront.hostname, now: new Date(), productIds: [...new Set(cart.items.map(line => line.productId))] });
+        const byId = new Map(products.map(product => [product.id, product]));
+        const requestLines: WhatsAppOrderMessageLine[] = [];
+        for (const line of cart.items) {
+          const product = byId.get(line.productId), variant = product?.variants.find(variant => variant.id === line.variantId);
+          if (!product?.available || product.status !== 'active' || !variant?.available || !Number.isSafeInteger(line.quantity) || line.quantity < 1 || line.quantity > 9999
+            || variant.stockTracking && variant.stockQuantity < line.quantity) return json({ code: 'stock_unavailable' }, 409);
+          if (!policy.hidePrices && variant.priceCents === null) return json({ code: 'unavailable' }, 503);
+          requestLines.push({ title: product.title, variantTitle: variant.title, slug: product.slug, quantity: line.quantity,
+            unitPriceCents: policy.hidePrices ? null : variant.priceCents, available: true });
+        }
+        return json({ ...common, cart: redactStorefrontPrices(cart, policy), requestLines });
       }
       if (row.kind !== 'product' || Object.keys(row).sort().join(',') !== 'kind,productId,quantity,variantId'
         || typeof row.productId !== 'string' || !UUID.test(row.productId) || typeof row.variantId !== 'string' || !UUID.test(row.variantId)
