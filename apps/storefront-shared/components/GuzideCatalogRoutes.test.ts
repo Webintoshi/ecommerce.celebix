@@ -33,6 +33,7 @@ async function loadRoute(id: string, options: { queryAvailable?: boolean; queryE
   const seoSelection = { resource: { id: "real-category", effectiveTitle: "Kayıtlı kategori", effectiveDescription: "Kayıtlı açıklama", effectiveCanonicalPath: "/kategori/ozel-kolyeler", allowIndex: false, imageUrl: null }, settings, links: [{ anchorText: "Bakım bilgileri", path: "/pages/bakim" }] };
   const context = { storefront, design: {}, runtime: { repository, ...(options.savedSeo ? { seo: { async get() { return seoSelection; } } } : {}) } };
   const dependencies: Record<string, unknown> = {
+    "@/components/CommercePolicyServerPage": { withCommercePolicyPage: <T,>(Page: T) => Page },
     "react/jsx-runtime": jsxRuntime, "next/link": "a", "next/navigation": { notFound() { throw new Error("not_found"); }, permanentRedirect(destination: string) { throw new Error(`redirect:${destination}`); } },
     "@celebix/saas-data": { PublicStorefrontRepositoryError: RepositoryError },
     "@/lib/public-seo.ts": seo, "@/lib/public-seo-read.ts": seoRead, "@/lib/storefront-routes.ts": routes, "@/lib/product-catalog-query.ts": catalogQuery,
@@ -145,7 +146,7 @@ test("Localized and legacy category wrappers both forward the original query pro
     const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
     const params = Promise.resolve({ slug: "kolyeler" }), searchParams = Promise.resolve({ filter: "available", offset: "24" });
     const module: { exports: { default?: (value: unknown) => unknown } } = { exports: {} };
-    Function("require", "module", "exports", output)(() => ({ renderCategoryPage: (value: unknown) => value }), module, module.exports);
+    Function("require", "module", "exports", output)((name: string) => name === "@/components/CommercePolicyServerPage" ? { withCommercePolicyPage: <T,>(Page: T) => Page } : ({ renderCategoryPage: (value: unknown) => value }), module, module.exports);
     assert.deepEqual(module.exports.default?.({ params, searchParams }), { params, searchParams, routeVariant: variant });
   }
 });

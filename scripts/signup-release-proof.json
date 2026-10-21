@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "2bb4fee3f07ff5a87d2fa4582276eeb30ccb2cfafdb286c88e8a26ae289bfc5b",
+  "inputDigest": "e35e0a11d6811f85b6aba1aa67a8a0feb5d583777a278b731de8f2d2b099d8bb",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2724,6 +2724,18 @@
       "sha256": "dd39c5b07380608a2a6e020fd3ef1a80df4c1b78eecb17718bffa932d14c79f0"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610210256_whatsapp_ordering.up.sql",
+      "sha256": "e55043f15a9a841c1d01bdcc0bd4699b91e2ccff5dc175c7a9dac4d2fed3f1b8"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610210257_whatsapp_merchant_policy.up.sql",
+      "sha256": "aa1e792d2e1d9524ed4dfabc398f51d8c84ef1d6086dcf5801add1a700c13561"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610210258_whatsapp_commerce_guards.up.sql",
+      "sha256": "b7e6f75374cab3269b2d809135fdfe2e1ef59b1cde10452ce32f05e36f9610f5"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3705,7 +3717,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "a28e46a7a0c58e482497b61644003af61ff9121ca06b8433c9e5ee8959719bfe"
+      "sha256": "b6d7c6b9dddbdc33bf446306194bdbcece0314b5dddd2220c59c9f1113771509"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -3745,11 +3757,11 @@
     },
     {
       "path": "packages/saas-contracts/src/merchant-admin/types.ts",
-      "sha256": "d81c48bfd9b43f3e4788f18972fb61c82e2fd60b9a15c1669cbf2025d34d9319"
+      "sha256": "ec59beb0c9d96737d585ef08f5e27520520c445030060861bb0e50aed6601574"
     },
     {
       "path": "packages/saas-contracts/src/merchant-admin/validation.ts",
-      "sha256": "4e63bb5abf27b65c92530e3180ddb5a2505bad92a9bc08c9cb0dea15b554ef36"
+      "sha256": "2999687db94435066bdb14de066e9a322f15c886fab7e23d5ce88e9261b46fd2"
     },
     {
       "path": "packages/saas-contracts/src/merchant-content/href-vectors.fixture.ts",
@@ -3973,11 +3985,11 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/commerce.ts",
-      "sha256": "03f1d963b78150385f4b76f7288ccf00c4528444509daee2b8be150eb17610bd"
+      "sha256": "1a0d6edd033e2c643c0d5fc4af8023b572a2b42039a5415831ea4ebcbde34935"
     },
     {
       "path": "packages/saas-contracts/src/storefront/index.ts",
-      "sha256": "fc2d7a8843530942de84d097d34554a84d749addd0f03937643bcab66eff17ac"
+      "sha256": "862d0da6c7c153702d0fc7ec4b199391ddfdbacd7adeaa649eb236984dfa2deb"
     },
     {
       "path": "packages/saas-contracts/src/storefront/newsletter.ts",
@@ -3993,11 +4005,11 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/types.ts",
-      "sha256": "a2a79693136159ff1e59a71221dae7cc081e9117886a43bb676e61691480fa30"
+      "sha256": "fedaa3a6a03ef29f89df236ce8ffd41333acadb7f40e685b20fc96b93afa4cbf"
     },
     {
       "path": "packages/saas-contracts/src/storefront/validation.ts",
-      "sha256": "7be3297d914ec4b052a47a8a6490ff077123d8b786323689cf5c6f96eb439e1f"
+      "sha256": "e0bbe8542ffbb2bc0eba5fc1cd001f482cace2fb072919ab569fe208e449d324"
     },
     {
       "path": "packages/saas-contracts/src/toshi/conversations.ts",
@@ -4014,6 +4026,10 @@
     {
       "path": "packages/saas-contracts/src/types.ts",
       "sha256": "6d4d2bee540f214f3d8ac388e0dd0b2438ecef34989e581e4795635b875c67f7"
+    },
+    {
+      "path": "packages/saas-contracts/src/whatsapp-ordering/index.ts",
+      "sha256": "ca1b862c31c8b1568395772815f6f2a9fdf422b27bbf89d68d26c66246c1bca2"
     },
     {
       "path": "packages/saas-contracts/tsconfig.json",
@@ -4549,7 +4565,7 @@
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "5ea45180e5159b262db79e5c98e92250ee855e10cb4c2a0cfaf7738ea91f64bf"
+      "sha256": "319969dd27764b9af39c05010afa9a06de17cddd283b849bbf8882ba5e6e1719"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -4637,7 +4653,7 @@
     },
     {
       "path": "packages/saas-data/src/merchant-admin/repository.ts",
-      "sha256": "ac649619ec45a3dc1ad52f42af9925a5667095d21b2ae59ae10cdce2fd62796e"
+      "sha256": "beea6cc6cdde117c91396661cf8946811dfcc55846795ff69e6a51165d6ac396"
     },
     {
       "path": "packages/saas-data/src/merchant-admin/types.ts",
@@ -4645,7 +4661,7 @@
     },
     {
       "path": "packages/saas-data/src/merchant-admin/validation.ts",
-      "sha256": "84dd5de72e805854be379e14ccdc609bea81cd877fea3af5a2f59e3dff000097"
+      "sha256": "7bf49068cb81f001e265897bc14ca89f7ff42c7993ab7f33424451146dcf61bb"
     },
     {
       "path": "packages/saas-data/src/merchant-content/errors.ts",
@@ -5125,11 +5141,11 @@
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/repository.ts",
-      "sha256": "9527ba5f21acb9238097b0b3a522858002a45f96edad7eb97dd5d75f11b10338"
+      "sha256": "792d661e0f527f1d432e020a9118193dea126f37b182998f4f8e71eeb331e8e9"
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/types.ts",
-      "sha256": "04f9893c65d68bb1e4970ccce286563274654f6ef112aa55e8c647659adf92ea"
+      "sha256": "7bbc2e05b8fafdb05792e052892602f0545b7fa27cfb1fb8b2c3d7f999b4d754"
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/validation.ts",
@@ -5185,11 +5201,11 @@
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/types.ts",
-      "sha256": "7488bc16d65f8e8cefa72720a2aa01d8e21ea8b93f19de72c07d807a5ab8efe6"
+      "sha256": "40da3de326b7906520aab3dbd888f90b6b57599321a7d4180d0890728401d745"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/validation.ts",
-      "sha256": "a079bf11e4514dfebec367c01c3dddc79e60918fa9a818730c5361dc52188356"
+      "sha256": "56d2c5a0cd922a89cca50333362e554454859cb476d865a774e0b8f7859e275a"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/worker-repository.ts",
@@ -5222,6 +5238,10 @@
     {
       "path": "packages/saas-data/src/storefront/newsletter-repository.ts",
       "sha256": "7d0a80ad4eaf40b78ed94896d64a619fbf634b5ab80a642f3f2aeb287ca51a9d"
+    },
+    {
+      "path": "packages/saas-data/src/storefront/priced.ts",
+      "sha256": "83e14887d0f3cb6ea7146ffec88f84a6fd231a1992ae2fa1b9b801b788ea006a"
     },
     {
       "path": "packages/saas-data/src/storefront/repository.ts",
@@ -5282,6 +5302,10 @@
     {
       "path": "packages/saas-data/src/types.ts",
       "sha256": "dd5403a31ea5d20d56f75ac1b9294fbf118699e752e4a4d6120703a748cd6cbe"
+    },
+    {
+      "path": "packages/saas-data/src/whatsapp-ordering/repository.ts",
+      "sha256": "91edf477f5f3e1592cc261edc777fdad79c02d16a51efaf6efb3e08ac04bac50"
     },
     {
       "path": "packages/saas-data/tsconfig.json",
@@ -5429,11 +5453,11 @@
     },
     {
       "path": "packages/storefront-design-ui/src/ProductDetailPresentation.tsx",
-      "sha256": "1e8e0a5d73ef2885550866ffb6d4f62a5dd82131d615f3b140d47a6007836b17"
+      "sha256": "fdd211adaf97db5834f2aead0d1a7704887019c9cbf874090092203eee8c88d2"
     },
     {
       "path": "packages/storefront-design-ui/src/ProductDetailSummary.tsx",
-      "sha256": "77b7f77abb59d79b20e37714f0b87c664884c326092fe25385f76ae5f8546ef0"
+      "sha256": "df8294103f29ebba3802cf581140777698846fc715d00c6c0d62796954885f45"
     },
     {
       "path": "packages/storefront-design-ui/src/ProductSizeGuideDialog.tsx",
@@ -5441,7 +5465,7 @@
     },
     {
       "path": "packages/storefront-design-ui/src/StorefrontBanner.tsx",
-      "sha256": "222634fd66d61be40d4d03949d09f81a86f8e700846dbb284ae6ca3696de51e9"
+      "sha256": "149b6b05261757e97a1eacf7f16c34dc963c2efd2380251a70134c169a8b8996"
     },
     {
       "path": "packages/storefront-design-ui/src/StorefrontDesignRenderer.tsx",

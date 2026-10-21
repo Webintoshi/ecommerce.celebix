@@ -1,6 +1,6 @@
 # Mağaza araçlarında WhatsApp ile sipariş tasarımı
 
-Durum: Araştırma ve uygulama önerisi. Kodlama veya canlı ayar değişikliği yapılmadı.
+Durum: Kullanıcı tarafından onaylandı ve ortak sistemde uygulandı. Yayın kabulü uygulama planında izlenir; hiçbir gerçek mağazada özellik otomatik etkinleştirilmez.
 
 ## Amaç ve kesinleşen davranış
 
@@ -8,7 +8,7 @@ Mevcut ve yeni mağazalar, Mağaza araçları içindeki bağımsız WhatsApp ile
 
 Kullanıcının kesinleştirdiği kural: Fiyatları gizle açıkken normal online ödeme kullanılmaz; sepet ürün listesi olarak korunur ve yalnız WhatsApp sipariş talebi alınır. Sepete ekle gizlenmediğinde WhatsApp butonu hem yan sepette hem sepet sayfasında bulunur. Fiyat gizleme bütün mağazadaki güncel ürün fiyatlarını kapsar.
 
-Sepete ekle gizlendiğinde ürün üzerindeki alışveriş eylemini WhatsApp ile sipariş talebiyle değiştirmek ve bu modda yeni standart ödeme başlatmamak tasarım önerisidir. Paket kapsamı da aşağıda ayrıca önerilmiştir; bu iki ürün kararı uygulama öncesinde onaylanmalıdır.
+Onaylanan plana göre sepete ekle gizlendiğinde ürün üzerindeki alışveriş eylemi WhatsApp ile sipariş talebiyle değiştirilir ve bu modda yeni standart ödeme başlatılmaz. Paket kapsamı Başlangıç ve üzeridir; mevcut tarifelerin tarihî kayıtları değiştirilmez.
 
 ## Rakiplerdeki örnekler ve teknik tercih
 
@@ -41,7 +41,7 @@ Aşağıdaki satırlar ana özelliğin açık olduğu durumları gösterir.
 | --- | --- | --- | --- | --- |
 | Kapalı | Kapalı | Fiyat ve mevcut sepete ekleme; ürün üzerinden WhatsApp talebi | Mevcut ödeme eylemi ve WhatsApp ile sipariş ver | Açık |
 | Açık | Kapalı | Fiyat yok; ürünler sepete eklenebilir | Adet ve ürün listesi; fiyat ve toplam yok; WhatsApp ile sipariş ver | Kapalı |
-| Kapalı | Açık | Fiyat görünür; sepete ekleme yerine WhatsApp eylemi | Yeni ürün eklenmez; eski sepet silinmez, ürünleri kaldırma ve talep etme korunur | Kapalı önerisi |
+| Kapalı | Açık | Fiyat görünür; sepete ekleme yerine WhatsApp eylemi | Yeni ürün eklenmez; eski sepet silinmez, ürünleri kaldırma ve talep etme korunur | Kapalı |
 | Açık | Açık | Fiyat yok; sepete ekleme yerine WhatsApp eylemi | Eski sepet fiyat göstermeden korunur; temizlenebilir veya talep iletilebilir | Kapalı |
 
 Ana özellik kapalıyken mevcut normal mağaza davranışı geçerlidir. Sepete ekle gizleme; kart, hızlı görünüm, detay, mobil sabit alan ve Hemen al gibi eşdeğer yeni satın alma girişlerini kapsar. Sunucu da yeni ekleme ve ödeme başlatma kurallarını denetler. Var olan sepeti görmek, azaltmak veya son ürün dahil silmek engellenmez.
@@ -99,13 +99,13 @@ Plan:
 4. Ayar değiştiğinde yalnız ilgili mağazada sürümlü bir uzlaştırma başlat; eski sıradaki gönderimlerin yeni politikayı geçersiz kılmasını engelle. Belirsiz sağlayıcı sonuçlarını mevcut uzlaştırma düzeniyle ele al.
 5. Normal satış modu geri geldiğinde aynı kalıcı ürün kimlikleriyle yeniden yayınla. Olağan 48 saatlik genel kontrol ve gerçek fiyat stok değişiklikleri için mevcut hedefli güncelleme düzenini koru.
 
-## Paketler ve mağaza araçlarına erişim önerisi
+## Paketler ve mağaza araçlarına erişim
 
-WhatsApp üzerinden talep iletme, panelde manuel satış kaydetmeden ayrı bir yetenek olarak ele alınmalıdır. Öneri: Başlangıç ve üzeri paketlerde sunulsun. Profesyonel paketteki manuel satış, kasiyer ve muhasebe yetkileri bu seçimden türetilmesin.
+WhatsApp üzerinden talep iletme, panelde manuel satış kaydetmeden ayrı bir yetenek olarak ele alınmalıdır. Başlangıç ve üzeri paketlerde sunulur. Profesyonel paketteki manuel satış, kasiyer ve muhasebe yetkileri bu seçimden türetilmesin.
 
-Mevcut /settings/store-tools sayfasının tamamı growth_tools ile kilitlidir; bu yüzden yalnız kart eklemek Hızlı Kutu'nun Başlangıç paketine ulaşmaz. Mağaza araçları girişini yapılandırma rolüyle erişilebilir hale getirip her kartın görünümünü ve kendi API yetkisini ayrı korumak gerekir. Mevcut order bump ve sepet yakalama kartları kendi paket kurallarını korumalı; iletişim balonu ve stok bildirimi için de açık paket kararı verilmelidir. Sadece sayfa kilidini kaldırmak yeterli değildir.
+Mağaza araçları girişi yapılandırma rolüyle erişilebilir hale getirildi. Her kartın görünümü ve kendi API yetkisi ayrı korunur. Mevcut order bump, sepet yakalama, iletişim balonu ve stok bildirimi kartları önceki growth_tools paket kuralını korur; yeni WhatsApp aracı için Başlangıç ve üzeri ek yetki kuralı uygulanır.
 
-Mevcut ticari paket kimlikleri ve anlaşma anı görüntüleri değişmezdir. Yeni WhatsApp yeteneğinin mevcut ve gelecek ücretli paketlere verilmesi için açık bir ek yetki kuralı veya yeni sürüm/geçiş tasarımı hazırlanır; eski tarife kayıtları yerinde değiştirilmez. Bu paket yerleşimi uygulama öncesinde onaylanacak ürün kararıdır.
+Mevcut ticari paket kimlikleri ve anlaşma anı görüntüleri değişmezdir. Yeni WhatsApp yeteneği mevcut ve gelecek ücretli paketlere açık bir ek yetki kuralıyla verilir; eski tarife kayıtları yerinde değiştirilmez.
 
 ## Ortak uygulama yapısı
 

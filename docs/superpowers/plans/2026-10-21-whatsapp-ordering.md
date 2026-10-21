@@ -43,47 +43,58 @@
 
 **Files:** new `packages/saas-contracts/src/whatsapp-ordering/*`, new data reader, merchant-admin validation/kind/singleton; new native256 migration, Store tools card and route/card/API guards.
 
-- [ ] Add focused tests for strict config, phone validation, all switch combinations and missing/disabled settings; run red.
-- [ ] Implement shared config/policy helpers and dedicated reader.
-- [ ] Add compatible singleton/native role/validation support without changing tariff snapshots; paid Başlangıç+ eligibility is additive and independent of manual orders.
-- [ ] Open Store tools hub by configuration role, preserve each old growth tool's card and server guard; add WhatsApp card with normal save/retry/version behavior.
-- [ ] Run contract, repository, native and panel checks; record commands/results.
+- [x] Add focused tests for strict config, phone validation, all switch combinations and missing/disabled settings; run red.
+- [x] Implement shared config/policy helpers and dedicated reader.
+- [x] Add compatible singleton/native role/validation support without changing tariff snapshots; paid Başlangıç+ eligibility is additive and independent of manual orders.
+- [x] Open Store tools hub by configuration role, preserve each old growth tool's card and server guard; add WhatsApp card with normal save/retry/version behavior.
+- [x] Run contract, repository, native and panel checks; record commands/results.
 
 ### Task 2: Storefront presentation and requests
 
 **Files:** public display contracts/parsers, shared product/cart/theme components, new commerce provider/button/message helper.
 
-- [ ] Test hidden money parsing and WhatsApp variant/quantity/encoding/long-message behavior; run red.
-- [ ] Add explicit nullable public money projection and adapt all product/theme/cart renderers without fabricating zero prices.
-- [ ] Add the policy provider and common WhatsApp product/cart actions; allow variant selection and disable stockless orders.
-- [ ] Hide price-based filtering/sorting, indirect prices, totals, checkout controls as required. Keep old cart removal.
-- [ ] Run targeted tests and storefront typecheck; record coverage and results.
+- [x] Test hidden money parsing and WhatsApp variant/quantity/encoding/long-message behavior; run red.
+- [x] Add explicit nullable public money projection and adapt all product/theme/cart renderers without fabricating zero prices.
+- [x] Add the policy provider and common WhatsApp product/cart actions; allow variant selection and disable stockless orders.
+- [x] Hide price-based filtering/sorting, indirect prices, totals, checkout controls as required. Keep old cart removal.
+- [x] Run targeted tests and storefront typecheck; record coverage and results.
 
 ### Task 3: Public boundaries and checkout enforcement
 
 **Files:** default runtime/page context; catalog/search/favorites/cart/recommendations/order-bumps routes; checkout initiation; SEO and monetary tracking.
 
-- [ ] Test redaction, unavailable policy, cross-host selection, cart removal and direct checkout/add bypasses; run red.
-- [ ] Read policy once per request; redact before RSC/JSON serialization. Preserve priced authoritative repository objects.
-- [ ] Enforce new add/quantity increase, quote/complete/hosted payment initiation restrictions server-side, preserve existing callback/receipt/history flows.
-- [ ] Remove hidden product Offers and monetary analytics; derive policy on fresh cart actions without polling.
-- [ ] Run relevant boundary/runtime tests and typecheck.
+- [x] Test redaction, unavailable policy, cross-host selection, cart removal and direct checkout/add bypasses; run red.
+- [x] Read policy once per request; redact before RSC/JSON serialization. Preserve priced authoritative repository objects.
+- [x] Enforce new add/quantity increase, quote/complete/hosted payment initiation restrictions server-side, preserve existing callback/receipt/history flows.
+- [x] Remove hidden product Offers and monetary analytics; derive policy on fresh cart actions without polling.
+- [x] Run relevant boundary/runtime tests and typecheck.
 
 ### Task 4: Merchant compatibility
 
 **Files:** separate native257 migration, Merchant eligibility/queue/worker tests and implementation.
 
-- [ ] Test catalog-only withdrawal and stale upsert prevention; run red.
-- [ ] Queue same-store policy reconciliation on change; delete existing offers and block ineligible upserts; normal mode restores stable IDs.
-- [ ] Preserve 48-hour ordinary checks and existing targeted changes; document deployment compatibility.
-- [ ] Run focused native queue tests.
+- [x] Test catalog-only withdrawal and stale upsert prevention; run red.
+- [x] Queue same-store policy reconciliation on change; delete existing offers and block ineligible upserts; normal mode restores stable IDs.
+- [x] Preserve 48-hour ordinary checks and existing targeted changes; document deployment compatibility.
+- [x] Run focused native queue tests.
 
 ### Task 5: Integration, review and rollout
 
 **Files:** focused regression tests, release proof, operations/QA evidence.
 
-- [ ] Integrate all areas, typecheck the affected packages/apps, run required native compatibility gate in disposable PostgreSQL16/Node24.
-- [ ] Fresh reviewer checks complete diff against spec, especially hidden-price leaks, server gates, immutable entitlements and stale Merchant work. Fix material findings.
+- [x] Integrate all areas, typecheck the affected packages/apps, run required native compatibility gate in disposable PostgreSQL16/Node24.
+- [x] Fresh reviewer checks complete diff against spec, especially hidden-price leaks, server gates, immutable entitlements and stale Merchant work. Fix material findings.
 - [ ] Freeze candidate; refresh and commit source-bound signup proof; exact candidate passes `check:signup-release`.
 - [ ] Publish compatible data and readers first; shared apps NET then SITE under one release owner; no tenant enabling.
 - [ ] Verify live running source and Store tools/default-off normal commerce; report actual live state and remaining limitations.
+
+## Verification evidence (2026-10-22)
+
+- Shared storefront suite before the final per-page boundary follow-up: 930 server + 295 browser tests passed. The final per-page delta is rechecked before publication.
+- Type checks: saas-contracts, saas-data, storefront-shared, customer-panel and owner passed.
+- Focused settings/contracts/repository/HTTP/Store tools: 75/75 passed.
+- Disposable PostgreSQL16: native256 8/8, native257 12/12 and native258 10 scenarios / 21 entrypoints passed. The exact atomic 256→257→258 publication wrapper also passed privately; tariffs unchanged, reader readiness false, no tenant settings.
+- Fresh source review resolved three material findings: stale prepared message, implicit Siora variant selection, stale checkout price in WhatsApp cart request. Ancestor template reuse was subsequently identified and replaced with a guaranteed per-page boundary. Final independent review through fc3190d7b passed all 33 page exports, not-found and error boundaries; original page/payment bodies and props are preserved.
+- NET/SITE fresh unknown-host TLS and signup edge probes passed.
+- An additional legacy merchant-admin-console source-shape suite had two pre-existing failures (old route/count assumptions). That test file is byte-identical to the initial base; unrelated marketing/route implementation was not changed to satisfy those assertions. The relevant focused settings suite above passes.
+- No real tenant is activated during rollout. No customer order, payment, stock, accounting or commission test writes are performed in the live database.

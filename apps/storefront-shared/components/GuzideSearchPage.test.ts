@@ -22,6 +22,7 @@ async function loadSearch(id: string) {
   const products = [{ id: "real-search-product" }];
   const context = { storefront: { id, hostname: "guzide.example.test", locale: "tr", presentation: { theme: { productCardStyle: "compact", productImageRatio: "portrait" } } }, design: {}, runtime: { content: { async search(input: Record<string, unknown>) { calls.push(input); return { items: products, nextCursor: cursor }; } } } };
   const dependencies: Record<string, unknown> = {
+    "@/components/CommercePolicyServerPage": { withCommercePolicyPage: <T,>(Page: T) => Page },
     "react/jsx-runtime": jsxRuntime, "next/link": "a", "@celebix/saas-data": { isCatalogSearchCursor },
     "@/lib/page-context.ts": { async resolveStorefrontPage() { return { kind: "active", context }; } }, "@/lib/page-resolution.ts": { requireStorefrontPage(value: { context: unknown }) { return value.context; } },
     "../../themes/guzide/theme.ts": guzide,

@@ -56,6 +56,7 @@ async function route(filename: "blog" | "page", options: { mode?: Mode; record?:
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2022 } }).outputText;
   const compiled = { exports: {} as Record<string, (params: Params) => Promise<unknown>> };
   const dependencies: Record<string, unknown> = {
+    "@/components/CommercePolicyServerPage": { withCommercePolicyPage: <T,>(Page: T) => Page },
     "react/jsx-runtime": jsxRuntime,
     "next/link": "a",
     "next/navigation": { notFound: () => { throw new Error("not_found"); }, permanentRedirect: (path: string) => { throw new Redirect(path); } },

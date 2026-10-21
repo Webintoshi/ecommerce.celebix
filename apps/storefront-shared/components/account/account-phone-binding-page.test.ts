@@ -43,6 +43,7 @@ function pages(scenario: Scenario = {}) {
       : { outcome },
   };
   const load = componentLoader({
+    "@/components/CommercePolicyServerPage": { withCommercePolicyPage: <T,>(Page: T) => Page },
     "next/navigation": { redirect: (destination: string) => { throw new Redirect(destination); } },
     "next/link": { __esModule: true, default: Placeholder },
     "@/components/account/AccountAuthForm": { AccountAuthForm: AuthForm },
