@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -13,7 +14,7 @@ import { safeAccountReturnTo } from "@/lib/account/request.ts";
 export const metadata: Metadata = { title: "Profil", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-export default async function ProfilePage({ searchParams }: Readonly<{ searchParams: Promise<{ returnTo?: string | string[] }> }>) {
+async function ProfilePage({ searchParams }: Readonly<{ searchParams: Promise<{ returnTo?: string | string[] }> }>) {
   const rawReturnTo = (await searchParams).returnTo;
   const returnTo = safeAccountReturnTo(rawReturnTo);
   const { storefront, design, session, identity } = await resolveAccountPage(returnTo, true);
@@ -27,3 +28,5 @@ export default async function ProfilePage({ searchParams }: Readonly<{ searchPar
     {identity.whatsappEnabled && session.snapshot.profile.phone && !session.snapshot.profile.phoneVerified ? <p><Link className="store-button store-button-secondary" href="/account/profile/verify-phone">WhatsApp ile doğrula</Link></p> : null}
   </> : null}</section></StorefrontFrame>;
 }
+
+export default withCommercePolicyPage(ProfilePage);

@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StorefrontContentRepositoryError } from "@celebix/saas-data";
@@ -38,7 +39,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   return buildPublicSeoMetadata({ storefront: selected.storefront, fallback: { ...seo, path: selected.page.route }, selection: selected.seoSelection });
 }
 
-export default async function BlogDetail({ params, searchParams }: Params) {
+async function BlogDetail({ params, searchParams }: Params) {
   const selected = await article((await params).slug, (await searchParams).lang);
   const seo = effectivePublicSeo({ storefront: selected.storefront, fallback: { ...publicContentSeo(selected.page, selected.storefront.presentation.displayName), path: selected.page.route }, selection: selected.seoSelection });
   return (
@@ -53,3 +54,5 @@ export default async function BlogDetail({ params, searchParams }: Params) {
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(BlogDetail);

@@ -1,3 +1,6 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import { generateCollectionMetadata, renderCollectionPage } from "./render-collection-page.tsx";
 export const generateMetadata = generateCollectionMetadata;
-export default function CollectionPage(props: Readonly<{ params: Promise<{ slug: string }>; searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>> }>) { return renderCollectionPage({ ...props, routeVariant: "legacy" }); }
+function CollectionPage(props: Readonly<{ params: Promise<{ slug: string }>; searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>> }>) { return renderCollectionPage({ ...props, routeVariant: "legacy" }); }
+
+export default withCommercePolicyPage(CollectionPage);

@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -49,8 +50,10 @@ export async function generateMetadata({ searchParams }: Params): Promise<Metada
   return buildPublicSeoMetadata({ storefront: selected.storefront, fallback: { ...seo, path: blogIndexPath(selected.locale, selected.locales.defaultLocale) }, selection: selected.seoSelection, settings: selected.seoSettings });
 }
 
-export default async function BlogIndex({ searchParams }: Params) {
+async function BlogIndex({ searchParams }: Params) {
   const query = await searchParams;
   const selected = await listing(query.lang, query.cursor);
   return <StorefrontFrame storefront={selected.storefront} design={selected.design}><section className="store-section store-container policy-page"><h1>{selected.landing?.title ?? "Blog"}</h1>{selected.landing?.html ? <div className="product-description-rich-text" dangerouslySetInnerHTML={{ __html: selected.landing.html }} /> : null}{selected.list.items.length ? <div className="blog-list">{selected.list.items.map((item) => <article key={item.id}><h2><Link href={contentPath("blog_post", item.slug, item.locale, selected.locales.defaultLocale)}>{item.title}</Link></h2>{item.excerpt ? <p>{item.excerpt}</p> : null}</article>)}</div> : <p>Henüz yayınlanmış yazı bulunmuyor.</p>}{selected.list.nextCursor ? <Link href={blogIndexPath(selected.locale, selected.locales.defaultLocale, selected.list.nextCursor)}>Daha fazla yazı</Link> : null}</section></StorefrontFrame>;
 }
+
+export default withCommercePolicyPage(BlogIndex);

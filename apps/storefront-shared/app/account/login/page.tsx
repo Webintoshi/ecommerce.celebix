@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -13,7 +14,7 @@ import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 export const metadata: Metadata = { title: "Giriş yap", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage({
+async function LoginPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<{ returnTo?: string | string[] }> }>) {
   const { storefront, design, runtime: pageRuntime } = requireStorefrontPage(
@@ -36,3 +37,5 @@ export default async function LoginPage({
     </AccountAuthShell>
   );
 }
+
+export default withCommercePolicyPage(LoginPage);

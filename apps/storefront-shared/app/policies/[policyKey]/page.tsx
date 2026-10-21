@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StorefrontContentRepositoryError } from "@celebix/saas-data";
@@ -62,7 +63,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function PolicyPage({
+async function PolicyPage({
   params,
 }: Readonly<{ params: Promise<{ policyKey: string }> }>) {
   const { storefront, design, page } = await policy((await params).policyKey);
@@ -86,3 +87,5 @@ export default async function PolicyPage({
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(PolicyPage);

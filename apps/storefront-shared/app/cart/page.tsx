@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function CartPage({ searchParams }: Readonly<{ searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>> }>) {
+async function CartPage({ searchParams }: Readonly<{ searchParams: Promise<Readonly<Record<string, string | string[] | undefined>>> }>) {
   const { storefront, design } = requireStorefrontPage(await resolveStorefrontPage());
   const candidateCodes = readCouponCandidateCookie((await cookies()).toString() || null);
   const query = await searchParams;
@@ -28,3 +29,5 @@ export default async function CartPage({ searchParams }: Readonly<{ searchParams
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(CartPage);

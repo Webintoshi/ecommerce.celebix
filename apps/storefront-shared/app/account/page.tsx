@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 
@@ -8,7 +9,7 @@ import { resolveAccountPage } from "@/lib/account/page.ts";
 export const metadata: Metadata = { title: "Hesabım", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
 
-export default async function AccountPage() {
+async function AccountPage() {
   const { storefront, design, identity, session } = await resolveAccountPage("/account");
   if (session.outcome !== "found") return null;
   const recentOrders = await identity.orders({
@@ -18,3 +19,5 @@ export default async function AccountPage() {
   });
   return <StorefrontFrame storefront={storefront} design={design}><section className="account-page store-container"><AccountDashboard snapshot={session.snapshot} recentOrders={recentOrders} /></section></StorefrontFrame>;
 }
+
+export default withCommercePolicyPage(AccountPage);

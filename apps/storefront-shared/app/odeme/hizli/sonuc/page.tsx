@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 
@@ -18,7 +19,7 @@ function hostedReturnScript(target: string): string {
   return `try{if(window.top&&window.top!==window){window.top.location.replace(${serialized});}else{window.location.replace(${serialized});}}catch{window.location.replace(${serialized});}`;
 }
 
-export default async function QuickOrderResultPage() {
+async function QuickOrderResultPage() {
   if (readStandardHostedCheckoutCookie((await cookies()).toString() || null).kind === "present") {
     const nonce = (await headers()).get("x-nonce") ?? undefined;
     return <main className="store-container store-section checkout-result-page">
@@ -37,3 +38,5 @@ export default async function QuickOrderResultPage() {
     <a href="/api/quick-order/status">Ödeme durumunu görüntüle</a>
   </main>;
 }
+
+export default withCommercePolicyPage(QuickOrderResultPage);

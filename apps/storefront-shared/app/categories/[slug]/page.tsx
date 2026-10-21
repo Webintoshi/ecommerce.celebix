@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 
 import {
@@ -13,7 +14,7 @@ export function generateMetadata({
   return generateCategoryMetadata({ params });
 }
 
-export default function CategoryPage({
+function CategoryPage({
   params,
   searchParams,
 }: {
@@ -22,3 +23,5 @@ export default function CategoryPage({
 }) {
   return renderCategoryPage({ params, searchParams, routeVariant: "legacy" });
 }
+
+export default withCommercePolicyPage(CategoryPage);

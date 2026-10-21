@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from 'next/navigation';
@@ -19,7 +20,7 @@ function intent(value: string | string[] | undefined): CheckoutIntentKind {
   return value === "buy-now" ? "buy_now" : "cart";
 }
 
-export default async function CheckoutPage({
+async function CheckoutPage({
   searchParams,
 }: Readonly<{ searchParams: Promise<{ intent?: string | string[] }> }>) {
   const { storefront, design, runtime, commercePolicy } = requireStorefrontPage(await resolveStorefrontPage());
@@ -54,3 +55,5 @@ export default async function CheckoutPage({
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(CheckoutPage);

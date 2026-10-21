@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 
 import { FavoritesPageClient } from "@/components/FavoritesPageClient";
@@ -10,7 +11,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function FavoritesPage() {
+async function FavoritesPage() {
   const { storefront, design } = requireStorefrontPage(await resolveStorefrontPage());
   return (
     <StorefrontFrame storefront={storefront} design={design}>
@@ -25,3 +26,5 @@ export default async function FavoritesPage() {
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(FavoritesPage);

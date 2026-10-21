@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function CheckoutSuccessPage() {
+async function CheckoutSuccessPage() {
   const { runtime, storefront, design } = requireStorefrontPage(
     await resolveStorefrontPage(),
   );
@@ -103,3 +104,5 @@ export default async function CheckoutSuccessPage() {
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(CheckoutSuccessPage);

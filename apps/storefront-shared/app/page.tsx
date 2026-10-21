@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { starterMarqueeTokens } from "@celebix/saas-contracts";
@@ -41,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function HomePage() {
+async function HomePage() {
   const context = requireStorefrontPage(await resolveStorefrontHomePage());
   const { runtime, storefront, design } = context;
   if (hizliThemeFor(storefront)) return <HizliHome storefront={storefront} design={design} projection={context.campaign} />;
@@ -173,3 +174,5 @@ export default async function HomePage() {
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(HomePage);

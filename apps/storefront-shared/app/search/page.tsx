@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { isCatalogSearchCursor } from "@celebix/saas-data";
@@ -32,7 +33,7 @@ function query(value: string | string[] | undefined): string | null {
   return value;
 }
 
-export default async function SearchPage({
+async function SearchPage({
   searchParams,
 }: Readonly<{
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -105,3 +106,5 @@ export default async function SearchPage({
     </StorefrontFrame>
   );
 }
+
+export default withCommercePolicyPage(SearchPage);

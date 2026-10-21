@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -15,7 +16,7 @@ export const metadata: Metadata = Object.freeze({
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export default async function HostedCheckoutResultPage() {
+async function HostedCheckoutResultPage() {
   const { runtime, storefront, design } = requireStorefrontPage(await resolveStorefrontPage());
   const cookieHeader = (await cookies()).toString() || null;
   const hostedCheckout = runtime.hostedCheckout;
@@ -63,3 +64,5 @@ export default async function HostedCheckoutResultPage() {
     </div>
   </StorefrontFrame>;
 }
+
+export default withCommercePolicyPage(HostedCheckoutResultPage);

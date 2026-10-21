@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React, { useEffect, useLayoutEffect } from 'react';
+import { readFile, readdir } from 'node:fs/promises';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { resolveStorefrontCommercePolicy, type StorefrontCommercePolicy } from '@celebix/saas-contracts';
 import { componentLoader, withProductBrowser } from './product-variant-media-test-utils.ts';
@@ -49,10 +50,24 @@ test('a provider without a page boundary preserves normal behavior and accepts a
  await withProductBrowser(async({container,render})=>{await render(React.createElement(Provider,{policy:normal},React.createElement(Read)));assert.equal(container.textContent,value(normal));await render(React.createElement(Provider,{policy:active},React.createElement(Read)));assert.equal(container.textContent,value(active));assert.equal(mounts,1);});
 });
 
-test('the request template uses its single shared page resolution and closes both unavailable states',async()=>{
+test('each server page invocation supplies its fresh cached resolution, including both unavailable states',async()=>{
  for(const kind of ['active','unavailable','not_found']){
-  let calls=0;const {load}=components({'../lib/page-context.ts':{async resolveStorefrontPage(){calls++;return kind==='active'?{kind,context:{commercePolicy:hidden}}:{kind};}}});
-  const {default:Template}=load<{default:(props:{children:React.ReactNode})=>Promise<React.ReactElement<{policy:StorefrontCommercePolicy;children:React.ReactNode}>>}>(new URL('../app/template.tsx',import.meta.url));
-  const result=await Template({children:'Current page'});assert.equal(calls,1);assert.equal(result.props.children,'Current page');assert.deepEqual(result.props.policy,kind==='active'?hidden:unavailable);
+  let calls=0;const {load}=components({'server-only':{},'../lib/page-context.ts':{async resolveStorefrontPage(){calls++;return kind==='active'?{kind,context:{commercePolicy:hidden}}:{kind};}}});
+  const {withCommercePolicyPage:wrap}=load<{withCommercePolicyPage:(Page:Component)=>(props:Record<string,unknown>)=>Promise<React.ReactElement<{policy:StorefrontCommercePolicy;children:React.ReactElement}>>}>(new URL('./CommercePolicyServerPage.tsx',import.meta.url));
+  const body:Component=()=>null;const Wrapped=wrap(body);const props={params:Promise.resolve({slug:'new-product'})};
+  const result=await Wrapped(props);assert.equal(calls,1);assert.deepEqual(result.props.policy,kind==='active'?hidden:unavailable);assert.equal(result.props.children.type,body);assert.deepEqual(result.props.children.props,props);
  }
+});
+
+test('all actual page entries and not-found use the guaranteed page wrapper, with no root template assumption',async()=>{
+ const root=new URL('../app/',import.meta.url);const files=await readdir(root,{recursive:true});const pages=files.filter(file=>file==='page.tsx'||file.endsWith('/page.tsx'));
+ assert.ok(pages.length>=30);
+ for(const file of [...pages,'not-found.tsx']){const source=await readFile(new URL(file,root),'utf8');assert.match(source,/export default withCommercePolicyPage\(\w+\);/u,`${file} must resolve policy within its page render`);}
+ await assert.rejects(readFile(new URL('template.tsx',root)),{code:'ENOENT'});
+});
+
+test('the real client error fallback closes an existing shell policy and retains retry',async()=>{
+ const {load,Provider,usePolicy}=components();const {default:ErrorPage}=load<{default:Component}>(new URL('../app/error.tsx',import.meta.url));let retried=0;
+ function Header(){return React.createElement('output',null,value(usePolicy()));}
+ await withProductBrowser(async({container,render,click})=>{await render(React.createElement(Provider,{policy:active},React.createElement('header',null,React.createElement(Header)),React.createElement(ErrorPage,{error:new Error('unavailable'),reset:()=>{retried++;}})));assert.equal(container.querySelector('header output')?.textContent,value(unavailable));await click('button');assert.equal(retried,1);});
 });

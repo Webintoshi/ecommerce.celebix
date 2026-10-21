@@ -1,3 +1,4 @@
+import { withCommercePolicyPage } from "@/components/CommercePolicyServerPage";
 import { randomUUID } from "node:crypto";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
@@ -21,7 +22,7 @@ function money(cents: number): string {
   return new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(cents / 100);
 }
 
-export default async function QuickOrderPage() {
+async function QuickOrderPage() {
   const now = new Date();
   const requestHeaders = await headers();
   const authority = selectTrustedStorefrontHostAuthority(requestHeaders);
@@ -68,3 +69,5 @@ export default async function QuickOrderPage() {
     <StorefrontAnalyticsEvent tracker={tracker} event={CHECKOUT_STARTED_EVENT} trigger="form_submit" formId={analyticsFormId} />
   </main>;
 }
+
+export default withCommercePolicyPage(QuickOrderPage);
