@@ -9,6 +9,10 @@ import {gatherInputs,checkReceipt,writeReceipt} from './signup-release-proof.mjs
 const required=[
  'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront',
  '.github/workflows/signup-release-guard.yml','scripts/signup-release-proof.mjs','scripts/signup-release-proof.test.mjs','scripts/rehearse-signup-release.mjs',
+ 'scripts/verify-signup-edge.mjs','scripts/verify-signup-edge.test.mjs',
+ 'scripts/verify-tenant-wildcard-readiness.mjs','scripts/verify-tenant-wildcard-readiness.test.mjs',
+ 'scripts/tenant-wildcard-routes.mjs','scripts/tenant-wildcard-routes.test.mjs',
+ 'scripts/tenant-wildcard-certificates.py','scripts/tenant-wildcard-certificates.test.py',
  'apps/owner/package.json','apps/customer-panel/package.json','apps/storefront-shared/package.json',
  'apps/owner/lib/merchant-whatsapp/registration.ts','apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots.up.sql',
  'apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots.down.sql',
@@ -76,7 +80,7 @@ test('programmatic import from stdin performs no CLI check or receipt write',()=
 
 
 test('historical suite SQL dependencies and release instructions cannot change without fresh proof',t=>{
- for(const source of ['AGENTS.md','apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots.down.sql','apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots_assertions.sql','apps/owner/scripts/sql/saas/202610150238_merchant_signup_profile_assertions.sql']){
+ for(const source of ['AGENTS.md','scripts/verify-signup-edge.mjs','scripts/tenant-wildcard-certificates.py','scripts/tenant-wildcard-routes.mjs','apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots.down.sql','apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots_assertions.sql','apps/owner/scripts/sql/saas/202610150238_merchant_signup_profile_assertions.sql']){
   const root=fixture(t);writeReceipt(root,runs(),gatherInputs(root));put(root,source,'changed dependency');assert.throws(()=>checkReceipt(root),/signup_release_proof_stale/,source);
  }
 });

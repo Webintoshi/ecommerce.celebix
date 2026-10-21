@@ -16,5 +16,10 @@
 - Historical storefront Dockerfiles predate the build hook. Their explicit
   publication or rollback requires separate reviewed admission; do not assume
   Coolify's Nixpacks build-command guard runs for Dockerfile builds.
+- Before publishing signup or shared hostname infrastructure, also run
+  `npm run verify:signup-edge`. Both NET and SITE must pass trusted HTTPS on
+  fresh, previously unknown admin and storefront names. An existing store's
+  exact-host certificate or a successful database rehearsal is not sufficient.
+  Never bypass certificate errors or replay customer handoff tokens to test it.
 
 See `docs/signup-release-guard.md` for the commands, coverage and recovery steps.

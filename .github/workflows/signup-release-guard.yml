@@ -13,6 +13,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  signup-edge:
+    name: Public signup HTTPS and tenant routing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify edge guard failure cases
+        run: node --test scripts/verify-signup-edge.test.mjs scripts/verify-tenant-wildcard-readiness.test.mjs scripts/tenant-wildcard-routes.test.mjs
+      - name: Verify certificate publication safety offline
+        run: python3 scripts/tenant-wildcard-certificates.test.py
+      - name: Probe NET and SITE shared HTTPS without customer credentials
+        run: node scripts/verify-signup-edge.mjs
   signup-release:
     name: Current signup and package compatibility
     runs-on: ubuntu-24.04

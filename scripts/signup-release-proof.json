@@ -5,15 +5,15 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "b042cbc9aa1320b774c3e96569f50998ac8ceba75152708383e59564081e2c65",
+  "inputDigest": "2bb4fee3f07ff5a87d2fa4582276eeb30ccb2cfafdb286c88e8a26ae289bfc5b",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
-      "sha256": "53a317cf3c0ac338913e4e3326bad037775bd6cd85e37f237709328192349600"
+      "sha256": "2b0d89d5db42ecd8de24819bbf30b45b84326828596ce564cd4b319283165680"
     },
     {
       "path": "AGENTS.md",
-      "sha256": "2ebd05208b3c22014610fbe9c35e9cbd8aa52349555b4026fb2e1acb48c1e59e"
+      "sha256": "bf03fe67f842260862f069f1b144ab33f72511b19133baa3f7ce56c261717832"
     },
     {
       "path": "Dockerfile.storefront",
@@ -3237,7 +3237,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "74289027637d49f3fc14f137fd82eae760a0d2eae29848db96d37cd40876a644"
+      "sha256": "2bdbfb44163686f867eb92e286557562544d0c299bec3412ff427bdac49b9f8c"
     },
     {
       "path": "packages/payment-adapters/package.json",
@@ -5473,11 +5473,43 @@
     },
     {
       "path": "scripts/signup-release-proof.mjs",
-      "sha256": "3fee2c2f89ea71a97ed474258ed697e77499b6c1481a11e9c5fa5ad8fed0c5c9"
+      "sha256": "d99c5f3d4c89ac4e3194f86d4773eb03dc4d3bdbe2aa2e05263336479ff21e56"
     },
     {
       "path": "scripts/signup-release-proof.test.mjs",
-      "sha256": "cc8aa37b1d52414b59b523ef1b9592edf5f3a60ad32b9456f3c710fa0c3c87fe"
+      "sha256": "3346b9ca5ea1141b8754e532cd251372fdc781656f7065bc92ea5f2931ba4244"
+    },
+    {
+      "path": "scripts/tenant-wildcard-certificates.py",
+      "sha256": "0a2d6e3054b2b3ee5ee9ab94b4f517bcf35422905091f939cc84e94acb2c5ea8"
+    },
+    {
+      "path": "scripts/tenant-wildcard-certificates.test.py",
+      "sha256": "8fdd650cdf76f7d13f25c985c9e31d6446e1377d9135aff77eb5a19497fa8cb4"
+    },
+    {
+      "path": "scripts/tenant-wildcard-routes.mjs",
+      "sha256": "a3cca1d89f40518fb8feee06ddff274f62aaf6b19847a8bc52be29a52f702318"
+    },
+    {
+      "path": "scripts/tenant-wildcard-routes.test.mjs",
+      "sha256": "2557a35f782ba3232f3e53b4ffa63f169f3cdb4976f450af78d068986b0eb2bd"
+    },
+    {
+      "path": "scripts/verify-signup-edge.mjs",
+      "sha256": "600f9976af901295822ddf8628157eee962296e4f363614cfbf668ca542717ef"
+    },
+    {
+      "path": "scripts/verify-signup-edge.test.mjs",
+      "sha256": "a8904c8bad82c1a7b24420ded7064b0c2eb9adfbefe50b2199b6d88fcbfb78ed"
+    },
+    {
+      "path": "scripts/verify-tenant-wildcard-readiness.mjs",
+      "sha256": "0ca973994ec62c142bf431c9e756f9a188e6ee1cf7872167ae4e0c60832f04d7"
+    },
+    {
+      "path": "scripts/verify-tenant-wildcard-readiness.test.mjs",
+      "sha256": "67d6ab04bf35353694a1d1a4a6aaa4404e0fbcaeaf8164fb211a220fe81ea154"
     },
     {
       "path": "tests/saas-phase3/admin-login-security/baseline-manifest.json",

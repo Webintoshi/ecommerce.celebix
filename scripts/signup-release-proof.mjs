@@ -12,6 +12,10 @@ export const EXCLUDED_GENERATED_FILES=Object.freeze([
 export const REQUIRED_INPUT_PATHS=Object.freeze([
  'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront',
  '.github/workflows/signup-release-guard.yml','scripts/signup-release-proof.mjs','scripts/signup-release-proof.test.mjs','scripts/rehearse-signup-release.mjs',
+ 'scripts/verify-signup-edge.mjs','scripts/verify-signup-edge.test.mjs',
+ 'scripts/verify-tenant-wildcard-readiness.mjs','scripts/verify-tenant-wildcard-readiness.test.mjs',
+ 'scripts/tenant-wildcard-routes.mjs','scripts/tenant-wildcard-routes.test.mjs',
+ 'scripts/tenant-wildcard-certificates.py','scripts/tenant-wildcard-certificates.test.py',
  'apps/owner/package.json','apps/customer-panel/package.json','apps/storefront-shared/package.json',
  'apps/owner/lib/merchant-whatsapp/registration.ts','apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots.up.sql',
  'apps/owner/scripts/sql/saas/202610200255_starter_tenant_plan_snapshots.down.sql',
