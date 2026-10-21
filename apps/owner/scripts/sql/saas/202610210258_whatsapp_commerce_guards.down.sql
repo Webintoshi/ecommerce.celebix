@@ -8,7 +8,7 @@ DECLARE saved record;current_function record;
 BEGIN
  IF to_regclass('saas.whatsapp_commerce_258_backup') IS NULL THEN RETURN;END IF;
  IF EXISTS(SELECT 1 FROM saas.merchant_admin_records WHERE record_kind='whatsapp_order_setting' AND status<>'archived' AND (status<>'active' OR saas.whatsapp_order_config_valid(config) IS DISTINCT FROM true OR config->'enabled'='true'::jsonb AND (config->'hidePrices'='true'::jsonb OR config->'hideAddToCart'='true'::jsonb))) THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_ACTIVE_POLICY';END IF;
- IF (SELECT count(*) FROM saas.whatsapp_commerce_258_backup)<>17 THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_BACKUP_INVALID';END IF;
+ IF (SELECT count(*) FROM saas.whatsapp_commerce_258_backup)<>20 THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_BACKUP_INVALID';END IF;
  FOR saved IN SELECT * FROM saas.whatsapp_commerce_258_backup LOOP
   SELECT * INTO current_function FROM pg_proc WHERE oid=saved.function_oid;
   IF current_function.proowner IS DISTINCT FROM saved.function_owner OR current_function.proacl IS DISTINCT FROM saved.function_acl THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_ROLLBACK_AUTHORITY_DRIFT';END IF;

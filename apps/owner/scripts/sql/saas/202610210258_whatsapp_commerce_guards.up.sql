@@ -35,8 +35,11 @@ BEGIN
  -- Durable native replay still validates its own fingerprint/credentials below.
  IF p_action='complete' AND EXISTS(SELECT 1 FROM saas.storefront_checkout_operations WHERE store_id=s AND operation_id=p_operation_id) THEN RETURN true;END IF;
  IF p_action='hosted' AND EXISTS(SELECT 1 FROM saas.storefront_hosted_checkout_operations WHERE store_id=s AND operation_id=p_operation_id AND operation_kind='start') THEN RETURN true;END IF;
+ IF p_action='quick_legacy' AND EXISTS(SELECT 1 FROM saas.checkout_operations WHERE store_id=s AND operation_id=p_operation_id AND operation_kind='begin_attempt') THEN RETURN true;END IF;
+ IF p_action='quick_hosted' AND EXISTS(SELECT 1 FROM saas.quick_order_hosted_payment_bridges WHERE store_id=s AND attempt_id=p_operation_id) THEN RETURN true;END IF;
+ IF p_action='quick_authority' AND EXISTS(SELECT 1 FROM saas.quick_order_hosted_payment_bridges bridge JOIN saas.quick_order_redemption_sessions session ON session.store_id=bridge.store_id AND session.id=bridge.redemption_session_id WHERE bridge.store_id=s AND session.cookie_digest=p_credentials->>'redemptionDigest') THEN RETURN true;END IF;
  IF p_action IN('add','quantity') AND EXISTS(SELECT 1 FROM saas.storefront_cart_operations WHERE store_id=s AND operation_id=p_operation_id) THEN RETURN true;END IF;
- IF p_action IN('checkout','complete','hosted','buy_now') THEN RETURN NOT block_checkout;END IF;
+ IF p_action IN('checkout','complete','hosted','buy_now','quick_legacy','quick_hosted','quick_authority') THEN RETURN NOT block_checkout;END IF;
  IF NOT hide_add OR p_action NOT IN('add','quantity') THEN RETURN true;END IF;
  IF p_action='add' THEN RETURN false;END IF;
  -- Compare against the authenticated cart under its ordinary write lock. Removal
@@ -66,24 +69,24 @@ DECLARE target record;definition text;guard text;action text;args text;targets t
  'public_cart_mutate','public_buy_now_create','public_checkout_quote','public_checkout_quote_v2','public_checkout_quote_v3',
  'public_checkout_complete','public_checkout_complete_v2','public_checkout_complete_v3',
  'public_storefront_hosted_checkout_authority','public_storefront_hosted_checkout_authority_v2','public_storefront_hosted_checkout_authority_v3',
- 'public_storefront_hosted_checkout_begin','public_storefront_hosted_checkout_begin_v2','public_storefront_hosted_checkout_begin_v3'];
+ 'public_storefront_hosted_checkout_begin','public_storefront_hosted_checkout_begin_v2','public_storefront_hosted_checkout_begin_v3','checkout_begin_attempt','quick_order_hosted_payment_authority','quick_order_hosted_payment_begin'];
 BEGIN
- IF (SELECT count(DISTINCT proname) FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname=ANY(targets))<>14
+ IF (SELECT count(DISTINCT proname) FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname=ANY(targets))<>17
  OR to_regprocedure('saas.whatsapp_order_config_valid(jsonb)') IS NULL THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_PREDECESSOR_INVALID';END IF;
  FOR target IN SELECT p.*,l.lanname FROM pg_proc p JOIN pg_language l ON l.oid=p.prolang WHERE p.pronamespace='saas'::regnamespace AND p.proname=ANY(targets) LOOP
   definition:=pg_get_functiondef(target.oid);
   -- The legacy14-argument SQL cart overload delegates to the guarded15-argument entrypoint.
   IF target.lanname='sql' AND target.proname='public_cart_mutate' AND target.pronargs=14 AND position('saas.public_cart_mutate(' IN target.prosrc)>0 THEN CONTINUE;END IF;
   IF target.lanname<>'plpgsql' OR NOT ('p_hostname'=ANY(target.proargnames)) OR NOT ('p_now'=ANY(target.proargnames)) THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_LANGUAGE_DRIFT %',target.oid::regprocedure;END IF;
-  action:=CASE WHEN target.proname='public_cart_mutate' THEN 'p_action' WHEN target.proname='public_buy_now_create' THEN '''buy_now''' WHEN target.proname LIKE 'public_checkout_complete%' THEN '''complete''' WHEN target.proname LIKE 'public_storefront_hosted_checkout_%' THEN '''hosted''' ELSE '''checkout''' END;
-  args:=CASE WHEN target.proname='public_cart_mutate' THEN 'p_credentials,p_cart_id,p_variant_id,p_quantity,p_operation_id' ELSE '''[]''::jsonb,NULL::uuid,NULL::uuid,NULL::integer,'||CASE WHEN 'p_operation_id'=ANY(target.proargnames) THEN 'p_operation_id' ELSE 'NULL::uuid' END END;
+  action:=CASE WHEN target.proname='checkout_begin_attempt' THEN '''quick_legacy''' WHEN target.proname='quick_order_hosted_payment_authority' THEN '''quick_authority''' WHEN target.proname='quick_order_hosted_payment_begin' THEN '''quick_hosted''' WHEN target.proname='public_cart_mutate' THEN 'p_action' WHEN target.proname='public_buy_now_create' THEN '''buy_now''' WHEN target.proname LIKE 'public_checkout_complete%' THEN '''complete''' WHEN target.proname LIKE 'public_storefront_hosted_checkout_%' THEN '''hosted''' ELSE '''checkout''' END;
+  args:=CASE WHEN target.proname IN('checkout_begin_attempt','quick_order_hosted_payment_authority','quick_order_hosted_payment_begin') THEN 'jsonb_build_object(''redemptionDigest'',p_redemption_digest),NULL::uuid,NULL::uuid,NULL::integer,'||CASE WHEN 'p_operation_id'=ANY(target.proargnames) THEN 'p_operation_id' ELSE 'NULL::uuid' END WHEN target.proname='public_cart_mutate' THEN 'p_credentials,p_cart_id,p_variant_id,p_quantity,p_operation_id' ELSE '''[]''::jsonb,NULL::uuid,NULL::uuid,NULL::integer,'||CASE WHEN 'p_operation_id'=ANY(target.proargnames) THEN 'p_operation_id' ELSE 'NULL::uuid' END END;
   guard:=E'\n IF NOT saas.whatsapp_commerce_allowed_258(p_hostname,p_now,'||action||','||args||E') THEN RETURN QUERY SELECT ''unavailable''::text,NULL::jsonb;RETURN;END IF;\n';
   INSERT INTO saas.whatsapp_commerce_258_backup(signature,definition,original_sha256,function_oid,function_owner,function_acl)
    VALUES(target.oid::regprocedure::text,definition,encode(sha256(convert_to(definition,'UTF8')),'hex'),target.oid,target.proowner,target.proacl);
   IF definition!~E'\\nBEGIN\\n' THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_BODY_DRIFT %',target.oid::regprocedure;END IF;
   EXECUTE regexp_replace(definition,E'\\nBEGIN\\n',E'\nBEGIN\n'||guard);
  END LOOP;
- IF (SELECT count(*) FROM saas.whatsapp_commerce_258_backup)<>17 THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_TARGET_COUNT';END IF;
+ IF (SELECT count(*) FROM saas.whatsapp_commerce_258_backup)<>20 THEN RAISE EXCEPTION 'WHATSAPP_COMMERCE258_TARGET_COUNT';END IF;
  UPDATE saas.whatsapp_commerce_258_backup SET published_sha256=encode(sha256(convert_to(pg_get_functiondef(function_oid),'UTF8')),'hex');
 END $patch$;
 REVOKE ALL ON FUNCTION saas.whatsapp_commerce_allowed_258(text,timestamptz,text,jsonb,uuid,uuid,integer,uuid),saas.whatsapp_commerce_setting_lock_258() FROM PUBLIC,celebix_saas_app,celebix_saas_workflow,celebix_saas_host_resolver,celebix_saas_identity,celebix_saas_bootstrap,celebix_saas_observability;
