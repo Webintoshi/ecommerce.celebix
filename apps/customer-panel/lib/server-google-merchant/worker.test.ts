@@ -13,3 +13,12 @@ test('unknown send retries stable input without claiming submission',async()=>{c
 test('old Google revision remains pending without counting successful status reads as errors',async()=>{const r=run({...base,action:'status',googleProductId:'tr~TR~'+ID},{provider:{getProduct:async()=>({offerId:ID,contentLanguage:'tr',feedLabel:'TR',dataSourceId:'456',status:'approved',revision:'0'.repeat(64),issues:[]})}});await r.promise;assert.equal(r.events[0][0],'finish');assert.equal(r.events[0][1].result,'pending');});
 test('invalidated published offer is withdrawn before exclusion',async()=>{const r=run({...base,projection:null,googleProductId:'tr~TR~'+ID,issues:[{code:'dynamic_pricing',message:'Sabit fiyat gerekiyor.'}]});await r.promise;assert.equal(r.events[0][0],'delete');assert.equal(r.events[1][1].result,'excluded');});
 test('renewal resubmits even when Google still holds the same approved revision',async()=>{const r=run({...base,action:'status',renewal:true,googleProductId:'tr~TR~'+ID});await r.promise;assert.equal(r.events[0][0],'send');assert.equal(r.events[1][1].result,'submitted');});
+test('policy changed while credentials refresh prevents the stale provider upsert',async()=>{
+ const expired={...base,credential:sealGoogleCredential({accessToken:'old-token',refreshToken:'test-refresh',subject:'one',email:'one@example.test',expiresAt:'2026-10-14T09:59:00Z',scopes:['https://www.googleapis.com/auth/content']},ID,'merchant',keyring)};
+ let reads=0;const r=run(expired,{repository:{read:async()=>++reads===1?expired:null}});
+ const counts=await r.promise;assert.equal(counts.stale,1);assert.equal(r.events.some(e=>['send','delete','finish'].includes(e[0])),false);
+});
+test('fresh policy projection directs withdrawal immediately before provider mutation',async()=>{
+ let reads=0;const r=run(base,{repository:{read:async()=>++reads===1?base:{...base,projection:null,action:'delete',issues:[{code:'whatsapp_catalog_only',message:'Katalog modu'}]}}});
+ await r.promise;assert.equal(r.events[0][0],'delete');assert.equal(r.events[1][1].result,'excluded');assert.equal(r.events.some(e=>e[0]==='send'),false);
+});

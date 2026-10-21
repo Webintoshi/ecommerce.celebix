@@ -17,6 +17,8 @@ export async function runGoogleMerchantWorkerOnce(options:Options):Promise<Reado
    let credential=openGoogleCredential(job.credential,job.storeId,'merchant',options.keyring);
    if(!credential.scopes.includes('https://www.googleapis.com/auth/content'))throw TypeError('merchant_scope_invalid');
    if(Date.parse(credential.expiresAt)<=now().getTime()+60000){credential=await options.refreshCredential(credential,now());const result=await options.repository.saveCredential({job,now:now(),credential:sealGoogleCredential(credential,job.storeId,'merchant',options.keyring),subject:credential.subject});if(result==='stale'){counts.stale++;return;}}
+   // Refreshing credentials may take long enough for the store policy or host to change.
+   const authorized=await options.repository.read({job,now:now()});if(!authorized){counts.stale++;return;}job=authorized;
    const expectedId=`tr~TR~${job.variantId}`;
    if(job.googleProductId&&job.googleProductId!==expectedId)throw TypeError('merchant_product_identity_invalid');
    if(job.action==='delete'||!job.projection){
