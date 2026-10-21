@@ -9,6 +9,7 @@ import { SioraProductExplorer } from "../themes/siora/SioraProductExplorer";
 import { GuzideProductExplorer } from "../themes/guzide/GuzideProductExplorer";
 import type { GuzideCatalogContext } from "../themes/guzide/guzide-catalog.ts";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
+import { HizliProductExplorer } from "../themes/hizli-kutu/HizliProductExplorer";
 
 const FILTERS = Object.freeze([
   ["all", "Tümü"],
@@ -31,6 +32,7 @@ export type ProductExplorerProps = Readonly<{
 }>;
 
 export function ProductExplorer({ visualTheme, ...props }: ProductExplorerProps) {
+  if (visualTheme === "hizli-kutu-deniz") return <HizliProductExplorer {...props} />;
   if (visualTheme === "guzide-deniz") return <GuzideProductExplorer {...props} />;
   return visualTheme === "siora-deniz" || visualTheme === "alpler-deniz" ? <SioraProductExplorer {...props} /> : <StandardProductExplorer {...props} />;
 }

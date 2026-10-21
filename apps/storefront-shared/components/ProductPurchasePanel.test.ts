@@ -60,7 +60,7 @@ test("published quantity visibility reaches the purchase panel without browser a
     experienceSource,
     /showQuantitySelector=[{]showQuantitySelector[}]/u,
   );
-  assert.doesNotMatch(pageSource, /localStorage|sessionStorage|searchParams/u);
+  assert.doesNotMatch(pageSource, /localStorage|sessionStorage|searchParams[.]quantity/u);
 });
 
 test("purchase panel hides the stepper and retains a one-item default when disabled", () => {

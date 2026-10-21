@@ -16,6 +16,8 @@ import * as alplerTheme from "../themes/alpler/theme.ts";
 import * as guzideTheme from "../themes/guzide/theme.ts";
 import * as lilyumTheme from "../themes/lilyum/theme.ts";
 import * as catalogQuery from "./product-catalog-query.ts";
+import * as hizliTheme from "../themes/hizli-kutu/theme.ts";
+import * as merchantLanding from "./merchant-landing.ts";
 
 type Node = { type: unknown; props: Record<string, unknown> };
 function nodes(value: unknown): Node[] {
@@ -56,6 +58,10 @@ async function pageModule(filename: string, kind: string, withSeo = true, storef
     const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
     const compiled: { exports: Record<string, (...args: never[]) => Promise<unknown>> } = { exports: {} };
     Function("require", "module", "exports", output)((name: string) => {
+      if (name.endsWith("/hizli-kutu/theme.ts")) return hizliTheme;
+      if (name.endsWith("/hizli-kutu/HizliHome")) return { HizliHome: "HizliHome" };
+      if (name.endsWith("/hizli-kutu/HizliProductDetail")) return { HizliProductDetail: "HizliProductDetail" };
+      if (name === "@/lib/merchant-landing.ts") return merchantLanding;
       if (name in dependencies) return dependencies[name];
       if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
       if (name === "../themes/lilyum/theme.ts") return { lilyumThemeFor: () => undefined };
@@ -144,6 +150,17 @@ test("tenant product experiences preserve published SEO while only the resolved 
     const productSchema = schemas.find((value) => value["@type"] === "Product");
     assert.equal(productSchema?.url, "https://shop.example.test/urun/canonical");
     assert.equal(productSchema?.["@id"], "https://shop.example.test/urun/canonical#product");
-    assert.deepEqual((productSchema?.offers as { price: string; url: string }[]).map(({ price, url }) => ({ price, url })), [{ price: "125.00", url: "https://shop.example.test/urun/canonical" }]);
+    assert.deepEqual((productSchema?.offers as { price: string; url: string }[]).map(({ price, url }) => ({ price, url })), [{ price: "125.00", url: "https://shop.example.test/urun/canonical?variant=variant" }]);
   }
+});
+
+test("Hızlı Kutu selects its own purchase experience while preserving real product identity and SEO", async () => {
+  const { exports } = await pageModule("../app/products/[slug]/render.tsx", "product", true, hizliTheme.HIZLI_KUTU_STOREFRONT_ID);
+  const tree = await exports.renderProductPage!({ params: Promise.resolve({ slug: "ring" }), routeVariant: "localized" } as never);
+  const rendered = nodes(tree), detail = rendered.find(node => node.type === "HizliProductDetail");
+  assert.ok(detail);
+  assert.equal((detail.props.product as { id: string }).id, "real-id");
+  assert.equal(detail.props.showQuantitySelector, true);
+  assert.equal(rendered.find(node => node.type === "StorefrontFrame")?.props.immersiveProduct, false);
+  assert.deepEqual(rendered.find(node => node.type === "SeoRelatedLinks")?.props.links, links);
 });

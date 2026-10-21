@@ -15,6 +15,8 @@ import { SioraProductDetailExperience } from "../../../themes/siora/SioraProduct
 import { sioraInitialVariant } from "../../../themes/siora/product-options.ts";
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
 import { lilyumThemeFor } from "../../../themes/lilyum/theme.ts";
+import { hizliThemeFor } from "../../../themes/hizli-kutu/theme.ts";
+import { HizliProductDetail } from "../../../themes/hizli-kutu/HizliProductDetail";
 import { LilyumProductDetailExperience } from "../../../themes/lilyum/LilyumProductDetailExperience";
 import { StorefrontAnalyticsEvent } from "@/components/StorefrontAnalyticsEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
@@ -170,7 +172,11 @@ export async function renderProductPage({
         event={productViewEvent(item.id, initialVariantId??(siora ? sioraInitialVariant(item)?.id : item.variants.find(({ available }) => available)?.id), item.primaryCategoryId, item.currency, item.priceCents)}
         trigger="mount"
       />
-      <RestockAlertsProvider config={restockConfig}>{siora ? <SioraProductDetailExperience product={item} initialVariantId={initialVariantId} storefrontId={storefront.id}
+      <RestockAlertsProvider config={restockConfig}>{hizliThemeFor(storefront) ? <HizliProductDetail product={item} initialVariantId={initialVariantId}
+        locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies} options={options}
+        cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
+        showQuantitySelector={presentation.schemaVersion === 1 ? true : presentation.cart.showQuantitySelector}
+      /> : siora ? <SioraProductDetailExperience product={item} initialVariantId={initialVariantId} storefrontId={storefront.id}
         locale={storefront.locale} relatedProducts={relatedProducts} publishedPolicies={publishedPolicies}
         options={options} cardStyle={presentation.theme.productCardStyle} imageRatio={presentation.theme.productImageRatio}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}

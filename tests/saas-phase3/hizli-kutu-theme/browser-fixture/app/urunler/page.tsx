@@ -1,0 +1,5 @@
+import { StorefrontFrame } from "../../../../../../apps/storefront-shared/components/StorefrontFrame";
+import { HizliProductExplorer } from "../../../../../../apps/storefront-shared/themes/hizli-kutu/HizliProductExplorer";
+import { parseProductCatalogQuery } from "../../../../../../apps/storefront-shared/lib/product-catalog-query.ts";
+import {storefront,design,products} from "../data";
+export default async function Page({searchParams}:{searchParams:Promise<Record<string,string>>}) { const parameters=await searchParams; const selection=parseProductCatalogQuery(parameters);const matches=parameters.empty?[]:products.filter(p=>!selection.query||p.title.includes(selection.query));return <StorefrontFrame storefront={storefront} design={design}><section className="store-section store-container"><HizliProductExplorer products={matches.slice(0,24)} total={matches.length} nextOffset={matches.length>24?24:null} locale="tr" cardStyle="compact" imageRatio="square" path="/urunler" selection={selection}/></section></StorefrontFrame> }

@@ -158,6 +158,18 @@ test("public navigation is canonical bounded and duplicate-free", () => {
   assert.throws(() => campaignValidation.parsePublicStarterThemePresentation({ ...value, navigation: { items: [{ ...item, slug: "Takılar" }] } }), /storefront_contract_invalid/);
 });
 
+test("public navigation preserves larger category trees without expanding root slots or depth", () => {
+  const value = validPublicPresentation();
+  const children = Array.from({ length: 64 }, (_, index) => ({ name: `Alt kategori ${index}`, slug: `alt-kategori-${index}`, children: [] }));
+  const presentation = (items: unknown[]) => ({ ...value, navigation: { items } });
+  const root = { name: "Ambalaj", slug: "ambalaj", children };
+  const parsed = campaignValidation.parsePublicStarterThemePresentation(presentation([root])) as { navigation: { items: Array<{ children: unknown[] }> } };
+  assert.equal(parsed.navigation.items[0].children.length, 64);
+  assert.throws(() => campaignValidation.parsePublicStarterThemePresentation(presentation([{ ...root, children: [...children, { name: "Fazla", slug: "fazla", children: [] }] }])), /storefront_contract_invalid/);
+  assert.throws(() => campaignValidation.parsePublicStarterThemePresentation(presentation([{ ...root, children: [children[0], children[0]] }])), /storefront_contract_invalid/);
+  assert.throws(() => campaignValidation.parsePublicStarterThemePresentation(presentation([{ ...root, children: [{ ...children[0], children: [{ ...children[1], children: [children[2]] }] }] }])), /storefront_contract_invalid/);
+});
+
 test("public campaign sections reject unsafe routes malformed assets and invented currency", () => {
   const value = validPublicPresentation();
   campaignValidation.parsePublicStarterThemePresentation(value);

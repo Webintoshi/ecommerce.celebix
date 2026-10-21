@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { parsePublicProduct, type PublicProduct } from "@celebix/saas-contracts";
 import { catalogHref, PRODUCT_CATALOG_PAGE_SIZE } from "../lib/product-catalog-query.ts";
+import { productIndexPath } from "../lib/storefront-routes.ts";
 import type { ProductExplorerProps } from "./ProductExplorer";
 import { ProductGrid } from "./ProductGrid";
 
@@ -78,7 +79,7 @@ function InfiniteProducts({ products, selection, total, nextOffset, path, locale
     setLoading(true); setError(false);
     try {
       const params = new URLSearchParams(catalogHref(path, selection, offset).split("?")[1] ?? "");
-      params.set("path", path);
+      params.set("path", path === "/search" ? productIndexPath(locale) : path);
       const response = await fetch(`/api/catalog/page?${params}`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
       if (!response.ok || !response.headers.get("content-type")?.startsWith("application/json")) throw new Error("catalog_unavailable");
       const next = readPage(await response.json(), offset);
@@ -94,7 +95,7 @@ function InfiniteProducts({ products, selection, total, nextOffset, path, locale
       if (request.current?.controller === controller) request.current = null;
       if (live.current) setLoading(false);
     }
-  }, [path, selection]);
+  }, [path, locale, selection]);
   useEffect(() => {
     if (!window.IntersectionObserver) { setManual(true); return; }
     if (!sentinel.current || page.nextOffset === null || error) return;

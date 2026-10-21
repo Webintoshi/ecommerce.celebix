@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from "react";
+import { Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 
 import type { PublicCart, PublicStarterThemePresentationV2 } from "@celebix/saas-contracts";
@@ -60,7 +60,7 @@ function GuzideCartHistory({ storefrontId, bridge, onClose }: Readonly<{ storefr
   return null;
 }
 
-export function CartStatusProvider({ children, presentation, locale, visualTheme, storefrontId }: Readonly<{ storefrontId?: string; children: React.ReactNode; presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: StorefrontVisualTheme }>) {
+export function CartStatusProvider({ children, presentation, locale, visualTheme, storefrontId, drawerStyle }: Readonly<{ storefrontId?: string; children: React.ReactNode; presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: StorefrontVisualTheme; drawerStyle?: CSSProperties }>) {
   const hydrated = useHydrated();
   const [cart, setCart] = useState<PublicCart | null>(null);
   const [loading, setLoading] = useState(true);
@@ -165,7 +165,7 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
       },
     });
   }, [storefrontId, closeDrawerAndWait]);
-  return <Context.Provider value={value}>{alpler ? <AlplerCartHistory bridge={drawerHistoryRef} onClose={hideDrawer} /> : guzide ? <Suspense fallback={null}><GuzideCartHistory storefrontId={storefrontId!} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : null}{children}<SideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} /><span className="sr-only" aria-live="polite">{!hydrated || loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
+  return <Context.Provider value={value}>{alpler ? <AlplerCartHistory bridge={drawerHistoryRef} onClose={hideDrawer} /> : guzide ? <Suspense fallback={null}><GuzideCartHistory storefrontId={storefrontId!} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : null}{children}<SideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} style={drawerStyle} /><span className="sr-only" aria-live="polite">{!hydrated || loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }
 
 export function useCartStatus(): CartStatus {

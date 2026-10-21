@@ -11,6 +11,9 @@ import { useCartStatus } from "./CartStatusProvider";
 import styles from "./product-quick-view.module.css";
 import { ALPLER_STOREFRONT_ID } from "../themes/alpler/theme.ts";
 import { useSioraPanelHistory } from "../themes/siora/useSioraPanelHistory";
+import dynamic from "next/dynamic";
+
+const HizliQuickView = dynamic(() => import("../themes/hizli-kutu/HizliQuickView").then(module => module.HizliQuickView));
 
 const focusable = "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex='-1'])";
 
@@ -92,5 +95,6 @@ function AlplerProductQuickView({ product }: Readonly<{ product: PublicProduct }
 
 export function ProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {
   const { visualTheme } = useCartStatus();
+  if (visualTheme === "hizli-kutu-deniz") return <HizliQuickView product={product} />;
   return visualTheme === "alpler-deniz" ? <AlplerProductQuickView product={product} /> : <StandardProductQuickView product={product} />;
 }

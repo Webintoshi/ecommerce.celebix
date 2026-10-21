@@ -575,7 +575,8 @@ export function parseStarterThemeCompositionConfig(value: unknown): StarterTheme
 
 function parsePublicNavigationItem(value: unknown, depth: number): PublicStarterNavigationItem {
   const parsed = exact(value, ["name", "slug", "children"], ["featured", "kind", "resourceId", "path"]);
-  const rawChildren = arrayValues(parsed.children, 0, 8);
+  // Root menu slots are curated to eight; published category descendants are not.
+  const rawChildren = arrayValues(parsed.children, 0, 64);
   if (depth >= 2 && rawChildren.length > 0) invalid();
   const children = Object.freeze(rawChildren.map((child) => parsePublicNavigationItem(child, depth + 1)));
   const childSlugs = children.map((child) => `${child.kind ?? "category"}:${child.slug}`);

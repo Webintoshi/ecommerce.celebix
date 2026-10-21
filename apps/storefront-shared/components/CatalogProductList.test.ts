@@ -41,6 +41,17 @@ test("changing filters aborts the old page and rejects a late response",async()=
     assert.equal(container.querySelector('[data-test-products]')?.getAttribute('data-test-products'),'Ürün 8');
   });
 });
+test("search continuation uses the canonical catalog API path and retains its query", async () => {
+  await withList(async ({ render, notify, requests, queue, container }) => {
+    await render({ path: "/search", selection: { ...base.selection, query: "kutu" } });
+    await notify();
+    const url = new URL(requests[0].url, "https://store.example");
+    assert.equal(url.searchParams.get("path"), "/urunler");
+    assert.equal(url.searchParams.get("q"), "kutu");
+    await React.act(async () => queue[0].resolve(Response.json({ items: [product(3)], total: 4, nextOffset: null })));
+    assert.match(container.querySelector('[data-test-products]')?.getAttribute('data-test-products') ?? '', /Ürün 3/);
+  });
+});
 test("network failure preserves products, stops automatic retries and offers a retry",async()=>{
   await withList(async({container,notify,requests,queue,click})=>{
     await notify(); await React.act(async()=>queue[0].reject(new Error('network')));

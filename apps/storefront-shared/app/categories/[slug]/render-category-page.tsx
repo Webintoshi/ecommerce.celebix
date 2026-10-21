@@ -11,6 +11,7 @@ import { CommercePageEvent } from "@/components/CommercePageEvent";
 import { sioraThemeFor } from "../../../themes/siora/theme.ts";
 import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
 import { guzideThemeFor } from "../../../themes/guzide/theme.ts";
+import { hizliThemeFor } from "../../../themes/hizli-kutu/theme.ts";
 import guzideCatalogStyles from "../../../themes/guzide/guzide-product-explorer.module.css";
 import { ProductGrid } from "@/components/ProductGrid";
 import { ProductExplorer } from "@/components/ProductExplorer";
@@ -33,7 +34,7 @@ async function category(slug: string) {
       storefront,
       now: new Date(),
       slug,
-      limit: guzideThemeFor(storefront) ? 1 : 48,
+      limit: (hizliThemeFor(storefront) ?? guzideThemeFor(storefront)) ? 1 : 48,
     });
     const seoSelection = await loadPublicResourceSeo(runtime.seo, storefront.hostname, "category", selected.category.id);
     return {
@@ -80,11 +81,12 @@ export async function renderCategoryPage({
   }
   const { presentation } = selected.storefront;
   const guzide = guzideThemeFor(selected.storefront);
+  const hizli = hizliThemeFor(selected.storefront);
   const navigation = "navigation" in presentation ? presentation.navigation : {
     items: (presentation.categoryShowcase?.items ?? []).map(({ name, slug }) => ({ name, slug, children: [] })),
   };
-  const selection = parseProductCatalogQuery(guzide ? await searchParams : {});
-  const catalog = guzide ? await (async () => {
+  const selection = parseProductCatalogQuery(guzide || hizli ? await searchParams : {});
+  const catalog = guzide || hizli ? await (async () => {
     if (!selected.runtime.repository.queryPublicCatalog) throw new Error("public_catalog_query_unavailable");
     try {
       return await selected.runtime.repository.queryPublicCatalog({
@@ -121,8 +123,8 @@ export async function renderCategoryPage({
         <span aria-current="page">{selected.category.name}</span>
       </nav>
       <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.section}` : ""}`}>
-        {guzide && catalog ? <ProductExplorer
-          visualTheme={guzide}
+        {(guzide || hizli) && catalog ? <ProductExplorer
+          visualTheme={hizli ?? guzide}
           products={catalog.items}
           selection={selection}
           total={catalog.total}

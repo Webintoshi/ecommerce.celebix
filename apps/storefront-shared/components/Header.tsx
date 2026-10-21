@@ -11,6 +11,8 @@ import { SioraHeader } from "../themes/siora/SioraHeader";
 import { LilyumHeader } from "../themes/lilyum/LilyumHeader";
 import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
+import { hizliThemeFor } from "../themes/hizli-kutu/theme.ts";
+import { HizliHeader } from "../themes/hizli-kutu/HizliHeader";
 import { productIndexPath } from "@/lib/storefront-routes.ts";
 
 export function Header({
@@ -20,6 +22,7 @@ export function Header({
   storefront: PublicStorefront;
   design: PublicStorefrontDesign;
 }) {
+  if (hizliThemeFor(storefront)) return <HizliHeader storefront={storefront} design={design} />;
   if (lilyumThemeFor(storefront)) return <LilyumHeader storefront={storefront} design={design} />;
   if (alplerThemeFor(storefront)) return <AlplerHeader storefront={storefront} design={design} />;
   if (sioraThemeFor(storefront)) return <SioraHeader storefront={storefront} design={design} />;
