@@ -56,7 +56,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
           ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
           : children}</CommercePolicyProvider> : children}
         <StorefrontNavigationScroll />
-        {page.kind === "active" ? <StoreEngagement storefrontId={page.context.storefront.id} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} /> : null}
+        {page.kind === "active" && page.context.commercePolicy.checkoutAllowed ? <StoreEngagement storefrontId={page.context.storefront.id} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} /> : null}
         {page.kind === "active" && page.context.contactWidget?.enabled && contactBrand ? <ContactWidget config={page.context.contactWidget} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} hostname={page.context.storefront.primaryHostname} logo={contactBrand.logo} fontFamily={contactBrand.fontFamily} /> : null}
         {tracker && nonce ? <><StorefrontAnalyticsBridge websiteId={tracker.websiteId} hostname={tracker.hostname} /><StorefrontAnalyticsTracker {...tracker} nonce={nonce} /></> : null}
       </body>

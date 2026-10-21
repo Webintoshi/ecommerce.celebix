@@ -20,10 +20,11 @@ function body(overrides: Record<string, unknown> = {}) {
   return { customer: { name: "Ada Lovelace", email: "ada@example.test" }, items: [{ productId: PRODUCT_ID, variantId: VARIANT_ID, quantity: 2 }], ...overrides };
 }
 
-function fixture() {
+function fixture(resolvePolicy?: () => Promise<{ checkoutAllowed: boolean }>) {
   const calls: unknown[] = [];
   const handler = createCartCaptureRoute({
     selectAuthority: () => ({ kind: "trusted", hostname: "pilot.saas-staging.celebix.site" }),
+    resolvePolicy,
     resolveRuntime: async () => ({
       abandonedCarts: {
         capture: async (input: unknown) => {
@@ -38,6 +39,16 @@ function fixture() {
   });
   return { handler, calls };
 }
+
+test('catalog-only capture neither exposes a total nor records an abandoned cart; policy failure stays closed', async () => {
+  for (const [resolver,status] of [[async () => ({checkoutAllowed:false}),409], [async () => { throw new Error('unavailable'); },503]] as const) {
+    const {handler,calls}=fixture(resolver);
+    const response=await handler(request(body()));
+    assert.equal(response.status,status);
+    assert.equal(calls.length,0);assert.equal(Object.hasOwn(await response.json(),'totalCents'),false);
+    assert.equal(response.headers.has('set-cookie'),false);
+  }
+});
 
 test("rotates the opaque cart credential only after a persisted abandoned cart is recovered", async () => {
   const calls: unknown[] = [];

@@ -131,6 +131,7 @@ function fixture(
     requirePreparedAuthorityClock?: boolean;
     providerCode?: "iyzico_iframe" | "paytr_iframe";
     resume?: NonNullable<StorefrontHostedCheckoutRepository["resume"]>;
+    assertNewCheckoutAllowed?: (hostname: string) => Promise<void>;
   }> = {},
 ) {
   const providerCode = options.providerCode ?? "iyzico_iframe";
@@ -217,6 +218,7 @@ function fixture(
   };
   const dependencies: Parameters<typeof createStandardHostedCheckoutRuntime>[0] = {
     repository,
+    assertNewCheckoutAllowed: options.assertNewCheckoutAllowed,
     commerceKeyring,
     presentationKeyring,
     now: options.runtimeNow ?? (() => new Date(NOW)),
@@ -663,6 +665,7 @@ test("a new checkout operation resumes its own pending cart without another prov
   let resumes = 0;
   const selected = fixture({ kind: "rejected" }, "created", {
     authorityError: new StorefrontHostedCheckoutRepositoryError("attempt_in_progress"),
+    assertNewCheckoutAllowed: async () => { throw new Error('whatsapp_only'); },
     resume: async (input) => {
       resumes++;
       assert.equal(input.hostname, HOST);
@@ -677,6 +680,12 @@ test("a new checkout operation resumes its own pending cart without another prov
   assert.equal(resumes, 1);
   assert.equal(selected.getBegin(), undefined);
   assert.equal(selected.getSaved(), undefined);
+});
+
+test('a WhatsApp-only mode blocks genuinely new hosted payment before authority or provider work', async () => {
+  const selected = fixture({ kind: 'rejected' }, 'created', { assertNewCheckoutAllowed: async () => { throw new Error('whatsapp_only'); } });
+  await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: cookie, headers, request }), /whatsapp_only/);
+  assert.equal(selected.getBegin(), undefined);
 });
 
 test("payment status survives the short presentation cookie through the authenticated source cart", async () => {

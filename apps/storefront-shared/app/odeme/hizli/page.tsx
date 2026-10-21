@@ -29,6 +29,8 @@ export default async function QuickOrderPage() {
   if (authority.kind !== "trusted" || runtime === null) {
     return <main className="store-container store-section"><h1>Hızlı sipariş kullanılamıyor</h1><p>Bağlantıyı yeniden açmayı deneyin.</p></main>;
   }
+  const policy = await runtime.commercePolicy?.(authority.hostname);
+  if (!policy?.checkoutAllowed) return <main className="store-container store-section"><h1>WhatsApp üzerinden sipariş</h1><p>Bu mağaza sipariş taleplerini WhatsApp üzerinden alıyor.</p><a href="/cart">Ürün listesine dön</a></main>;
   const cookieStore = await cookies();
   const selected = await resolvePublicQuickOrder({
     trustedHostname: authority.hostname,

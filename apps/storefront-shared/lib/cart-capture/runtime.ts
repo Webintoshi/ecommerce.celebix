@@ -11,6 +11,7 @@ type Dependencies = Readonly<{
   randomBytes(size: number): Uint8Array;
   randomUuid(): string;
   now(): Date;
+  resolvePolicy?(hostname: string): Promise<Readonly<{ checkoutAllowed: boolean }>>;
 }>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -36,6 +37,8 @@ export function createCartCaptureRoute(dependencies: Dependencies) {
     try { url = new URL(request.url); } catch { return json({ code: "invalid_input" }, 400); }
     if (request.method !== "POST" || !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/api/cart/capture" || url.search || url.hash || request.headers.get("origin") !== `https://${authority.hostname}` || privateAuthority(request)) return json({ code: request.headers.get("origin") !== `https://${authority.hostname}` ? "origin_denied" : "invalid_input" }, request.headers.get("origin") !== `https://${authority.hostname}` ? 403 : 400);
     const body = await readCartCaptureBody(request); if (body === null) return json({ code: "invalid_input" }, 400);
+    try { if (dependencies.resolvePolicy && !(await dependencies.resolvePolicy(authority.hostname)).checkoutAllowed) return json({ code: 'whatsapp_only' }, 409); }
+    catch { return json({ code: 'unavailable' }, 503); }
     const cookie = readCartCredential(request.headers.get("cookie")); if (cookie.kind === "invalid") return json({ code: "invalid_input" }, 400);
     let created: Readonly<{ credential: string; digest: string }> | undefined;
     let recoveredRotation: Readonly<{ credential: string; digest: string }> | undefined;

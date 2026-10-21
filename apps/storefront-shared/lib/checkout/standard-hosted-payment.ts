@@ -76,6 +76,7 @@ type Dependencies = Readonly<{
   resolveExecution(): Promise<StandardHostedCheckoutExecution | null>;
   now(): Date;
   randomUuid(): string;
+  assertNewCheckoutAllowed?(hostname: string): Promise<void>;
   audit?(event: Readonly<{ stage: "authority_failure" | "identity_authority_mismatch" | "client_ip_authority_invalid" | "execution_unavailable" | "provider_runtime_unavailable" | "provider_initialization_failed" | "provider_rejected" | "provider_initialization_unknown" | "credential_persistence_missing" | "browser_credential_reconstruction_failed" | "presentation_invalid" | "presentation_seal_failed" | "presentation_persistence_failed"; code?: StorefrontHostedCheckoutErrorCode }>): void;
 }>;
 
@@ -418,6 +419,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         return Object.freeze({ destination: "/checkout/payment/result" as const,
           state: "processing" as const, setCookies: Object.freeze([]) });
       }
+      await dependencies.assertNewCheckoutAllowed?.(input.hostname);
       const selectedDelivery = delivery(input.request);
       const normalizedCodes = promotionCodes(input.request) ?? Object.freeze([]);
       let selectedAuthority: Readonly<{

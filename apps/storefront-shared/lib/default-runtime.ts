@@ -315,6 +315,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
           presentationKeyring: presentationInfrastructure.keyring,
           now: () => new Date(),
           randomUuid: randomUUID,
+          assertNewCheckoutAllowed: async hostname => requireOnlineCheckout(await commercePolicy(hostname)),
           audit: ({ stage, code }) => console.warn("standard_hosted_checkout_failure", stage, code ?? ""),
           resolveExecution: async () => {
             const execution = await resolveDefaultHostedPaymentInfrastructure();
@@ -333,12 +334,6 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     };
     const cart = protectCommerceRuntime(createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
       hostedPaymentAvailable: async (method) => hostedCheckout !== null && activeHostedProviders.has(method.providerCode) }), commercePolicy);
-    const protectedHostedCheckout = hostedCheckout === null ? null : Object.freeze({ ...hostedCheckout,
-      async start(input: Parameters<StandardHostedCheckoutRuntime['start']>[0]) {
-        requireOnlineCheckout(await commercePolicy(input.hostname));
-        return hostedCheckout.start(input);
-      },
-    });
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
       role: "celebix_saas_workflow",
@@ -382,7 +377,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       engagement: createStoreEngagementRuntime({ repository: new PostgresPublicStoreEngagementRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: commerceKeyring, now: () => new Date() }),
       luckyWheel: createLuckyWheelRuntime({ repository: new PostgresPublicLuckyWheelRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), randomBytes, now: () => new Date() }),
       orderBumps: createOrderBumpRuntime({ repository: new PostgresPublicOrderBumpRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: commerceKeyring, now: () => new Date() }),
-      hostedCheckout: protectedHostedCheckout,
+      hostedCheckout,
       checkout: createCheckoutRuntime({ storefrontRepository: repository, quickOrderRepository }),
       abandonedCarts,
       analytics,

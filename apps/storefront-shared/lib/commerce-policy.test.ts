@@ -46,8 +46,13 @@ test('catalog mode rejects add, buy now and increases but keeps decrease/removal
   await runtime.mutateCart('shop.example', null, { kind: 'set_quantity', variantId: 'v', quantity: 1 } as never);
   await runtime.mutateCart('shop.example', null, { kind: 'remove', variantId: 'v' } as never);
   await assert.rejects(runtime.quote('shop.example', null, 'cart'), /whatsapp_only/);
-  await assert.rejects(runtime.complete('shop.example', null, {} as never), /whatsapp_only/);
   assert.equal(writes, 2);
+});
+
+test('durable offline completion replay reaches the native replay guard after policy changes', async () => {
+  const replay = { receipt: { orderReference: 'EXISTING' }, setCookies: [] };
+  const runtime = protectCommerceRuntime({ async complete() { return replay; } } as never, async () => hidden);
+  assert.deepEqual(await runtime.complete('shop.example', null, {} as never), replay);
 });
 
 test('unavailable authority never opens restrictions or touches commerce', async () => {

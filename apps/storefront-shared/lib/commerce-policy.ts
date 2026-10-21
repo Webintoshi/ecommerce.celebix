@@ -87,7 +87,7 @@ export function protectCommerceRuntime(
       return source.quote(hostname, ...args);
     },
     async complete(hostname, ...args) {
-      requireOnlineCheckout(await resolvePolicy(hostname));
+      // Native258 checks new writes under the policy lock and still permits durable operation replay.
       return source.complete(hostname, ...args);
     },
   } satisfies StorefrontCommerceRuntime);
