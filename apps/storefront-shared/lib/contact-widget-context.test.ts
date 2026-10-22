@@ -12,7 +12,7 @@ async function context(reader?: { getForHost(input: { hostname: string; now: Dat
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
   const runtime = { content:{}, ...(ordering?{whatsappOrders:ordering}:{}), repository: { getPublicStorefrontDesign: async () => ({ schemaVersion: 3 }) }, analytics: null, analyticsCollector: null, ...(reader ? { contactWidgets: { getForHost: async (input: { hostname: string; now: Date }) => { calls.push(input); return reader.getForHost(input); } } } : {}) };
   const dependencies: Record<string, unknown> = { '@celebix/saas-contracts':contracts, './commerce-policy.ts':commercePolicy, "server-only": {}, react: { cache: (callback: () => Promise<unknown>) => { let selected: Promise<unknown> | undefined; return () => selected ??= callback(); } }, "next/headers": { headers: async () => new Headers({ host: "shop.example.test" }) }, "./default-runtime.ts": { resolveDefaultPublicStorefrontRuntime: async () => runtime }, "./campaign-page-resolution.ts": { resolveCampaignPageProjection: async () => ({ kind: "legacy" }), withCampaignPresentation: (value: unknown) => value }, "./public-storefront.ts": { resolvePublicStorefrontRequest: async () => ({ kind: "active", storefront: { id: "store-a", hostname: "shop.example.test" } }) } };
-  const compiled: { exports: { resolveStorefrontPage?: () => Promise<{ kind: string; context: { contactWidget: unknown } }> } } = { exports: {} };
+  const compiled: { exports: { resolveStorefrontPage?: () => Promise<{ kind: string; context: { contactWidget: unknown; commercePolicy: contracts.StorefrontCommercePolicy } }> } } = { exports: {} };
   new Function("require", "module", "exports", output)((name: string) => { if (!(name in dependencies)) throw new Error(`Unexpected dependency ${name}`); return dependencies[name]; }, compiled, compiled.exports);
   const resolve = compiled.exports.resolveStorefrontPage!;
   const [first, second] = await Promise.all([resolve(), resolve()]);
@@ -36,4 +36,31 @@ test("missing widget migration, optional runtime or read failure leaves the stor
 test('WhatsApp commerce policy failure and foreign ownership stop the page instead of exposing prices', async()=>{
  const failed=await context(undefined,{getForHost:async()=>{throw new Error('policy_unavailable');}});assert.equal(failed.selected.kind,'unavailable');
  const foreign=await context(undefined,{getForHost:async()=>({storeId:'other-store',version:1,config:contracts.createDefaultWhatsAppOrderConfig()})});assert.equal(foreign.selected.kind,'unavailable');
+});
+
+test('an empty native tool entitlement projection keeps ordinary shopping available', async () => {
+  let orderingReads = 0;
+  const selected = await context({ getForHost: async () => ({ storeId: 'store-a', config: null }) }, {
+    getForHost: async () => { orderingReads++; return null; },
+  });
+  assert.equal(selected.selected.kind, 'active');
+  assert.equal(selected.selected.context.contactWidget, null);
+  assert.equal(selected.selected.context.commercePolicy.enabled, false);
+  assert.equal(selected.selected.context.commercePolicy.checkoutAllowed, true);
+  assert.equal(selected.selected.context.commercePolicy.hidePrices, false);
+  assert.equal(orderingReads, 1, 'license authority is part of the existing request-local read');
+});
+
+test('native store-bound tool projections work independently of subscription metadata', async () => {
+  const widget = { ...createDefaultContactWidgetConfig(), enabled: true };
+  const config = { ...contracts.createDefaultWhatsAppOrderConfig(), enabled: true, phone: '+905551112233', hidePrices: true };
+  const selected = await context({ getForHost: async () => ({ storeId: 'store-a', config: widget }) }, {
+    getForHost: async () => ({ storeId: 'store-a', version: 7, config }),
+  });
+  assert.equal(selected.selected.kind, 'active');
+  assert.equal(selected.selected.context.contactWidget, widget);
+  assert.equal(selected.selected.context.commercePolicy.version, 7);
+  assert.equal(selected.selected.context.commercePolicy.enabled, true);
+  assert.equal(selected.selected.context.commercePolicy.hidePrices, true);
+  assert.equal(selected.selected.context.commercePolicy.checkoutAllowed, false);
 });
