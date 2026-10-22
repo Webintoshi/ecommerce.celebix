@@ -173,3 +173,23 @@ test('detail exposes one edit action only with manage permission and refreshes a
  let reads=0;await mounted({getOrder:async()=>{reads++;return base;}},async({container})=>{const edit=[...container.querySelectorAll('button')].filter(button=>button.textContent==='Siparişi düzenle');assert.equal(edit.length,1);await act(async()=>edit[0]!.click());const saved=[...container.querySelectorAll('button')].find(button=>button.textContent==='Düzenlemeyi doğrula');assert.ok(saved);await act(async()=>saved.click());assert.equal(container.querySelector('[data-edit-drawer]'),null);assert.equal(reads,2);},base,true);
  await mounted({},async({container})=>{assert.equal([...container.querySelectorAll('button')].some(button=>button.textContent==='Siparişi düzenle'),false);},base,true,{...caps,manage:false});
 });
+
+test('deletion confirmation explains automatic debt closure only after its impact is ready',async()=>{
+ const impact=deferred<any>();await mounted({getDeletionImpact:async()=>impact.promise},async({container})=>{
+  assert.doesNotMatch(container.textContent!,/kalan müşteri borcu otomatik kapatılır/);
+  const remove=[...container.querySelectorAll('button')].find(button=>button.textContent==='Kalıcı sil');assert.ok(remove);await act(async()=>remove.click());assert.match(container.textContent!,/Silme etkisi yükleniyor/);assert.doesNotMatch(container.textContent!,/kalan müşteri borcu otomatik kapatılır/);
+  await act(async()=>impact.resolve({resourceKind:'order',resourceId:ID,expectedVersion:1,confirmationLabel:base.orderNumber,effects:[{kind:'order_items',count:2,disposition:'delete'},{kind:'external_payment',count:1,disposition:'external_unchanged'}]}));
+  const confirmation=container.querySelector('dialog[open] form');assert.ok(confirmation);assert.match(confirmation.textContent!,/Bu siparişin kalan müşteri borcu otomatik kapatılır/);assert.match(confirmation.textContent!,/Önceki tahsilatlar ve muhasebe geçmişi korunur/);assert.match(confirmation.textContent!,/ödeme sağlayıcısında otomatik para iadesi yapılmaz/);assert.match(confirmation.textContent!,/dış ödeme ve kargo kayıtları değişmez/);assert.match(confirmation.textContent!,/Ürün satırları2/);assert.match(confirmation.textContent!,/Dış ödeme kayıtları1 · Değişmez/);assert.ok(confirmation.querySelector('[name="confirmation"]'));assert.ok(confirmation.querySelector('[name="acknowledged"]'));
+ },base,true);
+});
+
+test('delete retains pending admission and retries the identical operation after an unknown result',async()=>{
+ let reject!:(reason:unknown)=>void;const gate=new Promise((_resolve,fail)=>reject=fail);const writes:any[]=[];
+ await mounted({getDeletionImpact:async()=>({resourceKind:'order',resourceId:ID,expectedVersion:1,confirmationLabel:base.orderNumber,effects:[]}),deleteOrder:async(_id:string,command:any)=>{writes.push(command);if(writes.length===1)return gate;throw new ApiError('unavailable');}},async({props,submit})=>{
+  await act(async()=>props().onDeletionImpactRequest());await submit('onDeleteSubmit',{confirmation:base.orderNumber,acknowledged:'on'});assert.equal(props().busy,'delete');await submit('onDeleteSubmit',{confirmation:base.orderNumber,acknowledged:'on'});assert.equal(writes.length,1);await act(async()=>reject(new ApiError('unavailable')));assert.equal(props().busy,'');await submit('onDeleteSubmit',{confirmation:base.orderNumber,acknowledged:'on'});assert.equal(writes.length,2);assert.deepEqual(writes[1],writes[0]);assert.equal(writes[0].expectedVersion,1);
+ });
+});
+
+test('delete still requires its exact order label and acknowledgment before contacting the writer',async()=>{
+ let writes=0;await mounted({getDeletionImpact:async()=>({resourceKind:'order',resourceId:ID,expectedVersion:1,confirmationLabel:base.orderNumber,effects:[]}),deleteOrder:async()=>{writes++;throw new ApiError('unavailable');}},async({props,submit})=>{await act(async()=>props().onDeletionImpactRequest());await submit('onDeleteSubmit',{confirmation:'another order',acknowledged:'on'});await submit('onDeleteSubmit',{confirmation:base.orderNumber});assert.equal(writes,0);assert.match(props().error,/Silme onayı sipariş numarasıyla eşleşmiyor/);});
+});
