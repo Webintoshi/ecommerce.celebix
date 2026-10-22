@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "9251f59473efa98c5981af3e7a99d519a446bdc1846bc47503c99c77599d8284",
+  "inputDigest": "3aa44b9eb9b5610f0196b253a5f0b62a25bcff806fdd591deacaa65d4b12787e",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2774,6 +2774,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/202610220264_store_tool_public_gates.up.sql",
       "sha256": "3bcd39c8f61f588913c51cee6fdc860acb7f44f547a44c8bbd742c3a4b9a5fbd"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610220265_store_tool_legacy_release.up.sql",
+      "sha256": "7de4e9b5a51026043c75ea5bd2211aece1db007bd82f1df571f84b91bea06168"
     },
     {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",

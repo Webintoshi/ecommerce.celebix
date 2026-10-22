@@ -3,6 +3,7 @@ SET LOCAL ROLE celebix_saas_owner;
 SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
 DO $f$DECLARE r record;BEGIN
+ IF to_regclass('saas.store_tool_legacy265_functions')IS NOT NULL THEN RAISE EXCEPTION 'STORE_TOOL263_ROLLBACK_REQUIRES_REVIEW';END IF;
  IF current_setting('celebix.allow_store_tools263_rollback',true)IS DISTINCT FROM 'on'OR to_regclass('saas.store_tool_public264_functions')IS NOT NULL OR EXISTS(SELECT 1 FROM saas.store_tool_purchases)THEN RAISE EXCEPTION 'STORE_TOOL263_ROLLBACK_REQUIRES_REVIEW';END IF;
  FOR r IN SELECT * FROM saas.store_tools263_functions LOOP IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE oid=r.function_oid AND proowner=r.function_owner AND proacl IS NOT DISTINCT FROM r.function_acl AND proconfig IS NOT DISTINCT FROM r.function_config AND encode(sha256(convert_to(pg_get_functiondef(oid),'UTF8')),'hex')=r.published_sha256)THEN RAISE EXCEPTION 'STORE_TOOL263_ROLLBACK_DRIFT';END IF;EXECUTE r.definition;END LOOP;
 END $f$;

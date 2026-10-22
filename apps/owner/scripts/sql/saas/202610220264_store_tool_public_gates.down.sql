@@ -6,6 +6,7 @@ SET LOCAL lock_timeout='5s';SET LOCAL statement_timeout='120s';
 SELECT pg_advisory_xact_lock(hashtextextended('saas.store_tool.public.release264',0));
 LOCK TABLE saas.store_tool_licenses,saas.store_tool_purchases,saas.store_tool_public264_functions IN SHARE ROW EXCLUSIVE MODE;
 DO $guard$DECLARE r record;BEGIN
+ IF to_regclass('saas.store_tool_legacy265_functions')IS NOT NULL THEN RAISE EXCEPTION 'STORE_TOOL264_SUCCESSOR_PRESENT';END IF;
  IF current_setting('celebix.allow_native264_down',true)IS DISTINCT FROM'on'THEN RAISE EXCEPTION 'STORE_TOOL264_DOWN_REQUIRES_EXPLICIT_OPERATOR';END IF;
  IF EXISTS(SELECT 1 FROM saas.store_tool_purchases)OR EXISTS(SELECT 1 FROM saas.store_tool_licenses WHERE source='purchase')THEN RAISE EXCEPTION 'STORE_TOOL264_ROLLBACK_IN_USE';END IF;
  IF(SELECT count(*)FROM saas.store_tool_public264_functions)<>14 OR(SELECT count(*)FROM saas.store_tool_public264_functions WHERE is_new)<>1 THEN RAISE EXCEPTION 'STORE_TOOL264_ROLLBACK_BACKUP';END IF;
