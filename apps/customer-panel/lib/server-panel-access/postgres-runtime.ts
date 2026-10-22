@@ -1,3 +1,5 @@
+import {PostgresOrderEditRepository} from '@celebix/saas-data';
+import {registerServerOrderEditRepository} from '../server-order-edit/runtime.ts';
 import {createPostgresEmailMarketingConnectionRepository,createPostgresEmailMarketingWebhookRepository,createEmailMarketingProviders} from '@celebix/saas-data';
 import {emailMarketingConfiguration} from '../server-email-marketing/config.ts';
 import {registerServerEmailMarketingRepository,registerServerEmailMarketingWebhookRepository} from '../server-email-marketing/runtime.ts';
@@ -1105,6 +1107,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       reorderCategoryProducts: ["catalog"], reorderCategories: ["catalog"],
     }));
     registerServerOrderRepository(access, createPostCommitInvalidatingRepository(orderRepository, DIRECT_SAVE_INVALIDATION.orders));
+    registerServerOrderEditRepository(access, createPostCommitInvalidatingRepository(new PostgresOrderEditRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}), {apply:['catalog']}));
     registerServerInStoreSalesRepository(access, createPostCommitInvalidatingRepository(inStoreSalesRepository, {
       prepareSale: ['catalog'], completeSale: ['catalog'], cancelSale: ['catalog'],
     }));

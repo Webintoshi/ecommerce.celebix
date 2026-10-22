@@ -723,3 +723,5 @@ export * from './commercial-packages/catalog.ts';
 export * from './commercial-packages/projection.ts';
 export * from "./whatsapp-ordering/index.ts";
 export type { PricedPublicProduct, PricedPublicProductVariant, PricedPublicCart, PricedPublicCartV2, PricedPublicCartLine, PricedPublicCartLineV2 } from './storefront/index.ts';
+export {parseOrderEditIntent,parseOrderEditWorkspace,parseOrderEditProducts,parseOrderEditPreview,parseOrderEditResult} from './orders/edit.ts';
+export type {OrderEditIntent,OrderEditLineIntent,OrderEditLine,OrderEditFinance,OrderEditWorkspace,OrderEditProduct,OrderEditProducts,OrderEditPreview,OrderEditResult} from './orders/edit.ts';

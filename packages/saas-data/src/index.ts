@@ -208,3 +208,5 @@ export * from "./native-marketing/index.ts";
 
 export { PostgresPublicWhatsAppOrderRepository } from "./whatsapp-ordering/repository.ts";
 export type { PublicWhatsAppOrderRepository, PublicWhatsAppOrderProjection, PostgresPublicWhatsAppOrderRepositoryOptions } from "./whatsapp-ordering/repository.ts";
+export {PostgresOrderEditRepository,OrderEditError,ORDER_EDIT_ERRORS} from './order-edit/repository.ts';
+export type {OrderEditRepository,OrderEditErrorCode} from './order-edit/repository.ts';

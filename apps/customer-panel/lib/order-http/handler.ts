@@ -51,8 +51,8 @@ type Dependencies = Readonly<{
   now(): Date;
   requestId(): string;
 }>;
-type AuthorizedRequest = Readonly<{
-  runtime: ServerOrdersRuntime;
+type AuthorizedRequest<R extends Pick<ServerOrdersRuntime, "access"> = ServerOrdersRuntime> = Readonly<{
+  runtime: R;
   tenantContext: TenantContext;
   now: Date;
 }>;
@@ -130,14 +130,14 @@ function authorityFailure(
   return error("invalid_input", 400);
 }
 
-async function authorize(
-  dependencies: Dependencies,
+async function authorize<R extends Pick<ServerOrdersRuntime, "access">>(
+  dependencies: Omit<Dependencies,"resolveRuntime"> & Readonly<{resolveRuntime():Promise<R|null>}>,
   request: Request,
   expectation: OrderRequestExpectation,
   allowInStoreVersion = false,
   allowOrdersVersion = false,
-): Promise<Response | AuthorizedRequest> {
-  let runtime: ServerOrdersRuntime | null;
+): Promise<Response | AuthorizedRequest<R>> {
+  let runtime: R | null;
   try { runtime = await dependencies.resolveRuntime(); }
   catch { return error("unavailable", 503); }
   if (runtime === null) return error("unavailable", 503);
@@ -693,3 +693,5 @@ export function createOrderHttpHandlers(dependencies: Dependencies) {
     },
   });
 }
+
+export {authorize as authorizeOrderRequest};
