@@ -1,1 +1,1 @@
-export {getOrderEditProducts as GET} from '../../../../../../lib/order-edit-http/default.ts';
+export { getOrderEditProducts as GET } from '../../../../../../lib/order-edit-http/default.ts';

@@ -62,7 +62,7 @@ function lineId(index: number) {
 }
 
 test("inventory contracts export the exact immutable enum registries", () => {
-  assert.deepEqual(INVENTORY_MOVEMENT_KINDS, ["opening", "catalog_adjustment", "purchase_receipt", "count_adjustment", "transfer_out", "transfer_in", "transfer_return", "checkout_sale", "in_store_sale"]);
+  assert.deepEqual(INVENTORY_MOVEMENT_KINDS, ["opening", "catalog_adjustment", "purchase_receipt", "count_adjustment", "transfer_out", "transfer_in", "transfer_return", "checkout_sale", "in_store_sale", "order_edit"]);
   assert.deepEqual(PURCHASE_ORDER_STATUSES, ["draft", "ordered", "partially_received", "received", "cancelled"]);
   assert.deepEqual(INVENTORY_COUNT_STATUSES, ["draft", "counting", "committed", "cancelled"]);
   assert.deepEqual(INVENTORY_TRANSFER_STATUSES, ["draft", "in_transit", "received", "cancelled"]);
@@ -193,4 +193,11 @@ test("inventory line arrays permit empty drafts while remaining frozen", () => {
   const count = parseInventoryCount({ id: ID, locationId: LOCATION_ID, status: "draft", lines: [], version: 1, createdAt: NOW, updatedAt: NOW });
   const transfer = parseInventoryTransfer({ id: ID, sourceLocationId: LOCATION_ID, destinationLocationId: OTHER_LOCATION_ID, status: "draft", lines: [], version: 1, createdAt: NOW, updatedAt: NOW });
   for (const value of [purchase.lines, count.lines, transfer.lines]) assert.equal(Object.isFrozen(value), true);
+});
+
+
+test("order-edit inventory deltas support both directions without zero or fractional movements", () => {
+  const movement = { id: ID, locationId: LOCATION_ID, variantId: VARIANT_ID, kind: "order_edit", occurredAt: NOW };
+  for (const delta of [-2, 3]) assert.equal(parseInventoryMovement({ ...movement, quantity: delta }).quantity, delta);
+  for (const delta of [0, 1.5, -2147483648]) assert.throws(() => parseInventoryMovement({ ...movement, quantity: delta }));
 });

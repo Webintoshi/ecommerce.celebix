@@ -1,15 +1,66 @@
-import {parseOrderEditIntent,parseOrderEditWorkspace,parseOrderEditProducts,parseOrderEditPreview,parseOrderEditResult} from '@celebix/saas-contracts';
-import {OrderEditError,OrderRepositoryError} from '@celebix/saas-data';
-import {authorizeOrderRequest} from '../order-http/handler.ts';
-import {readBoundedOrderJson,readOrderPathId} from '../order-http/request-input.ts';
-import type {ServerOrderEditRuntime} from '../server-order-edit/runtime.ts';
-type Deps=Readonly<{resolveRuntime():Promise<ServerOrderEditRuntime|null>;now():Date;requestId():string}>;
-const reply=(value:unknown,status=200)=>Response.json(value,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});
-const invalid=()=>reply({code:'invalid_input'},400);
-function fail(failure:unknown){if(failure instanceof OrderEditError||failure instanceof OrderRepositoryError){const code=failure.code;return reply({code},code==='unauthenticated'?401:code==='membership_denied'||code==='store_inactive'||code==='feature_not_enabled'||code==='price_permission_denied'?403:code==='order_not_found'?404:code==='invalid_input'?400:code==='unavailable'?503:409);}return reply({code:'unavailable'},503);}
-export function createOrderEditHttpHandlers(deps:Deps){return Object.freeze({
- async get(request:Request,rawId:unknown){const orderId=readOrderPathId(rawId);if(!orderId)return invalid();const auth=await authorizeOrderRequest(deps,request,{method:'GET',pathname:`/api/orders/${orderId}/edit`,query:'forbidden'});if(auth instanceof Response)return auth;try{return reply(parseOrderEditWorkspace(await auth.runtime.edit.workspace({tenantContext:auth.tenantContext,now:auth.now,orderId})));}catch(failure){return fail(failure);}},
- async products(request:Request,rawId:unknown){const orderId=readOrderPathId(rawId);if(!orderId)return invalid();const auth=await authorizeOrderRequest(deps,request,{method:'GET',pathname:`/api/orders/${orderId}/edit/products`,query:'allowed'});if(auth instanceof Response)return auth;const q=new URL(request.url).searchParams;if([...q.keys()].some(k=>k!=='search'&&k!=='limit')||q.getAll('search').length>1||q.getAll('limit').length>1)return invalid();const search=q.get('search')??'',limit=q.has('limit')?Number(q.get('limit')):30;if(!/^(?:[1-9]|[1-4][0-9]|50)$/.test(q.get('limit')??'30')||search.length>100)return invalid();try{return reply(parseOrderEditProducts(await auth.runtime.edit.products({tenantContext:auth.tenantContext,now:auth.now,orderId,search,limit})));}catch(failure){return fail(failure);}},
- async preview(request:Request,rawId:unknown){const orderId=readOrderPathId(rawId);if(!orderId)return invalid();const auth=await authorizeOrderRequest(deps,request,{method:'POST',pathname:`/api/orders/${orderId}/edit/preview`,query:'forbidden'});if(auth instanceof Response)return auth;let intent;try{intent=parseOrderEditIntent(await readBoundedOrderJson(request));}catch{return invalid();}try{return reply(parseOrderEditPreview(await auth.runtime.edit.preview({tenantContext:auth.tenantContext,now:auth.now,orderId,intent})));}catch(failure){return fail(failure);}},
- async apply(request:Request,rawId:unknown){const orderId=readOrderPathId(rawId);if(!orderId)return invalid();const auth=await authorizeOrderRequest(deps,request,{method:'POST',pathname:`/api/orders/${orderId}/edit`,query:'forbidden'});if(auth instanceof Response)return auth;const body=await readBoundedOrderJson(request);if(!body||typeof body!=='object'||Array.isArray(body)||Object.keys(body).sort().join(',')!=='intent,operationId,previewFingerprint')return invalid();const r=body as Record<string,unknown>,operationId=readOrderPathId(r.operationId);if(!operationId||typeof r.previewFingerprint!=='string'||!/^[a-f0-9]{64}$/.test(r.previewFingerprint))return invalid();let intent;try{intent=parseOrderEditIntent(r.intent);}catch{return invalid();}try{return reply(parseOrderEditResult(await auth.runtime.edit.apply({tenantContext:auth.tenantContext,now:auth.now,orderId,operationId,intent,previewFingerprint:r.previewFingerprint})));}catch(failure){return fail(failure);}},
-});}
+import { parseOrderEditIntent, parseOrderEditWorkspace, parseOrderEditProducts, parseOrderEditPreview, parseOrderEditResult } from '@celebix/saas-contracts';
+import { OrderEditError, OrderRepositoryError } from '@celebix/saas-data';
+import { authorizeOrderRequest } from '../order-http/handler.ts';
+import { readBoundedOrderJson, readOrderPathId } from '../order-http/request-input.ts';
+import type { ServerOrderEditRuntime } from '../server-order-edit/runtime.ts';
+type Deps = Readonly<{
+    resolveRuntime(): Promise<ServerOrderEditRuntime | null>;
+    now(): Date;
+    requestId(): string;
+}>;
+const reply = (value: unknown, status = 200) => Response.json(value, { status, headers: { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' } });
+const invalid = () => reply({ code: 'invalid_input' }, 400);
+function fail(failure: unknown) { if (failure instanceof OrderEditError || failure instanceof OrderRepositoryError) {
+    const code = failure.code;
+    return reply({ code, ...(failure instanceof OrderEditError&&failure.blockReason?{blockReason:failure.blockReason}:{}) }, code === 'unauthenticated' ? 401 : code === 'membership_denied' || code === 'store_inactive' || code === 'feature_not_enabled' || code === 'price_permission_denied' ? 403 : code === 'order_not_found' ? 404 : code === 'invalid_input' ? 400 : code === 'unavailable' ? 503 : 409);
+} return reply({ code: 'unavailable' }, 503); }
+export function createOrderEditHttpHandlers(deps: Deps) {
+    return Object.freeze({
+        async get(request: Request, rawId: unknown) { const orderId = readOrderPathId(rawId); if (!orderId)
+            return invalid(); const auth = await authorizeOrderRequest(deps, request, { method: 'GET', pathname: `/api/orders/${orderId}/edit`, query: 'forbidden' }); if (auth instanceof Response)
+            return auth; try {
+            return reply(parseOrderEditWorkspace(await auth.runtime.edit.workspace({ tenantContext: auth.tenantContext, now: auth.now, orderId })));
+        }
+        catch (failure) {
+            return fail(failure);
+        } },
+        async products(request: Request, rawId: unknown) { const orderId = readOrderPathId(rawId); if (!orderId)
+            return invalid(); const auth = await authorizeOrderRequest(deps, request, { method: 'GET', pathname: `/api/orders/${orderId}/edit/products`, query: 'allowed' }); if (auth instanceof Response)
+            return auth; const q = new URL(request.url).searchParams; if ([...q.keys()].some(k => k !== 'search' && k !== 'limit') || q.getAll('search').length > 1 || q.getAll('limit').length > 1)
+            return invalid(); const search = q.get('search') ?? '', limit = q.has('limit') ? Number(q.get('limit')) : 30; if (!/^(?:[1-9]|[1-4][0-9]|50)$/.test(q.get('limit') ?? '30') || search.length > 100)
+            return invalid(); try {
+            return reply(parseOrderEditProducts(await auth.runtime.edit.products({ tenantContext: auth.tenantContext, now: auth.now, orderId, search, limit })));
+        }
+        catch (failure) {
+            return fail(failure);
+        } },
+        async preview(request: Request, rawId: unknown) { const orderId = readOrderPathId(rawId); if (!orderId)
+            return invalid(); const auth = await authorizeOrderRequest(deps, request, { method: 'POST', pathname: `/api/orders/${orderId}/edit/preview`, query: 'forbidden' }); if (auth instanceof Response)
+            return auth; let intent; try {
+            intent = parseOrderEditIntent(await readBoundedOrderJson(request));
+        }
+        catch {
+            return invalid();
+        } try {
+            return reply(parseOrderEditPreview(await auth.runtime.edit.preview({ tenantContext: auth.tenantContext, now: auth.now, orderId, intent })));
+        }
+        catch (failure) {
+            return fail(failure);
+        } },
+        async apply(request: Request, rawId: unknown) { const orderId = readOrderPathId(rawId); if (!orderId)
+            return invalid(); const auth = await authorizeOrderRequest(deps, request, { method: 'POST', pathname: `/api/orders/${orderId}/edit`, query: 'forbidden' }); if (auth instanceof Response)
+            return auth; const body = await readBoundedOrderJson(request); if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).sort().join(',') !== 'intent,operationId,previewFingerprint')
+            return invalid(); const r = body as Record<string, unknown>, operationId = readOrderPathId(r.operationId); if (!operationId || typeof r.previewFingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(r.previewFingerprint))
+            return invalid(); let intent; try {
+            intent = parseOrderEditIntent(r.intent);
+        }
+        catch {
+            return invalid();
+        } try {
+            return reply(parseOrderEditResult(await auth.runtime.edit.apply({ tenantContext: auth.tenantContext, now: auth.now, orderId, operationId, intent, previewFingerprint: r.previewFingerprint })));
+        }
+        catch (failure) {
+            return fail(failure);
+        } },
+    });
+}

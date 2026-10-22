@@ -136,7 +136,7 @@ export function parseInventoryBalance(value: unknown): InventoryBalance { return
 export function parseInventoryMovement(value: unknown): InventoryMovement { return guarded(() => {
   const parsed = exact(value, ["id", "locationId", "variantId", "kind", "quantity", "occurredAt"]);
   if (typeof parsed.kind !== "string" || !INVENTORY_MOVEMENT_KINDS.includes(parsed.kind as never)) invalid();
-  return freeze({ id: uuid(parsed.id), locationId: uuid(parsed.locationId), variantId: uuid(parsed.variantId), kind: parsed.kind as InventoryMovement["kind"], quantity: parsed.kind === 'in_store_sale' ? integer(parsed.quantity,-MAX_QUANTITY,-1) : quantity(parsed.quantity), occurredAt: timestamp(parsed.occurredAt) } satisfies InventoryMovement);
+  return freeze({ id: uuid(parsed.id), locationId: uuid(parsed.locationId), variantId: uuid(parsed.variantId), kind: parsed.kind as InventoryMovement["kind"], quantity: parsed.kind === 'in_store_sale' ? integer(parsed.quantity,-MAX_QUANTITY,-1) : parsed.kind === 'order_edit' ? (() => { const delta = integer(parsed.quantity, -MAX_QUANTITY, MAX_QUANTITY); if (delta === 0) invalid(); return delta; })() : quantity(parsed.quantity), occurredAt: timestamp(parsed.occurredAt) } satisfies InventoryMovement);
 }); }
 export function parsePurchaseOrderLine(value: unknown): PurchaseOrderLine { return guarded(() => {
   const parsed = exact(value, ["id", "variantId", "orderedQuantity", "receivedQuantity", "unitCostCents", "lineCostCents"]);
