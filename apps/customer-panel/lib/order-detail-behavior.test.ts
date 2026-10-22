@@ -76,6 +76,7 @@ async function mounted(overrides: Record<string, (...args: any[]) => any>, verif
       if (name === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
       if (name === "@/lib/order-ui/client") return { orderApi: api, OrderApiError: ApiError };
       if (name === "./OrderActionDialog") return dialog;
+      if (name === "./OrderEditDrawer") return {OrderEditDrawer:({onSaved}:any)=>createElement("div",{"data-edit-drawer":true},createElement("button",{onClick:onSaved},"Düzenlemeyi doğrula"))};
       if (name.endsWith(".module.css")) return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };
       throw new Error(`unexpected_import:${name}`);
     }, module, module.exports);
@@ -166,4 +167,9 @@ test("failed note retains its input, Escape returns focus to visible overflow su
 
 test('cashier order grant keeps manual shipping editing without mounting provider controls',async()=>{
  await mounted({},async({container})=>{assert.match(container.textContent!,/Elle düzenle/);assert.equal(container.querySelector('[data-provider-shipping]'),null);},base,true,{...caps,delete:false,providerShipping:false});
+});
+
+test('detail exposes one edit action only with manage permission and refreshes after a confirmed edit',async()=>{
+ let reads=0;await mounted({getOrder:async()=>{reads++;return base;}},async({container})=>{const edit=[...container.querySelectorAll('button')].filter(button=>button.textContent==='Siparişi düzenle');assert.equal(edit.length,1);await act(async()=>edit[0]!.click());const saved=[...container.querySelectorAll('button')].find(button=>button.textContent==='Düzenlemeyi doğrula');assert.ok(saved);await act(async()=>saved.click());assert.equal(container.querySelector('[data-edit-drawer]'),null);assert.equal(reads,2);},base,true);
+ await mounted({},async({container})=>{assert.equal([...container.querySelectorAll('button')].some(button=>button.textContent==='Siparişi düzenle'),false);},base,true,{...caps,manage:false});
 });

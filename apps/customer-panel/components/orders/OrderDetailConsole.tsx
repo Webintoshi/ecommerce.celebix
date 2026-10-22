@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Archive, ArchiveRestore, ArrowLeft, Barcode, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, CircleDot, CreditCard, ExternalLink, History, Info, Mail, MapPin, MoreHorizontal, Pencil, Phone, Printer, RefreshCw, Send, StickyNote, Store, Trash2, Truck, UserRound } from "lucide-react";
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import {
   type OrderAddress,
   type OrderDetail,
@@ -23,6 +23,8 @@ import { OrderApiError, orderApi } from "@/lib/order-ui/client";
 import { OrderActionDialog } from "./OrderActionDialog";
 import { ProductThumbnail } from "@/components/shared/ProductThumbnail";
 import styles from "./order-detail.module.css";
+
+const LazyOrderEditDrawer = lazy(() => import("./OrderEditDrawer").then(module => ({default:module.OrderEditDrawer})));
 
 export interface OrderUiCapabilities {
   readonly delete?: boolean;
@@ -203,6 +205,7 @@ export interface OrderDetailPresentationProps {
   readonly deletionImpact?: PermanentDeletionImpact;
   readonly capabilities: OrderUiCapabilities;
   readonly onRetry: () => void;
+  readonly onEdited?: () => void;
   readonly onArchiveSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly onRestoreSubmit?: (event: FormEvent<HTMLFormElement>) => void;
   readonly onDeletionImpactRequest?: () => void;
@@ -264,13 +267,14 @@ function ShippingFields({ order }: { order: OrderDetail }) {
 
 export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
   const [dialog, setDialog] = useState<OrderDialog>("");
+  const [editOpen,setEditOpen] = useState(false);
   const [statusChoice, setStatusChoice] = useState<OrderStatus | "">("");
   const [paymentChoice, setPaymentChoice] = useState<OrderPaymentStatus | "">("");
   const [noteId, setNoteId] = useState("");
   const formId = useId();
   const previousSuccess = useRef(props.successId);
   const menuRef = useRef<HTMLDetailsElement>(null);
-  useEffect(() => { setDialog(""); setNoteId(""); }, [props.detail?.id]);
+  useEffect(() => { setDialog(""); setEditOpen(false); setNoteId(""); }, [props.detail?.id]);
   useEffect(() => {
     if (props.successId !== previousSuccess.current && props.successId !== undefined && !props.error) setDialog("");
     previousSuccess.current = props.successId;
@@ -311,6 +315,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
     <header className={styles.orderTopbar}>
       <div className={styles.orderIdentity}><Link className={styles.iconButton} href="/orders" aria-label="Sipariş listesine dön"><ArrowLeft size={20} aria-hidden="true" /></Link><div><div className={styles.identityLine}><strong>{order.orderNumber}</strong><PanelStatusBadge tone={statusTone(order.status)}>{STATUS_LABELS[order.status]}</PanelStatusBadge>{order.archive?.archived ? <span className={styles.archiveState}>Arşivlenmiş sipariş</span> : null}</div><time dateTime={order.createdAt}>{date(order.createdAt)}</time></div></div>
       <div className={styles.headerActions}>
+        {props.capabilities.manage ? <button className={styles.secondaryButton} type="button" disabled={modalBusy || Boolean(dialog)} onClick={()=>setEditOpen(true)}><Pencil size={16} aria-hidden="true"/>Siparişi düzenle</button> : null}
         <nav className={styles.neighbors} aria-label="Siparişler arasında gezinme">{props.neighbors?.previous ? <Link className={styles.iconButton} href={`/orders/${encodeURIComponent(props.neighbors.previous.id)}`} aria-label={`Önceki sipariş: ${props.neighbors.previous.orderNumber}`}><ChevronLeft size={18} aria-hidden="true" /></Link> : <span className={styles.disabledIcon} aria-disabled="true"><ChevronLeft size={18} aria-hidden="true" /></span>}{props.neighbors?.next ? <Link className={styles.iconButton} href={`/orders/${encodeURIComponent(props.neighbors.next.id)}`} aria-label={`Sonraki sipariş: ${props.neighbors.next.orderNumber}`}><ChevronRight size={18} aria-hidden="true" /></Link> : <span className={styles.disabledIcon} aria-disabled="true"><ChevronRight size={18} aria-hidden="true" /></span>}</nav>
         <Link className={styles.iconButton} href={`/orders/${encodeURIComponent(order.id)}/print`} aria-label="Siparişi yazdır"><Printer size={18} aria-hidden="true" /></Link>
         <details className={styles.moreMenu} ref={menuRef} onKeyDown={event => { if (event.key === "Escape" && menuRef.current) { menuRef.current.open = false; menuRef.current.querySelector("summary")?.focus(); } }}><summary className={styles.iconButton} aria-label="Diğer sipariş işlemleri"><MoreHorizontal size={20} aria-hidden="true" /></summary><div>
@@ -342,7 +347,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
           <div className={styles.notes}>{order.notes.map(note => <article key={note.id}><div><p>{note.body}</p><time dateTime={note.createdAt}>{date(note.createdAt)}</time></div>{props.capabilities.note ? <button className={styles.iconButton} type="button" aria-label="Notu arşivle" disabled={modalBusy} onClick={() => { setNoteId(note.id); openDialog("note"); }}><Archive size={16} aria-hidden="true" /></button> : null}</article>)}</div>
           {props.capabilities.note ? <form className={styles.noteForm} onSubmit={props.onNoteSubmit}><label><span className="sr-only">Yeni dahili not</span><textarea name="body" required maxLength={2000} placeholder="Dahili not ekle…" rows={2} /></label><button className={styles.secondaryButton} type="submit" disabled={modalBusy} aria-label="Not ekle"><Send size={18} aria-hidden="true" /></button></form> : order.notes.length === 0 ? <p className={styles.muted}>Not yok.</p> : null}
         </section>
-        <section className={styles.section} aria-labelledby="timeline-title"><header className={styles.sectionHeading}><h2 id="timeline-title"><History size={16} aria-hidden="true" />Geçmiş</h2><span className={styles.muted}>{order.events.length} kayıt</span></header>{order.events.length ? <ol className={styles.timeline}>{order.events.map(event => <li key={event.id}><div><strong>{event.message}</strong><time dateTime={event.createdAt}>{date(event.createdAt)} · {event.type}</time></div></li>)}</ol> : <p className={styles.muted}>Geçmiş kaydı yok.</p>}</section>
+        <section className={styles.section} aria-labelledby="timeline-title"><header className={styles.sectionHeading}><h2 id="timeline-title"><History size={16} aria-hidden="true" />Geçmiş</h2><span className={styles.muted}>{order.events.length} kayıt</span></header>{order.events.length ? <ol className={styles.timeline}>{order.events.map(event => <li key={event.id}><div><strong>{event.message}</strong><time dateTime={event.createdAt}>{date(event.createdAt)} · {event.type === "order_edited" ? "Sipariş düzenlendi" : event.type}</time></div></li>)}</ol> : <p className={styles.muted}>Geçmiş kaydı yok.</p>}</section>
       </div>
       <aside className={styles.rail} aria-label="Müşteri ve teslimat">
         <section className={styles.section} aria-labelledby="customer-title"><header className={styles.sectionHeading}><h2 id="customer-title"><UserRound size={16} aria-hidden="true" />Müşteri</h2></header><div className={styles.customerIdentity}><span aria-hidden="true">{customer.name ? customer.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("") : <UserRound size={16} />}</span><strong>{customer.name ?? "Mağaza müşterisi"}</strong></div>{customer.email ? <a className={styles.contact} href={`mailto:${customer.email}`}><Mail size={16} aria-hidden="true" /><span>{customer.email}</span></a> : <p className={styles.muted}>E-posta belirtilmemiş.</p>}{customer.phone ? <a className={styles.contact} href={`tel:${customer.phone}`}><Phone size={16} aria-hidden="true" /><span>{customer.phone}</span></a> : null}</section>
@@ -362,6 +367,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
       {dialog === "metadata" ? <dl className={styles.metadata}><div><dt>Kanal</dt><dd>{saleLabel}{platformLabel ? ` · ${platformLabel}` : ""}{order.socialReference ? ` · ${order.socialReference}` : ""}</dd></div><div><dt>Oluşturulma</dt><dd>{date(order.createdAt)}</dd></div><div><dt>Son güncelleme</dt><dd>{date(order.updatedAt)}</dd></div><div><dt>Kayıt sürümü</dt><dd>{order.version}</dd></div>{order.archive?.archived ? <div><dt>Arşivlenme</dt><dd>{date(order.archive.changedAt)}</dd></div> : null}</dl> : null}
       {dialog === "note" ? <form id={formId} className={styles.modalForm} onSubmit={event => { event.preventDefault(); if (noteId) props.onNoteArchive(noteId); }}><p>{order.notes.find(note => note.id === noteId)?.body}</p></form> : null}
     </OrderActionDialog>
+  {editOpen ? <Suspense fallback={<p role="status">Düzenleme penceresi açılıyor…</p>}><LazyOrderEditDrawer key={order.id} orderId={order.id} onClose={()=>setEditOpen(false)} onSaved={()=>{setEditOpen(false);(props.onEdited ?? props.onRetry)();}}/></Suspense> : null}
   </section></PanelPageShell>;
 }
 
@@ -604,5 +610,5 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     });
   }
 
-  return <OrderDetailPresentation state={detail && detail.id !== orderId ? "loading" : state} detail={detail?.id === orderId ? detail : undefined} neighbors={neighbors} notifications={notifications} deletionImpact={deletionImpact} error={error} notice={notice} busy={busy} successId={successId} notificationBusy={notificationBusy} capabilities={capabilities} onArchiveSubmit={archiveOrder} onDeletionImpactRequest={() => { void loadDeletionImpact(); }} onDeleteSubmit={deleteOrder} onRestoreSubmit={restoreOrder} onRetry={() => { if (!detail) setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
+  return <OrderDetailPresentation state={detail && detail.id !== orderId ? "loading" : state} detail={detail?.id === orderId ? detail : undefined} neighbors={neighbors} notifications={notifications} deletionImpact={deletionImpact} error={error} notice={notice} busy={busy} successId={successId} notificationBusy={notificationBusy} capabilities={capabilities} onEdited={()=>{void load();setNotice("Sipariş düzenlendi.");}} onArchiveSubmit={archiveOrder} onDeletionImpactRequest={() => { void loadDeletionImpact(); }} onDeleteSubmit={deleteOrder} onRestoreSubmit={restoreOrder} onRetry={() => { if (!detail) setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
 }
