@@ -1,4 +1,4 @@
-import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, InStoreSalePage, InStoreSaleResult, InStoreStaffGrant, InStorePosCustomer, InStorePosCustomerIntent, InStorePosCustomerResult, TenantContext } from "@celebix/saas-contracts";
+import type { InStoreBootstrap, InStoreProduct, InStoreSale, InStoreSaleIntent, InStoreSalePage, InStoreSaleResult, InStoreStaffGrant, InStorePosCustomer, InStorePosCustomerIntent, InStorePosCustomerResult, TenantContext,OverviewAccess,AnalyticsDashboard,AnalyticsPeriod } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 export interface InStoreAuthorityInput {
     readonly tenantContext: TenantContext;
@@ -47,11 +47,13 @@ export interface ConfirmInStorePaymentInput extends VersionedInStoreSaleInput {
 export interface CancelInStoreSaleInput extends VersionedInStoreSaleInput {
     readonly confirmUnpaid: true;
 }
-export interface InStoreStaffAuthorityInput extends InStoreAuthorityInput { readonly staffContractVersion?:5|6|7; }
+export interface InStoreStaffAuthorityInput extends InStoreAuthorityInput { readonly staffContractVersion?:5|6|7|8; }
+export interface OverviewDashboardInput extends InStoreAuthorityInput {readonly period:AnalyticsPeriod;}
 export interface SetInStoreStaffGrantInput extends InStoreStaffAuthorityInput {
     readonly commissionEnabled?:boolean;readonly commissionRateBps?:number;
     readonly canManageAccounting?:boolean;
     readonly canManageOrders?:boolean;
+    readonly canViewOverview?:boolean;
     readonly operationId: string;
     readonly membershipId: string;
     readonly expectedVersion: number;
@@ -67,6 +69,8 @@ export interface RevisePendingPaymentsInput extends VersionedInStoreSaleInput { 
 export interface ReconcileObsoletePaymentInput extends VersionedInStoreSaleInput {readonly originalOperationId:string;readonly prepareOperationId:string;readonly partId:string;}
 export interface ReturnPendingPartInput extends VersionedInStoreSaleInput {readonly partId:string;readonly reason:string;}
 export interface InStoreSalesRepository {
+    getOverviewAccess?(input:InStoreAuthorityInput):Promise<OverviewAccess>;
+    getOverviewDashboard?(input:OverviewDashboardInput):Promise<AnalyticsDashboard>;
     reconcileObsoletePayment(input:ReconcileObsoletePaymentInput):Promise<InStoreSaleResult>;
     revisePendingPayments(input:RevisePendingPaymentsInput):Promise<InStoreSaleResult>;
     beginPendingAbort(input:VersionedInStoreSaleInput):Promise<InStoreSaleResult>;

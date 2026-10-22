@@ -17,7 +17,7 @@ class Client implements PostgresClientLike {
     released: (boolean | Error | undefined)[] = [];
     constructor(private response: unknown, private failCommit = false, private images: unknown = { images: [] }) { }
     async query(text: string, values?: unknown[]): Promise<QueryResult<Record<string, unknown>>> { this.queries.push({ text, values }); if (text === "COMMIT" && this.failCommit)
-        throw new Error("private socket detail"); const rows = text.includes("FROM saas.in_store_sales_") ? [this.response] : text.includes("FROM saas.merchant_product_images") ? [{ outcome: "found", result_payload: this.images }] : []; return { rows, rowCount: rows.length } as QueryResult<Record<string, unknown>>; }
+        throw new Error("private socket detail"); const rows = text.includes("FROM saas.in_store_sales_") || text.includes("FROM saas.overview_") ? [this.response] : text.includes("FROM saas.merchant_product_images") ? [{ outcome: "found", result_payload: this.images }] : []; return { rows, rowCount: rows.length } as QueryResult<Record<string, unknown>>; }
     release(destroy?: boolean | Error) { this.released.push(destroy); }
 }
 class Pool implements PostgresPoolLike {
@@ -49,6 +49,31 @@ test("staff grant recovers an unknown commit using the restricted staff projecti
  const result=await repo(first,recovered).setStaffGrant({...authority(),operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:500});
  assert.equal(result.version,1);
  assert.ok(recovered.queries.some(query=>query.text.includes("in_store_sales_recover_staff")));
+});
+
+test('staff eight routes independent overview changes and uncertain receipts through exact v8 functions',async()=>{
+ const grant={membershipId:MEMBERSHIP,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:false,commissionRateBps:0,canManageOrders:false,canViewOverview:true,version:1};
+ const input={...authority(),contractVersion:4,staffContractVersion:8,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:false,commissionRateBps:0,canManageOrders:false,canViewOverview:true};
+ const first=new Client({outcome:'committed',result_payload:grant},true),recovered=new Client({outcome:'found',result_payload:grant});assert.equal((await repo(first,recovered).setStaffGrant(input as never)).canViewOverview,true);
+ const call=first.queries.find(q=>q.text.includes('in_store_sales_set_staff_v8'));assert.ok(call);assert.equal(call.values?.at(-1),true);assert.equal(call.values?.at(-2),false);assert.ok(recovered.queries.some(q=>q.text.includes('in_store_sales_recover_staff_v8')));
+ const list=new Client({outcome:'found',result_payload:{staff:[grant]}});assert.equal((await repo(list).listStaff({...authority(),staffContractVersion:8}as never)).staff[0]?.canViewOverview,true);assert.ok(list.queries.some(q=>q.text.includes('in_store_sales_list_staff_v8')));
+ const wrong=new Client({outcome:'committed',result_payload:{...grant,canViewOverview:false}});await assert.rejects(()=>repo(wrong).setStaffGrant(input as never),e=>inStoreSalesRepositoryErrorCode(e)==='unavailable');assert.equal(wrong.queries.at(-1)?.text,'ROLLBACK');
+ const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});for(const patch of[{canViewOverview:undefined},{canViewOverview:1},{staffContractVersion:7}])await assert.rejects(()=>r.setStaffGrant({...input,...patch}as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);
+});
+
+test('overview access reads its separate exact boolean with tenant authority and rejects malformed or denied output',async()=>{
+ const read=(r:PostgresInStoreSalesRepository,input:unknown)=>(r as unknown as {getOverviewAccess:(input:unknown)=>Promise<{canViewOverview:boolean}>}).getOverviewAccess(input);
+ for(const canViewOverview of[false,true]){const c=new Client({outcome:'found',result_payload:{canViewOverview}});assert.deepEqual(await read(repo(c),authority('cashier')),{canViewOverview});const q=c.queries.find(q=>q.text.includes('FROM saas.overview_access_read'));assert.ok(q);assert.deepEqual(q.values,[STORE,PRINCIPAL,MEMBERSHIP,PLAN,'growth',2,NOW]);assert.equal(c.queries[0]?.text,'BEGIN READ ONLY');}
+ for(const payload of[{}, {canViewOverview:true,canManageOrders:true}]){const c=new Client({outcome:'found',result_payload:payload});await assert.rejects(()=>read(repo(c),authority()),e=>inStoreSalesRepositoryErrorCode(e)==='unavailable');assert.equal(c.queries.at(-1)?.text,'ROLLBACK');}
+ const denied=new Client({outcome:'membership_denied',result_payload:null});await assert.rejects(()=>read(repo(denied),authority('cashier')),e=>inStoreSalesRepositoryErrorCode(e)==='membership_denied');
+});
+
+test('overview dashboard uses only its scoped native read and binds the returned period',async()=>{
+ const dashboard={period:'month',rangeStart:'2026-09-01T00:00:00.000Z',rangeEnd:NOW.toISOString(),generatedAt:NOW.toISOString(),currency:'TRY',revenueCents:2400,orders:{total:1,paid:1,cancelled:0,refunded:0},customers:{total:1,newInPeriod:1},catalog:{activeProducts:1,lowStockVariants:0},series:[],topProducts:[]};
+ const read=(r:PostgresInStoreSalesRepository,input:unknown)=>(r as unknown as {getOverviewDashboard:(input:unknown)=>Promise<unknown>}).getOverviewDashboard(input);
+ const c=new Client({outcome:'found',result_payload:dashboard});assert.deepEqual(await read(repo(c),{...authority('cashier'),period:'month'}),dashboard);const q=c.queries.find(q=>q.text.includes('FROM saas.overview_get_dashboard'));assert.ok(q);assert.deepEqual(q.values,[STORE,PRINCIPAL,MEMBERSHIP,PLAN,'growth',2,NOW,'month']);assert.equal(c.queries.filter(q=>q.text.startsWith('SELECT outcome')).length,1);
+ const wrong=new Client({outcome:'found',result_payload:{...dashboard,period:'week'}});await assert.rejects(()=>read(repo(wrong),{...authority(),period:'month'}),e=>inStoreSalesRepositoryErrorCode(e)==='unavailable');assert.equal(wrong.queries.at(-1)?.text,'ROLLBACK');
+ const pool=new Pool([]),r=new PostgresInStoreSalesRepository({pool,role:'celebix_saas_app',timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});await assert.rejects(()=>read(r,{...authority(),period:'all'}),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);
 });
 
 test("mutation rejects input accessors without invoking them", async () => {
