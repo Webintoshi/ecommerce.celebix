@@ -290,8 +290,9 @@ export const PANEL_NAVIGATION = Object.freeze<readonly PanelNavigationItem[]>([
   item("setup", "Kurulum", "/setup", "setup"),
 ]);
 
-export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register"; cashierAccountingAvailable?: boolean; accountingCommissionsAvailable?: boolean }>): readonly PanelNavigationItem[] {
+export function getPanelNavigation(input: Readonly<{ analyticsAvailable: boolean; navigationMode?: "register"; cashierOrdersAvailable?: boolean; cashierAccountingAvailable?: boolean; accountingCommissionsAvailable?: boolean }>): readonly PanelNavigationItem[] {
   if (input?.navigationMode === "register") return Object.freeze([
+    ...(input.cashierOrdersAvailable ? [item("orders", "Siparişler", "/orders", "orders")] : []),
     item("quick-orders", "Manuel satış", "/orders/quick-links", "quick-orders"),
     ...(input.cashierAccountingAvailable ? [item("accounting", "Muhasebe", "/accounting", "accounting", ACCOUNTING_CHILDREN.filter(child=>child.href!=="/accounting/commissions"))] : [item("cashier-receivables", "Müşteri borçları", "/accounting/receivables", "customers")]),
     ...(input.analyticsAvailable ? [item("analytics", "Analizler", "/analytics", "analytics")] : []),

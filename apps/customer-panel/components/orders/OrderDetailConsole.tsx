@@ -26,6 +26,7 @@ import styles from "./order-detail.module.css";
 
 export interface OrderUiCapabilities {
   readonly delete?: boolean;
+  readonly providerShipping?: boolean;
   readonly fulfill: boolean;
   readonly manage: boolean;
   readonly payment: boolean;
@@ -335,7 +336,7 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
         </section>
         {hasShipping ? <section className={styles.section} aria-labelledby="shipping-title"><header className={styles.sectionHeading}><h2 id="shipping-title"><Truck size={16} aria-hidden="true" />Kargo</h2>{props.capabilities.shipping ? <button className={styles.quietButton} type="button" disabled={modalBusy} onClick={() => openDialog("shipping")}><Pencil size={16} aria-hidden="true" />Elle düzenle</button> : null}</header>
           {order.tracking ? <div className={styles.tracking}><strong>{order.tracking.carrier}</strong><span><Barcode size={16} aria-hidden="true" />{order.tracking.trackingNumber}</span>{order.tracking.shippedAt ? <time dateTime={order.tracking.shippedAt}>{date(order.tracking.shippedAt)}</time> : null}{trackingUrl ? <a href={trackingUrl} target="_blank" rel="noreferrer"><ExternalLink size={14} aria-hidden="true" />Takip bağlantısı</a> : null}</div> : null}
-          {order.shippingAddress ? props.capabilities.shipping ? <OrderShipmentConsole key={order.id} orderId={order.id} orderVersion={order.version} /> : !order.tracking ? <p className={styles.muted}>Takip kaydı yok.</p> : null : <p className={styles.muted}>Teslimat adresi yok.</p>}
+          {order.shippingAddress ? (props.capabilities.providerShipping ?? props.capabilities.shipping) ? <OrderShipmentConsole key={order.id} orderId={order.id} orderVersion={order.version} /> : !order.tracking ? <p className={styles.muted}>Takip kaydı yok.</p> : null : <p className={styles.muted}>Teslimat adresi yok.</p>}
         </section> : null}
         <section className={styles.section} aria-labelledby="notes-title"><header className={styles.sectionHeading}><h2 id="notes-title"><StickyNote size={16} aria-hidden="true" />Notlar</h2></header>
           <div className={styles.notes}>{order.notes.map(note => <article key={note.id}><div><p>{note.body}</p><time dateTime={note.createdAt}>{date(note.createdAt)}</time></div>{props.capabilities.note ? <button className={styles.iconButton} type="button" aria-label="Notu arşivle" disabled={modalBusy} onClick={() => { setNoteId(note.id); openDialog("note"); }}><Archive size={16} aria-hidden="true" /></button> : null}</article>)}</div>

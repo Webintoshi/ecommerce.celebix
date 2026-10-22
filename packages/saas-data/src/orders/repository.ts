@@ -473,6 +473,21 @@ export class PostgresOrderRepository implements OrderRepository {
     }
   }
 
+  async getAccess(input: OrderAuthorityInput): Promise<Readonly<{canManageOrders:boolean}>> {
+    const exact = exactOrderInput(input, ["tenantContext", "now"]);
+    const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);
+    return this.read(authority, {
+      text: "SELECT outcome, result_payload FROM saas.orders_access_read($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz)",
+      values: authorityValues(authority),
+    }, "found", value => {
+      try {
+        const result = exactOrderInput(value, ["canManageOrders"]);
+        if (typeof result.canManageOrders !== "boolean") throw unavailable();
+        return Object.freeze({canManageOrders:result.canManageOrders});
+      } catch { throw unavailable(); }
+    });
+  }
+
   async getDashboardSummary(input: OrderAuthorityInput): Promise<OrderDashboardSummary> {
     const exact = exactOrderInput(input, ["tenantContext", "now"]);
     const authority = orderAuthority(exact.tenantContext as TenantContext, exact.now as Date);

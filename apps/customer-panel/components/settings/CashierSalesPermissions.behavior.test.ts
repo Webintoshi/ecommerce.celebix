@@ -21,6 +21,11 @@ const field = (host: any, name: string) => host.querySelector(`[name="${name}"]`
 async function submit(host: any, window: any) { await act(async () => host.querySelector('[data-cashier-sales-form]').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))); }
 async function toggle(host: any, name: string) { await act(async () => field(host, name).click()); }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
+test('orders permission defaults closed and saves one explicit checkbox without enabling finance',async()=>{
+ const writes:any[]=[];await mounted(dialog(),props(client({setStaffGrant:async(_id:string,body:any)=>{writes.push(body);return {...grant,...body,version:5};}})),async(host,window)=>{
+  assert.equal(field(host,'canManageOrders').checked,false);assert.equal(host.querySelectorAll('[name="canManageOrders"]').length,1);await toggle(host,'canManageOrders');await submit(host,window);assert.equal(writes.length,1);assert.equal(writes[0].canManageOrders,true);assert.equal(writes[0].canManageAccounting,false);assert.equal(writes[0].canEditPrice,true);
+ });
+});
 
 test('Personnel offers sales permissions only for an enabled cashier with an active membership', async () => {
   const { MerchantStaffConsole } = compile('components/settings/MerchantStaffConsole.tsx', overrides);
@@ -70,7 +75,7 @@ test('save uses the selected membership, server version and explicit flags witho
     await input(window, field(host, 'discount'), '20,25'); await toggle(host, 'canCollectReceivables'); await toggle(host, 'canEditPrice');
     await submit(host, window);
     assert.equal(writes.length, 1); assert.equal(saved, 1);
-    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false, commissionEnabled: false, commissionRateBps: 0 });
+    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false, canManageOrders: false, commissionEnabled: false, commissionRateBps: 0 });
     assert.equal(writes[0].id, MEMBER); assert.ok(writes[0].key);
   });
 });

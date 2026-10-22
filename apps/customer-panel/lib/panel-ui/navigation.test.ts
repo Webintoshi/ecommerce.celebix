@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+test('cashier orders menu follows only the explicit presentation grant',()=>{
+ for(const cashierOrdersAvailable of [false,true]){const nav=getPanelNavigation({analyticsAvailable:false,navigationMode:'register',cashierOrdersAvailable});assert.equal(nav.some(item=>item.href==='/orders'),cashierOrdersAvailable);assert.equal(nav.some(item=>item.href==='/orders/payment-links'||item.href==='/orders/abandoned-carts'),false);}
+});
 import {
   PANEL_NAVIGATION,
   PANEL_ROUTE_PRESENTATIONS,

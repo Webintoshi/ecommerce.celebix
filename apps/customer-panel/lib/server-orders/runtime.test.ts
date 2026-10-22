@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+test('optional orders access reader survives runtime registration and preserves its receiver',async()=>{
+ const approved=approvedAccess();let calls=0;const implementation=Object.assign(orders(),{async getAccess(this:unknown,input:unknown){assert.equal(this,implementation);assert.equal(input,'trusted');calls++;return {canManageOrders:true};}});
+ registerServerOrderRepository(approved,implementation as never);const runtime=resolveServerOrdersRuntime(approved);assert.deepEqual(await runtime?.orders.getAccess?.('trusted' as never),{canManageOrders:true});assert.equal(calls,1);
+});
 
 test("direct save methods survive registration and keep their repository receiver", async () => {
   for (const method of ["applyDraft"] as const) {

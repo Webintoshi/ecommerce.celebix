@@ -24,12 +24,13 @@ type Draft = Readonly<{
   canSellOnCredit: boolean;
   canCollectReceivables: boolean;
   canManageAccounting: boolean;
+  canManageOrders: boolean;
   commissionEnabled: boolean;
   commissionRate: string;
 }>;
 const percent = (bps: number) => String(bps / 100).replace('.', ',');
 function draftFor(grant: InStoreStaffGrant): Draft {
-  return { enabled: grant.enabled, locationIds: grant.locationIds, discount: percent(grant.discountLimitBps), canEditPrice: grant.canEditPrice === true, canSellOnCredit: grant.canSellOnCredit === true, canCollectReceivables: grant.version === 0 || grant.canCollectReceivables === true, canManageAccounting: grant.canManageAccounting === true, commissionEnabled: grant.commissionEnabled === true, commissionRate: percent(grant.commissionRateBps ?? 0) };
+  return { enabled: grant.enabled, locationIds: grant.locationIds, discount: percent(grant.discountLimitBps), canEditPrice: grant.canEditPrice === true, canSellOnCredit: grant.canSellOnCredit === true, canCollectReceivables: grant.version === 0 || grant.canCollectReceivables === true, canManageAccounting: grant.canManageAccounting === true, canManageOrders: grant.canManageOrders === true, commissionEnabled: grant.commissionEnabled === true, commissionRate: percent(grant.commissionRateBps ?? 0) };
 }
 async function readSnapshot(client: CashierSalesPermissionsClient, membershipId: string): Promise<Snapshot> {
   const [bootstrap, grants] = await Promise.all([client.bootstrap(), client.listStaff()]);
@@ -106,7 +107,7 @@ export function CashierSalesPermissions({ membershipId, staff, active, client = 
       const enteredCommissionRate = parseMinorUnits(draft.commissionRate.trim() || '0');
       const commissionRateBps = !draft.commissionEnabled && (enteredCommissionRate === null || enteredCommissionRate > 10000) ? snapshot.grant.commissionRateBps ?? 0 : enteredCommissionRate;
       if (commissionRateBps === null || commissionRateBps > 10000 || (draft.commissionEnabled && commissionRateBps < 1)) { setError('Prim oranı %0,01 ile %100 arasında olmalı.'); return; }
-      const input: GrantInput = { expectedVersion: snapshot.grant.version, enabled: draft.enabled, locationIds: draft.locationIds, discountLimitBps, canEditPrice: draft.canEditPrice, canSellOnCredit: draft.canSellOnCredit, canCollectReceivables: draft.canCollectReceivables, canManageAccounting: draft.canManageAccounting, commissionEnabled: draft.commissionEnabled, commissionRateBps };
+      const input: GrantInput = { expectedVersion: snapshot.grant.version, enabled: draft.enabled, locationIds: draft.locationIds, discountLimitBps, canEditPrice: draft.canEditPrice, canSellOnCredit: draft.canSellOnCredit, canCollectReceivables: draft.canCollectReceivables, canManageAccounting: draft.canManageAccounting, canManageOrders: draft.canManageOrders, commissionEnabled: draft.commissionEnabled, commissionRateBps };
       const fingerprint = JSON.stringify([membershipId, input]);
       if (request?.fingerprint !== fingerprint) {
         try { request = { fingerprint, membershipId, input, key: client.newId() }; }
@@ -146,6 +147,7 @@ export function CashierSalesPermissions({ membershipId, staff, active, client = 
         {!ready ? loading ? <div className={styles.loading} role="status" aria-label="Satış yetkileri yükleniyor"><span>Satış yetkileri yükleniyor…</span><div aria-hidden="true"/><div aria-hidden="true"/><div aria-hidden="true"/></div> : <button type="button" className={styles.secondary} onClick={() => void reload()}>Yeniden dene</button> : <form id={formId} data-cashier-sales-form className={styles.form} onSubmit={event => void save(event)} aria-describedby={error ? errorId : undefined}>
           <fieldset className={styles.group} disabled={locked}>
             <legend>Satış erişimi</legend>
+            <label className={styles.check}><input type="checkbox" name="canManageOrders" checked={draft.canManageOrders} onChange={event => setDraft({ ...draft, canManageOrders: event.target.checked })}/><span>Siparişlere erişebilir</span></label>
             <label className={styles.check}><input type="checkbox" name="enabled" checked={draft.enabled} onChange={event => setDraft({ ...draft, enabled: event.target.checked })}/><span>Manuel satış etkin</span></label>
           </fieldset>
           <fieldset className={styles.group} disabled={locked}>
@@ -168,7 +170,7 @@ export function CashierSalesPermissions({ membershipId, staff, active, client = 
             <label className={styles.field}><span>Prim oranı (%)</span><input name="commissionRate" inputMode="decimal" autoComplete="off" maxLength={6} value={draft.commissionRate} required={draft.commissionEnabled} disabled={!draft.commissionEnabled} onChange={event => setDraft({ ...draft, commissionRate: event.target.value })}/><small>İndirim, iade ve iskonto sonrası ürün tutarı üzerinden. Kargo dahil edilmez. Oran değişikliği sonraki satışlara uygulanır.</small></label>
           </fieldset>
           {conflict ? <div className={styles.conflict}>
-            {fresh ? <div className={styles.note}><strong>Güncel kayıt</strong><p>Manuel satış {fresh.grant.enabled ? 'etkin' : 'kapalı'} · İndirim %{percent(fresh.grant.discountLimitBps)}</p><p>Depolar: {fresh.grant.locationIds.map(id => fresh.bootstrap.locations.find(location => location.id === id)?.name ?? 'Listelenmeyen depo').join(', ') || 'Atanmamış'}</p><p>Fiyat düzenleme: {fresh.grant.canEditPrice ? 'Açık' : 'Kapalı'} · Veresiye: {fresh.grant.canSellOnCredit ? 'Açık' : 'Kapalı'} · Tahsilat: {fresh.grant.canCollectReceivables ? 'Açık' : 'Kapalı'} · Tüm muhasebe: {fresh.grant.canManageAccounting ? 'Açık' : 'Kapalı'}</p><p>Prim: {fresh.grant.commissionEnabled ? 'Aktif' : 'Kapalı'} · %{percent(fresh.grant.commissionRateBps ?? 0)}</p></div> : null}
+            {fresh ? <div className={styles.note}><strong>Güncel kayıt</strong><p>Manuel satış {fresh.grant.enabled ? 'etkin' : 'kapalı'} · İndirim %{percent(fresh.grant.discountLimitBps)}</p><p>Depolar: {fresh.grant.locationIds.map(id => fresh.bootstrap.locations.find(location => location.id === id)?.name ?? 'Listelenmeyen depo').join(', ') || 'Atanmamış'}</p><p>Fiyat düzenleme: {fresh.grant.canEditPrice ? 'Açık' : 'Kapalı'} · Veresiye: {fresh.grant.canSellOnCredit ? 'Açık' : 'Kapalı'} · Tahsilat: {fresh.grant.canCollectReceivables ? 'Açık' : 'Kapalı'} · Siparişler: {fresh.grant.canManageOrders ? 'Açık' : 'Kapalı'} · Tüm muhasebe: {fresh.grant.canManageAccounting ? 'Açık' : 'Kapalı'}</p><p>Prim: {fresh.grant.commissionEnabled ? 'Aktif' : 'Kapalı'} · %{percent(fresh.grant.commissionRateBps ?? 0)}</p></div> : null}
             <div className={styles.actions}><button type="button" className={styles.secondary} disabled={saving || loading} onClick={() => void reload()}>{loading ? 'Yükleniyor…' : 'Güncel yetkileri yükle'}</button><button type="button" className={styles.secondary} disabled={saving || loading || !fresh} onClick={adoptVersion}>Güncel sürümü kullan</button></div>
           </div> : null}
           <footer className={styles.actions}><button type="button" className={styles.secondary} disabled={saving} onClick={close}>Vazgeç</button><button type="submit" className={styles.primary} disabled={saving || loading || conflict}>{saving ? 'Kaydediliyor…' : uncertain ? 'Aynı işlemi yeniden dene' : 'Kaydet'}</button></footer>

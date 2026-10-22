@@ -123,3 +123,12 @@ test('staff version six keeps commission settings scoped to staff and rejects fo
  for(const patch of[{commissionRateBps:0},{commissionRateBps:10001},{commissionEnabled:'true'},{commissionRateBps:'2500'}])assert.equal((await h.setStaffGrant(req('staff/'+id,{...input,...patch},headers),id)).status,400);
  assert.equal((await h.bootstrap(req('bootstrap',undefined,headers))).status,400);assert.equal((await h.setStaffGrant(req('staff/'+id,input,{...headers,origin:'https://evil.test'}),id)).status,403);assert.equal(calls.length,2);
 });
+
+test('staff version seven keeps commission settings scoped to staff and rejects forged numeric input',async()=>{
+ const grant={membershipId:id,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[id],discountLimitBps:0,version:1,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:true,commissionRateBps:2500,canManageOrders:true};const calls:any[]=[];
+ const runtime={access:{panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext})},sales:{listStaff:async(input:unknown)=>{calls.push(input);return{staff:[grant]};},setStaffGrant:async(input:unknown)=>{calls.push(input);return grant;}}}as unknown as ServerInStoreSalesRuntime;
+ const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id}),headers={'x-celebix-in-store-version':'7'};
+ assert.equal((await h.listStaff(req('staff',undefined,headers))).status,200);const input={expectedVersion:0,enabled:true,locationIds:[id],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:true,commissionRateBps:2500,canManageOrders:true};assert.equal((await h.setStaffGrant(req('staff/'+id,input,headers),id)).status,200);assert.equal(calls[0]?.staffContractVersion,7);assert.equal(calls[0]?.contractVersion,4);assert.equal(calls[1]?.commissionRateBps,2500);
+ for(const patch of[{canManageOrders:undefined},{canManageOrders:'true'},{commissionRateBps:0},{commissionRateBps:10001},{commissionEnabled:'true'},{commissionRateBps:'2500'}])assert.equal((await h.setStaffGrant(req('staff/'+id,{...input,...patch},headers),id)).status,400);
+ assert.equal((await h.bootstrap(req('bootstrap',undefined,headers))).status,400);assert.equal((await h.setStaffGrant(req('staff/'+id,input,{...headers,origin:'https://evil.test'}),id)).status,403);assert.equal(calls.length,2);
+});

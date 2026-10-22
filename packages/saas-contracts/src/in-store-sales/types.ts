@@ -65,6 +65,7 @@ export interface InStoreSalePage { readonly sales:readonly InStoreSale[];readonl
 export interface InStoreStaffGrant {
   readonly commissionEnabled?:boolean;readonly commissionRateBps?:number;
   readonly canManageAccounting?:boolean;
+ readonly canManageOrders?:boolean;
   readonly canSellOnCredit?:boolean;readonly canCollectReceivables?:boolean;
   readonly canEditPrice?:boolean;
   readonly membershipId:string;readonly label:string;readonly role:string;readonly enabled:boolean;

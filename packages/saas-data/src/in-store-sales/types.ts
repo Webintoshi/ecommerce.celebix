@@ -47,10 +47,11 @@ export interface ConfirmInStorePaymentInput extends VersionedInStoreSaleInput {
 export interface CancelInStoreSaleInput extends VersionedInStoreSaleInput {
     readonly confirmUnpaid: true;
 }
-export interface InStoreStaffAuthorityInput extends InStoreAuthorityInput { readonly staffContractVersion?:5|6; }
+export interface InStoreStaffAuthorityInput extends InStoreAuthorityInput { readonly staffContractVersion?:5|6|7; }
 export interface SetInStoreStaffGrantInput extends InStoreStaffAuthorityInput {
     readonly commissionEnabled?:boolean;readonly commissionRateBps?:number;
     readonly canManageAccounting?:boolean;
+    readonly canManageOrders?:boolean;
     readonly operationId: string;
     readonly membershipId: string;
     readonly expectedVersion: number;

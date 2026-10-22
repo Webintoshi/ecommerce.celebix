@@ -310,6 +310,7 @@ export function PanelNavigation({
   analyticsAvailable = false,
   navigationMode,
   staffManagementAvailable = false,
+  cashierOrdersAvailable = false,
   cashierAccountingAvailable = false,
   accountingCommissionsAvailable = false,
   lockedNavigationHrefs = [],
@@ -318,12 +319,13 @@ export function PanelNavigation({
   analyticsAvailable?: boolean;
   navigationMode?: "register";
   staffManagementAvailable?: boolean;
+  cashierOrdersAvailable?: boolean;
   cashierAccountingAvailable?: boolean;
   accountingCommissionsAvailable?: boolean;
   lockedNavigationHrefs?: readonly string[];
 }) {
   const pathname = usePathname() ?? "";
-  const navigation = getPanelNavigation({ analyticsAvailable, navigationMode, cashierAccountingAvailable, accountingCommissionsAvailable }).filter(({ key }) => key !== "setup").map((item) => ({
+  const navigation = getPanelNavigation({ analyticsAvailable, navigationMode, cashierOrdersAvailable, cashierAccountingAvailable, accountingCommissionsAvailable }).filter(({ key }) => key !== "setup").map((item) => ({
     ...item,
     ...(item.children ? { children: item.children
       .filter((child) => child.href !== "/settings/administrators" || staffManagementAvailable)

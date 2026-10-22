@@ -10,10 +10,10 @@ const BASE='/api/orders/in-store';
 const errors:Readonly<Record<string,number>>=Object.freeze({invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,sales_paused:409,feature_not_enabled:403,origin_denied:403,not_found:404,ambiguous_barcode:409,version_conflict:409,operation_mismatch:409,invalid_transition:409,inventory_conflict:409,pricing_unavailable:409,discount_denied:403,discount_invalid:400,credit_denied:403,customer_required:400,collection_invalid:400,customer_duplicate:409,customer_archived:409,price_denied:403,payment_method_required:400,client_upgrade_required:409,insufficient_funds:409,amount_overflow:409,unavailable:503});
 function json(value:unknown,status=200,headers:HeadersInit={}):Response{return Response.json(value,{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff',...headers}});}
 function error(code:string,status=errors[code]??503,headers:HeadersInit={}):Response{return json({code},status,headers);}
-type Authorized={runtime:ServerInStoreSalesRuntime;tenantContext:TenantContext;now:Date;contractVersion:1|2|3|4;staffContractVersion?:5|6};
+type Authorized={runtime:ServerInStoreSalesRuntime;tenantContext:TenantContext;now:Date;contractVersion:1|2|3|4;staffContractVersion?:5|6|7};
 async function authorize(deps:InStoreSalesHttpDependencies,request:Request,expectation:InStoreRequestExpectation):Promise<Authorized|Response> {
   try {
-    const header=request.headers.get('x-celebix-in-store-version'),staffPath=expectation.pathname===BASE+'/staff'||/^\/api\/orders\/in-store\/staff\/[0-9a-f-]{36}$/.test(expectation.pathname);if(header!==null&&header!=='1'&&header!=='2'&&header!=='3'&&header!=='4'&&!((header==='5'||header==='6')&&staffPath))return error('invalid_input');const contractVersion=header==='6'||header==='5'||header==='4'?4:header==='3'?3:header==='2'?2:1;
+    const header=request.headers.get('x-celebix-in-store-version'),staffPath=expectation.pathname===BASE+'/staff'||/^\/api\/orders\/in-store\/staff\/[0-9a-f-]{36}$/.test(expectation.pathname);if(header!==null&&header!=='1'&&header!=='2'&&header!=='3'&&header!=='4'&&!((header==='5'||header==='6'||header==='7')&&staffPath))return error('invalid_input');const contractVersion=header==='7'||header==='6'||header==='5'||header==='4'?4:header==='3'?3:header==='2'?2:1;
     const runtime=await deps.resolveRuntime();if(!runtime)return error('unavailable');
     const decision=inStoreRequestAuthorityDecision(request,expectation,runtime.access.panelOrigin);
     if(decision==='method_not_allowed')return error(decision,405,{allow:expectation.method});if(decision!=='approved')return error(decision);
@@ -22,7 +22,7 @@ async function authorize(deps:InStoreSalesHttpDependencies,request:Request,expec
     const access=await runtime.access.resolveCredential({hostname:request.headers.get('host'),credential:cookie.credential,requestId,now:new Date(now)});
     if(access.kind==='unauthenticated')return error('unauthenticated');if(access.kind==='unauthorized')return error('membership_denied');if(access.kind!=='authenticated')return error('unavailable');
     if(expectation.method!=='GET'&&!approvedPanelMutationOriginForStore(request,runtime.access.panelOrigin,access.tenantContext.store.slug))return error('origin_denied');
-    return {runtime,tenantContext:access.tenantContext,now:new Date(now),contractVersion,...(header==='6'?{staffContractVersion:6 as const}:header==='5'?{staffContractVersion:5 as const}:{})};
+    return {runtime,tenantContext:access.tenantContext,now:new Date(now),contractVersion,...(header==='7'?{staffContractVersion:7 as const}:header==='6'?{staffContractVersion:6 as const}:header==='5'?{staffContractVersion:5 as const}:{})};
   }catch{return error('unavailable');}
 }
 async function execute(operation:()=>Promise<unknown>,parse:(value:unknown)=>unknown):Promise<Response>{

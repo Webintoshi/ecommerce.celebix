@@ -96,6 +96,10 @@ test("legacy delivery retry keeps exact SQL tenant order and record identity",as
   assert.deepEqual(result,value);
 });
 import test from "node:test";
+test('orders access reads the authoritative store-bound boolean and rejects malformed grants',async()=>{
+ for(const canManageOrders of [false,true]){const client=new FakeClient((sql,values)=>{if(sql.includes('saas.orders_access_read(')){assert.equal(values[0],STORE_ID);assert.equal(values[1],PRINCIPAL_ID);assert.equal(values[2],MEMBERSHIP_ID);assert.equal(values.length,7);return [{outcome:'found',result_payload:{canManageOrders}}];}return [];});const result=await repository(new FakePool(client)).getAccess({tenantContext:tenantContext(),now:NOW});assert.deepEqual(result,{canManageOrders});assert.ok(Object.isFrozen(result));}
+ for(const value of [{},{canManageOrders:'true'},{canManageOrders:true,role:'admin'}]){const client=new FakeClient(sql=>sql.includes('orders_access_read')?[{outcome:'found',result_payload:value}]:[]);await assert.rejects(()=>repository(new FakePool(client)).getAccess({tenantContext:tenantContext(),now:NOW}),error=>error instanceof OrderRepositoryError&&error.code==='unavailable');assert.equal(client.calls.at(-1)?.text,'ROLLBACK');}
+});
 
 import type { TenantContext } from "@celebix/saas-contracts";
 

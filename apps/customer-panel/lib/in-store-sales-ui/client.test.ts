@@ -3,6 +3,13 @@ import test from "node:test";
 import { createInStoreSalesUiClient, InStoreSalesUiError } from "./client.ts";
 const SALE_ID="9e000000-0000-4000-8000-000000000001", OP="9e000000-0000-4000-8000-000000000002", LOCATION="9e000000-0000-4000-8000-000000000003";
 const reply=(value:unknown,status=200)=>new Response(JSON.stringify(value),{status,headers:{"content-type":"application/json"}});
+test('staff seven sends only the explicit orders grant with unchanged sale version and retry key',async()=>{
+ const grant={membershipId:SALE_ID,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,version:1,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:false,canManageAccounting:false,commissionEnabled:false,commissionRateBps:0,canManageOrders:true};const calls:any[]=[];
+ const client=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:7 as never,fetch:async(url,init)=>{calls.push({url,version:new Headers(init?.headers).get('x-celebix-in-store-version'),key:new Headers(init?.headers).get('idempotency-key'),body:init?.body&&JSON.parse(String(init.body))});return reply({data:String(url).endsWith('/staff')?{staff:[grant]}:grant});}});
+ assert.equal(client.contractVersion,4);assert.equal((await client.listStaff())[0].canManageOrders,true);
+ const {membershipId,label,role,version,...flags}=grant;const input={expectedVersion:0,...flags};await client.setStaffGrant(SALE_ID,input,OP);assert.deepEqual(calls.map(c=>c.version),['7','7']);assert.equal(calls[1].key,OP);assert.deepEqual(calls[1].body,input);
+ const missing={...input};delete(missing as any).canManageOrders;await assert.rejects(()=>client.setStaffGrant(SALE_ID,missing,OP));assert.equal(calls.length,2);
+});
 test("barcode lookup preserves leading zeros and uses exact barcode parameter",async()=>{
   let url="";const client=createInStoreSalesUiClient({fetch:async(input)=>{url=String(input);return reply({data:{products:[]}});}});
   assert.deepEqual(await client.searchProducts({locationId:LOCATION,barcode:"0001234567890"}),[]);

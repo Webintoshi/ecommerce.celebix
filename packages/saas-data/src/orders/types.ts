@@ -142,6 +142,7 @@ export interface ListOrderDraftsResult {
 }
 
 export interface OrderRepository {
+  getAccess?(input: OrderAuthorityInput): Promise<Readonly<{canManageOrders:boolean}>>;
   getDeletionImpact(input: GetOrderInput): Promise<PermanentDeletionImpact>;
   deleteOrder(input: DeleteOrderInput): Promise<PermanentDeletionResult>;
   getArchiveEligibility(input: GetOrderInput): Promise<OrderArchiveEligibility>;

@@ -49,7 +49,7 @@ test("returning to an order refreshes current contact while an open form preserv
 class ApiError extends Error { constructor(readonly code: string) { super(code); } }
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 type View = Record<string, any>;
-async function mounted(overrides: Record<string, (...args: any[]) => any>, verify: (context: { props: () => View; render: (id?: string) => Promise<void>; browser: Window; container: HTMLElement; submit: (callback: string, data: Record<string, string>) => Promise<void> }) => Promise<void>, initial = base, presentation = false) {
+async function mounted(overrides: Record<string, (...args: any[]) => any>, verify: (context: { props: () => View; render: (id?: string) => Promise<void>; browser: Window; container: HTMLElement; submit: (callback: string, data: Record<string, string>) => Promise<void> }) => Promise<void>, initial = base, presentation = false, capabilities: typeof caps & {providerShipping?:boolean} = caps) {
   const browser = new Window({ url: "https://panel.example.test/orders/test" });
   // happy-dom has no top-layer modal implementation; exercise the React event/focus lifecycle.
   browser.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
@@ -72,7 +72,7 @@ async function mounted(overrides: Record<string, (...args: any[]) => any>, verif
       if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });
       if (name === "@/components/panel/PanelPageShell") return { PanelPageShell: ({ children }: any) => createElement("main", null, children), PanelStatusBadge: ({ children }: any) => createElement("span", null, children) };
       if (name === "@/components/accounting/OrderFinancePanel") return { OrderFinancePanel: () => null };
-      if (name === "@/components/shipping/OrderShipmentConsole") return { OrderShipmentConsole: () => null };
+      if (name === "@/components/shipping/OrderShipmentConsole") return { OrderShipmentConsole: () => createElement("div", {"data-provider-shipping":true}) };
       if (name === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
       if (name === "@/lib/order-ui/client") return { orderApi: api, OrderApiError: ApiError };
       if (name === "./OrderActionDialog") return dialog;
@@ -90,7 +90,7 @@ async function mounted(overrides: Record<string, (...args: any[]) => any>, verif
   const nativeContainer = browser.document.createElement("div"); browser.document.body.append(nativeContainer);
   const container = nativeContainer as unknown as HTMLElement;
   const root = createRoot(container);
-  const render = async (id = ID) => { await act(async () => root.render(createElement(compiled.exports.OrderDetailConsole, { orderId: id, capabilities: caps }))); };
+  const render = async (id = ID) => { await act(async () => root.render(createElement(compiled.exports.OrderDetailConsole, { orderId: id, capabilities }))); };
   const submit = async (callback: string, data: Record<string, string>) => {
     const form = browser.document.createElement("form");
     for (const [name, value] of Object.entries(data)) { const input = browser.document.createElement("input"); input.name = name; input.value = value; form.append(input); }
@@ -162,4 +162,8 @@ test("failed note retains its input, Escape returns focus to visible overflow su
     await act(async () => note.closest("form")!.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true }) as unknown as Event));
     assert.equal(note.value, "Korunacak not"); assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /tamamlanamadı/);
   }, base, true);
+});
+
+test('cashier order grant keeps manual shipping editing without mounting provider controls',async()=>{
+ await mounted({},async({container})=>{assert.match(container.textContent!,/Elle düzenle/);assert.equal(container.querySelector('[data-provider-shipping]'),null);},base,true,{...caps,delete:false,providerShipping:false});
 });
