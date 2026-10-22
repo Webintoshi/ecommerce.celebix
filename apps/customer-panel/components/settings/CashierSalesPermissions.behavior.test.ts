@@ -20,6 +20,20 @@ const props = (salesClient: any, extra: any = {}) => ({ membershipId: MEMBER, st
 const field = (host: any, name: string) => host.querySelector(`[name="${name}"]`);
 async function submit(host: any, window: any) { await act(async () => host.querySelector('[data-cashier-sales-form]').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))); }
 async function toggle(host: any, name: string) { await act(async () => field(host, name).click()); }
+test('overview permission defaults closed and saves independently while preserving other permissions', async () => {
+  const writes:any[]=[];
+  await mounted(dialog(),props(client({setStaffGrant:async(_id:string,body:any,key:string)=>{writes.push({body,key});return{...grant,...body,version:5};}})),async(host,window)=>{
+    assert.equal(field(host,'canViewOverview')?.checked,false);
+    assert.equal(host.querySelectorAll('[name="canViewOverview"]').length,1);
+    await toggle(host,'canViewOverview');await submit(host,window);
+    assert.equal(writes.length,1);assert.equal(writes[0].body.canViewOverview,true);
+    assert.equal(writes[0].body.canManageOrders,false);assert.equal(writes[0].body.canManageAccounting,false);
+    assert.equal(writes[0].body.canEditPrice,true);assert.equal(writes[0].body.canCollectReceivables,false);
+  });
+  await mounted(dialog(),props(client({listStaff:async()=>[{...grant,canViewOverview:true}]})),async host=>{
+    assert.equal(field(host,'canViewOverview').checked,true);
+  });
+});
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 test('orders permission defaults closed and saves one explicit checkbox without enabling finance',async()=>{
  const writes:any[]=[];await mounted(dialog(),props(client({setStaffGrant:async(_id:string,body:any)=>{writes.push(body);return {...grant,...body,version:5};}})),async(host,window)=>{
@@ -75,7 +89,7 @@ test('save uses the selected membership, server version and explicit flags witho
     await input(window, field(host, 'discount'), '20,25'); await toggle(host, 'canCollectReceivables'); await toggle(host, 'canEditPrice');
     await submit(host, window);
     assert.equal(writes.length, 1); assert.equal(saved, 1);
-    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false, canManageOrders: false, commissionEnabled: false, commissionRateBps: 0 });
+    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false, canManageOrders: false, canViewOverview: false, commissionEnabled: false, commissionRateBps: 0 });
     assert.equal(writes[0].id, MEMBER); assert.ok(writes[0].key);
   });
 });
@@ -83,10 +97,10 @@ test('save uses the selected membership, server version and explicit flags witho
 test('uncertain save freezes the draft and retries the identical operation while keeping cancel and Escape available', async () => {
   const writes: any[] = []; let closed = 0;
   await mounted(dialog(), props(client({ setStaffGrant: async (id: string, body: any, key: string) => { writes.push({ id, body, key }); throw new clientModule.InStoreSalesUiError('unavailable', 503, true); } }), { onClose: () => closed++ }), async (host, window) => {
-    await input(window, field(host, 'discount'), '15'); await submit(host, window);
+    await toggle(host, 'canViewOverview'); await input(window, field(host, 'discount'), '15'); await submit(host, window);
     assert.match(host.textContent, /Sonuç doğrulanamadı/); assert.equal(field(host, 'discount').value, '15'); assert.equal(field(host, 'discount').closest('fieldset').disabled, true);
     await new Promise(resolve => setTimeout(resolve, 10)); assert.equal(writes.length, 1);
-    await submit(host, window); assert.equal(writes.length, 2); assert.deepEqual(writes[1], writes[0]);
+    await submit(host, window); assert.equal(writes.length, 2); assert.deepEqual(writes[1], writes[0]); assert.equal(writes[1].body.canViewOverview, true);
     await click(host, 'Vazgeç'); assert.equal(closed, 1);
     await act(async () => host.querySelector('dialog').dispatchEvent(new window.Event('cancel', { cancelable: true })));
     assert.equal(closed, 2); assert.equal(writes.length, 2);

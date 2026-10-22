@@ -11,6 +11,18 @@ const now=new Date('2026-09-26T09:00:00.000Z');
 const tenantContext={schemaVersion:1,requestId:id,principal:{id,issuer:'https://identity.example',subject:'cashier'},store:{id,slug:'butik-siora',status:'active'},membership:{id,role:'store_owner',status:'active'},entitlements:{schemaVersion:1,planId:id,planCode:'free_starter',version:1,status:'active',features:['orders'],limits:{products:100,staff:5,storageBytes:1024,monthlyOrders:100},validFrom:'2026-01-01T00:00:00.000Z',validUntil:'2027-01-01T00:00:00.000Z'},locale:'tr-TR'} as TenantContext;
 const credential=`v1.panel.current.${Buffer.alloc(32,0x31).toString('base64url')}`;
 function req(path:string,body?:unknown,headers:Record<string,string>={}){return new Request(`https://${host}/api/orders/in-store/${path}`,{method:body===undefined?'GET':'POST',headers:{host,cookie:`__Host-celebix_panel=${credential}`,origin:`https://${host}`,'content-type':'application/json','idempotency-key':id,...headers},...(body===undefined?{}:{body:JSON.stringify(body)})});}
+test('staff eight accepts only an explicit overview boolean on authenticated staff endpoints',async()=>{
+ const grant={membershipId:id,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[id],discountLimitBps:0,version:1,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:false,canManageAccounting:false,commissionEnabled:false,commissionRateBps:0,canManageOrders:false,canViewOverview:true};const calls:any[]=[];
+ const runtime={access:{panelOrigin:origin,resolveCredential:async()=>({kind:'authenticated',tenantContext})},sales:{listStaff:async(input:unknown)=>{calls.push(input);return{staff:[grant]};},setStaffGrant:async(input:unknown)=>{calls.push(input);return grant;}}}as unknown as ServerInStoreSalesRuntime;
+ const h=createInStoreSalesHttpHandlers({resolveRuntime:async()=>runtime,now:()=>now,requestId:()=>id}),headers={'x-celebix-in-store-version':'8'};
+ assert.equal((await h.listStaff(req('staff',undefined,headers))).status,200);
+ const {membershipId,label,role,version,...fields}=grant,input={...fields,expectedVersion:0};
+ assert.equal((await h.setStaffGrant(req('staff/'+id,input,headers),id)).status,200);
+ assert.equal(calls[0].staffContractVersion,8);assert.equal(calls[1].canViewOverview,true);assert.equal(calls[1].canManageOrders,false);assert.equal(calls[1].canManageAccounting,false);
+ for(const value of[undefined,'true',1,null])assert.equal((await h.setStaffGrant(req('staff/'+id,{...input,canViewOverview:value},headers),id)).status,400);
+ assert.equal((await h.bootstrap(req('bootstrap',undefined,headers))).status,400);
+ assert.equal((await h.setStaffGrant(req('staff/'+id,input,{...headers,origin:'https://foreign.test'}),id)).status,403);assert.equal(calls.length,2);
+});
 const sale={id,saleNumber:'MS-1',status:'draft',version:1,locationId:id,locationName:'Mağaza',ownerMembershipId:id,ownerLabel:'Kasiyer',customerName:null,note:null,discount:null,items:[],totals:{subtotalCents:0,eligibleSubtotalCents:0,discountCents:0,totalCents:0},createdAt:now.toISOString(),updatedAt:now.toISOString(),paymentReceivedAt:null,completedAt:null,orderId:null,orderNumber:null};
 function harness(result:unknown={sale,replayed:false,priceChanged:false}) {
   const calls:unknown[]=[];
