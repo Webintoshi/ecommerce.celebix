@@ -8,9 +8,16 @@ test('orders grant admits only list, UUID detail and print routes',()=>{
 });
 
 test('cashiers can reach sales, analytics, product editing and their own security settings', () => {
-  for (const path of ['/', '/orders/quick-links', '/analytics', '/products', '/products/new', '/products/11111111-1111-4111-8111-111111111111', '/accounting/receivables', '/settings/security']) {
+  for (const path of ['/orders/quick-links', '/analytics', '/products', '/products/new', '/products/11111111-1111-4111-8111-111111111111', '/accounting/receivables', '/settings/security']) {
     assert.equal(isCashierPanelPathAllowed(path), true, path);
   }
+});
+
+test('Overview is denied by default and its grant opens only the exact root route',()=>{
+ assert.equal(isCashierPanelPathAllowed('/'),false);
+ assert.equal(isCashierPanelPathAllowed('/',true,true,false),false);
+ assert.equal(isCashierPanelPathAllowed('/',false,false,true),true);
+ for(const path of ['/customers','/orders','/orders/payment-links','/settings/design','/marketing','/overview','//','/?canViewOverview=true'])assert.equal(isCashierPanelPathAllowed(path,false,false,true),false,path);
 });
 
 test('cashier page access denies ecommerce and near matches even when the sidebar is bypassed', () => {

@@ -1735,3 +1735,16 @@
   .metricSkeleton, .chartSkeleton span { animation: none; }
   .quickAction, .quickActionPrimary { transition: none; }
 }
+.singleColumn {
+  grid-template-columns: minmax(0, 1fr);
+}
+.operationsGrid.singleColumn .topProducts {
+  border-left: 0;
+  padding-left: 0;
+}
+.cashierQuickActions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (max-width: 520px) {
+  .cashierQuickActions { grid-template-columns: minmax(0, 1fr); }
+}

@@ -5,6 +5,6 @@ import { redirect } from "next/navigation";
 
 export default async function PanelHomePage() {
   const access=await requireServerPanelAccess();
-  if(access.tenantContext.membership.role === "cashier") redirect("/orders/quick-links");
+  if(access.tenantContext.membership.role === "cashier" && access.overviewAccess?.canViewOverview !== true) redirect("/orders/quick-links");
   return <PanelDashboardHomeView />;
 }

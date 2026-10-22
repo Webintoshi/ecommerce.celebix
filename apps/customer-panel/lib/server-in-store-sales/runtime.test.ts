@@ -17,3 +17,11 @@ test('legacy registration keeps required methods and incomplete registration fai
  assert.throws(()=>registerServerInStoreSalesRepository(access(),{} as InStoreSalesRepository));
  assert.throws(()=>registerServerInStoreSalesRepository(a,repository()));
 });
+test('Overview permission binding is optional, preserves repository receiver and exposes no private state',async()=>{
+ const a=access(),marker={private:true};let calls=0;
+ const r={...repository(),pool:marker,async getOverviewAccess(this:{pool:unknown}){assert.equal(this.pool,marker);calls++;return {canViewOverview:true};}} as unknown as InStoreSalesRepository;
+ registerServerInStoreSalesRepository(a,r);const resolved=resolveServerInStoreSalesRuntime(a)!;
+ assert.equal(typeof resolved.sales.getOverviewAccess,'function');
+ assert.deepEqual(await resolved.sales.getOverviewAccess!({} as never),{canViewOverview:true});assert.equal(calls,1);assert.equal('pool' in resolved.sales,false);
+ const old=access();registerServerInStoreSalesRepository(old,repository());assert.equal(resolveServerInStoreSalesRuntime(old)?.sales.getOverviewAccess,undefined);
+});

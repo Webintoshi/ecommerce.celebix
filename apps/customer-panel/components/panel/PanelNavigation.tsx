@@ -310,6 +310,7 @@ export function PanelNavigation({
   analyticsAvailable = false,
   navigationMode,
   staffManagementAvailable = false,
+  cashierOverviewAvailable = false,
   cashierOrdersAvailable = false,
   cashierAccountingAvailable = false,
   accountingCommissionsAvailable = false,
@@ -319,13 +320,14 @@ export function PanelNavigation({
   analyticsAvailable?: boolean;
   navigationMode?: "register";
   staffManagementAvailable?: boolean;
+  cashierOverviewAvailable?: boolean;
   cashierOrdersAvailable?: boolean;
   cashierAccountingAvailable?: boolean;
   accountingCommissionsAvailable?: boolean;
   lockedNavigationHrefs?: readonly string[];
 }) {
   const pathname = usePathname() ?? "";
-  const navigation = getPanelNavigation({ analyticsAvailable, navigationMode, cashierOrdersAvailable, cashierAccountingAvailable, accountingCommissionsAvailable }).filter(({ key }) => key !== "setup").map((item) => ({
+  const navigation = getPanelNavigation({ analyticsAvailable, navigationMode, cashierOverviewAvailable, cashierOrdersAvailable, cashierAccountingAvailable, accountingCommissionsAvailable }).filter(({ key }) => key !== "setup").map((item) => ({
     ...item,
     ...(item.children ? { children: item.children
       .filter((child) => child.href !== "/settings/administrators" || staffManagementAvailable)
@@ -407,7 +409,7 @@ export function PanelNavigation({
               <NavigationLink key={item.key} item={item} currentHref={currentHref} context={context} />
             )) : <p className={styles.navigationEmpty}>Sonuç bulunamadı. Başka bir kelime deneyin.</p>}
           </section>
-        ) : (navigationMode === 'register' ? [{key:'register',label:'Mağaza',items:['quick-orders','cashier-receivables','accounting','analytics','catalog']}] : NAVIGATION_SECTIONS).map((section) => {
+        ) : (navigationMode === 'register' ? [{key:'register',label:'Mağaza',items:['summary','orders','quick-orders','cashier-receivables','accounting','analytics','catalog']}] : NAVIGATION_SECTIONS).map((section) => {
           const sectionItems = section.items.map((key) => navigationByKey.get(key)).filter((item): item is PanelNavigationItem => Boolean(item));
           if (!sectionItems.length) return null;
           const headingId = `panel-nav-section-${section.key}-${mode}`;

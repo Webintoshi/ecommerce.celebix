@@ -1,10 +1,13 @@
 import { parseAnalyticsDashboard, type AnalyticsPeriod, type TenantContext } from "@celebix/saas-contracts";
-import { ANALYTICS_ERROR_CODES, AnalyticsRepositoryError } from "@celebix/saas-data";
+import { ANALYTICS_ERROR_CODES, AnalyticsRepositoryError, inStoreSalesRepositoryErrorCode } from "@celebix/saas-data";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import type { ServerAnalyticsRuntime } from "../server-analytics/runtime.ts";
 import { readOrderPanelSessionCookie } from "../order-http/request-input.ts";
+import { readOverviewAccess } from "../server-overview/permission.ts";
+import { resolveServerInStoreSalesRuntime } from "../server-in-store-sales/runtime.ts";
 
 const DASHBOARD_PATH = "/api/analytics/dashboard";
+const OVERVIEW_PATH = "/api/overview/dashboard";
 const EXPORT_PATH = "/api/analytics/export";
 const PRIVATE_HEADERS = new Set(["authorization", "x-panel-session-credential", "x-store-id", "x-tenant-id", "x-principal-id", "x-membership-id", "x-plan-id", "x-database-role", "x-database-url"]);
 const MAX_RAW_QUERY_BYTES = 64;
@@ -15,9 +18,9 @@ type Query = Readonly<{ period: AnalyticsPeriod; format?: "csv" | "json" }>;
 function response(value: unknown, status = 200, headers?: HeadersInit) { const output = new Headers(headers); output.set("cache-control", "no-store"); output.set("x-content-type-options", "nosniff"); return Response.json(value, { status, headers: output }); }
 function error(code: string, status: number, headers?: HeadersInit) { return response({ code }, status, headers); }
 function privateHeaders(request: Request): boolean { try { for (const [name] of request.headers) if (PRIVATE_HEADERS.has(name) || name.startsWith("x-celebix")) return true; return false; } catch { return true; } }
-function query(request: Request, allowFormat: boolean): Query | null {
+function query(request: Request, allowFormat: boolean, overview: boolean): Query | null {
   let url: URL; try { url = new URL(request.url); } catch { return null; }
-  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.hash || (allowFormat ? url.pathname !== EXPORT_PATH : url.pathname !== DASHBOARD_PATH)) return null;
+  if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || url.hash || url.pathname !== (overview ? OVERVIEW_PATH : allowFormat ? EXPORT_PATH : DASHBOARD_PATH)) return null;
   const raw = url.search.slice(1);
   if (!raw || raw.length > MAX_RAW_QUERY_BYTES || !/^[\x21-\x7e]+$/.test(raw)) return null;
   const dashboardMatch = /^period=(today|week|month|year)$/.exec(raw);
@@ -27,9 +30,9 @@ function query(request: Request, allowFormat: boolean): Query | null {
 }
 function noBody(request: Request): boolean { return request.body === null && request.headers.get("content-length") === null && request.headers.get("transfer-encoding") === null && request.headers.get("content-type") === null; }
 function isResponse(value: unknown): value is Response { return value instanceof Response; }
-async function authorize(dependencies: Dependencies, request: Request, allowFormat: boolean): Promise<Response | Readonly<{ authorized: Authorized; query: Query }>> {
+async function authorize(dependencies: Dependencies, request: Request, allowFormat: boolean, overview: boolean): Promise<Response | Readonly<{ authorized: Authorized; query: Query }>> {
   if (request.method !== "GET") return error("method_not_allowed", 405, { allow: "GET" });
-  const parsed = query(request, allowFormat); if (!parsed || !noBody(request) || privateHeaders(request)) return error("invalid_input", 400);
+  const parsed = query(request, allowFormat, overview); if (!parsed || !noBody(request) || privateHeaders(request)) return error("invalid_input", 400);
   let cookie; try { cookie = readOrderPanelSessionCookie(request); } catch { return error("unauthenticated", 401); } if (cookie.kind !== "present") return error("unauthenticated", 401);
   let runtime: ServerAnalyticsRuntime | null; try { runtime = await dependencies.resolveRuntime(); } catch { return error("unavailable", 503); } if (!runtime) return error("unavailable", 503);
   let now: Date, requestId: string; try { now = dependencies.now(); requestId = dependencies.requestId(); } catch { return error("unavailable", 503); }
@@ -41,6 +44,8 @@ async function authorize(dependencies: Dependencies, request: Request, allowForm
   return Object.freeze({ authorized: Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) }), query: parsed });
 }
 function repositoryError(value: unknown): Response {
+  const overviewCode = inStoreSalesRepositoryErrorCode(value);
+  if (overviewCode) return error(overviewCode, overviewCode === "invalid_input" ? 400 : overviewCode === "unauthenticated" ? 401 : ["membership_denied", "store_inactive", "feature_not_enabled"].includes(overviewCode) ? 403 : 503);
   if (!(value instanceof AnalyticsRepositoryError) || !ANALYTICS_ERROR_CODES.includes(value.code)) return error("unavailable", 503);
   const status = value.code === "invalid_input" ? 400 : value.code === "unauthenticated" ? 401 : ["membership_denied", "store_inactive", "feature_not_enabled"].includes(value.code) ? 403 : value.code === "durable_authority_invalid" ? 409 : 503;
   return error(value.code, status);
@@ -49,14 +54,23 @@ function csv(dashboard: ReturnType<typeof parseAnalyticsDashboard>): Response { 
 
 export function createAnalyticsDashboardHttpHandlers(dependencies: Dependencies) {
   if (!dependencies || typeof dependencies.resolveRuntime !== "function" || typeof dependencies.now !== "function" || typeof dependencies.requestId !== "function") throw new Error("analytics_http_handler_invalid");
-  async function run(request: Request, exporting: boolean): Promise<Response> {
-    const authorization = await authorize(dependencies, request, exporting);
+  async function run(request: Request, exporting: boolean, overview = false): Promise<Response> {
+    const authorization = await authorize(dependencies, request, exporting, overview);
     if (isResponse(authorization)) return authorization;
     try {
-      const dashboard = parseAnalyticsDashboard(await authorization.authorized.runtime.analytics.dashboard({ tenantContext: authorization.authorized.tenantContext, now: authorization.authorized.now, period: authorization.query.period }));
+      const {runtime,tenantContext,now}=authorization.authorized;
+      let value;
+      if (overview && tenantContext.membership.role === "cashier") {
+        if (!(await readOverviewAccess(tenantContext,runtime.access,now)).canViewOverview) return error("membership_denied",403);
+        const sales=resolveServerInStoreSalesRuntime(runtime.access)?.sales;
+        if (!sales?.getOverviewDashboard) return error("unavailable",503);
+        value=await sales.getOverviewDashboard({tenantContext,now,period:authorization.query.period});
+      } else value=await runtime.analytics.dashboard({tenantContext,now,period:authorization.query.period});
+      const dashboard = parseAnalyticsDashboard(value);
+      if (dashboard.period !== authorization.query.period) return error("unavailable",503);
       if (exporting && authorization.query.format === "csv") return csv(dashboard);
       return response(dashboard, 200, exporting ? { "content-disposition": "attachment; filename=\"merchant-analytics.json\"" } : undefined);
     } catch (caught) { return repositoryError(caught); }
   }
-  return Object.freeze({ dashboard(request: Request) { return run(request, false); }, export(request: Request) { return run(request, true); } });
+  return Object.freeze({ dashboard(request: Request) { return run(request, false); }, export(request: Request) { return run(request, true); }, overview(request: Request) { return run(request, false, true); } });
 }

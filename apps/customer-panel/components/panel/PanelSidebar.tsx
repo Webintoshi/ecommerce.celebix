@@ -18,9 +18,9 @@ import { PanelNavigation } from "./PanelNavigation";
 import { StoreSwitcher } from "./StoreSwitcher";
 import styles from "./panel-shell.module.css";
 
-function PanelBrand({ onClick }: { onClick?: () => void }) {
+function PanelBrand({ homeHref, onClick }: { homeHref: "/" | "/orders/quick-links"; onClick?: () => void }) {
   return (
-    <Link className={styles.brand} href="/" aria-label="Celebix Panel ana sayfa" onClick={onClick}>
+    <Link className={styles.brand} href={homeHref} aria-label="Celebix Panel ana sayfa" onClick={onClick}>
       <span className={styles.brandMark}>
         <Image src="/Logo/celebix-beyaz-logo.svg" width={1540} height={390} alt="Celebix" />
       </span>
@@ -56,11 +56,11 @@ function StoreIdentity({ model }: { model: PanelClientChromeModel }) {
   );
 }
 
-function SidebarFooter({ onBrandClick }: { onBrandClick?: () => void }) {
+function SidebarFooter({ homeHref, onBrandClick }: { homeHref: "/" | "/orders/quick-links"; onBrandClick?: () => void }) {
   return (
     <div className={styles.sidebarFooter}>
       <Link className={styles.footerSecurity} href="/settings/security" onClick={onBrandClick}><ShieldCheck size={18} aria-hidden="true" /><span>Giriş güvenliği</span></Link>
-      <PanelBrand onClick={onBrandClick} />
+      <PanelBrand homeHref={homeHref} onClick={onBrandClick} />
       <LogoutButton />
     </div>
   );
@@ -80,6 +80,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
   const [drawerPresent, setDrawerPresent] = useState(open);
   const reduceMotion = useReducedMotion();
   const motionDuration = reduceMotion ? 0.00001 : 0.2;
+  const homeHref = model.navigationMode === "register" && model.cashierOverviewAvailable !== true ? "/orders/quick-links" : "/";
 
   useEffect(() => {
     if (mode !== "drawer" || !open) return;
@@ -197,9 +198,9 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
                 </button>
               </div>
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
-                <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
+                <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOverviewAvailable={model.cashierOverviewAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
               </div>
-              <SidebarFooter onBrandClick={onClose} />
+              <SidebarFooter homeHref={homeHref} onBrandClick={onClose} />
             </motion.aside>
           </>
         ) : null}
@@ -210,8 +211,8 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
   return (
     <aside className={styles.desktopSidebar}>
       <StoreIdentity model={model} />
-      <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
-      <SidebarFooter />
+      <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOverviewAvailable={model.cashierOverviewAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
+      <SidebarFooter homeHref={homeHref} />
     </aside>
   );
 }

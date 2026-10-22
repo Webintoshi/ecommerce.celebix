@@ -28,6 +28,7 @@ function components(overrides:Record<string,unknown>={}){return compile<any>(new
  '@/lib/abandoned-cart-ui/client':{abandonedCartApi:{getSummary:async()=>carts}},
  '@/lib/customer-ui/client':{customerApi:{summary:async()=>customers}},
  '@/lib/analytics-ui/client':{analyticsApi:{dashboard:async()=>analytics()},createAnalyticsBrowserApi:()=>({})},
+ '@/lib/overview-ui/client':{overviewApi:{dashboard:async()=>analytics()}},
  '@/lib/analytics-ui/active-visitors':{createActiveVisitorPoller(){throw Error('no_new_polling');}},...overrides,
 });}
 test('same-period refresh keeps ready chart, product and order DOM while errors hide retained analytics',async()=>{
@@ -73,5 +74,38 @@ test('a successfully resolved empty recent list survives refresh but never an er
   await render(React.createElement(Presentation,{...base,recentOrders:[]}));const empty=container.querySelector('[data-dashboard-body="recent-orders"] strong');assert.equal(empty?.textContent,'Henüz sipariş bulunmuyor.');assert.equal(container.querySelector('[data-dashboard-body="recent-orders"]')?.getAttribute('data-empty'),'true');
   await render(React.createElement(Presentation,{...base,recentOrders:[],recentOrdersState:'loading',recentOrdersResolved:true}));assert.ok(container.querySelector('[data-dashboard-body="recent-orders"] strong')===empty);assert.equal(container.querySelector('[data-dashboard-body="recent-orders"]')?.getAttribute('data-empty'),'true');assert.equal(container.querySelector('.recentOrders')?.getAttribute('aria-busy'),'true');
   await render(React.createElement(Presentation,{...base,recentOrdersState:'error',recentOrdersResolved:false}));assert.equal(container.querySelector('[data-dashboard-body="recent-orders"] tbody'),null);assert.equal(container.querySelector('[data-dashboard-body="recent-orders"]')?.getAttribute('data-empty'),'false');assert.match(container.querySelector('[data-dashboard-body="recent-orders"]')!.textContent!,/şu anda kullanılamıyor/);
+ });
+});
+
+test('cashier Overview skips forbidden reads and links while its independent Orders grant controls operational rows',async()=>{
+ for(const allowed of [false,true]){
+  const calls:string[]=[],cashierChrome={...chrome,navigationMode:'register',cashierOverviewAvailable:true,cashierOrdersAvailable:allowed,storefrontHostname:undefined};
+  const{PanelDashboardHomeView:Home}=components({
+   '@/components/panel/PanelLayoutClient':{usePanelChromeModel:()=>cashierChrome},
+   '@/lib/catalog-ui/client':{catalogApi:{getDashboardSummary:async()=>{calls.push('catalog');return{...catalog,productsWithoutMedia:0};}}},
+   '@/lib/order-ui/client':{orderApi:{getDashboardSummary:async()=>{calls.push('orders');return orders;},listOrders:async()=>{calls.push('recent');return{items:recent};}}},
+   '@/lib/abandoned-cart-ui/client':{abandonedCartApi:{getSummary:async()=>{calls.push('carts');return carts;}}},
+   '@/lib/customer-ui/client':{customerApi:{summary:async()=>{calls.push('customers');return customers;}}},
+   '@/lib/analytics-ui/client':{analyticsApi:{dashboard:async()=>{calls.push('analytics');return analytics();}},createAnalyticsBrowserApi:()=>({})},
+   '@/lib/overview-ui/client':{overviewApi:{dashboard:async()=>{calls.push('overview');return analytics();}}},
+  });
+  await withEditor(async({container,render})=>{
+   await render(React.createElement(Home));await React.act(async()=>{await Promise.resolve();});
+   assert.ok(calls.includes('overview'));assert.equal(calls.includes('analytics'),false);assert.ok(calls.includes('catalog'));assert.equal(calls.includes('customers'),false);assert.equal(calls.includes('carts'),false);
+   assert.equal(calls.includes('orders'),allowed);assert.equal(calls.includes('recent'),allowed);
+   assert.equal(Boolean(container.querySelector('[data-dashboard-body="recent-orders"]')),allowed);assert.equal(Boolean(container.querySelector('[data-dashboard-body="order-status"]')),allowed);
+   assert.ok(container.querySelector('[data-dashboard-chart="sales"]'));assert.match(container.textContent!,/Yeni müşteri/);
+   for(const link of Array.from(container.querySelectorAll<HTMLAnchorElement>('a[href]'))){const path=link.getAttribute('href')!;assert.equal(/^\/(customers|discounts|settings|setup)(\/|$)/.test(path),false,path);assert.equal(path.startsWith('/orders/abandoned-carts'),false,path);if(!allowed)assert.equal(path==='/orders'||/^\/orders\/[0-9a-f-]+$/.test(path),false,path);}
+   assert.equal(container.querySelector('#customer-view-title'),null);assert.doesNotMatch(container.textContent!,/Müşteri veya sepet verilerinin|operasyon sinyalleri kullanılamıyor/i);
+  });
+ }
+});
+
+test('cashier permission revocation hides retained order data and stops its subsequent reloads',async()=>{
+ let granted=true;const calls:string[]=[],cashierChrome=()=>({...chrome,navigationMode:'register',cashierOverviewAvailable:true,cashierOrdersAvailable:granted});
+ const{PanelDashboardHomeView:Home}=components({'@/components/panel/PanelLayoutClient':{usePanelChromeModel:cashierChrome},'@/lib/order-ui/client':{orderApi:{getDashboardSummary:async()=>{calls.push('summary');return orders;},listOrders:async()=>{calls.push('recent');return{items:recent};}}}});
+ await withEditor(async({container,render})=>{
+  await render(React.createElement(Home));assert.ok(container.textContent!.includes('ORDER-1'));const count=calls.length;granted=false;await render(React.createElement(Home));
+  assert.equal(container.textContent!.includes('ORDER-1'),false);assert.equal(container.querySelector('[data-dashboard-body="order-status"]'),null);assert.equal(calls.length,count);
  });
 });

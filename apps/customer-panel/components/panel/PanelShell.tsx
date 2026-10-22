@@ -13,7 +13,7 @@ const SERVER_CONTEXT_PROP = "tenant\u0043ontext" as const;
 
 type PanelShellProps = (
   | { children: React.ReactNode; model: PanelChromeModel; [SERVER_CONTEXT_PROP]?: never }
-  | { children: React.ReactNode; model?: never; [SERVER_CONTEXT_PROP]: TenantContext }) & { support?: SupportSidecar; ordersAccess?: Readonly<{canManageOrders:boolean}>; accountingAccess?: Readonly<{canManageAccounting: boolean; canCollectReceivables: boolean}> };
+  | { children: React.ReactNode; model?: never; [SERVER_CONTEXT_PROP]: TenantContext }) & { support?: SupportSidecar; overviewAccess?: Readonly<{canViewOverview:boolean}>; ordersAccess?: Readonly<{canManageOrders:boolean}>; accountingAccess?: Readonly<{canManageAccounting: boolean; canCollectReceivables: boolean}> };
 
 export async function PanelShell(props: PanelShellProps) {
   const entitledModel = props.model ?? createPanelChromeModel(props[SERVER_CONTEXT_PROP]);
@@ -35,6 +35,7 @@ export async function PanelShell(props: PanelShellProps) {
     analyticsAvailable,
     accountingCommissionsAvailable: context?.membership.role === "store_owner" || context?.membership.role === "admin",
     cashierOrdersAvailable: context?.membership.role === "cashier" && props.ordersAccess?.canManageOrders === true,
+    cashierOverviewAvailable: context?.membership.role === "cashier" && props.overviewAccess?.canViewOverview === true,
     cashierAccountingAvailable: context?.membership.role === "cashier" && props.accountingAccess?.canManageAccounting === true,
     staffManagementAvailable: Boolean(context && context.membership.role === 'store_owner' && !props.support),
     ...(context?.entitlements ? { lockedNavigationHrefs: commercialNavigationLocks(context) } : {}),

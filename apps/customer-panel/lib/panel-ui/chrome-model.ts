@@ -9,6 +9,7 @@ export interface PanelChromeModel {
   readonly storefrontHostname?: string;
   readonly locale: string;
   readonly navigationMode?: "register";
+  readonly cashierOverviewAvailable?: boolean;
   readonly cashierOrdersAvailable?: boolean;
   readonly cashierAccountingAvailable?: boolean;
   readonly accountingCommissionsAvailable?: boolean;

@@ -55,7 +55,7 @@ async function mounted(verify: (container: HTMLElement, browser: Window, render:
       useReducedMotion: () => true,
     },
     "./StoreSwitcher": switcher,
-    "./PanelNavigation": { PanelNavigation: () => createElement("nav", { "aria-label": "Panel menüsü" }) },
+    "./PanelNavigation": { PanelNavigation: ({ cashierOverviewAvailable }: { cashierOverviewAvailable?: boolean }) => createElement("nav", { "aria-label": "Panel menüsü", "data-overview-available": String(cashierOverviewAvailable === true) }) },
     "./LogoutButton": { LogoutButton: () => createElement("button", { type: "button" }, "Çıkış") },
   });
   const Component = compiled.PanelSidebar as React.ComponentType<{ model: PanelClientChromeModel } & SidebarOptions>;
@@ -72,6 +72,20 @@ test("a merchant sees their display name and logo rather than a slug avatar", as
     assert.equal(identity.querySelector("strong")?.textContent, "Alpler Spor");
     assert.equal(identity.querySelector("img")?.getAttribute("src"), "https://media.example.test/stores/alpler/logo.png");
     assert.equal(identity.querySelector("small")?.textContent, "Mağaza sahibi");
+  });
+});
+
+test("cashier brand links and navigation forwarding follow only an explicit overview grant in desktop and drawer", async () => {
+  await mounted(async (container, _browser, render) => {
+    for (const mode of ["desktop", "drawer"] as const) for (const cashierOverviewAvailable of [undefined, false, true]) {
+      await render({ ...MODEL, navigationMode: "register", cashierOverviewAvailable }, { mode, open: true });
+      const brand = container.querySelector('a[aria-label="Celebix Panel ana sayfa"]')!;
+      assert.equal(brand.getAttribute("href"), cashierOverviewAvailable === true ? "/" : "/orders/quick-links");
+      assert.equal(container.querySelector("nav")?.getAttribute("data-overview-available"), String(cashierOverviewAvailable === true));
+      assert.ok(container.querySelector('a[href="/settings/security"]'));
+    }
+    await render(MODEL);
+    assert.equal(container.querySelector('a[aria-label="Celebix Panel ana sayfa"]')?.getAttribute("href"), "/");
   });
 });
 

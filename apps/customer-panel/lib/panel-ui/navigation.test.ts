@@ -12,6 +12,19 @@ import {
   isPanelNavigationPathActive,
 } from "./navigation.ts";
 
+test("cashier overview navigation requires the exact explicit presentation grant", () => {
+  const baseline = getPanelNavigation({ analyticsAvailable: false, navigationMode: "register" });
+  for (const cashierOverviewAvailable of [undefined, false, null, "true", 1, true]) {
+    const navigation = getPanelNavigation({ analyticsAvailable: false, navigationMode: "register", cashierOverviewAvailable } as never);
+    assert.equal(navigation.some(({ href }) => href === "/"), cashierOverviewAvailable === true);
+    assert.deepEqual(navigation.filter(({ href }) => href !== "/"), baseline);
+    assert.equal(Object.isFrozen(navigation), true);
+  }
+  const ordinary = getPanelNavigation({ analyticsAvailable: false });
+  assert.deepEqual(getPanelNavigation({ analyticsAvailable: false, cashierOverviewAvailable: false }), ordinary);
+  assert.deepEqual(getPanelNavigation({ analyticsAvailable: false, cashierOverviewAvailable: true }), ordinary);
+});
+
 test('cashier navigation exposes manual sales, product management and available analytics without ecommerce tools',()=>{
   const navigation=getPanelNavigation({analyticsAvailable:true,navigationMode:'register'});
   assert.deepEqual(navigation.map(item=>item.href),['/orders/quick-links','/accounting/receivables','/analytics','/products']);
