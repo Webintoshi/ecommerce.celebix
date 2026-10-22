@@ -91,7 +91,7 @@ export function WhatsAppOrderButton(props:Props) {
         }
       }
       if(!isCurrent())return;
-      setState({fingerprint,generation:binding.generation,pending:false,destination:null,status:'WhatsApp açılıyor…'});
+      setState({fingerprint,generation:binding.generation,pending:false,destination:null,status:''});
       emitStorefrontCommerceEvent({name:'whatsapp_click',data:{source:'whatsapp_order_request',...(props.product?{productId:props.product.id}:{})}});
       window.location.assign(destination.url);
     }catch{
@@ -101,7 +101,7 @@ export function WhatsAppOrderButton(props:Props) {
     }
   };
   return <div className="whatsapp-order-action">
-    <button className={props.className??'store-button store-button-secondary'} type="button" disabled={!enabled||pending} onClick={()=>void prepare()}>{pending?'Hazırlanıyor…':'WhatsApp ile sipariş ver'}</button>
+    <button className={props.className??'store-button store-button-secondary'} type="button" disabled={!enabled||pending} aria-busy={pending} onClick={()=>void prepare()}>WhatsApp ile sipariş ver</button>
     {props.product&&!props.variant?<small>Önce bir seçenek seçin.</small>:null}
     {fallback?.requiresCopy?<textarea readOnly value={fallback.message} aria-label="Sipariş talebi mesajının tamamı" onFocus={event=>event.currentTarget.select()} onCopy={event=>{
       if(!current||generation.current!==current.generation||currentFingerprint.current!==current.fingerprint)return;
