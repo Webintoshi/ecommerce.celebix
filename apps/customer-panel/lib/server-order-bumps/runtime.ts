@@ -1,9 +1,10 @@
-import type { PostgresOrderBumpAdminRepository } from '@celebix/saas-data';
+import { resolveStoreToolsRepository } from '../server-store-tools/runtime.ts';
+import type { PostgresOrderBumpAdminRepository, StoreToolsRepository } from '@celebix/saas-data';
 import type { ServerPanelAccessRuntime } from '../server-panel-access/runtime.ts';
 import { resolveServerCatalogAdminRuntime, type ServerCatalogAdminRuntime } from '../server-catalog-admin/runtime.ts';
 
 type Repository = Pick<PostgresOrderBumpAdminRepository, 'get' | 'save' | 'options'>;
-export type ServerOrderBumpRuntime = ServerCatalogAdminRuntime & Readonly<{ orderBumps: Repository }>;
+export type ServerOrderBumpRuntime = ServerCatalogAdminRuntime & Readonly<{ orderBumps: Repository; storeTools?: StoreToolsRepository }>;
 const repositories = new WeakMap<ServerPanelAccessRuntime, Repository>();
 
 export function registerServerOrderBumpRepository(access: ServerPanelAccessRuntime, repository: Repository): void {
@@ -12,5 +13,5 @@ export function registerServerOrderBumpRepository(access: ServerPanelAccessRunti
 }
 export function resolveServerOrderBumpRuntime(access: ServerPanelAccessRuntime): ServerOrderBumpRuntime | null {
   const catalog = resolveServerCatalogAdminRuntime(access), orderBumps = repositories.get(access);
-  return catalog && orderBumps ? Object.freeze({ ...catalog, orderBumps }) : null;
+  return catalog && orderBumps ? Object.freeze({ ...catalog, orderBumps, storeTools: resolveStoreToolsRepository(access) }) : null;
 }

@@ -14,10 +14,11 @@ import {
   type ContactWidgetConfig,
   type MerchantAdminJson,
   type MerchantAdminRecord,
+  type StoreToolKey,
   type StorefrontDesignDestinationOption,
 } from "@celebix/saas-contracts";
 import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpRight, Check, ChevronRight, Clock3, Eye, FileText, GripVertical, Headset, Info, Instagram, Mail, MapPin, MessageCircle, Monitor, Phone, Plus, Send, Smartphone, X } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react";
 
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { MerchantAdminApiError, merchantAdminApi } from "@/lib/merchant-admin-ui/client";
@@ -94,13 +95,18 @@ function ChannelIcon({ type }: Readonly<{ type: ChannelType }>) {
   const Icon = type === "phone" ? Phone : type === "sms" ? MessageCircle : type === "email" ? Mail : type === "instagram" ? Instagram : type === "telegram" ? Send : type === "messenger" ? MessageCircle : type === "maps" ? MapPin : FileText;
   return <Icon size={20} aria-hidden="true" />;
 }
-function ToolArtwork({ store = false }: Readonly<{ store?: boolean }>) {
+export function ToolArtwork({ store = false }: Readonly<{ store?: boolean }>) {
   return <svg className={styles.artwork} viewBox={store ? "0 0 180 100" : "0 0 180 144"} aria-hidden="true" focusable="false">
     {store ? <><ellipse cx="90" cy="86" rx="68" ry="11" className={styles.artMuted} /><path d="M52 42h78v38H52zM43 42h95l-9-23H52z" className={styles.artOutline} /><path d="m54 19-4 23m22-23-2 23m22-23v23m20-23 2 23m14-23 5 23" className={styles.artLines} /><path d="M61 52h20v17H61zM103 51h18v29h-18z" className={styles.artMuted} /><path d="M88 60h6m51-38 5-7m-2 21h9" className={styles.artAccent} /><path d="M23 80h16l-3-11H26z" className={styles.artOrange} /><path d="M30 69Q17 55 22 48Q33 53 30 69M30 69Q44 54 40 47Q28 52 30 69" className={styles.artLeaf} /></> : <><ellipse cx="90" cy="112" rx="74" ry="20" className={styles.artSoft} /><path d="M34 31h92a12 12 0 0 1 12 12v49a12 12 0 0 1-12 12H79l-22 17v-17H34a12 12 0 0 1-12-12V43a12 12 0 0 1 12-12z" className={styles.artOutline} /><path d="M46 59h63M46 75h42" className={styles.artDetail} /><circle cx="135" cy="90" r="23" className={styles.artOutline} /><path d="m127 90 5 5 11-12m2-62 4-9m8 18 9-3M29 124h11" className={styles.artAccent} /></>}
   </svg>;
 }
 
-export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, timezone, growthToolsAvailable = true, whatsAppOrderingAvailable = true }: EngagementPermissions & Readonly<{growthToolsAvailable?: boolean;whatsAppOrderingAvailable?: boolean}>) {
+export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, timezone, growthToolsAvailable = true, whatsAppOrderingAvailable = true, toolAccess, renderLockedTool, purchaseSummary }: EngagementPermissions & Readonly<{growthToolsAvailable?: boolean;whatsAppOrderingAvailable?: boolean;toolAccess?: Readonly<Record<StoreToolKey,boolean>>;renderLockedTool?: (tool:StoreToolKey)=>ReactNode;purchaseSummary?:ReactNode}>) {
+  const contactAvailable = toolAccess?.contact_widget ?? growthToolsAvailable;
+  const restockAvailable = toolAccess?.restock ?? growthToolsAvailable;
+  const captureAvailable = toolAccess?.cart_capture ?? growthToolsAvailable;
+  const bumpAvailable = toolAccess?.order_bump ?? growthToolsAvailable;
+  const whatsappAvailable = toolAccess?.whatsapp_ordering ?? whatsAppOrderingAvailable;
   const [record, setRecord] = useState<MerchantAdminRecord | null>(null);
   const [baseline, setBaseline] = useState<ContactWidgetConfig>(() => createDefaultContactWidgetConfig());
   const [draft, setDraft] = useState<ContactWidgetConfig>(() => createDefaultContactWidgetConfig());
@@ -135,7 +141,7 @@ export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, 
     } catch { if (mountedRef.current) setLoadError("Mağaza araçları yüklenemedi."); }
     finally { if (mountedRef.current) setLoading(false); }
   }, []);
-  useEffect(() => { mountedRef.current = true; if (growthToolsAvailable) void load(); return () => { mountedRef.current = false; }; }, [load, growthToolsAvailable]);
+  useEffect(() => { mountedRef.current = true; if (contactAvailable) void load(); return () => { mountedRef.current = false; }; }, [load, contactAvailable]);
 
   const loadPages = useCallback(async () => {
     if (pagesReadingRef.current) return;
@@ -318,19 +324,21 @@ export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, 
   }
 
   return <PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={styles.workspace}>
+    {!open && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? purchaseSummary : null}
     {message && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <p className={styles.status} role="status">{message}</p> : null}
-    {growthToolsAvailable && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen && (loading ? <div className={`${styles.toolSkeleton} ${styles.contactLoading}`} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
+    {contactAvailable && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen && (loading ? <div className={`${styles.toolSkeleton} ${styles.contactLoading}`} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
       : loadError ? <div className={styles.feedback}><Info size={20} aria-hidden="true" /><div><p role="alert">{loadError}</p><button className={secondary} type="button" onClick={() => void load()}>Yeniden dene</button></div></div>
       : loaded && !open && !restockOpen ? <article className={styles.toolRow}>
         <ToolArtwork /><div className={styles.toolCopy}><h2>İletişim balonu</h2><p>Müşterileriniz size kolayca ulaşsın.</p><span>{baseline.enabled ? "Açık" : "Kapalı"} · {baseline.channels.filter(channel => channel.enabled).length} kanal · {summaryDevices}{!canManage ? " · Salt okunur" : ""}</span>
           <nav className={styles.toolLinks} aria-label="İletişim balonu bölümleri">{[{ key: "content", label: "Kanallar" }, ...TABS.slice(1)].map(item => <button key={item.key} className={ghost} type="button" onClick={() => startEditing(item.key as Tab)}>{item.label}<ChevronRight size={16} aria-hidden="true" /></button>)}</nav>
         </div><button id="tool-edit-contact-widget" ref={triggerRef} className={primary} type="button" data-tool-edit="contact_widget" onClick={() => startEditing()}>{canManage ? "Düzenle" : "Görüntüle"}<ArrowUpRight size={16} aria-hidden="true" /></button>
       </article> : null)}
-    {growthToolsAvailable && !whatsAppOpen && !open && !cartCaptureOpen && !orderBumpOpen ? <RestockTool canManage={canManage} onOpenChange={setRestockOpen} /> : null}
-    {!whatsAppOpen && growthToolsAvailable && !open && !restockOpen && !orderBumpOpen ? <CartCaptureTool canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={timezone} onOpenChange={setCartCaptureOpen} /> : null}
-    {!whatsAppOpen && growthToolsAvailable && !open && !restockOpen && !cartCaptureOpen ? <OrderBumpTool canManage={canManage} onOpenChange={setOrderBumpOpen} /> : null}
-    {!open && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <WhatsAppOrderTool canManage={canManage} available={whatsAppOrderingAvailable} onOpenChange={setWhatsAppOpen} /> : null}
-    {!growthToolsAvailable && !open && !whatsAppOpen && !restockOpen ? ["İletişim balonu", "Stok gelince haber ver", "Sepet yakalama", "Sepet ve ödeme önerileri"].map(title => <article key={title} className={styles.toolRow}><ToolArtwork store /><div className={styles.toolCopy}><h2>{title}</h2><p>Büyüme ve üzeri paketlerde.</p></div><a className={secondary} href="/upgrade?feature=growth_tools">Paketleri incele</a></article>) : null}
+    {restockAvailable && !whatsAppOpen && !open && !cartCaptureOpen && !orderBumpOpen ? <RestockTool canManage={canManage} onOpenChange={setRestockOpen} /> : null}
+    {!whatsAppOpen && captureAvailable && !open && !restockOpen && !orderBumpOpen ? <CartCaptureTool canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={timezone} onOpenChange={setCartCaptureOpen} /> : null}
+    {!whatsAppOpen && bumpAvailable && !open && !restockOpen && !cartCaptureOpen ? <OrderBumpTool canManage={canManage} onOpenChange={setOrderBumpOpen} /> : null}
+    {(!toolAccess || whatsappAvailable) && !open && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <WhatsAppOrderTool canManage={canManage} available={whatsappAvailable} onOpenChange={setWhatsAppOpen} /> : null}
+    {toolAccess && !open && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? (['contact_widget','restock','cart_capture','order_bump','whatsapp_ordering'] as const).filter(tool=>!toolAccess[tool]).map(tool=><div key={tool}>{renderLockedTool?.(tool)}</div>) : null}
+    {!toolAccess && !growthToolsAvailable && !open && !whatsAppOpen && !restockOpen ? ["İletişim balonu", "Stok gelince haber ver", "Sepet yakalama", "Sepet ve ödeme önerileri"].map(title => <article key={title} className={styles.toolRow}><ToolArtwork store /><div className={styles.toolCopy}><h2>{title}</h2><p>Büyüme ve üzeri paketlerde.</p></div><a className={secondary} href="/upgrade?feature=growth_tools">Paketleri incele</a></article>) : null}
     {loaded && open ? <form ref={editorRef} onSubmit={apply} onKeyDown={event => { if (event.key === "Escape" && !dialog) { event.preventDefault(); requestExit(); } }} noValidate data-settings-dirty={dirty} className={styles.editor}>
       <header className={styles.contextBar}><div><button className={ghost + " " + styles.iconButton} type="button" data-tool-close disabled={busy || reloading} aria-label="Araçlara dön" onClick={requestExit}><ArrowLeft size={20} aria-hidden="true" /></button><h2>İletişim balonu</h2></div>
         <label className={styles.enabledControl}><span>{draft.enabled ? "Açık" : "Kapalı"}</span><span className={styles.switch}><input name="enabled" aria-label="İletişim balonu açık" type="checkbox" role="switch" disabled={locked} checked={draft.enabled} onChange={event => change(config => ({ ...config, enabled: event.target.checked }))} /><span /></span></label>

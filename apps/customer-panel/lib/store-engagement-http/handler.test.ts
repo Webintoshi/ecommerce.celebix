@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createDefaultStoreEngagementConfig } from '@celebix/saas-contracts';
+import { createDefaultStoreEngagementConfig, STORE_TOOL_OFFERS } from '@celebix/saas-contracts';
 import { createStoreEngagementHandlers } from './handler.ts';
 import type { ServerStoreEngagementRuntime } from '../server-store-engagement/runtime.ts';
 const NOW=new Date('2026-10-04T12:00:00Z'), OP='78000000-0000-4000-8000-000000000001', ID='78000000-0000-4000-8000-000000000002';
 const campaign={id:ID,kind:'popup',name:'Hoş geldiniz',enabled:true,version:1,config:createDefaultStoreEngagementConfig(),updatedAt:NOW.toISOString()};
-function harness(role='store_owner') {
+function harness(role='store_owner', storeTools?:unknown) {
  const calls:unknown[]=[];const context={store:{id:ID,slug:'siora'},membership:{role}};
- const runtime={access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:context})},engagement:{list:async(x:unknown)=>{calls.push(x);return [campaign];},save:async(x:unknown)=>{calls.push(x);return campaign;},deletePopup:async(x:unknown)=>{calls.push(x);return {campaignId:ID,deleted:true};}}} as unknown as ServerStoreEngagementRuntime;
+ const runtime={...(storeTools?{storeTools}:{}),access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:context})},engagement:{list:async(x:unknown)=>{calls.push(x);return [campaign];},save:async(x:unknown)=>{calls.push(x);return campaign;},deletePopup:async(x:unknown)=>{calls.push(x);return {campaignId:ID,deleted:true};}}} as unknown as ServerStoreEngagementRuntime;
  return {calls,context,handlers:createStoreEngagementHandlers({resolveRuntime:async()=>runtime,now:()=>NOW,requestId:()=>OP})};
 }
 function request(body?:unknown,headers:HeadersInit={}) {
@@ -32,4 +32,12 @@ test('popup deletion blocks unauthorized role, forged scope, absent session, cro
  assert.equal((await (h.handlers as any).deletePopup(deleteRequest({campaignId:ID,expectedVersion:1},{origin:'https://evil.invalid'}))).status,403);
  assert.equal((await (h.handlers as any).deletePopup(deleteRequest({campaignId:ID,expectedVersion:1},{cookie:''}))).status,401);
  assert.equal(h.calls.length,0);const cashier=harness('cashier');assert.equal((await (cashier.handlers as any).deletePopup(deleteRequest({campaignId:ID,expectedVersion:1}))).status,403);assert.equal(cashier.calls.length,0);
+});
+
+test('capture-only license filters popup rows and cannot mutate popup or bypass revocation', async()=>{
+ let enabled=true;const h=harness('admin',{read:async()=>({storeId:ID,timezone:'Europe/Istanbul',offers:STORE_TOOL_OFFERS,licenses:enabled?[{toolKey:'cart_capture',source:'purchase',grantedAt:NOW.toISOString()}]:[],purchases:[],canRequestPurchase:true})});
+ const response=await h.handlers.list(request());assert.equal(response.status,200);assert.deepEqual(await response.json(),{campaigns:[]});
+ assert.equal((await h.handlers.save(request(input))).status,403);
+ assert.equal((await h.handlers.deletePopup(deleteRequest({campaignId:ID,expectedVersion:1}))).status,403);
+ enabled=false;assert.equal((await h.handlers.list(request())).status,403);assert.equal(h.calls.length,1);
 });

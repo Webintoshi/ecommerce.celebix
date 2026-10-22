@@ -1,4 +1,5 @@
-import { isMerchantActionAllowed, parseStoreEngagementCampaign, parseStoreEngagementConfig, parseStoreEngagementDeleteResult } from '@celebix/saas-contracts';
+import { readStoreToolLicense } from '../server-store-tools/license.ts';
+import { hasCommercialCapability, isMerchantActionAllowed, parseStoreEngagementCampaign, parseStoreEngagementConfig, parseStoreEngagementDeleteResult } from '@celebix/saas-contracts';
 import { StoreEngagementRepositoryError } from '@celebix/saas-data';
 import { authorizeCatalogAdminRequest, catalogAdminHttpError, readCatalogAdminJsonBody, exactCatalogAdminHttpInput, catalogAdminOperationId, catalogAdminHttpId, catalogAdminHttpVersion } from '../catalog-admin-http/handler.ts';
 import type { ServerStoreEngagementRuntime } from '../server-store-engagement/runtime.ts';
@@ -14,7 +15,7 @@ export function createStoreEngagementHandlers(deps:Dependencies){
   async list(request:Request):Promise<Response>{
    const auth=await authorizeCatalogAdminRequest(deps,request,'GET',PATH,'forbidden');if(auth instanceof Response)return auth;
    if(!isMerchantActionAllowed(auth.tenantContext.membership.role,'configuration.read'))return catalogAdminHttpError('membership_denied',403);
-   try{const rows=await (auth.runtime as ServerStoreEngagementRuntime).engagement.list({tenantContext:auth.tenantContext,now:auth.now});if(!Array.isArray(rows)||rows.length>21)throw new Error('invalid_result');return json({campaigns:rows.map(parseStoreEngagementCampaign)});}catch(error){return failure(error);}
+   try{const license=await readStoreToolLicense(auth.runtime as ServerStoreEngagementRuntime,auth.tenantContext,auth.now,'cart_capture');const popup=Boolean(auth.tenantContext.entitlements&&hasCommercialCapability(auth.tenantContext.entitlements,'growth_tools'));if(license===false&&!popup)return catalogAdminHttpError('feature_not_enabled',403);const rows=await (auth.runtime as ServerStoreEngagementRuntime).engagement.list({tenantContext:auth.tenantContext,now:auth.now});if(!Array.isArray(rows)||rows.length>21)throw new Error('invalid_result');return json({campaigns:rows.map(parseStoreEngagementCampaign).filter(row=>license===null||popup||row.kind==='cart_capture')});}catch(error){return failure(error);}
   },
   async save(request:Request):Promise<Response>{
    const auth=await authorizeCatalogAdminRequest(deps,request,'POST',PATH,'forbidden');if(auth instanceof Response)return auth;
@@ -24,7 +25,7 @@ export function createStoreEngagementHandlers(deps:Dependencies){
    const campaignId=row.campaignId===undefined?undefined:catalogAdminHttpId(row.campaignId);const expectedVersion=row.expectedVersion===undefined?undefined:catalogAdminHttpVersion(row.expectedVersion);
    if(campaignId===null||expectedVersion===null||(campaignId===undefined)!==(expectedVersion===undefined))return catalogAdminHttpError('invalid_input',400);
    let config;try{config=parseStoreEngagementConfig(row.config);}catch{return catalogAdminHttpError('invalid_input',400);}
-   try{const campaign=await (auth.runtime as ServerStoreEngagementRuntime).engagement.save({tenantContext:auth.tenantContext,now:auth.now,operationId,...(campaignId===undefined?{}:{campaignId,expectedVersion}),kind:row.kind as 'popup'|'cart_capture',name:row.name,enabled:row.enabled,config});return json({campaign:parseStoreEngagementCampaign(campaign)});}catch(error){return failure(error);}
+   try{const license=await readStoreToolLicense(auth.runtime as ServerStoreEngagementRuntime,auth.tenantContext,auth.now,'cart_capture');if(license!==null&&!(row.kind==='cart_capture'?license:Boolean(auth.tenantContext.entitlements&&hasCommercialCapability(auth.tenantContext.entitlements,'growth_tools'))))return catalogAdminHttpError('feature_not_enabled',403);const campaign=await (auth.runtime as ServerStoreEngagementRuntime).engagement.save({tenantContext:auth.tenantContext,now:auth.now,operationId,...(campaignId===undefined?{}:{campaignId,expectedVersion}),kind:row.kind as 'popup'|'cart_capture',name:row.name,enabled:row.enabled,config});return json({campaign:parseStoreEngagementCampaign(campaign)});}catch(error){return failure(error);}
   },
   async deletePopup(request:Request):Promise<Response>{
    const auth=await authorizeCatalogAdminRequest(deps,request,'POST',`${PATH}/delete`,'forbidden');if(auth instanceof Response)return auth;
@@ -32,7 +33,7 @@ export function createStoreEngagementHandlers(deps:Dependencies){
    const operationId=catalogAdminOperationId(request),row=exactCatalogAdminHttpInput(await readCatalogAdminJsonBody(request,1024),['campaignId','expectedVersion']);
    const campaignId=row?catalogAdminHttpId(row.campaignId):null,expectedVersion=row?catalogAdminHttpVersion(row.expectedVersion):null;
    if(!operationId||!campaignId||!expectedVersion)return catalogAdminHttpError('invalid_input',400);
-   try{const result=parseStoreEngagementDeleteResult(await (auth.runtime as ServerStoreEngagementRuntime).engagement.deletePopup({tenantContext:auth.tenantContext,now:auth.now,operationId,campaignId,expectedVersion}));if(result.campaignId!==campaignId)throw new Error('invalid_result');return json({deletion:result});}catch(error){return failure(error);}
+   try{const license=await readStoreToolLicense(auth.runtime as ServerStoreEngagementRuntime,auth.tenantContext,auth.now,'cart_capture');if(license!==null&&!Boolean(auth.tenantContext.entitlements&&hasCommercialCapability(auth.tenantContext.entitlements,'growth_tools')))return catalogAdminHttpError('feature_not_enabled',403);const result=parseStoreEngagementDeleteResult(await (auth.runtime as ServerStoreEngagementRuntime).engagement.deletePopup({tenantContext:auth.tenantContext,now:auth.now,operationId,campaignId,expectedVersion}));if(result.campaignId!==campaignId)throw new Error('invalid_result');return json({deletion:result});}catch(error){return failure(error);}
   },
  });
 }

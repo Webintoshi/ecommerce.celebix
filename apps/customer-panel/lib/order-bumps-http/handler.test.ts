@@ -1,19 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createOrderBumpHandlers } from './handler.ts';
-import { createDefaultOrderBumpSettings } from '@celebix/saas-contracts';
+import { createDefaultOrderBumpSettings, STORE_TOOL_OFFERS } from '@celebix/saas-contracts';
 import { OrderBumpRepositoryError } from '@celebix/saas-data';
 import type { ServerOrderBumpRuntime } from '../server-order-bumps/runtime.ts';
 
 const NOW = new Date('2026-10-09T12:00:00.000Z');
 const OP = '79000000-0000-4000-8000-000000000001';
 const ID = '79000000-0000-4000-8000-000000000002';
-function harness(role = 'store_owner', failure?: Error) {
+function harness(role = 'store_owner', failure?: Error, storeTools?: unknown) {
   const calls: unknown[] = [];
   const config = createDefaultOrderBumpSettings();
   const workspace = { version: 0, updatedAt: null, config };
   const context = { store: { id: ID, slug: 'siora' }, membership: { role } };
   const runtime = {
+    ...(storeTools ? { storeTools } : {}),
     access: { panelOrigin: 'https://panel.saas-staging.celebix.site', resolveCredential: async () => ({ kind: 'authenticated', tenantContext: context }) },
     orderBumps: {
       get: async (x: unknown) => { calls.push(x); if (failure) throw failure; return workspace; },
@@ -88,4 +89,14 @@ test('uncertain or unexpected backend failures never return success or expose da
   const h = harness('store_owner', new Error('SQL secret connection details'));
   const response = await h.handlers.save(request({ expectedVersion: 0, config: h.config }));
   assert.equal(response.status, 503); assert.deepEqual(await response.json(), { code: 'unavailable' });
+});
+
+test('only a fresh matching order bump license authorizes its workspace and options', async () => {
+  let enabled = true;
+  const h = harness('admin', undefined, { read: async () => ({ storeId: ID, timezone: 'Europe/Istanbul', offers: STORE_TOOL_OFFERS, licenses: enabled ? [{ toolKey: 'order_bump', source: 'purchase', grantedAt: NOW.toISOString() }] : [], purchases: [], canRequestPurchase: true }) });
+  assert.equal((await h.handlers.get(request())).status, 200);
+  enabled = false;
+  assert.equal((await h.handlers.options(request(undefined, {}, '/api/order-bumps/options?kind=product'))).status, 403);
+  assert.equal((await h.handlers.save(request({ expectedVersion: 0, config: h.config }))).status, 403);
+  assert.equal(h.calls.length, 1);
 });

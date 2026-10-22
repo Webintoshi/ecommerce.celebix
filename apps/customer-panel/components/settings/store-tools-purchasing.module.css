@@ -1,0 +1,26 @@
+.summary { min-width: 0; max-width: 1050px; margin-bottom: 24px; }
+.terms { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.terms p, .activation { margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
+.terms button, .offerRow button { flex-shrink: 0; min-height: 44px; }
+.activation { margin-top: 8px; }
+.offerRow { grid-template-columns: 144px minmax(0,1fr) minmax(0,240px); gap: 24px; }
+.offerRow svg { width: 144px; }
+.offerRow button { white-space: normal; line-height: 1.5; text-align: center; }
+.price { display: grid; gap: 4px; margin-top: 12px; }
+.price strong { color: var(--cp-text-primary); font-size: 18px; font-weight: 600; }
+.price span, .delivery { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; }
+.delivery { display: block; margin-top: 12px; }
+.requestState { display: grid; gap: 4px; margin-bottom: 0 !important; }
+.requestState span { font-size: 12px; }
+.error { color: var(--cp-danger); font-size: 13px; line-height: 1.6; margin: 12px 0; overflow-wrap: anywhere; }
+.recovery { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-soft); padding: 16px; margin-top: 16px; }
+.recovery div { min-width: 0; }
+.recovery strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.recovery p { font-size: 13px; color: var(--cp-text-secondary); line-height: 1.6; margin: 4px 0 0; }
+.recovery button { flex-shrink: 0; }
+@media(max-width:760px) {
+  .terms, .recovery { align-items: stretch; flex-direction: column; }
+  .terms button, .recovery button { align-self: flex-start; }
+  .offerRow { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .offerRow button { max-width: 100%; }
+}

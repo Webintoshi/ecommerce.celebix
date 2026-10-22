@@ -1,3 +1,4 @@
+import { registerServerStoreToolsRepository } from '../server-store-tools/runtime.ts';
 import {PostgresOrderEditRepository} from '@celebix/saas-data';
 import {registerServerOrderEditRepository} from '../server-order-edit/runtime.ts';
 import {createPostgresEmailMarketingConnectionRepository,createPostgresEmailMarketingWebhookRepository,createEmailMarketingProviders} from '@celebix/saas-data';
@@ -6,7 +7,7 @@ import {registerServerEmailMarketingRepository,registerServerEmailMarketingWebho
 import {PostgresNativeMarketingRepository} from '@celebix/saas-data';
 import {nativeMarketingPublicConfiguration,registerServerNativeMarketingRepository} from '../server-native-marketing/runtime.ts';
 import "server-only";
-import {PostgresCommercialPlanRepository} from '@celebix/saas-data';
+import {PostgresStoreToolsRepository,PostgresCommercialPlanRepository} from '@celebix/saas-data';
 import {registerServerCommercialPlanRepository} from '../server-commercial-plan/runtime.ts';
 
 import { randomBytes, randomUUID } from "node:crypto";
@@ -1111,6 +1112,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerInStoreSalesRepository(access, createPostCommitInvalidatingRepository(inStoreSalesRepository, {
       prepareSale: ['catalog'], completeSale: ['catalog'], cancelSale: ['catalog'],
     }));
+    registerServerStoreToolsRepository(access,new PostgresStoreToolsRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}));
     registerServerCommercialPlanRepository(access,new PostgresCommercialPlanRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}));
     registerServerAccountingRepository(access, createPostCommitInvalidatingRepository(new PostgresAccountingRepository({
       pool,role:'celebix_saas_app',timeouts:TIMEOUTS,

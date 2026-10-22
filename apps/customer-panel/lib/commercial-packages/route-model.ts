@@ -27,7 +27,7 @@ const RULES: readonly (readonly [
     ['/settings/pricing', 'reference_pricing'], ['/products/price-lists', 'reference_pricing'],
     ['/accounting', 'accounting'], ['/seo', 'seo_tools'],
 ]);
-export const COMMERCIAL_CAPABILITY_LABELS: Readonly<Record<CommercialCapability, string>> = Object.freeze({ manual_orders: 'Manuel satış', coupons: 'Kuponlar ve kampanyalar', growth_tools: 'Satış artıran mağaza araçları', email_marketing: 'E-posta pazarlama', advanced_analytics: 'Gelişmiş analizler', google_connections: 'Google bağlantıları', google_merchant: 'Google Merchant Center', seo_tools: 'SEO araçları', cashier: 'Fiziksel mağaza ve kasiyer', accounting: 'Muhasebe', reference_pricing: 'Kur ve altın referansları', ai: 'Yapay zekâ araçları', custom_domains: 'Özel alan adı', staff_management: 'Personel yönetimi' });
+export const COMMERCIAL_CAPABILITY_LABELS: Readonly<Record<CommercialCapability, string>> = Object.freeze({ manual_orders: 'Manuel satış', coupons: 'Kuponlar ve kampanyalar', growth_tools: 'Gelişmiş pazarlama araçları', email_marketing: 'E-posta pazarlama', advanced_analytics: 'Gelişmiş analizler', google_connections: 'Google bağlantıları', google_merchant: 'Google Merchant Center', seo_tools: 'SEO araçları', cashier: 'Fiziksel mağaza ve kasiyer', accounting: 'Muhasebe', reference_pricing: 'Kur ve altın referansları', ai: 'Yapay zekâ araçları', custom_domains: 'Özel alan adı', staff_management: 'Personel yönetimi' });
 export function commercialCapabilityDecision(context: CommercialPageContext, capability: CommercialCapability): CommercialPageDecision {
     const role = context.membership.role;
     if (capability === 'staff_management' && role !== 'store_owner')

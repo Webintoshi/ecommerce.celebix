@@ -1,3 +1,4 @@
+import { readStoreToolLicense } from '../server-store-tools/license.ts';
 import {
   isMerchantActionAllowed, parseOrderBumpSettings, parseOrderBumpWorkspace, parseOrderBumpOptionsPage,
 } from '@celebix/saas-contracts';
@@ -54,6 +55,7 @@ export function createOrderBumpHandlers(deps: Dependencies) {
       if (auth instanceof Response) return auth;
       if (!isMerchantActionAllowed(auth.tenantContext.membership.role, 'configuration.read')) return catalogAdminHttpError('membership_denied', 403);
       try {
+        if (await readStoreToolLicense(auth.runtime as ServerOrderBumpRuntime, auth.tenantContext, auth.now, 'order_bump') === false) return catalogAdminHttpError('feature_not_enabled', 403);
         const workspace = parseOrderBumpWorkspace(await (auth.runtime as ServerOrderBumpRuntime).orderBumps.get({ tenantContext: auth.tenantContext, now: auth.now }));
         return json({ workspace });
       } catch (error) { return failure(error); }
@@ -69,6 +71,7 @@ export function createOrderBumpHandlers(deps: Dependencies) {
       let config;
       try { config = parseOrderBumpSettings(row.config); } catch { return catalogAdminHttpError('invalid_input', 400); }
       try {
+        if (await readStoreToolLicense(auth.runtime as ServerOrderBumpRuntime, auth.tenantContext, auth.now, 'order_bump') === false) return catalogAdminHttpError('feature_not_enabled', 403);
         const workspace = parseOrderBumpWorkspace(await (auth.runtime as ServerOrderBumpRuntime).orderBumps.save({ tenantContext: auth.tenantContext, now: auth.now, operationId, expectedVersion, config }));
         return json({ workspace });
       } catch (error) { return failure(error); }
@@ -80,6 +83,7 @@ export function createOrderBumpHandlers(deps: Dependencies) {
       const input = optionQuery(request);
       if (!input) return catalogAdminHttpError('invalid_input', 400);
       try {
+        if (await readStoreToolLicense(auth.runtime as ServerOrderBumpRuntime, auth.tenantContext, auth.now, 'order_bump') === false) return catalogAdminHttpError('feature_not_enabled', 403);
         const options = parseOrderBumpOptionsPage(await (auth.runtime as ServerOrderBumpRuntime).orderBumps.options({ tenantContext: auth.tenantContext, now: auth.now, ...input }));
         if (options.page !== input.page || options.items.length > (input.ids ? input.ids.length : 20) || input.ids && options.items.some(row => !input.ids!.includes(row.id))) throw new Error('order_bump_invalid_options');
         return json({ options });

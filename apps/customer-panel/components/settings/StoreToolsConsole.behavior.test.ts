@@ -26,7 +26,7 @@ const pageRecord = { id: "82000000-0000-4000-8000-000000000001", kind: "page", n
 const languageRecord = { id: "83000000-0000-4000-8000-000000000001", kind: "language_setting", name: "Mağaza dili", config: { defaultLocale: "tr", enabledLocales: ["tr", "en"] }, status: "active", version: 1, createdAt: NOW, updatedAt: NOW };
 class ApiError extends Error { constructor(readonly code: string) { super(code); } }
 
-async function screen(options: { growthToolsAvailable?: boolean; canManage?: boolean; workspace?: boolean; restock?: boolean; cartCapture?: boolean; orderBump?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
+async function screen(options: { toolAccess?: Readonly<Record<contracts.StoreToolKey, boolean>>; growthToolsAvailable?: boolean; canManage?: boolean; workspace?: boolean; restock?: boolean; cartCapture?: boolean; orderBump?: boolean; records?: () => Promise<any>; pageRecords?: () => Promise<any>; languageRecords?: () => Promise<any>; save?: (...args: any[]) => Promise<any> }, verify: (context: any) => Promise<void>) {
   const browser = new Window({ url: "https://panel.example.test/settings/store-tools" });
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, Element: browser.Element, HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLTextAreaElement: browser.HTMLTextAreaElement, HTMLSelectElement: browser.HTMLSelectElement, Event: browser.Event, KeyboardEvent: browser.KeyboardEvent, IS_REACT_ACT_ENVIRONMENT: true })) {
@@ -108,7 +108,7 @@ async function screen(options: { growthToolsAvailable?: boolean; canManage?: boo
     await act(async () => { Object.getOwnPropertyDescriptor(prototype, "value")?.set?.call(field, value); field.dispatchEvent(new browser.Event(field.tagName === "SELECT" ? "change" : "input", { bubbles: true })); });
   };
   const submit = async () => { const form = container.querySelector("form"); assert.ok(form); await act(async () => { form.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)); }); };
-  try { await act(async () => { const content = createElement(Component, { canManage: options.canManage ?? true, growthToolsAvailable: options.growthToolsAvailable ?? true }); root.render(Workspace ? createElement(Workspace, { children: content }) : content); await new Promise(resolve => setTimeout(resolve, 0)); }); await verify({ browser, container, settle, click, input, submit, openChannel, addChannel, pushes }); }
+  try { await act(async () => { const content = createElement(Component, { canManage: options.canManage ?? true, growthToolsAvailable: options.growthToolsAvailable ?? true, toolAccess: options.toolAccess, renderLockedTool: (tool: string) => createElement("div", { "data-locked-tool": tool }, tool) }); root.render(Workspace ? createElement(Workspace, { children: content }) : content); await new Promise(resolve => setTimeout(resolve, 0)); }); await verify({ browser, container, settle, click, input, submit, openChannel, addChannel, pushes }); }
   finally { await act(async () => root.unmount()); for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key); await browser.happyDOM.close(); }
 }
 
@@ -546,5 +546,13 @@ test("keyboard tab switching and boundary reordering keep focus on visible contr
 test('opening the hub does not unlock or load legacy growth tools on Starter',async()=>{
  let reads=0;await screen({growthToolsAvailable:false,restock:true,cartCapture:true,orderBump:true,records:async()=>{reads++;return[record]}},async({container})=>{
   assert.equal(container.querySelector('[data-tool-edit="contact_widget"]'),null);assert.equal(container.querySelector('[data-test-restock-toggle]'),null);assert.equal(container.querySelector('[data-test-cart-capture-toggle]'),null);assert.equal(container.querySelector('[data-test-order-bump-toggle]'),null);assert.equal(reads,0);assert.equal(container.querySelectorAll('a[href="/upgrade?feature=growth_tools"]').length,4);
+ });
+});
+
+test('standalone contact license mounts its editor without loading unrelated tools or package links',async()=>{
+ let reads=0;await screen({growthToolsAvailable:false,toolAccess:{contact_widget:true,whatsapp_ordering:false,cart_capture:false,restock:false,order_bump:false},restock:true,cartCapture:true,orderBump:true,records:async()=>{reads++;return[record]}},async({container,click})=>{
+  assert.ok(container.querySelector('[data-tool-edit="contact_widget"]'));assert.equal(reads,1);
+  assert.equal(container.querySelector('[data-test-restock-toggle]'),null);assert.equal(container.querySelector('[data-test-cart-capture-toggle]'),null);assert.equal(container.querySelector('[data-test-order-bump-toggle]'),null);assert.equal(container.querySelector('a[href^="/upgrade"]'),null);
+  assert.equal(container.querySelectorAll('[data-locked-tool]').length,4);await click('[data-tool-edit="contact_widget"]');assert.equal(container.querySelector('[data-locked-tool]'),null);
  });
 });

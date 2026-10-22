@@ -1,8 +1,9 @@
-import type { PostgresRestockAdminRepository } from '@celebix/saas-data';
+import type { PostgresRestockAdminRepository, StoreToolsRepository } from '@celebix/saas-data';
+import { resolveStoreToolsRepository } from '../server-store-tools/runtime.ts';
 import type { ServerPanelAccessRuntime } from '../server-panel-access/runtime.ts';
 import { resolveServerCatalogAdminRuntime, type ServerCatalogAdminRuntime } from '../server-catalog-admin/runtime.ts';
 type Repository = Pick<PostgresRestockAdminRepository, 'getStats'>;
-export type ServerRestockRuntime = ServerCatalogAdminRuntime & Readonly<{ restock: Repository }>;
+export type ServerRestockRuntime = ServerCatalogAdminRuntime & Readonly<{ restock: Repository; storeTools?: StoreToolsRepository }>;
 const repositories = new WeakMap<ServerPanelAccessRuntime, Repository>();
 export function registerServerRestockRepository(access: ServerPanelAccessRuntime, repository: Repository): void {
   if (access.readiness.mode !== 'approved_staging' || typeof repository?.getStats !== 'function' || repositories.has(access)) throw Error('restock_runtime_invalid');
@@ -10,5 +11,5 @@ export function registerServerRestockRepository(access: ServerPanelAccessRuntime
 }
 export function resolveServerRestockRuntime(access: ServerPanelAccessRuntime): ServerRestockRuntime | null {
   const catalog = resolveServerCatalogAdminRuntime(access), restock = repositories.get(access);
-  return catalog && restock ? Object.freeze({ ...catalog, restock }) : null;
+  return catalog && restock ? Object.freeze({ ...catalog, restock, storeTools: resolveStoreToolsRepository(access) }) : null;
 }
