@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "3de838212842666a32d8140640641bf074796d9501a109328500a6f98721c778",
+  "inputDigest": "cc604ba6d0ce0f6969cacc855a4cc0385e53fe9b329af625a8ee435974896abe",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -269,7 +269,7 @@
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "1b6065145ec5fcfea6ac61801e816cc2c05a80c21c2771d5de4eb8ddb15b174c"
+      "sha256": "49d0392827da642f299492982584408ce4c8eeeac7f0e15b93b0e3de6f913fcf"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -2736,6 +2736,14 @@
       "sha256": "b7e6f75374cab3269b2d809135fdfe2e1ef59b1cde10452ce32f05e36f9610f5"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610220259_cashier_orders_access.up.sql",
+      "sha256": "a3f986ca4aaeb7d1dbac2c567488bb0eb121d312b4c45394783922b2ef5a97d1"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610220260_existing_order_edit.up.sql",
+      "sha256": "b539d0ff1e8e4f63a43e68b9ec4d6bee7e4538eabf86260f0ee82f16f256918e"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3709,15 +3717,15 @@
     },
     {
       "path": "packages/saas-contracts/src/in-store-sales/types.ts",
-      "sha256": "b42e7280b3566f3dbf7f8601bef70b031a694ecf889d35304ac948281803aaca"
+      "sha256": "a0859d6ff1c298a26fbbae7f484d2a9d15e2c2b21869141aa57922ef70881f9d"
     },
     {
       "path": "packages/saas-contracts/src/in-store-sales/validation.ts",
-      "sha256": "231b814b999ef74e088c84aa9ce8acb5d1c1779970f3ad0655b9d81f6fa16d9d"
+      "sha256": "ff0b647c2473cbc0f6fd2addd94637344e45dd00e2028e2fd61a7858afa9a7e8"
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "b6d7c6b9dddbdc33bf446306194bdbcece0314b5dddd2220c59c9f1113771509"
+      "sha256": "921f8d24e3c55aca6a05d1c9b48497ade83b129d289751e383839cb2ce055d27"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -3725,11 +3733,11 @@
     },
     {
       "path": "packages/saas-contracts/src/inventory/types.ts",
-      "sha256": "ec68e5073674f777d0af0f4f09220b0526bccd9bef553d3ac949ee56f0e5acf4"
+      "sha256": "d6ae6b345903c5960f47578987acfcd1af1a807149d6bf14ac0af6279318fb8b"
     },
     {
       "path": "packages/saas-contracts/src/inventory/validation.ts",
-      "sha256": "0ec23fa01b6a85fd5766303a6551f1ab62f3624feaa981137a7490b3b5049636"
+      "sha256": "49c44aea5a25e7d2f935e2c340dd2ab60e5275feec175707a5de7ffbc49249e4"
     },
     {
       "path": "packages/saas-contracts/src/lucky-wheel/index.ts",
@@ -3798,6 +3806,10 @@
     {
       "path": "packages/saas-contracts/src/order-bumps/index.ts",
       "sha256": "33b8608172e49d1b26cdddee2254b1902d51e3af9faa0c138c8715a94f7c0e6e"
+    },
+    {
+      "path": "packages/saas-contracts/src/orders/edit.ts",
+      "sha256": "23864b4123097858f0b91da1358eb2fe8a5a2250ad1317ac3568e9c33fed0ed1"
     },
     {
       "path": "packages/saas-contracts/src/orders/index.ts",
@@ -4557,15 +4569,15 @@
     },
     {
       "path": "packages/saas-data/src/in-store-sales/repository.ts",
-      "sha256": "d4163fe0d118eba8c181d03f2809cd21f41a20a1c4a979c1ab3cf66586f149ca"
+      "sha256": "2da0a964d7e355ae161483aca29bebb8fc57c2e1432a12d9bd82532d6067b6b1"
     },
     {
       "path": "packages/saas-data/src/in-store-sales/types.ts",
-      "sha256": "4df8a9c6d5c5ccfe199aec6e37e3ed066389be4160808bcc4a47c4e9fad2faf8"
+      "sha256": "8ae065f654230c89407e7fce6e95dffc5da3e941ec5af2aad0e2ba935c8f00b9"
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "319969dd27764b9af39c05010afa9a06de17cddd283b849bbf8882ba5e6e1719"
+      "sha256": "848c031af676604e295b0ef1ffec574d61b94e95fe8adb71c5cb945555d37cb9"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -4728,6 +4740,10 @@
       "sha256": "a5bc5e5e85f7af70b0fdfcbbcc910402d8de62712c6ebb3df39f61df4ca21ae0"
     },
     {
+      "path": "packages/saas-data/src/order-edit/repository.ts",
+      "sha256": "334a7d7aac4644947253e0e1dc70f84ea92683ceb989ae7e512e48d3e7234e5d"
+    },
+    {
       "path": "packages/saas-data/src/order-emails/index.ts",
       "sha256": "9356a9d5ace8e2c50ca528d77beb505bcc7d657ac647d3d115ede0f5feec916f"
     },
@@ -4757,11 +4773,11 @@
     },
     {
       "path": "packages/saas-data/src/orders/repository.ts",
-      "sha256": "a922e275643068f759ceab3aab2f33b8e52d79373939a7d6e1b0a23cb70f3cb6"
+      "sha256": "65913bcac5a1dd06f2e1baeeca85c41d67a2ed150a3fd92a087ad0f65f76caaa"
     },
     {
       "path": "packages/saas-data/src/orders/types.ts",
-      "sha256": "212961bbe93b3473382fa007096a3e0d988d4f412bf9049047dd9b6fac44d232"
+      "sha256": "df31dcb9cdc3d25e4173aa55f1e5e27567bbb0728a4be5518dadd8a6140212ed"
     },
     {
       "path": "packages/saas-data/src/orders/validation.ts",

@@ -16,9 +16,20 @@
 
 ## Execution
 
-- [ ] Permission slice: contracts, staff editors, durable native gates, request-local navigation/detail capabilities, tests (merchant agent).
-- [ ] Native edit slice: functions, immutable histories, inventory, financial/profit/commission reconciliation, native tests (backend agent).
-- [ ] Root: contracts + typed repository, origin/session-bound HTTP and operation recovery; editor UI using existing order visuals and preserved form buffers.
-- [ ] Focused tests: malicious/stale/duplicate payloads, foreign tenant and cashier revoked access, stock/rate/collection concurrency, financial decreases, waiver versus cash, partial/full payment, preview mismatch, lost Save response and retry, product removal with historical references.
+- [x] Permission slice: contracts, staff editors, durable native gates, request-local navigation/detail capabilities, tests (merchant agent).
+- [x] Native edit slice: functions, immutable histories, inventory, financial/profit/commission reconciliation, native tests (backend agent).
+- [x] Root: contracts + typed repository, origin/session-bound HTTP and operation recovery; editor UI using existing order visuals and preserved form buffers.
+- [x] Focused tests: malicious/stale/duplicate payloads, foreign tenant and cashier revoked access, stock/rate/collection concurrency, financial decreases, waiver versus cash, partial/full payment, preview mismatch, lost Save response and retry, product removal with historical references.
 - [ ] Independent source review, source-bound signup proof refresh with disposable PG16, affected app builds/typechecks.
 - [ ] Root only: capture six-app pins/config/runtime, compatible data first, shared panels NET→SITE, storefront/owner compatibility readers if required by shared contract changes. Verify actual running source, live read-only UI and unchanged settings/tariffs.
+
+## Verification evidence
+
+- Staff native259: 14 scenarios; existing v1–6 payloads preserved, new grants default false.
+- Order native260: 28 scenarios in disposable PostgreSQL16, including completed POS, dated cost differences, partially paid cancellation, per-warehouse stock restoration and immutable original line references.
+- Editor/client/detail: 31 focused cases; browser checks at 1440/1024/390 px, no horizontal overflow or application errors.
+- Root contracts, repository and HTTP tests pass; inventory reader accepts signed nonzero order-edit deltas.
+- Contracts, data, customer panel, owner and shared storefront TypeScript checks pass.
+- Combined259→260 atomic rehearsal preserves all 68 protected business/tariff tables, creates no order edits or cashier grants.
+- Current signup and historical tariff rehearsals pass; generated signup release proof refreshed with the frozen sources.
+- Existing live storefront commit `5cd16d435` merged to preserve deployed WhatsApp layout and stable button labels. Only the two customer panels are publication targets; both owners and storefronts remain unchanged witnesses.
