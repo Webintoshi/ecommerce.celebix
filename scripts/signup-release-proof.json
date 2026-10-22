@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "b624d5ed1f3b49500bba01935e3e6d999257799f1c7dad52c2bf389342b0184d",
+  "inputDigest": "9251f59473efa98c5981af3e7a99d519a446bdc1846bc47503c99c77599d8284",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -269,7 +269,7 @@
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "49d0392827da642f299492982584408ce4c8eeeac7f0e15b93b0e3de6f913fcf"
+      "sha256": "fe213def4bf37e5aa2a3aed9f3b1d12aaed92ef0a871b56950fad1d467283a30"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -366,6 +366,10 @@
     {
       "path": "apps/owner/app/api/platform/invitations/recover/route.ts",
       "sha256": "c85c521ba685d1f6bf2602a39420f5d28d3a6d41237ade6643935a2618650348"
+    },
+    {
+      "path": "apps/owner/app/api/platform/tool-purchases/route.ts",
+      "sha256": "7ed7359f9331050dedb656d0649f375d6a8fb524e058c6eef6640f4701d9fd81"
     },
     {
       "path": "apps/owner/app/api/public/runtime/route.ts",
@@ -641,7 +645,7 @@
     },
     {
       "path": "apps/owner/components/platform/FinanceScreen.tsx",
-      "sha256": "dab5e73b6b0e1e942a0f420e1b5c9962d2285269b0a11a38d24db01ce18be94d"
+      "sha256": "5e493264621186018208efa2e03ce5e76b0998a4f90a6dc5893222c4b4793cc1"
     },
     {
       "path": "apps/owner/components/platform/InvitationRecovery.tsx",
@@ -680,6 +684,10 @@
       "sha256": "bd35b976c9e31bcad24d226d5d0ca0502860a9e6d42cb0fe249003b78954cc93"
     },
     {
+      "path": "apps/owner/components/platform/ToolPurchasesPanel.tsx",
+      "sha256": "1f0f8de792e138c19df77af167390bd66375e7d1a678d5627b7e914a404c3a07"
+    },
+    {
       "path": "apps/owner/components/platform/VerifiedAccountField.tsx",
       "sha256": "f062df6b273a0bbf4c055863f4b121ec66dcb1bb02f566b88066f7456d9f90f7"
     },
@@ -702,6 +710,10 @@
     {
       "path": "apps/owner/components/platform/resource.ts",
       "sha256": "eeae15ac6ce3e69e40da4f60890ecc3cde1679006dbcda361efceb13bcea06da"
+    },
+    {
+      "path": "apps/owner/components/platform/tool-purchases.ts",
+      "sha256": "0c3ed1b7d2bc526608d0c014a0e4b2f26e5506085b37aef52c304216057fe1fc"
     },
     {
       "path": "apps/owner/components/platform/types.ts",
@@ -1193,7 +1205,7 @@
     },
     {
       "path": "apps/owner/lib/platform/database.ts",
-      "sha256": "2e6740da68b78a11fcc539c93aa529ca243fbdaf3e991aeb23b60415b798613d"
+      "sha256": "f11d47bfcb9491790cc66f7a3f3180bae78a93c7118076c6d9d5e010888cbb65"
     },
     {
       "path": "apps/owner/lib/platform/http.ts",
@@ -1206,6 +1218,10 @@
     {
       "path": "apps/owner/lib/platform/origin.ts",
       "sha256": "f8f6ea865828680127efc92880dfcf0ad967f626dfd1eea658e67e7edac75f8e"
+    },
+    {
+      "path": "apps/owner/lib/platform/tool-purchases-http.ts",
+      "sha256": "8f4f679db39eb22debc45de8063a583f3cc969e3199aacb6e9587a00fb088dcf"
     },
     {
       "path": "apps/owner/lib/r2-bootstrap.ts",
@@ -2752,6 +2768,14 @@
       "sha256": "33cbcef7aa03c04c2441a36349e8c0745eed38f32c9bbb70cd68d79a2a3a2ebd"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610220263_store_tool_licenses.up.sql",
+      "sha256": "789982a61a5ef03f9fcaf747f75478669c2c2b1f381bea7feb902d99911ff39b"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610220264_store_tool_public_gates.up.sql",
+      "sha256": "3bcd39c8f61f588913c51cee6fdc860acb7f44f547a44c8bbd742c3a4b9a5fbd"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3733,7 +3757,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "921f8d24e3c55aca6a05d1c9b48497ade83b129d289751e383839cb2ce055d27"
+      "sha256": "8728acce069315fcd4025d505fd16a3ff3325e48ebad58c5c5cc8eb92fbfacc5"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -3958,6 +3982,10 @@
     {
       "path": "packages/saas-contracts/src/store-engagement/index.ts",
       "sha256": "20775a8f88767ff30929d5f06a1fb55db112650ea5c61323dc2069cc7464ace4"
+    },
+    {
+      "path": "packages/saas-contracts/src/store-tools/index.ts",
+      "sha256": "bcf29c2c6abd8f1975a4ef97e27fdea0def05efff5055d29ad8305c5b1173bad"
     },
     {
       "path": "packages/saas-contracts/src/storefront-assets/index.ts",
@@ -4585,7 +4613,7 @@
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "848c031af676604e295b0ef1ffec574d61b94e95fe8adb71c5cb945555d37cb9"
+      "sha256": "5c74b1c7ae9601ee73323d3430f2185ae28890793fe3a84ae2fbe08f6c2acc2b"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -4876,6 +4904,10 @@
       "sha256": "c5c830de853c121835df9df5bbe6628fc677a1e60f33f03937a2d015fce784d2"
     },
     {
+      "path": "packages/saas-data/src/platform/tool-purchases.ts",
+      "sha256": "65bde4c08f13dbc9f966ed4da5dfdfc56310893990d6c08d4e3b1bd977a4dc29"
+    },
+    {
       "path": "packages/saas-data/src/ports.ts",
       "sha256": "fd2a61abd524f5f61d7ca849ffc208094b0229357e23544ca52052381bbf462c"
     },
@@ -5146,6 +5178,10 @@
     {
       "path": "packages/saas-data/src/store-engagement/repository.ts",
       "sha256": "0728abb85a40f6aa7b443c6d8d3e3f964f6b8936c36b4f99d6c5f313bb7106e2"
+    },
+    {
+      "path": "packages/saas-data/src/store-tools/repository.ts",
+      "sha256": "5756c4ec933a114dfcd6d8302fa3d4de0b632297fd4f10082cad8d49eaf8a38f"
     },
     {
       "path": "packages/saas-data/src/storefront-assets/index.ts",
