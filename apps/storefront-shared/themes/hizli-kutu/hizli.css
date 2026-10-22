@@ -193,9 +193,9 @@
   .hk-total small { display: block; margin-top: 6px; color: var(--hk-muted); font-size: 12px; }
   .hk-purchase-actions { display: grid; gap: 10px; }
   .hk-purchase-actions:empty { display: none; }
-  .whatsapp-order-action > button { width: 100%; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 13px 18px; border: 1px solid #1bc644; border-radius: 8px; background: linear-gradient(180deg, #50ef71, #14cc40); color: #073b18; font-size: 14px; font-weight: 600; line-height: 1.4; text-transform: none; letter-spacing: 0; transition: filter .16s ease; }
+  .whatsapp-order-action > button { width: 100%; min-height: 52px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; padding: 13px 18px; border: 1px solid #11873b; border-radius: 8px; background: linear-gradient(180deg, #11873b, #087a30); color: #fff; font-size: 14px; font-weight: 600; line-height: 1.4; text-transform: none; letter-spacing: 0; transition: filter .16s ease; }
   .whatsapp-order-action > button::before { content: ""; flex: 0 0 24px; width: 24px; height: 24px; background: #fff; mask: url("/themes/hizli-kutu/whatsapp.svg") center / contain no-repeat; }
-  .whatsapp-order-action > button:hover { background: linear-gradient(180deg, #43e666, #10bf39); color: #073b18; }
+  .whatsapp-order-action > button:hover { background: linear-gradient(180deg, #0d7e35, #07692a); color: #fff; }
   .whatsapp-order-action > button:focus-visible { outline-color: #16853a; }
   .whatsapp-order-action > button:disabled { opacity: .5; cursor: not-allowed; }
   .whatsapp-order-action > p { font-size: 12px; line-height: 1.6; margin: 10px 0 0; }
