@@ -26,7 +26,14 @@ test('one product click validates fresh data and navigates the same tab exactly 
   await show(productRequest(1,2));
   await React.act(async()=>{container.querySelector<HTMLButtonElement>('button')!.click();container.querySelector<HTMLButtonElement>('button')!.click();});
   assert.equal(requests.length,1);assert.equal(navigations.length,0);assert.equal(events.length,0);
+  assert.equal(container.querySelector('button')?.textContent,'WhatsApp ile sipariş ver');
+  assert.equal(container.querySelector<HTMLButtonElement>('button')?.disabled,true);
+  assert.equal(container.querySelector('button')?.getAttribute('aria-busy'),'true');
+  assert.equal(container.querySelector('[role="status"]')?.textContent,'');
   await complete(0,productPreview(1,2));assert.equal(navigations.length,1);assert.equal(new URL(navigations[0]!).hostname,'wa.me');
+  assert.equal(container.querySelector('button')?.textContent,'WhatsApp ile sipariş ver');
+  assert.equal(container.querySelector('[role="status"]')?.textContent,'');
+  assert.equal(container.querySelector('button')?.getAttribute('aria-busy'),'false');
   assert.match(message()??'',/Büyük — 2 adet/);assert.doesNotMatch(message()??'',/₺|TRY/);assert.equal(container.querySelector('a'),null);
   assert.equal(requests[0]?.url,'/api/whatsapp-order/preview');assert.deepEqual(requests[0]?.input,{kind:'product',productId:product.id,variantId:product.variants[1]!.id,quantity:2});
   assert.deepEqual(events,[{name:'whatsapp_click',data:{source:'whatsapp_order_request',productId:product.id}}]);
