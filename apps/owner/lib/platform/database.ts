@@ -5,6 +5,7 @@ import {createHmac} from 'node:crypto';
 import type {PlatformMutation,PlatformReadEnvelope} from '@celebix/saas-contracts';
 import type {PlatformRegistryRecord} from './authority.ts';
 import {PostgresPlatformRepository,PlatformRepositoryError} from '@celebix/saas-data';
+import {PostgresPlatformToolPurchasesRepository,type PlatformToolReceipt,type PlatformToolPurchasesQuery} from '../../../../packages/saas-data/src/platform/tool-purchases.ts';
 
 let pool:pg.Pool|undefined;
 function invitationIssuer():string{const issuer=process.env.CELEBIX_LOGTO_ISSUER?.trim();if(!issuer||issuer.length>2048)throw new PlatformRepositoryError('unavailable');const url=new URL(issuer);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash)throw new PlatformRepositoryError('unavailable');return issuer;}
@@ -34,6 +35,12 @@ export async function platformTransaction<T>(write:boolean,run:(client:pg.PoolCl
  }catch(error){if(!terminal)await client.query('ROLLBACK').catch(()=>{terminal=true;client.release(true);});throw error;}finally{if(!terminal)client.release();}
 }
 function repository(){return new PostgresPlatformRepository({pool:{async connect(){const client=await database().connect();try{const r=await client.query(PLATFORM_ROLE_QUERY);assertPlatformDatabaseRole(r.rows[0]);return client;}catch(e){client.release(true);throw e;}}},role:'celebix_saas_platform_operator',timeouts:{poolCheckoutMs:2500,statementMs:10000,lockMs:3000,idleTransactionMs:10000}});}
+function toolPurchasesRepository(){return new PostgresPlatformToolPurchasesRepository({pool:{async connect(){const client=await database().connect();try{const r=await client.query(PLATFORM_ROLE_QUERY);assertPlatformDatabaseRole(r.rows[0]);return client;}catch(error){client.release(true);throw error;}}},role:'celebix_saas_platform_operator',timeouts:{poolCheckoutMs:2500,statementMs:10000,lockMs:3000,idleTransactionMs:10000}});}
+export async function readPlatformToolPurchases(operatorId:string,query:PlatformToolPurchasesQuery){return toolPurchasesRepository().read(operatorId,query);}
+export async function settlePlatformToolPurchase(operatorId:string,purchaseId:string,receipt:PlatformToolReceipt,expectedVersion:number,idempotencyKey:string){
+ const result=await toolPurchasesRepository().settle(operatorId,purchaseId,receipt,expectedVersion,idempotencyKey);
+ return{outcome:result.replayed?'replayed' as const:'committed' as const,version:result.purchase.version,result:{purchase:result.purchase}};
+}
 export async function resolvePlatformRegistry(issuer:string,subject:string):Promise<PlatformRegistryRecord|null> {
  try{const v=await repository().resolveOperator(issuer,subject);return {operatorId:String(v.operatorId??v.id),principalId:String(v.principalId??v.principal_id),issuer:String(v.issuer),subject:String(v.subject),active:v.active===true,label:String(v.label??v.email),version:Number(v.version)};}catch(e){if(e instanceof PlatformRepositoryError&&e.code==='operator_denied')return null;throw e;}
 }
