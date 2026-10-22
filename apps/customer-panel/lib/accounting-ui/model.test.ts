@@ -44,3 +44,14 @@ test("social source filter preserves POS accounting authority and other filters"
   assert.deepEqual(m.accountingFilterQuery({...draft,channel:"manual"}),{query:"Ayşe",dateFrom:"2026-10-01",channel:"POS",salesChannel:"manual",currency:"TRY"});
   assert.deepEqual(m.accountingFilterQuery({channel:"WEB",query:""}),{channel:"WEB"});
 });
+
+
+test("automatic deleted-order debt closure is a protected noncash adjustment with a clear label",()=>{
+  const event={id:"closure",kind:"collection",currency:"TRY",amountCents:0,accountId:null,customerId:"customer",orderId:null,channel:"POS" as const,paymentMethod:null,note:"Silinen siparişin kalan borcu otomatik kapatıldı.",category:null,documentNumber:null,metadata:{permanentOrderDebtClosure:true,discountCents:40000,discountAllocations:[{receivableId:"debt",orderId:null,amountCents:40000}]},actorMembershipId:"actor",occurredAt:"2026-10-22T10:00:00Z",createdAt:"2026-10-22T10:00:00Z",reversesEventId:null,reversed:false,allocations:[]};
+  assert.equal(typeof m.accountingEventTitle,"function");
+  assert.equal(m.accountingEventTitle(event),"Borç kapatma");
+  assert.deepEqual(m.accountingEventContext(event),{pendingManualSale:false,orderId:null,canReverse:false,label:"Silinen siparişin borcu kapatıldı"});
+  assert.equal(m.accountingEventTitle({...event,metadata:{discountCents:40000}}),"İskonto");
+  assert.equal(m.accountingEventTitle({...event,amountCents:200000,metadata:{}}),"Alınan ödeme");
+  assert.equal(m.accountingEventContext({...event,metadata:{permanentOrderDebtClosure:"true"}}).canReverse,true);
+});

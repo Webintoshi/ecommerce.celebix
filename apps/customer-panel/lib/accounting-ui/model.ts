@@ -17,6 +17,11 @@ export const accountingMoney=(cents:number,currency="TRY")=>new Intl.NumberForma
 export const accountingDate=(value:string)=>new Intl.DateTimeFormat("tr-TR",{dateStyle:"short",timeStyle:value.length>10?"short":undefined}).format(new Date(value));
 export const ACCOUNT_TYPE_LABELS={cash:"Kasa",bank:"Banka",card:"Kart hesabı"};
 export const EVENT_LABELS:Readonly<Record<string,string>>={sale:"Satış",collection:"Alınan ödeme",opening_debt:"Önceden kalan borç",account_opening:"Başlangıç parası",opening_balance:"Başlangıç parası",expense:"Ödenmiş gider",transfer:"Hesaplar arası aktarım",transfer_out:"Hesaptan çıkan aktarım",transfer_in:"Hesaba gelen aktarım",card_settlement:"Bankaya geçen kart ödemesi",commission:"Kart komisyonu",reversal:"Düzeltme kaydı",return_credit:"İade kaydı",refund:"Yapılan para iadesi"};
+export function accountingEventTitle(event: AccountingEvent): string {
+  if (event.metadata.permanentOrderDebtClosure === true) return "Borç kapatma";
+  if (event.kind === "collection" && event.amountCents === 0 && typeof event.metadata.discountCents === "number" && event.metadata.discountCents > 0) return "İskonto";
+  return EVENT_LABELS[event.kind] ?? "Hesap hareketi";
+}
 export function accountingEventContext(event: AccountingEvent) {
   const allocatedOrders = Array.from(new Set(event.allocations.map(row => row.orderId).filter((id): id is string => Boolean(id))));
   const orderId = event.orderId ?? (allocatedOrders.length === 1 ? allocatedOrders[0]! : null);
@@ -24,7 +29,8 @@ export function accountingEventContext(event: AccountingEvent) {
   const unallocatedManualPart = partLinked && event.channel === "POS" && orderId === null && event.allocations.length === 0;
   const cancelledManualSale = unallocatedManualPart && event.metadata.saleStatus === "cancelled";
   const pendingManualSale = unallocatedManualPart && !cancelledManualSale;
-  return { pendingManualSale, orderId, canReverse: !event.reversed && !unallocatedManualPart, label: cancelledManualSale ? "İptal edilen manuel satış" : pendingManualSale ? "Bekleyen manuel satış" : null };
+  const debtClosure = event.metadata.permanentOrderDebtClosure === true;
+  return { pendingManualSale, orderId, canReverse: !event.reversed && !unallocatedManualPart && !debtClosure, label: debtClosure ? "Silinen siparişin borcu kapatıldı" : cancelledManualSale ? "İptal edilen manuel satış" : pendingManualSale ? "Bekleyen manuel satış" : null };
 }
 export function accountingFilterQuery(draft: Readonly<Record<string, string>>): AccountingFilters {
   const values = Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, value.trim()]).filter(([, value]) => value));
