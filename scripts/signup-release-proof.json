@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "cc604ba6d0ce0f6969cacc855a4cc0385e53fe9b329af625a8ee435974896abe",
+  "inputDigest": "abaac1eb02bcf4826fdde9bb1f6095d86e7b1ebd203defd735841c4d4f258d5f",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2742,6 +2742,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/202610220260_existing_order_edit.up.sql",
       "sha256": "b539d0ff1e8e4f63a43e68b9ec4d6bee7e4538eabf86260f0ee82f16f256918e"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610220261_deleted_order_debt_closure.up.sql",
+      "sha256": "a67e7b2952c63a81ba8543cce7a40b8fa5332261fb125c95f5acb16358f3ac6c"
     },
     {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
