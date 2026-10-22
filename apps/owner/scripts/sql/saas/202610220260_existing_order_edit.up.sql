@@ -726,4 +726,3 @@ DO $acl$DECLARE f record;r record;BEGIN
  END LOOP;
 END $acl$;
 COMMIT;
-
