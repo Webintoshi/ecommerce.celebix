@@ -92,7 +92,7 @@
 }
 [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card { flex-basis: calc((100% - 72px) / 4); gap: 14px; }
 [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card-link { gap: 14px; }
-[data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-image-shell { aspect-ratio: 4 / 5; background: var(--media-surface); }
+[data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-image-shell { background: var(--media-surface); }
 [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card-copy { gap: 7px; }
 [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card-copy h3 { font-size: 12px; font-weight: 400; line-height: 1.65; }
 [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .price-row strong { font-size: 13px; font-weight: 600; }
@@ -220,7 +220,6 @@
   [data-storefront-theme="guzide-deniz"] .guzide-rail-actions > a { font-size: 9px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-grid { gap: 14px; margin-right: 0; padding-bottom: 18px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card { flex-basis: calc((100% - 14px) / 2); gap: 10px; }
-  [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-image-shell { aspect-ratio: 3 / 4; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card-copy h3 { font-size: 11px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .price-row strong { font-size: 12px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card-cart { font-size: 9px; letter-spacing: .04em; padding-inline: 6px; }
@@ -282,7 +281,6 @@
   [data-storefront-theme="guzide-deniz"] .guzide-rail-actions > a { font-size: 9px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-grid { gap: 14px; margin-right: 0; padding-bottom: 18px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card { flex-basis: calc((100% - 14px) / 2); gap: 10px; }
-  [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-image-shell { aspect-ratio: 3 / 4; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card-copy h3 { font-size: 11px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .price-row strong { font-size: 12px; }
   [data-storefront-theme="guzide-deniz"] [data-campaign-product-row] .product-card-cart { font-size: 9px; letter-spacing: .04em; padding-inline: 6px; }

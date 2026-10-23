@@ -345,7 +345,7 @@
 .previewProductMedia {
   position: relative;
   display: grid;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 3 / 4;
   place-items: center;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--preview-ink) 8%, transparent);
