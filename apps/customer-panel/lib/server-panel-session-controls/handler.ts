@@ -1,6 +1,6 @@
 import "server-only";
 
-import { parseCanonicalAdminOriginFromPanelOrigin, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+import { adminOriginEnvironmentFromPanelOrigin, parseCanonicalAdminOriginFromPanelOrigin, parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 
 import { createCrossHostHandoffAutoPostResponse } from "../cross-host-handoff-auto-post.ts";
 import type { ServerAdminHostAuthRuntime } from "../server-admin-host-auth/runtime.ts";
@@ -148,6 +148,19 @@ function switchFailure(kind: unknown): Response {
   return json("panel_session_retry_required", 503);
 }
 
+function platformSwitchDestination(origin: string, panelOrigin: string) {
+  try { return parseCanonicalAdminOriginFromPanelOrigin(origin, panelOrigin); }
+  catch (error) {
+    const environment = adminOriginEnvironmentFromPanelOrigin(panelOrigin);
+    if (environment === "production") throw error;
+    // Store authority is shared by the two staging panels; keep its canonical host.
+    const sibling = environment === "staging_net"
+      ? "https://panel.saas-staging.celebix.site"
+      : "https://panel.saas-staging.celebix.net";
+    return parseCanonicalAdminOriginFromPanelOrigin(origin, sibling);
+  }
+}
+
 export function createPanelStoreSwitchHandoffHandler(dependencies: StoreSwitchDependencies) {
   if (
     !dependencies || typeof dependencies.resolveRuntime !== "function" ||
@@ -199,7 +212,7 @@ export function createPanelStoreSwitchHandoffHandler(dependencies: StoreSwitchDe
       try {
         destination = parseExactAdminHttpsOrigin(selected.canonicalAdminOrigin);
         if (!destination.hostname.startsWith("admin.")) {
-          const platform = parseCanonicalAdminOriginFromPanelOrigin(destination.origin, runtime.access.panelOrigin);
+          const platform = platformSwitchDestination(destination.origin, runtime.access.panelOrigin);
           if (platform.storeSlug !== selected.storeSlug) throw new Error("invalid");
         }
       } catch {

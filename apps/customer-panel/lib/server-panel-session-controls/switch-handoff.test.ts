@@ -30,9 +30,12 @@ function request(overrides: Readonly<{ origin?: string; body?: string; cookie?: 
   });
 }
 
-function runtime(issue: (input: Record<string, unknown>) => Promise<Record<string, unknown>>) {
+function runtime(
+  issue: (input: Record<string, unknown>) => Promise<Record<string, unknown>>,
+  options: Readonly<{ panelOrigin?: string; destinationOrigin?: string; storeSlug?: string }> = {},
+) {
   return Object.freeze({
-    access: Object.freeze({ panelOrigin: CENTRAL_ORIGIN }),
+    access: Object.freeze({ panelOrigin: options.panelOrigin ?? CENTRAL_ORIGIN }),
     adminDomains: Object.freeze({
       async resolvePublicBrand() {
         return Object.freeze({ kind: "resolved", brand: Object.freeze({ canonicalAdminOrigin: "https://hemenaku.admin.saas-staging.celebix.site" }) });
@@ -50,9 +53,9 @@ function runtime(issue: (input: Record<string, unknown>) => Promise<Record<strin
           stores: Object.freeze([
             Object.freeze({
               storeId: DESTINATION_STORE_ID,
-              storeSlug: "guzide-kuyumcu-4",
+              storeSlug: options.storeSlug ?? "guzide-kuyumcu-4",
               displayName: "Güzide Kuyumcu",
-              canonicalAdminOrigin: DESTINATION_ORIGIN,
+              canonicalAdminOrigin: options.destinationOrigin ?? DESTINATION_ORIGIN,
             }),
           ]),
         });
@@ -164,6 +167,61 @@ test("proxy transport does not bypass Host, origin, route or session checks", as
     assert.equal(response.status, status);
     assert.equal(issued, 0);
     assert.equal(response.headers.get("location"), null);
+    assert.equal((await response.text()).includes(HANDOFF), false);
+  }
+});
+
+test("store switch follows credential-owned destinations across the paired staging panels", async () => {
+  for (const [panelOrigin, destinationOrigin] of [
+    ["https://panel.saas-staging.celebix.net", DESTINATION_ORIGIN],
+    [CENTRAL_ORIGIN, "https://guzide-kuyumcu-4.admin.saas-staging.celebix.net"],
+  ]) {
+    const calls: Record<string, unknown>[] = [];
+    const handler = handlers.createPanelStoreSwitchHandoffHandler!({
+      async resolveRuntime() {
+        return runtime(async (input) => {
+          calls.push(input);
+          return Object.freeze({ kind: "handoff_issued", credential: HANDOFF, destinationOrigin });
+        }, { panelOrigin, destinationOrigin });
+      },
+      operationId: () => OPERATION_ID,
+      randomBytes: (size) => new Uint8Array(size).fill(0x41),
+      now: () => new Date(NOW),
+      maximumBodyBytes: 512,
+    });
+    const response = await handler(request());
+    assert.equal(response.status, 200, `${panelOrigin} → ${destinationOrigin}`);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].destinationHostname, new URL(destinationOrigin).hostname);
+    assert.equal(calls[0].destinationStoreId, DESTINATION_STORE_ID);
+  }
+});
+
+test("paired staging switching preserves production and destination slug boundaries", async () => {
+  for (const [panelOrigin, destinationOrigin, storeSlug] of [
+    [CENTRAL_ORIGIN, "https://guzide-kuyumcu-4.admin.celebix.site", "guzide-kuyumcu-4"],
+    ["https://panel.saas-staging.celebix.net", "https://guzide-kuyumcu-4.admin.celebix.site", "guzide-kuyumcu-4"],
+    ["https://panel.celebix.site", DESTINATION_ORIGIN, "guzide-kuyumcu-4"],
+    ["https://panel.celebix.site", "https://guzide-kuyumcu-4.admin.saas-staging.celebix.net", "guzide-kuyumcu-4"],
+    [CENTRAL_ORIGIN, "https://other-store.admin.saas-staging.celebix.net", "guzide-kuyumcu-4"],
+    ["https://attacker.example", DESTINATION_ORIGIN, "guzide-kuyumcu-4"],
+  ]) {
+    let issued = 0;
+    const handler = handlers.createPanelStoreSwitchHandoffHandler!({
+      async resolveRuntime() {
+        return runtime(async () => {
+          issued += 1;
+          return Object.freeze({ kind: "handoff_issued", credential: HANDOFF, destinationOrigin });
+        }, { panelOrigin, destinationOrigin, storeSlug });
+      },
+      operationId: () => OPERATION_ID,
+      randomBytes: (size) => new Uint8Array(size).fill(0x41),
+      now: () => new Date(NOW),
+      maximumBodyBytes: 512,
+    });
+    const response = await handler(request());
+    assert.equal(response.status, 409, `${panelOrigin} → ${destinationOrigin}`);
+    assert.equal(issued, 0);
     assert.equal((await response.text()).includes(HANDOFF), false);
   }
 });
