@@ -20,9 +20,10 @@ const OPERATION = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const REQUEST_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const NOW = new Date("2026-07-22T16:00:00.000Z");
 const CREDENTIAL = `v1.panel.current.${Buffer.alloc(32, 0x31).toString("base64url")}`;
+type CartReaderRole = "store_owner" | "admin" | "editor" | "analyst";
 
 function tenantContext(
-  role: "store_owner" | "analyst" = "store_owner",
+  role: CartReaderRole = "store_owner",
 ): TenantContext {
   return {
     schemaVersion: 1,
@@ -108,7 +109,7 @@ function repository(
 function runtime(
   carts: AbandonedCartRepository,
   accessKind: "authenticated" | "unauthenticated" = "authenticated",
-  role: "store_owner" | "analyst" = "store_owner",
+  role: CartReaderRole = "store_owner",
 ): ServerAbandonedCartRuntime {
   return {
     abandonedCarts: carts,
@@ -170,7 +171,7 @@ function request(
 function handlers(
   carts: AbandonedCartRepository,
   accessKind: "authenticated" | "unauthenticated" = "authenticated",
-  role: "store_owner" | "analyst" = "store_owner",
+  role: CartReaderRole = "store_owner",
 ) {
   return createAbandonedCartHttpHandlers({
     async resolveRuntime() {
@@ -234,7 +235,7 @@ test("authenticated summary, list and detail receive only server TenantContext",
   assert.equal(JSON.stringify(calls).includes("__Host-celebix_panel"), false);
 });
 
-test("list always masks customer identity while analyst detail also masks contact PII", async () => {
+test("list and detail preserve customer association only for roles allowed to manage carts", async () => {
   const item = cart();
   const detail = {
     ...item,
@@ -258,42 +259,28 @@ test("list always masks customer identity while analyst detail also masks contac
       return detail;
     },
   });
-  const ownerList = await handlers(carts).list(request(`${BASE}?sort=newest`));
-  const ownerListPayload = (await ownerList.json()) as {
-    items: Record<string, unknown>[];
-  };
-  assert.deepEqual(ownerListPayload.items[0]?.customerName, "Maskeli müşteri");
-  assert.equal(
-    JSON.stringify(ownerListPayload).includes("ada@example.test"),
-    false,
-  );
-  assert.equal(
-    JSON.stringify(ownerListPayload).includes("+905551112233"),
-    false,
-  );
-  assert.equal(
-    JSON.stringify(ownerListPayload).includes("eeeeeeee-eeee"),
-    false,
-  );
-
-  const ownerDetail = await handlers(carts).get(request(`${BASE}/${ID}`), ID);
-  assert.match(JSON.stringify(await ownerDetail.json()), /ada@example\.test/u);
-
-  const analystDetail = await handlers(carts, "authenticated", "analyst").get(
-    request(`${BASE}/${ID}`),
-    ID,
-  );
-  const analystPayload = (await analystDetail.json()) as Record<
-    string,
-    unknown
-  >;
-  assert.equal(analystPayload.customerName, "Maskeli müşteri");
-  assert.equal(
-    JSON.stringify(analystPayload).includes("ada@example.test"),
-    false,
-  );
-  assert.equal(JSON.stringify(analystPayload).includes("+905551112233"), false);
-  assert.equal(JSON.stringify(analystPayload).includes("eeeeeeee-eeee"), false);
+  for (const role of ["store_owner", "admin", "editor", "analyst"] as const) {
+    const api = handlers(carts, "authenticated", role);
+    const list = await api.list(request(`${BASE}?sort=newest`));
+    const get = await api.get(request(`${BASE}/${ID}`), ID);
+    assert.equal(list.status, 200, role);
+    assert.equal(get.status, 200, role);
+    const listPayload = await list.json() as { items: Record<string, unknown>[] };
+    const detailPayload = await get.json() as Record<string, unknown>;
+    if (role === "store_owner" || role === "admin") {
+      assert.deepEqual(listPayload.items[0], item, role);
+      assert.deepEqual(detailPayload, detail, role);
+    } else {
+      for (const masked of [listPayload.items[0], detailPayload]) {
+        assert.equal(masked?.customerName, "Maskeli müşteri", role);
+        assert.equal(Object.hasOwn(masked!, "customerId"), false, role);
+        assert.equal(Object.hasOwn(masked!, "customerEmail"), false, role);
+        assert.equal(Object.hasOwn(masked!, "customerPhone"), false, role);
+        assert.equal(masked?.firstProductName, item.firstProductName, role);
+        assert.equal(masked?.totalCents, item.totalCents, role);
+      }
+    }
+  }
 });
 
 test("recovered and archive mutations require exact Origin and idempotency authority", async () => {

@@ -10,6 +10,8 @@ import type {
 import { normalizePromotionCode } from "@celebix/saas-contracts";
 import type { StorefrontCommerceRepository } from "@celebix/saas-data";
 import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
+import { readAccountCookie } from "../account/credential.ts";
+import type { BindStorefrontCartIdentity } from "../cart-identity/runtime.ts";
 
 import {
   createStorefrontCredential,
@@ -111,6 +113,7 @@ type Dependencies = Readonly<{
   now(): Date;
   randomBytes(size: number): Uint8Array;
   randomUuid(): string;
+  bindCartIdentity?: BindStorefrontCartIdentity;
   hostedPaymentAvailable?(
     method: Extract<PublicPaymentMethod, { kind: "hosted_card" }>,
   ): Promise<boolean>;
@@ -459,7 +462,9 @@ export function createStorefrontCommerceRuntime(
         hostname,
         now,
         candidates: selectedCandidates,
-        customerCandidates: optionalCandidates(
+        // Account sessions are verified by the identity binder. A legacy
+        // checkout cookie must not assert a different customer over them.
+        customerCandidates: readAccountCookie(cookieHeader).kind === "present" ? Object.freeze([]) : optionalCandidates(
           "customer",
           cookieHeader,
           dependencies.keyring,
@@ -500,16 +505,21 @@ export function createStorefrontCommerceRuntime(
           /* analytics enrichment must never fail the cart mutation */
         }
       }
+      const cartCookie = cartCredential
+        ? serializeStorefrontCredentialCookie("cart", cartCredential.raw)
+        : undefined;
+      try {
+        await dependencies.bindCartIdentity?.({
+          hostname,
+          cookieHeader,
+          ...(cartCookie ? { cartCookieHeader: cartCookie } : {}),
+        });
+      } catch {
+        /* Identity enrichment must never fail a committed cart mutation. */
+      }
       return Object.freeze({
         cart: result.cart,
-        ...(cartCredential
-          ? {
-              setCookie: serializeStorefrontCredentialCookie(
-                "cart",
-                cartCredential.raw,
-              ),
-            }
-          : {}),
+        ...(cartCookie ? { setCookie: cartCookie } : {}),
       });
     },
     async quote(

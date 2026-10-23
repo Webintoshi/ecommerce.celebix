@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "4393a1a558f6c27ffdc97f095cbdb3b400a973d8b8b04147f81a61e509b9eec9",
+  "inputDigest": "6598a398e8295930fbea203178d1f278100a9d0e16869404d95c45a63cda9cb4",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2794,6 +2794,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/202610230269_trendyol_product_tax.up.sql",
       "sha256": "2b271b692989629fc43b20f3ebc2851f3ef044a6c4376b657bba53724b474f46"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610230270_account_cart_identity_binding.up.sql",
+      "sha256": "20e6845956233d7ef94142cf8cf4a22a25d0081df8d7dabff2754ab8bbf8433e"
     },
     {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",

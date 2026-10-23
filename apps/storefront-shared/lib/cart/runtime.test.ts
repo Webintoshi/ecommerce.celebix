@@ -13,6 +13,8 @@ import { StorefrontCommerceRepositoryError, type StorefrontCommerceRepository } 
 
 import { createStorefrontCredential, createStorefrontOperationCredential, parseStorefrontCommerceCredentialKeyring, readStorefrontCredentialCookie } from "./credential.ts";
 import { createStorefrontCommerceRuntime } from "./runtime.ts";
+import { createAccountSessionCredential, parseStorefrontIdentityKeyring } from "../account/credential.ts";
+import type { BindStorefrontCartIdentity } from "../cart-identity/runtime.ts";
 
 const HOST = "shop.example.test";
 const PRODUCT = "10000000-0000-4000-8000-000000000001";
@@ -170,10 +172,10 @@ test("recovery token is hashed before storage access and returns a fresh HttpOnl
   assert.match(observed?.tokenDigest ?? "", /^[a-f0-9]{64}$/u);
   assert.equal(JSON.stringify(observed).includes(token), false);
 });
-function runtime(repository: StorefrontCommerceRepository, selectedKeyring = keyring, hostedPaymentAvailable?: () => Promise<boolean>) {
+function runtime(repository: StorefrontCommerceRepository, selectedKeyring = keyring, hostedPaymentAvailable?: () => Promise<boolean>, bindCartIdentity?: BindStorefrontCartIdentity) {
   let uuidIndex = 0;
   const uuids = ["40000000-0000-4000-8000-000000000001", "40000000-0000-4000-8000-000000000002", "40000000-0000-4000-8000-000000000003", "40000000-0000-4000-8000-000000000004", "40000000-0000-4000-8000-000000000005", "40000000-0000-4000-8000-000000000006", "40000000-0000-4000-8000-000000000007"];
-  return createStorefrontCommerceRuntime({ repository, keyring: selectedKeyring, now: () => new Date(NOW), randomBytes: (size) => new Uint8Array(size).fill(9), randomUuid: () => uuids[uuidIndex++] ?? randomUUID(), ...(hostedPaymentAvailable ? { hostedPaymentAvailable } : {}) });
+  return createStorefrontCommerceRuntime({ repository, keyring: selectedKeyring, now: () => new Date(NOW), randomBytes: (size) => new Uint8Array(size).fill(9), randomUuid: () => uuids[uuidIndex++] ?? randomUUID(), ...(hostedPaymentAvailable ? { hostedPaymentAvailable } : {}), ...(bindCartIdentity ? { bindCartIdentity } : {}) });
 }
 
 test("quote exposes hosted card only while approved execution is available", async () => {
@@ -327,6 +329,60 @@ test("cart mutation forwards only verified customer cookie digest candidates", a
   assert.equal(observed?.customerCandidates[0]?.keyId, "current_01");
   assert.match(observed?.customerCandidates[0]?.digest ?? "", /^[a-f0-9]{64}$/u);
   assert.equal(JSON.stringify(observed).includes(customer.value), false);
+});
+
+test("committed first cart add awaits identity binding with the new cart credential", async () => {
+  const calls: Parameters<BindStorefrontCartIdentity>[0][] = [];
+  let bound = false;
+  const incoming = "__Host-celebix_account=a1.current_01.CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk";
+  const selected = runtime(fake({ mutateCart: async () => ({ credentialCreated: true, cart: CART }) }), keyring, undefined, async value => {
+    calls.push(value); await new Promise(resolve => setTimeout(resolve, 0)); bound = true;
+  });
+  const response = await selected.mutateCart(HOST, incoming, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
+  assert.deepEqual(calls, [{ hostname: HOST, cookieHeader: incoming, cartCookieHeader: response.setCookie }]);
+  assert.equal(bound, true);
+  assert.deepEqual(response.cart, CART);
+});
+
+test("existing cart changes bind once with incoming proofs and enrichment failures preserve their committed result", async () => {
+  const cart = createStorefrontCredential("cart", keyring, size => new Uint8Array(size).fill(4));
+  const incoming = `__Host-celebix_cart=${cart.value}`;
+  const calls: Parameters<BindStorefrontCartIdentity>[0][] = [];
+  const selected = runtime(fake(), keyring, undefined, async value => { calls.push(value); throw Error("bind unavailable"); });
+  for (const command of [
+    { kind: "add" as const, operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 },
+    { kind: "set_quantity" as const, operationId: OPERATION, expectedVersion: 1, variantId: VARIANT, quantity: 2 },
+    { kind: "remove" as const, operationId: OPERATION, expectedVersion: 1, variantId: VARIANT },
+  ]) {
+    const response = await selected.mutateCart(HOST, incoming, command);
+    assert.deepEqual(response.cart, CART);
+    assert.equal(response.setCookie, undefined);
+  }
+  assert.deepEqual(calls, Array.from({ length: 3 }, () => ({ hostname: HOST, cookieHeader: incoming })));
+});
+
+test("cart GET, buy-now and failed mutations do not invoke identity binding", async () => {
+  let binds = 0;
+  const cart = createStorefrontCredential("cart", keyring, size => new Uint8Array(size).fill(4));
+  const selected = runtime(fake({ mutateCart: async () => { throw Error("database rejected"); } }), keyring, undefined, async () => { binds++; });
+  await selected.resolveCart(HOST, `__Host-celebix_cart=${cart.value}`);
+  await selected.mutateCart(HOST, null, { kind: "buy_now", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
+  await assert.rejects(selected.mutateCart(HOST, null, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 }), /database rejected/);
+  assert.equal(binds, 0);
+});
+
+test("an account cookie suppresses legacy checkout identity in cart mutation while guest fallback stays unchanged", async () => {
+  const accountRing = parseStorefrontIdentityKeyring("account_01", JSON.stringify([{ keyId: "account_01", key: KEY_A }]));
+  const account = createAccountSessionCredential(accountRing, size => new Uint8Array(size).fill(6));
+  const customer = createStorefrontCredential("customer", keyring, size => new Uint8Array(size).fill(5));
+  const observed: Parameters<StorefrontCommerceRepository["mutateCart"]>[0][] = [];
+  const selected = runtime(fake({ mutateCart: async value => { observed.push(value); return { credentialCreated: true, cart: CART }; } }));
+  for (const accountCookie of [`__Host-celebix_account=${account.value}; `, "", "__Host-celebix_account=malformed; "]) {
+    await selected.mutateCart(HOST, `${accountCookie}__Host-celebix_customer=${customer.value}`, { kind: "add", operationId: OPERATION, productId: PRODUCT, variantId: VARIANT, quantity: 1 });
+  }
+  assert.deepEqual(observed[0]?.customerCandidates, []);
+  assert.equal(observed[1]?.customerCandidates.length, 1);
+  assert.deepEqual(observed[2]?.customerCandidates, observed[1]?.customerCandidates);
 });
 
 test("repository failure never emits a cart or checkout credential", async () => {

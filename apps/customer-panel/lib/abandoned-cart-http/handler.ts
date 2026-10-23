@@ -335,12 +335,13 @@ export function createAbandonedCartHttpHandlers(dependencies: Dependencies) {
       if (isResponse(authorized)) return authorized;
       const input = readAbandonedCartListInput(request);
       if (input.kind !== "valid") return error("invalid_input", 400);
+      const mayManage = isMerchantActionAllowed(
+        authorized.tenantContext.membership.role,
+        "carts.manage",
+      );
       if (
         input.value.search &&
-        !isMerchantActionAllowed(
-          authorized.tenantContext.membership.role,
-          "carts.manage",
-        )
+        !mayManage
       )
         return error("membership_denied", 403);
       return execute(
@@ -371,7 +372,7 @@ export function createAbandonedCartHttpHandlers(dependencies: Dependencies) {
             items: Object.freeze(
               record.items
                 .map(parseAbandonedCartListItem)
-                .map(maskCartIdentity),
+                .map((cart) => mayManage ? cart : maskCartIdentity(cart)),
             ),
             ...(record.nextCursor === undefined
               ? {}

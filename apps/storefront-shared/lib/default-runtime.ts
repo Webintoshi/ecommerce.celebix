@@ -77,6 +77,8 @@ import { createStoreEngagementRuntime, type StoreEngagementRuntime } from "./eng
 import { createLuckyWheelRuntime, type LuckyWheelRuntime } from "./lucky-wheel/runtime.ts";
 import { createOrderBumpRuntime, type OrderBumpRuntime } from "./order-bumps/runtime.ts";
 import { createStorefrontCommerceRuntime, type StorefrontCommerceRuntime } from "./cart/runtime.ts";
+import {createStorefrontCartIdentityBinder} from './cart-identity/runtime.ts';
+import {bindStorefrontCartIdentity} from './cart-identity/repository.ts';
 import { createStandardHostedCheckoutRuntime, type StandardHostedCheckoutRuntime } from "./checkout/standard-hosted-payment.ts";
 import { createStorefrontLoginCode } from "./account/credential.ts";
 import { createResendStorefrontIdentityEmailDelivery } from "./account/email-delivery.ts";
@@ -294,6 +296,19 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const seo = seoReady ? new PostgresPublicSeoRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }) : undefined;
     const commerce = new PostgresStorefrontCommerceRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined });
     const commerceKeyring = parseStorefrontCommerceCredentialKeyring(process.env);
+    // The additive native boundary is installed before these compatible readers.
+    // Older databases keep normal login/cart behavior until the boundary exists.
+    const cartIdentityReady=identityConfig!==null&&(await pool.query("SELECT to_regprocedure('saas.public_account_cart_bind(text,timestamptz,jsonb,jsonb)') IS NOT NULL AND COALESCE(has_function_privilege('celebix_saas_host_resolver',to_regprocedure('saas.public_account_cart_bind(text,timestamptz,jsonb,jsonb)'),'EXECUTE'),false) AS ready")).rows[0]?.ready===true;
+    const bindCartIdentity=identityConfig!==null&&cartIdentityReady?createStorefrontCartIdentityBinder({
+      accountKeyring:identityConfig.hmacKeyring,cartKeyring:commerceKeyring,now:()=>new Date(),
+      bind:async input=>{
+        try{
+          const outcome=await bindStorefrontCartIdentity(pool,input);
+          if(outcome==='cart_conflict'||outcome==='unavailable'||outcome==='invalid_input')console.warn('storefront_cart_identity_not_bound',outcome);
+          return outcome;
+        }catch{console.warn('storefront_cart_identity_not_bound','unavailable');throw Error('cart_identity_binding_unavailable');}
+      },
+    }):undefined;
     const hostedMigration = await queryAsWorkflowRole(pool, `SELECT
       to_regclass('saas.storefront_hosted_checkout_sessions') IS NOT NULL
         AND to_regclass('saas.checkout_inventory_reservations') IS NOT NULL
@@ -332,7 +347,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       const setting = await whatsappOrders.getForHost({ hostname, now: new Date() });
       return resolveStorefrontCommercePolicy(setting?.config ?? createDefaultWhatsAppOrderConfig(), setting?.version ?? 0);
     };
-    const cart = protectCommerceRuntime(createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
+    const cart = protectCommerceRuntime(createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, bindCartIdentity, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
       hostedPaymentAvailable: async (method) => hostedCheckout !== null && activeHostedProviders.has(method.providerCode) }), commercePolicy);
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
@@ -352,6 +367,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const identity = identityConfig !== null && row.migration_083 === true && identityMigration ? createStorefrontIdentityRuntime({
       repository: new PostgresStorefrontIdentityRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined }),
       hmacKeyring: identityConfig.hmacKeyring,
+      bindCartIdentity,
       sealKeyring: identityConfig.sealKeyring,
       emailDeliveryDispositionSupported,
       now: () => new Date(),

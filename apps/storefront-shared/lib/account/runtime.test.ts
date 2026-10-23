@@ -5,6 +5,7 @@ import type { StorefrontIdentityRepository } from "@celebix/saas-data";
 
 import { parseStorefrontIdentityKeyring } from "./credential.ts";
 import { createStorefrontIdentityRuntime } from "./runtime.ts";
+import type { BindStorefrontCartIdentity } from "../cart-identity/runtime.ts";
 
 const HOST = "identity-a.saas-staging.celebix.site";
 const NOW = new Date("2026-08-04T09:00:00.000Z");
@@ -32,10 +33,10 @@ function fake(overrides: Partial<StorefrontIdentityRepository> = {}): Storefront
 
 type DeliveryMessage = Readonly<{ email: string; ticket: string; code: string; storeName: string; storeOrigin: string; returnTo: string; idempotencyKey: string }>;
 
-function runtime(repository: StorefrontIdentityRepository, delivery: (message: DeliveryMessage) => Promise<void> = async () => undefined, emailDeliveryDispositionSupported?: boolean) {
+function runtime(repository: StorefrontIdentityRepository, delivery: (message: DeliveryMessage) => Promise<void> = async () => undefined, emailDeliveryDispositionSupported?: boolean, bindCartIdentity?: BindStorefrontCartIdentity) {
   let index = 0;
   const ids = ["10000000-0000-4000-8000-000000000001", "10000000-0000-4000-8000-000000000002", "10000000-0000-4000-8000-000000000003", "10000000-0000-4000-8000-000000000004", "10000000-0000-4000-8000-000000000005"];
-  return createStorefrontIdentityRuntime({ repository, hmacKeyring: KEYRING, sealKeyring: KEYRING, now: () => new Date(NOW), randomBytes: (size) => new Uint8Array(size).fill(7), randomUuid: () => ids[index++]!, randomLoginCode: () => "042319", deliverLoginCode: delivery, emailDeliveryDispositionSupported });
+  return createStorefrontIdentityRuntime({ repository, hmacKeyring: KEYRING, sealKeyring: KEYRING, now: () => new Date(NOW), randomBytes: (size) => new Uint8Array(size).fill(7), randomUuid: () => ids[index++]!, randomLoginCode: () => "042319", deliverLoginCode: delivery, emailDeliveryDispositionSupported, ...(bindCartIdentity ? { bindCartIdentity } : {}) });
 }
 
 test("retired customer email start never persists or delivers a login grant",async()=>{
@@ -65,4 +66,19 @@ test("logout is enumeration-safe and always deletes identity cookies", async () 
 
 test("same profile completion operation reuses its customer and session material after response loss",async()=>{
  const {createAccountSessionCredential}=await import('./credential.ts');const credential=createAccountSessionCredential(KEYRING,size=>new Uint8Array(size).fill(9)),inputs:Record<string,unknown>[]=[];const selected=runtime(fake({completeProfile:async input=>{inputs.push(input);return {outcome:'updated',version:1,replayed:inputs.length>1};}}));const input={hostname:HOST,cookieHeader:`__Host-celebix_account=${credential.value}`,operationId:'20000000-0000-4000-8000-000000000001',firstName:'Ada',lastName:'Customer',deviceLabel:'Browser',userAgent:'Browser'};const first=await selected.completeProfile(input),retry=await selected.completeProfile(input);assert.equal(inputs[0].customerId,inputs[1].customerId);assert.equal(inputs[0].fullSessionId,inputs[1].fullSessionId);assert.deepEqual(first.setCookies,retry.setCookies);
+});
+test("profile completion binds with its rotated full account credential and preserves committed success on enrichment failure",async()=>{
+ const {createAccountSessionCredential}=await import('./credential.ts'),registration=createAccountSessionCredential(KEYRING,size=>new Uint8Array(size).fill(9));
+ const calls:Parameters<BindStorefrontCartIdentity>[0][]=[],incoming=`__Host-celebix_account=${registration.value}; __Host-celebix_cart=cart-proof`;
+ const selected=runtime(fake(),undefined,undefined,async value=>{calls.push(value);throw Error('bind unavailable');});
+ const response=await selected.completeProfile({hostname:HOST,cookieHeader:incoming,operationId:'20000000-0000-4000-8000-000000000001',firstName:'Ada',lastName:'Customer',deviceLabel:'Browser',userAgent:'Browser'});
+ assert.equal(response.result.outcome,'updated');
+ assert.deepEqual(calls,[{hostname:HOST,cookieHeader:incoming,accountCookieHeader:response.setCookies[0]}]);
+ assert.equal(calls[0].accountCookieHeader!.includes(registration.value),false);
+});
+test("rejected profile completion never attempts cart identity enrichment",async()=>{
+ const {createAccountSessionCredential}=await import('./credential.ts'),registration=createAccountSessionCredential(KEYRING,size=>new Uint8Array(size).fill(9));let binds=0;
+ const selected=runtime(fake({completeProfile:async()=>{throw Error('profile rejected');}}),undefined,undefined,async()=>{binds++;});
+ await assert.rejects(selected.completeProfile({hostname:HOST,cookieHeader:`__Host-celebix_account=${registration.value}`,operationId:'20000000-0000-4000-8000-000000000001',firstName:'Ada',lastName:'Customer',deviceLabel:'Browser',userAgent:'Browser'}),/profile rejected/);
+ assert.equal(binds,0);
 });

@@ -21,6 +21,7 @@ import {
 import { normalizeStorefrontAccountPhone } from "./phone.ts";
 import { openPhoneChallenge, phoneCodeDigest, phoneRecipientDigest, phoneRequestDigest, sealPhoneChallenge, serializePhoneChallengeCookie,phoneOperationBytes,phoneOperationUuid,phoneBudgetDigest,sealPhoneCompletion,openPhoneCompletion } from "./phone-credential.ts";
 import type { WhatsAppOtpDelivery } from "./whatsapp-delivery.ts";
+import type { BindStorefrontCartIdentity } from "../cart-identity/runtime.ts";
 
 const CODE = /^[0-9]{6}$/u;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
@@ -38,6 +39,7 @@ export type StorefrontIdentityRuntimeDependencies = Readonly<{
   emailDeliveryDispositionSupported?: boolean;
   whatsappRateKey?:Uint8Array;
   deliverWhatsAppCode?: WhatsAppOtpDelivery;
+  bindCartIdentity?: BindStorefrontCartIdentity;
 }>;
 
 type CookieAuthority = Readonly<{ hostname: string; cookieHeader: string | null }>;
@@ -142,6 +144,7 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
       if(!verified||!['authenticated','profile_required','completed'].includes(verified.outcome)||typeof verified.result?.completionCiphertext!=='string')throw new StorefrontIdentityRepositoryError(verified?.outcome==='identity_conflict'?'identity_conflict':'challenge_invalid');
       const recovered=openPhoneCompletion(verified.result.completionCiphertext,input.hostname,challenge.challengeId,operationId,sealKeyring);if(!recovered)invalid();
       const profileRequired=verified.result.profileRequired===true;
+      if(!profileRequired){try{await dependencies.bindCartIdentity?.({hostname:input.hostname,cookieHeader:input.challengeCookie,accountCookieHeader:recovered.setCookies.join('; ')});}catch{/* Identity enrichment must not undo a committed login. */}}
       return {result:profileRequired?{outcome:'profile_required',profileRequired:true}:{outcome:'authenticated',profileRequired:false},setCookies:recovered.setCookies};
     },
     async completeProfile(input) {
@@ -151,6 +154,7 @@ export function createStorefrontIdentityRuntime(dependencies: StorefrontIdentity
       const credential=createAccountSessionCredential({...hmacKeyring,activeKeyId:keyId},()=>sessionBytes),csrf=csrfBytes.toString('base64url');sessionBytes.fill(0);csrfBytes.fill(0);master.fill(0);
       const payload = { firstName: input.firstName, lastName: input.lastName, phone: input.phone ?? null };
       const result = await repository.completeProfile({ ...operationBase(input, payload, "profile_complete"), customerId, firstName: input.firstName, lastName: input.lastName, ...(input.phone ? { phone: input.phone } : {}), fullSessionId: nextSession, sessionKeyId: credential.keyId, sessionDigest: credential.digest, csrfDigest: accountCsrfDigest(nextSession, csrf, hmacKeyring,keyId).digest, deviceLabel: input.deviceLabel, userAgentDigest: accountUserAgentDigest(input.hostname, input.userAgent, hmacKeyring).digest });
+      if(result.outcome==='updated'){try{await dependencies.bindCartIdentity?.({hostname:input.hostname,cookieHeader:input.cookieHeader,accountCookieHeader:serializeAccountCookie(credential.value)});}catch{/* Profile completion remains committed if enrichment is unavailable. */}}
       return Object.freeze({ result, setCookies: Object.freeze([serializeAccountCookie(credential.value), serializeCsrf(csrf)]) });
     },
     async session(hostname, cookieHeader) {
