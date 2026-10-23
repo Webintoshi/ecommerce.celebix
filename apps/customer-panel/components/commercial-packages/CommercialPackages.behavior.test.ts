@@ -60,3 +60,12 @@ test('historic agreements retain their limits and only a higher package tier can
   });
  }
 });
+
+test('marketplace comparison reflects derived paid feature access without modifying tariff capability arrays',async()=>{
+ const {CommercialPlanComparison}=compile<any>(new URL('./CommercialPlanComparison.tsx',import.meta.url),{'next/link':link});
+ await withEditor(async({container,render})=>{
+  await render(React.createElement(CommercialPlanComparison,{currentPlan:{planId:COMMERCIAL_PACKAGES[0].id,planCode:'free_starter',version:COMMERCIAL_PACKAGES[0].version},canRequest:false,feature:'marketplaces'}));
+  const row=[...container.querySelectorAll('tbody tr')].find(element=>element.querySelector('th')?.textContent==='Pazar yeri entegrasyonları');assert.ok(row);
+  assert.deepEqual([...row.querySelectorAll('td')].map(cell=>cell.textContent?.trim()),['—','Var','Var','Var']);
+ });
+});

@@ -173,3 +173,13 @@ test('a malformed successful adapter receipt cannot clear the durable pending op
     let confirmed = 0;
     await mounted(Drawer(), { orderId: ID, storage: journal, client: client({ apply: async () => ({}) }), onClose: () => { }, onSaved: () => confirmed++ }, async (host, window) => { await input(window, field(host, 'reason'), 'Düzeltme'); await submit(host, window); assert.equal(confirmed, 0); assert.equal(journal.rows.size, 1); assert.equal(field(host, 'reason').disabled, true); assert.match(host.textContent, /Kaydı doğrula/); }, setup);
 });
+
+test('provider-managed workspace explains the restriction and never exposes a generic edit form or save',async()=>{
+ let previews=0,writes=0;const journal=storage();
+ await mounted(Drawer(),{orderId:ID,storage:journal,client:client({workspace:async()=>({...workspace,source:'marketplace',canEdit:false,canEditPrices:false,blockReason:'provider_managed'}),preview:async()=>{previews++;return preview;},apply:async()=>{writes++;return result;}}),onClose:()=>{},onSaved:()=>{}},async(host)=>{
+  assert.match(host.textContent,/pazar yeri tarafından yönetiliyor/);assert.match(host.textContent,/satıcı panelinden/);
+  assert.ok(!host.querySelector('form[data-order-edit]'),'provider-owned order must not expose generic fields');
+  assert.ok(![...host.querySelectorAll('button')].some((button:any)=>button.textContent==='Kaydet'));
+  assert.equal(previews,0);assert.equal(writes,0);assert.equal(journal.rows.size,0);
+ },setup);
+});

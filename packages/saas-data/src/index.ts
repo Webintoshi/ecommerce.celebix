@@ -203,6 +203,7 @@ export * from "./lucky-wheel/index.ts";
 export * from "./admin-login-security/index.ts";
 export * from "./merchant-whatsapp/index.ts";
 export * from "./google-merchant/index.ts";
+export * from "./trendyol/index.ts";
 export * from "./commercial-packages/repository.ts";
 export * from "./store-tools/repository.ts";
 export * from "./native-marketing/index.ts";

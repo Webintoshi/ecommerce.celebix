@@ -64,3 +64,8 @@ test('bounded native block reason is human-readable and malformed extras keep a 
         await assert.rejects(() => bad.apply(ID, { intent, operationId: OP, previewFingerprint: preview.fingerprint }), (error: any) => !error.knownSafe);
     }
 });
+
+test('provider-managed native rejection remains definitive and explains the provider boundary in Turkish',async()=>{
+ const client=createOrderEditUiClient({fetch:async()=>reply({code:'invalid_transition',blockReason:'provider_managed'},409)});
+ await assert.rejects(client.apply(ID,{intent,operationId:OP,previewFingerprint:preview.fingerprint}),(error:any)=>error instanceof OrderEditUiError&&error.knownSafe&&error.code==='invalid_transition'&&/pazar yeri tarafından yönetiliyor/.test(error.message));
+});

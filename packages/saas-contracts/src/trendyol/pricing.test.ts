@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {DEFAULT_TRENDYOL_PRICING,calculateTrendyolPrice,parseTrendyolPricingRule} from './index.ts';
+import {DEFAULT_TRENDYOL_PRICING,calculateTrendyolPrice,parseTrendyolPricingRule,parseTrendyolOverview} from './index.ts';
 
 test('each seller protects the website amount with its own commission and shipping',()=>{
  for(const [commissionBps,salePriceCents]of[[1200,21591],[1700,22892],[2200,24359]]){
@@ -35,4 +35,12 @@ test('invalid rates, non-integers, secrets, unsupported keys and unsafe money fa
  for(const rule of[{...DEFAULT_TRENDYOL_PRICING,commissionBps:10000},{...DEFAULT_TRENDYOL_PRICING,commissionBps:9000,commissionVatIncluded:false},{...DEFAULT_TRENDYOL_PRICING,averageShippingCents:-1},{...DEFAULT_TRENDYOL_PRICING,apiSecret:'unexpected'}])assert.throws(()=>parseTrendyolPricingRule(rule));
  assert.throws(()=>calculateTrendyolPrice(999999999999,{...DEFAULT_TRENDYOL_PRICING,commissionBps:9999,withholdingBps:0}));
  assert.deepEqual(parseTrendyolPricingRule(DEFAULT_TRENDYOL_PRICING),DEFAULT_TRENDYOL_PRICING);
+});
+
+test('settings version is an explicit independent non-negative overview authority',()=>{
+ const dto={connection:{connected:true,sellerId:'123',status:'connected',version:2,settingsVersion:7,lastOrdersAt:null,lastErrorCode:null},pricing:DEFAULT_TRENDYOL_PRICING,counts:{mapped:0,pending:0,failed:0},webhookUrl:null};
+ assert.equal(parseTrendyolOverview(dto).connection.settingsVersion,7);assert.equal(parseTrendyolOverview(dto).connection.version,2);
+ const {settingsVersion,...missing}=dto.connection;assert.throws(()=>parseTrendyolOverview({...dto,connection:missing}));
+ for(const invalid of [-1,1.5,null,'7'])assert.throws(()=>parseTrendyolOverview({...dto,connection:{...dto.connection,settingsVersion:invalid}}));
+ assert.equal(parseTrendyolOverview({...dto,connection:{...dto.connection,connected:false,sellerId:null,status:'disconnected',version:0,settingsVersion:0}}).connection.settingsVersion,0);
 });

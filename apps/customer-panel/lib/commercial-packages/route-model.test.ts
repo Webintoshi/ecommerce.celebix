@@ -60,3 +60,14 @@ test('Store tools hub opens by configuration role independently of growth entitl
  assert.equal(commercialRouteDecision(context(1,'cashier'),'/settings/store-tools').kind,'role_denied');
  assert.ok(!commercialNavigationLocks(context(1)).includes('/settings/store-tools'));
 });
+
+test('native Trendyol uses marketplace eligibility while Google and normal orders keep their own rules',()=>{
+ for(const path of ['/marketplaces','/marketplaces/trendyol']){
+  assert.deepEqual(commercialRouteDecision(context(),path),{kind:'upgrade',capability:'marketplaces'});
+  assert.equal(commercialRouteDecision(context(1),path).kind,'allowed');
+  assert.deepEqual(commercialRouteDecision(context(0,'cashier'),path),{kind:'role_denied',capability:'marketplaces'});
+ }
+ assert.deepEqual(commercialRouteDecision(context(),'/marketplaces/google-merchant'),{kind:'upgrade',capability:'google_merchant'});
+ assert.equal(commercialRouteDecision(context(),'/orders').kind,'allowed');
+ assert.ok(commercialNavigationLocks(context()).includes('/marketplaces/trendyol'));
+});

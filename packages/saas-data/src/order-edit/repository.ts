@@ -33,7 +33,7 @@ type Options = Readonly<{
     timeouts: PostgresTimeoutOptions;
 }>;
 const error = (code: OrderEditErrorCode = 'unavailable',blockReason?:string) => new OrderEditError(code,blockReason);
-const BLOCK_REASONS=new Set(['currency_unsupported','order_archived','order_fulfilled','shipment_exists','return_exists','payment_in_progress_or_refunded','settlement_discount_exceeds_total']);
+const BLOCK_REASONS=new Set(['currency_unsupported','order_archived','order_fulfilled','shipment_exists','return_exists','payment_in_progress_or_refunded','settlement_discount_exceeds_total','provider_managed']);
 const values = (a: ValidatedOrderAuthority) => [a.storeId, a.principalId, a.membershipId, a.planId, a.planCode, a.planVersion, a.now];
 const AUTH = '$1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::timestamptz';
 function digest(v: unknown): string { if (typeof v !== 'string' || !/^[a-f0-9]{64}$/.test(v))

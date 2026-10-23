@@ -81,3 +81,16 @@ test('unrecognized commercial identities never inherit legacy broad capabilities
   {...e,planId:'00000000-0000-4000-8000-000000000008',planCode:'pilot',version:99},
  ])assert.equal(hasCommercialCapability(p,'accounting'),false);
 });
+
+test('marketplace eligibility derives from exact paid feature snapshots without rewriting policies',()=>{
+ assert.deepEqual(COMMERCIAL_PACKAGES.map((_,index)=>hasCommercialCapability(entitlements(index),'marketplaces')),[false,true,true,true]);
+ for(const [suffix,code,version,allowed] of [['003','free_starter',2,false],['004','starter',1,true],['005','growth',1,true],['006','professional',1,true]] as const){
+  const snapshot=getCommercialPackage({planId:`00000000-0000-4000-8000-000000000${suffix}`,planCode:code,version})!;
+  assert.ok(snapshot);
+  assert.equal(hasCommercialCapability({...entitlements(0),planId:snapshot.id,planCode:snapshot.code,version:snapshot.version,features:snapshot.features,limits:snapshot.limits},'marketplaces'),allowed);
+  assert.equal(snapshot.capabilities.some(value=>String(value)==='marketplaces'),false,'immutable historical policy arrays stay intact');
+ }
+ assert.equal(getRequiredCommercialPackage('marketplaces' as any).id,'00000000-0000-4000-8000-000000000008');
+ const paid=entitlements(1);
+ for(const denied of [{...paid,status:'expired' as const},{...paid,features:paid.features.filter(feature=>feature!=='marketplaces')},{...paid,version:99},{...entitlements(0),features:paid.features}])assert.equal(hasCommercialCapability(denied,'marketplaces'),false);
+});

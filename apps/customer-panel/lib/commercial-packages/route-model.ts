@@ -12,7 +12,7 @@ export type CommercialPageDecision = Readonly<{
     capability: CommercialCapability;
 }>;
 const ALLOWED = Object.freeze({ kind: 'allowed' } as const);
-const ACTIONS: Readonly<Record<CommercialCapability, MerchantAction>> = Object.freeze({ manual_orders: 'in_store.read', coupons: 'promotions.read', growth_tools: 'configuration.read', email_marketing: 'integrations.read', advanced_analytics: 'analytics.read', google_connections: 'integrations.read', google_merchant: 'integrations.read', seo_tools: 'integrations.read', cashier: 'in_store.read', accounting: 'accounting.read', reference_pricing: 'pricing.read', ai: 'configuration.read', custom_domains: 'configuration.read', staff_management: 'configuration.manage' });
+const ACTIONS: Readonly<Record<CommercialCapability, MerchantAction>> = Object.freeze({ manual_orders: 'in_store.read', coupons: 'promotions.read', growth_tools: 'configuration.read', email_marketing: 'integrations.read', advanced_analytics: 'analytics.read', google_connections: 'integrations.read', google_merchant: 'integrations.read', marketplaces: 'integrations.read', seo_tools: 'integrations.read', cashier: 'in_store.read', accounting: 'accounting.read', reference_pricing: 'pricing.read', ai: 'configuration.read', custom_domains: 'configuration.read', staff_management: 'configuration.manage' });
 const RULES: readonly (readonly [
     string,
     CommercialCapability
@@ -21,13 +21,13 @@ const RULES: readonly (readonly [
     ['/orders/abandoned-carts', 'growth_tools'], ['/customers/segments', 'growth_tools'],
     ['/discounts/popups', 'growth_tools'], ['/discounts/lucky-wheel', 'growth_tools'], ['/discounts', 'coupons'],
     ['/marketing/google', 'google_connections'], ['/marketing/email', 'email_marketing'], ['/marketing/phone', 'email_marketing'], ['/marketing/whatsapp', 'email_marketing'], ['/marketing', 'growth_tools'],
-    ['/marketplaces/google-merchant', 'google_merchant'], ['/marketplaces', 'google_connections'],
+    ['/marketplaces/google-merchant', 'google_merchant'], ['/marketplaces/trendyol', 'marketplaces'], ['/marketplaces', 'marketplaces'],
     ['/settings/analytics', 'advanced_analytics'], ['/settings/promotion-banner', 'growth_tools'], ['/settings/artificial-intelligence', 'ai'], ['/toshi', 'ai'],
     ['/settings/domains', 'custom_domains'], ['/settings/administrators', 'staff_management'],
     ['/settings/pricing', 'reference_pricing'], ['/products/price-lists', 'reference_pricing'],
     ['/accounting', 'accounting'], ['/seo', 'seo_tools'],
 ]);
-export const COMMERCIAL_CAPABILITY_LABELS: Readonly<Record<CommercialCapability, string>> = Object.freeze({ manual_orders: 'Manuel satış', coupons: 'Kuponlar ve kampanyalar', growth_tools: 'Gelişmiş pazarlama araçları', email_marketing: 'E-posta pazarlama', advanced_analytics: 'Gelişmiş analizler', google_connections: 'Google bağlantıları', google_merchant: 'Google Merchant Center', seo_tools: 'SEO araçları', cashier: 'Fiziksel mağaza ve kasiyer', accounting: 'Muhasebe', reference_pricing: 'Kur ve altın referansları', ai: 'Yapay zekâ araçları', custom_domains: 'Özel alan adı', staff_management: 'Personel yönetimi' });
+export const COMMERCIAL_CAPABILITY_LABELS: Readonly<Record<CommercialCapability, string>> = Object.freeze({ manual_orders: 'Manuel satış', coupons: 'Kuponlar ve kampanyalar', growth_tools: 'Gelişmiş pazarlama araçları', email_marketing: 'E-posta pazarlama', advanced_analytics: 'Gelişmiş analizler', google_connections: 'Google bağlantıları', google_merchant: 'Google Merchant Center', marketplaces: 'Pazar yeri entegrasyonları', seo_tools: 'SEO araçları', cashier: 'Fiziksel mağaza ve kasiyer', accounting: 'Muhasebe', reference_pricing: 'Kur ve altın referansları', ai: 'Yapay zekâ araçları', custom_domains: 'Özel alan adı', staff_management: 'Personel yönetimi' });
 export function commercialCapabilityDecision(context: CommercialPageContext, capability: CommercialCapability): CommercialPageDecision {
     const role = context.membership.role;
     if (capability === 'staff_management' && role !== 'store_owner')

@@ -1,7 +1,7 @@
 import type {PlanEntitlements,PlanEntitlementLimits,PlanFeatureKey} from '../types.ts';
 import {PLAN_FEATURE_KEYS} from '../types.ts';
 
-export const COMMERCIAL_CAPABILITIES = ['manual_orders','coupons','growth_tools','email_marketing','advanced_analytics','google_connections','google_merchant','seo_tools','cashier','accounting','reference_pricing','ai','custom_domains','staff_management'] as const;
+export const COMMERCIAL_CAPABILITIES = ['manual_orders','coupons','growth_tools','email_marketing','advanced_analytics','google_connections','google_merchant','marketplaces','seo_tools','cashier','accounting','reference_pricing','ai','custom_domains','staff_management'] as const;
 export type CommercialCapability = typeof COMMERCIAL_CAPABILITIES[number];
 export type CommercialPackageCode = 'free_starter'|'starter'|'growth'|'professional';
 export interface CommercialPackage {
@@ -40,7 +40,7 @@ export const COMMERCIAL_PACKAGES:readonly CommercialPackage[]=Object.freeze([
  plan({id:'00000000-0000-4000-8000-000000000010',code:'professional',version:2,name:'Profesyonel',monthlyPriceCents:778_700,annualPriceCents:7_787_000,features:[...CORE,'custom_domains','staff_management','promotions','marketplaces','accounting'],limits:{products:10000,staff:15,storageBytes:50_000_000_000,monthlyOrders:20000,customDomains:4},variantLimit:50000,capabilities:[...GROWTH,'manual_orders','cashier','accounting','reference_pricing']}),
 ]);
 const ALL_COMMERCIAL_PACKAGES:readonly CommercialPackage[]=Object.freeze([...HISTORIC_COMMERCIAL_PACKAGES,...COMMERCIAL_PACKAGES]);
-const CAPABILITY_FEATURE:Readonly<Record<CommercialCapability,PlanFeatureKey>>=Object.freeze({manual_orders:'orders',coupons:'promotions',growth_tools:'promotions',email_marketing:'integrations',advanced_analytics:'analytics',google_connections:'integrations',google_merchant:'marketplaces',seo_tools:'catalog',cashier:'orders',accounting:'accounting',reference_pricing:'catalog',ai:'catalog',custom_domains:'custom_domains',staff_management:'staff_management'});
+const CAPABILITY_FEATURE:Readonly<Record<CommercialCapability,PlanFeatureKey>>=Object.freeze({manual_orders:'orders',coupons:'promotions',growth_tools:'promotions',email_marketing:'integrations',advanced_analytics:'analytics',google_connections:'integrations',google_merchant:'marketplaces',marketplaces:'marketplaces',seo_tools:'catalog',cashier:'orders',accounting:'accounting',reference_pricing:'catalog',ai:'catalog',custom_domains:'custom_domains',staff_management:'staff_management'});
 type PlanIdentity=Pick<PlanEntitlements,'planId'|'planCode'|'version'>;
 /** Only an exact immutable identity can select a commercial tariff/policy. */
 export function getCommercialPackage(identity:PlanIdentity):CommercialPackage|undefined {
@@ -49,17 +49,22 @@ export function getCommercialPackage(identity:PlanIdentity):CommercialPackage|un
 export function isCommercialCapability(value:unknown):value is CommercialCapability {
  return typeof value==='string'&&(COMMERCIAL_CAPABILITIES as readonly string[]).includes(value);
 }
+/** Marketplace access was already published as a feature; derive it without revising frozen tariff policies. */
+export function commercialPackageHasCapability(selected:CommercialPackage,capability:CommercialCapability):boolean {
+ return capability==='marketplaces'?selected.features.includes('marketplaces'):selected.capabilities.includes(capability);
+}
 /** Only the two pre-commercial built-ins retain their legacy broad rights. Unknown identities fail closed. */
 export function hasCommercialCapability(entitlements:PlanEntitlements,capability:string):boolean {
  if(entitlements.status!=='active'||!isCommercialCapability(capability))return false;
  if(!entitlements.features.includes(CAPABILITY_FEATURE[capability]))return false;
  const selected=getCommercialPackage(entitlements);
- if(selected)return selected.capabilities.includes(capability);
+ if(selected)return commercialPackageHasCapability(selected,capability);
+ if(capability==='marketplaces')return false;
  return (entitlements.planId==='00000000-0000-4000-8000-000000000001'&&entitlements.planCode==='free_starter'&&entitlements.version===1)
   ||(entitlements.planId==='00000000-0000-4000-8000-000000000002'&&entitlements.planCode==='pilot'&&entitlements.version===1);
 }
 export function getRequiredCommercialPackage(capability:CommercialCapability):CommercialPackage {
- const selected=COMMERCIAL_PACKAGES.find(p=>p.capabilities.includes(capability));
+ const selected=COMMERCIAL_PACKAGES.find(p=>commercialPackageHasCapability(p,capability));
  if(!selected)throw new TypeError('commercial_capability_invalid');
  return selected;
 }

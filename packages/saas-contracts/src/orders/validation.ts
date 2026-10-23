@@ -265,7 +265,7 @@ export function parseOrderListItem(value: unknown): Readonly<OrderListItem> {
     orderNumber: string(parsed.orderNumber, 1, 64),
     source,
     customerName: source === 'in_store' && parsed.customerName === null ? null : string(parsed.customerName, 1, source === 'in_store' ? 201 : 200),
-    customerEmail: source === 'in_store' && parsed.customerEmail === null ? null : string(parsed.customerEmail, 3, 320),
+    customerEmail: (source === 'in_store' && parsed.customerEmail === null) || (source === 'marketplace' && parsed.customerEmail === '') ? null : string(parsed.customerEmail, 3, 320),
     currency: string(parsed.currency, 3, 3, CURRENCY),
     totalCents: safeInteger(parsed.totalCents, 0),
     status: status<OrderStatus>(parsed.status, ORDER_STATUSES),

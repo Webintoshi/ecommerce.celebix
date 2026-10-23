@@ -9,11 +9,12 @@ export type TrendyolPrice=Readonly<{salePriceCents:number;commissionCents:number
 export type TrendyolAttribute=Readonly<{attributeId:number;valueId?:number;value?:string}>;
 export type TrendyolListingInput=Readonly<{variantId:string;barcode:string;categoryId:number|null;brandId:number|null;vatRate:number;dimensionalWeight:number;cargoProviderCode:string|null;attributes:readonly TrendyolAttribute[];enabled:boolean;mode:'existing'|'create'}>;
 export type TrendyolOverview=Readonly<{
-  connection:Readonly<{connected:boolean;sellerId:string|null;status:'disconnected'|'connected'|'needs_attention';version:number;lastOrdersAt:string|null;lastErrorCode:string|null}>;
+  connection:Readonly<{connected:boolean;sellerId:string|null;status:'disconnected'|'connected'|'needs_attention';version:number;settingsVersion:number;lastOrdersAt:string|null;lastErrorCode:string|null}>;
   pricing:TrendyolPricingRule;counts:Readonly<{mapped:number;pending:number;failed:number}>;webhookUrl:string|null;
 }>;
 export type TrendyolProduct=Readonly<{productId:string;variantId:string;title:string;sku:string|null;barcode:string|null;webPriceCents:number|null;quantity:number;mapping:TrendyolListingInput|null;status:'not_configured'|'queued'|'submitted'|'active'|'failed'|'excluded';issue:string|null;updatedAt:string}>;
 export type TrendyolProducts=Readonly<{items:readonly TrendyolProduct[];nextCursor:string|null}>;
+export type TrendyolOrderIssues=Readonly<{items:readonly Readonly<{orderId:string|null;externalOrderId:string;orderNumber:string;state:string;issue:string|null}>[]}>;
 export type TrendyolSaveResult=Readonly<{saved:true;replayed:boolean}>;
 export const TRENDYOL_ERROR_CODES=['invalid_input','unauthenticated','membership_denied','store_inactive','feature_not_enabled','not_connected','needs_reconnect','operation_mismatch','version_conflict','commit_unknown','unavailable','rate_limited','provider_rejected','mapping_required','stock_conflict','quota_blocked','stale'] as const;
 export type TrendyolErrorCode=typeof TRENDYOL_ERROR_CODES[number];
@@ -72,9 +73,9 @@ export function parseTrendyolListingInput(value:unknown):TrendyolListingInput{
   return Object.freeze({...v,attributes:Object.freeze(attributes)}) as TrendyolListingInput;
 }
 export function parseTrendyolOverview(value:unknown):TrendyolOverview{
-  const v=trendyolObject(value,['connection','pricing','counts','webhookUrl']);const c=trendyolObject(v.connection,['connected','sellerId','status','version','lastOrdersAt','lastErrorCode']);const counts=trendyolObject(v.counts,['mapped','pending','failed']);
+  const v=trendyolObject(value,['connection','pricing','counts','webhookUrl']);const c=trendyolObject(v.connection,['connected','sellerId','status','version','settingsVersion','lastOrdersAt','lastErrorCode']);const counts=trendyolObject(v.counts,['mapped','pending','failed']);
   if(typeof c.connected!=='boolean'||!['disconnected','connected','needs_attention'].includes(c.status as string))bad();
-  if(c.sellerId!==null)parseTrendyolSellerId(c.sellerId);if(c.lastOrdersAt!==null)date(c.lastOrdersAt);if(c.lastErrorCode!==null&&!/^[a-z0-9_]{1,80}$/.test(text(c.lastErrorCode,80)))bad();trendyolInteger(c.version,0,Number.MAX_SAFE_INTEGER);
+  if(c.sellerId!==null)parseTrendyolSellerId(c.sellerId);if(c.lastOrdersAt!==null)date(c.lastOrdersAt);if(c.lastErrorCode!==null&&!/^[a-z0-9_]{1,80}$/.test(text(c.lastErrorCode,80)))bad();trendyolInteger(c.version,0,Number.MAX_SAFE_INTEGER);trendyolInteger(c.settingsVersion,0,Number.MAX_SAFE_INTEGER);
   for(const amount of Object.values(counts))trendyolInteger(amount,0,Number.MAX_SAFE_INTEGER);
   if(v.webhookUrl!==null){const url=new URL(text(v.webhookUrl,2048));if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||/trendyol|dolap|localhost/i.test(url.href))bad();}
   return Object.freeze({connection:Object.freeze(c),pricing:parseTrendyolPricingRule(v.pricing),counts:Object.freeze(counts),webhookUrl:v.webhookUrl}) as TrendyolOverview;
@@ -87,3 +88,8 @@ export function parseTrendyolProducts(value:unknown):TrendyolProducts{
   });return Object.freeze({items:Object.freeze(items),nextCursor:v.nextCursor as string|null});
 }
 export function parseTrendyolSaveResult(value:unknown):TrendyolSaveResult{const v=trendyolObject(value,['saved','replayed'],['queued']);if(v.saved!==true||typeof v.replayed!=='boolean')bad();if(v.queued!==undefined)trendyolInteger(v.queued);return Object.freeze({saved:true,replayed:v.replayed});}
+export function parseTrendyolOrderIssues(value:unknown):TrendyolOrderIssues{
+  const v=trendyolObject(value,['items']);if(!Array.isArray(v.items)||v.items.length>50)bad();
+  const items=v.items.map(value=>{const row=trendyolObject(value,['orderId','externalOrderId','orderNumber','state','issue']);if(row.orderId!==null)trendyolUuid(row.orderId);text(row.externalOrderId,200);text(row.orderNumber,200);text(row.state,80);if(row.issue!==null&&!/^[a-z0-9_]{1,80}$/.test(text(row.issue,80)))bad();return Object.freeze(row) as TrendyolOrderIssues['items'][number];});
+  return Object.freeze({items:Object.freeze(items)});
+}

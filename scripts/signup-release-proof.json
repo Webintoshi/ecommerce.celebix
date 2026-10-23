@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "3aa44b9eb9b5610f0196b253a5f0b62a25bcff806fdd591deacaa65d4b12787e",
+  "inputDigest": "320fc43957116e9aeb9966346c1ba3dcadfeb6720cfe783fe20c45e2bdd302f9",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -97,7 +97,7 @@
     },
     {
       "path": "apps/customer-panel/instrumentation.ts",
-      "sha256": "e10334f5358f0ae08a40760b9567e20b4a6a81c80c4fe986bf97d6bd416325a7"
+      "sha256": "b415560386d5eba61d3c61481fc10ed6524f215f6b67a5655aa0222f415d198b"
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/handler.ts",
@@ -269,7 +269,7 @@
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "fe213def4bf37e5aa2a3aed9f3b1d12aaed92ef0a871b56950fad1d467283a30"
+      "sha256": "6f4f6b865a0a768f35a8f3f68c62b60ca88cb673e7c0049f61f9bd954f924a66"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -2780,6 +2780,10 @@
       "sha256": "7de4e9b5a51026043c75ea5bd2211aece1db007bd82f1df571f84b91bea06168"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610230266_trendyol.up.sql",
+      "sha256": "2456ec376940a3001c1149c3054d724428ea7d098ca8bed3c4e03f720a8e7e31"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3645,7 +3649,7 @@
     },
     {
       "path": "packages/saas-contracts/src/commercial-packages/catalog.ts",
-      "sha256": "103d61f9a6bffb6807ef202f5d6e6693dab3fcc0167d02eb7fa0210b729dafb4"
+      "sha256": "257c6e13281c1d31ef071aafbe3c83e175e3a96d57a5da3f490b2f5142507446"
     },
     {
       "path": "packages/saas-contracts/src/commercial-packages/projection.ts",
@@ -3761,7 +3765,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "8728acce069315fcd4025d505fd16a3ff3325e48ebad58c5c5cc8eb92fbfacc5"
+      "sha256": "8f8cb6a143d5535920a9a4a9c01b75b2957b65147cab8f2de981a90616acc1f0"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -3861,7 +3865,7 @@
     },
     {
       "path": "packages/saas-contracts/src/orders/validation.ts",
-      "sha256": "8d544f3aa7eb83a55e9ebdbe1c5430e8d9b47622d16c0ba6c1c28f4aa87785ae"
+      "sha256": "95454f4927a0b0290d782c00c4cd0b93ab2e4c9ba4659cc60bf03337a7e0f977"
     },
     {
       "path": "packages/saas-contracts/src/payment-providers/built-in-methods.ts",
@@ -4074,6 +4078,10 @@
     {
       "path": "packages/saas-contracts/src/toshi/providers.ts",
       "sha256": "bc2bc52c656ae1ca6ba4007d0a8f3d8975521a436bf3f804dacc42a270a67219"
+    },
+    {
+      "path": "packages/saas-contracts/src/trendyol/index.ts",
+      "sha256": "7810d85dbfd4e44467b81eab13558209cd931ad19abd88fa6bbbc33968a4b589"
     },
     {
       "path": "packages/saas-contracts/src/types.ts",
@@ -4617,7 +4625,7 @@
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "5c74b1c7ae9601ee73323d3430f2185ae28890793fe3a84ae2fbe08f6c2acc2b"
+      "sha256": "f4fd66d9f279b323cef32cbd6ff2a0633ead056cff26bab2114445cd79e97ae2"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -4781,7 +4789,7 @@
     },
     {
       "path": "packages/saas-data/src/order-edit/repository.ts",
-      "sha256": "334a7d7aac4644947253e0e1dc70f84ea92683ceb989ae7e512e48d3e7234e5d"
+      "sha256": "79096d3311b5e6536e537acd1175084b7f2463a8b84891caa86c25f7a64ec1a4"
     },
     {
       "path": "packages/saas-data/src/order-emails/index.ts",
@@ -5362,6 +5370,26 @@
     {
       "path": "packages/saas-data/src/toshi-providers/types.ts",
       "sha256": "3fa7bf432ad15b856cfbe46dc1a1697a66752bc67ec3dcdce149f04f32595e04"
+    },
+    {
+      "path": "packages/saas-data/src/trendyol/credential.ts",
+      "sha256": "f13988dd1b9ffc1f278f46ea38c620c50ddb00fb525d42370ae99b8296a8c6ab"
+    },
+    {
+      "path": "packages/saas-data/src/trendyol/index.ts",
+      "sha256": "e06a864471a9ef866346d64945915a3e8cdb9a4c18592e77c4dfdec3e8e27723"
+    },
+    {
+      "path": "packages/saas-data/src/trendyol/provider.ts",
+      "sha256": "46f93875c3166c9dc684e1b978f9d528514a4be9277c48ed204f42e8be55e234"
+    },
+    {
+      "path": "packages/saas-data/src/trendyol/repository.ts",
+      "sha256": "64a7f2b2ed6b4e07b95b81793225136169805d8420ec7334752d486bfb2fa3d5"
+    },
+    {
+      "path": "packages/saas-data/src/trendyol/worker.ts",
+      "sha256": "c7809a2bd46aa4b69a088acb6fe1b50c36f8d9618066860cfad7776d5f0ede2a"
     },
     {
       "path": "packages/saas-data/src/types.ts",
