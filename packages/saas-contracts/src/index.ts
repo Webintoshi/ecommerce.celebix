@@ -719,6 +719,7 @@ export * from "./lucky-wheel/index.ts";
 export * from "./admin-login-security/index.ts";
 export * from "./merchant-whatsapp/index.ts";
 export * from "./google-merchant/index.ts";
+export * from "./trendyol/index.ts";
 export * from './commercial-packages/catalog.ts';
 export * from './commercial-packages/projection.ts';
 export * from "./whatsapp-ordering/index.ts";
