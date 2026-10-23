@@ -155,7 +155,7 @@ test("detail gallery and mobile purchase stay keyboard and viewport safe", async
   assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track img\s*\{[^}]*object-fit:\s*contain/u);
   assert.match(mobileGlobalStyles, /[.]gallery-mobile-track img\s*\{[^}]*object-fit:\s*contain/u);
   assert.match(globalStyles, /[.]gallery-thumbnails img\s*\{[^}]*object-fit:\s*cover/u);
-  assert.match(globalStyles, /[.]product-image-shell img\s*\{[^}]*object-fit:\s*cover/u);
+  assert.match(globalStyles, /[.]product-image-shell img\s*\{[^}]*object-fit:\s*contain/u);
   assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track/u);
   assert.match(globalStyles, /[.]gallery-rail [.]gallery-mobile-track\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(2/u);
   assert.match(globalStyles, /[.]gallery-thumbnails\s*\{[^}]*flex-direction:\s*column/u);

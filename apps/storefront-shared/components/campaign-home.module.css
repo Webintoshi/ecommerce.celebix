@@ -86,7 +86,7 @@
 .productRow { overflow: hidden; }
 .productRow :global(.product-grid) { display: flex; gap: 18px; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x mandatory; scrollbar-color: #b8b0a5 transparent; scrollbar-width: thin; }
 .productRow :global(.product-card) { flex: 0 0 calc((100% - 72px) / 5); scroll-snap-align: start; }
-.productRow :global(.product-image-shell) { aspect-ratio: 4 / 5; background: #f4f1ec; }
+.productRow :global(.product-image-shell) { background: #f4f1ec; }
 .productRow :global(.product-card-copy) { justify-items: start; text-align: left; }
 .productRow :global(.price-row) { justify-content: flex-start; }
 .productRow :global(.product-card-cart) { border-color: #171717; color: #171717; background: #fff; letter-spacing: .09em; text-transform: uppercase; }

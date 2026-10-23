@@ -2,7 +2,7 @@
 .loading { min-height: 55dvh; padding: 30px 20px; }
 .loadingLine { display: block; width: 100px; height: 14px; margin-bottom: 30px; background: #f2efea; }
 .loading > div { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
-.loading i { display: block; aspect-ratio: 3/4; background: #f6f4f1; }
+.loading i { display: block; aspect-ratio: 1; background: #f6f4f1; }
 @media (max-width: 1024px) {
   .frame[data-guzide-mobile-nav="true"] { padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px)); }
   .navigation { position: fixed; inset: auto 0 0; z-index: 35; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); align-items: stretch; padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)); min-height: 68px; border-top: 1px solid #e9e4dc; background: #fff; color: #77736e; }
