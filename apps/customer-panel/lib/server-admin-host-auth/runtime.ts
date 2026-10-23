@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { PostgresAdminDomainRepository } from "@celebix/saas-data";
+import { normalizeExactHttpsOrigin, type PostgresAdminDomainRepository } from "@celebix/saas-data";
 
 import type { PostgresCrossHostSessionHandoffRepository, PreparedPostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
 import type { PostgresPanelStoreOptionRepository } from "../panel-store-options/postgres-repository.ts";
@@ -19,6 +19,7 @@ type LogoutAuthority = Readonly<{ endSessionEndpoint: string; clientId: string; 
 
 export type ServerAdminHostAuthRuntime = Readonly<{
   access: ApprovedAccessRuntime;
+  ownerOrigin: string;
   adminDomains: AdminDomainAuthority;
   handoffs: PreparedHandoffAuthority;
   storeOptions: StoreOptionAuthority;
@@ -26,6 +27,7 @@ export type ServerAdminHostAuthRuntime = Readonly<{
 }>;
 
 const runtimes = new WeakMap<ServerPanelAccessRuntime, Readonly<{
+  ownerOrigin: string;
   adminDomains: AdminDomainAuthority;
   handoffs: PreparedHandoffAuthority;
   storeOptions: StoreOptionAuthority;
@@ -34,6 +36,13 @@ const runtimes = new WeakMap<ServerPanelAccessRuntime, Readonly<{
 
 function invalid(): never {
   throw new Error("server_admin_host_auth_runtime_invalid");
+}
+
+function ownerOrigin(value: unknown, panelOrigin: string): string {
+  let origin: string;
+  try { origin = normalizeExactHttpsOrigin(value); } catch { return invalid(); }
+  if (origin !== value || origin === panelOrigin) invalid();
+  return origin;
 }
 
 function adminDomainFacade(repository: AdminDomainAuthority): AdminDomainAuthority {
@@ -85,6 +94,7 @@ function logoutFacade(authority: LogoutAuthority): LogoutAuthority {
 export function registerServerAdminHostAuthRuntime(
   access: ServerPanelAccessRuntime,
   repositories: Readonly<{
+    ownerOrigin: string;
     adminDomains: AdminDomainAuthority;
     handoffs: HandoffAuthority;
     storeOptions: StoreOptionAuthority;
@@ -96,6 +106,7 @@ export function registerServerAdminHostAuthRuntime(
     || !repositories || runtimes.has(access)
   ) invalid();
   runtimes.set(access, Object.freeze({
+    ownerOrigin: ownerOrigin(repositories.ownerOrigin, access.panelOrigin),
     adminDomains: adminDomainFacade(repositories.adminDomains),
     handoffs: handoffFacade(repositories.handoffs),
     storeOptions: storeOptionFacade(repositories.storeOptions),
@@ -112,6 +123,7 @@ export function resolveServerAdminHostAuthRuntime(
     ? null
     : Object.freeze({
         access: access as ApprovedAccessRuntime,
+        ownerOrigin: repositories.ownerOrigin,
         adminDomains: repositories.adminDomains,
         handoffs: repositories.handoffs,
         storeOptions: repositories.storeOptions,

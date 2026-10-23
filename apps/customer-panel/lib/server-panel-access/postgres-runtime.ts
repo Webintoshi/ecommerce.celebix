@@ -1092,6 +1092,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS,
     }));
     registerServerAdminHostAuthRuntime(access, {
+      ownerOrigin: config.authority.ownerOrigin,
       adminDomains: adminDomainRepository,
       handoffs: crossHostHandoffRepository,
       storeOptions: panelStoreOptionRepository,

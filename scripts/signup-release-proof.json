@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "4abbe0502e12da6e2abbaf49c268042d332d659559cdc6193d603fd23ace36cb",
+  "inputDigest": "7504d906c77a9ea5c44f2dcf96420e8fae8e8ae1fdec56cbf6c0b5ab3f421db9",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -121,7 +121,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-http.ts",
-      "sha256": "b51931ca2a0e19c1fbf5514065e8bde9ab7493b10f1d315a8be8265b101b4a0c"
+      "sha256": "61199bbeb09f3468981e38ee647e152ec8bf14d6fe8740ebc1176d71265edca7"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-session-handoff/postgres-repository.ts",
@@ -241,7 +241,7 @@
     },
     {
       "path": "apps/customer-panel/lib/server-admin-host-auth/runtime.ts",
-      "sha256": "def8fe447f6eb8f863fcf3aaf797c05b950d13748f98eb62e79954e24076489b"
+      "sha256": "0ed8bcb0720a030b80bf855ec4c1d34d1993c2bf1169b16792e9eb9472c12f0b"
     },
     {
       "path": "apps/customer-panel/lib/server-panel-session-controls/default.ts",

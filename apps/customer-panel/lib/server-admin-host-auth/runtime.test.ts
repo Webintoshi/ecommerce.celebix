@@ -4,6 +4,8 @@ import test from "node:test";
 import { createApprovedStagingServerPanelAccessRuntime, createDisabledServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 import { registerServerAdminHostAuthRuntime, resolveServerAdminHostAuthRuntime } from "./runtime.ts";
 
+const OWNER = "https://owner.saas-staging.celebix.site";
+
 function access() {
   return createApprovedStagingServerPanelAccessRuntime({
     async resolveSession() { return { kind: "unauthenticated" as const }; },
@@ -17,6 +19,7 @@ test("registers frozen public-brand and handoff facades only for approved access
   const approved = access();
   const calls: string[] = [];
   registerServerAdminHostAuthRuntime(approved, {
+    ownerOrigin: OWNER,
     adminDomains: {
       async resolvePublicBrand() { calls.push("brand"); return { kind: "admin_host_unknown" as const }; },
     },
@@ -34,6 +37,7 @@ test("registers frozen public-brand and handoff facades only for approved access
   });
   const runtime = resolveServerAdminHostAuthRuntime(approved);
   assert.ok(runtime);
+  assert.equal(runtime.ownerOrigin, OWNER);
   assert.equal(Object.isFrozen(runtime), true);
   assert.equal(Object.isFrozen(runtime.adminDomains), true);
   assert.equal(Object.isFrozen(runtime.handoffs), true);
@@ -56,6 +60,7 @@ test("disabled, missing, and duplicate registrations fail closed", () => {
   assert.throws(() => registerServerAdminHostAuthRuntime(disabled, {} as never), /server_admin_host_auth_runtime_invalid/);
   const approved = access();
   const repositories = {
+    ownerOrigin: OWNER,
     adminDomains: { async resolvePublicBrand() { return { kind: "unavailable" as const }; } },
     handoffs: {
       async issuePreparedHandoff() { return { kind: "unavailable" as const }; },
@@ -69,6 +74,9 @@ test("disabled, missing, and duplicate registrations fail closed", () => {
   };
   registerServerAdminHostAuthRuntime(approved, repositories);
   assert.throws(() => registerServerAdminHostAuthRuntime(approved, repositories), /server_admin_host_auth_runtime_invalid/);
+  for (const ownerOrigin of [undefined, "", "http://owner.saas-staging.celebix.site", `${OWNER}/`, `${OWNER}/path`, `${OWNER}?query=1`, `${OWNER}#fragment`, "https://user:password@owner.saas-staging.celebix.site", "https://OWNER.saas-staging.celebix.site", approved.panelOrigin]) {
+    assert.throws(() => registerServerAdminHostAuthRuntime(access(), { ...repositories, ownerOrigin } as never), /server_admin_host_auth_runtime_invalid/);
+  }
 });
 
-test("legacy handoff repositories fail closed for prepared issuance without falling back to random issuance",async()=>{const approved=access();let randomIssues=0;registerServerAdminHostAuthRuntime(approved,{adminDomains:{resolvePublicBrand:async()=>({kind:"unavailable"})},handoffs:{issueHandoff:async()=>{randomIssues++;return{kind:"unavailable"};},recoverIssuedHandoff:async()=>({kind:"unavailable"}),redeemHandoff:async()=>({kind:"unavailable"}),recoverRedemption:async()=>({kind:"unavailable"})},storeOptions:{listForCredential:async()=>({kind:"unavailable"})},logout:{endSessionEndpoint:"https://auth.celebix.co/oidc/session/end",clientId:"fixture",stateKey:new Uint8Array(32).fill(1)}});const runtime=resolveServerAdminHostAuthRuntime(approved)!;assert.deepEqual(await runtime.handoffs.issuePreparedHandoff({}as never),{kind:"unavailable"});assert.equal(randomIssues,0);});
+test("legacy handoff repositories fail closed for prepared issuance without falling back to random issuance",async()=>{const approved=access();let randomIssues=0;registerServerAdminHostAuthRuntime(approved,{ownerOrigin:OWNER,adminDomains:{resolvePublicBrand:async()=>({kind:"unavailable"})},handoffs:{issueHandoff:async()=>{randomIssues++;return{kind:"unavailable"};},recoverIssuedHandoff:async()=>({kind:"unavailable"}),redeemHandoff:async()=>({kind:"unavailable"}),recoverRedemption:async()=>({kind:"unavailable"})},storeOptions:{listForCredential:async()=>({kind:"unavailable"})},logout:{endSessionEndpoint:"https://auth.celebix.co/oidc/session/end",clientId:"fixture",stateKey:new Uint8Array(32).fill(1)}});const runtime=resolveServerAdminHostAuthRuntime(approved)!;assert.deepEqual(await runtime.handoffs.issuePreparedHandoff({}as never),{kind:"unavailable"});assert.equal(randomIssues,0);});
