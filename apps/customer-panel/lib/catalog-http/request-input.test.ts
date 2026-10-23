@@ -52,6 +52,11 @@ test("create-product input accepts exact JSON and canonicalizes through shared c
     assert.equal(Object.isFrozen(result?.value.initialVariant.attributes), true);
   }
 });
+test('catalog mutations accept optional product tax and nullable variant overrides without accepting unknown tax objects',async()=>{
+ const tax={treatment:'taxable',rateBps:2000},value={product:{...CREATE.product,tax},initialVariant:{...CREATE.initialVariant,tax:null}};
+ assert.deepEqual(await input.readCatalogMutationInput?.(mutation(JSON.stringify(value)),'create_product'),{kind:'valid',operationId:OPERATION_ID,value});
+ for(const invalidTax of[null,{treatment:'taxable',rateBps:'2000'},{treatment:'exempt',rateBps:0}])assert.deepEqual(await input.readCatalogMutationInput?.(mutation(JSON.stringify({...value,product:{...CREATE.product,tax:invalidTax}})),'create_product'),{kind:'invalid'});
+});
 
 test("all mutation body shapes are exact and preserve no browser authority fields", async () => {
   const cases = [

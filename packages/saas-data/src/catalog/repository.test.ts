@@ -191,6 +191,22 @@ test("createProduct derives store authority from TenantContext and creates an in
   assert.equal(mutation.values.includes("subject-1"), false);
   assert.deepEqual(client.releases, [undefined]);
 });
+test('tax-bearing catalog mutations use one atomic wrapper and preserve old response projections and prices',async()=>{
+ const tax={treatment:'taxable',rateBps:2000}as const,input=createInput({tax});
+ const create=new FakeClient(text=>text.includes('saas.catalog_create_product')?[{outcome:'created',result_payload:{product:product(),initialVariant:variant()}}]:[]);
+ await repository(new FakePool(create)).createProduct({...input,initialVariant:{...input.initialVariant,tax:null,measurements:null}});
+ const creation=create.calls.find(call=>call.text.includes('saas.catalog_create_product'))!;assert.match(creation.text,/catalog_create_product_with_tax\(/);assert.equal(creation.values.length,27);assert.deepEqual(JSON.parse(String(creation.values[26])),{productTax:tax,variantTax:null,measurements:null});assert.equal(creation.values[20],12500);
+ const update=new FakeClient(text=>text.includes('saas.catalog_update_product')?[{outcome:'updated',result_payload:{product:product()}}]:[]);
+ await repository(new FakePool(update)).updateProduct({tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:1,product:input.product});
+ const change=update.calls.find(call=>call.text.includes('saas.catalog_update_product'))!;assert.match(change.text,/catalog_update_product_with_tax\(/);assert.equal(change.values.length,19);assert.deepEqual(JSON.parse(String(change.values[18])),{tax});
+ for(const action of['createVariant','updateVariant']as const){
+  const client=new FakeClient(text=>text.includes('saas.catalog_'+(action==='createVariant'?'create':'update')+'_variant')?[{outcome:action==='createVariant'?'created':'updated',result_payload:{variant:variant()}}]:[]);
+  const repo=repository(new FakePool(client),[VARIANT_ID]),base={tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,variant:{...input.initialVariant,tax:null,measurements:null}};
+  if(action==='createVariant')await repo.createVariant(base);else await repo.updateVariant({...base,variantId:VARIANT_ID,expectedVersion:1});
+  const mutation=client.calls.find(call=>/saas.catalog_(?:create|update)_variant/.test(call.text))!;assert.match(mutation.text,/_variant_with_tax\(/);assert.deepEqual(JSON.parse(String(mutation.values.at(-1))),{tax:null,measurements:null});assert.equal(client.calls.filter(call=>call.text.includes('saas.catalog_')).length,1);
+ }
+ const legacy=new FakeClient(text=>text.includes('saas.catalog_create_product')?[{outcome:'created',result_payload:{product:product(),initialVariant:variant()}}]:[]);await repository(new FakePool(legacy)).createProduct(createInput());assert.match(legacy.calls.find(call=>call.text.includes('saas.catalog_create_product'))!.text,/catalog_create_product\(/);
+});
 
 test("createVariantBatch sends selected variants through one tenant-bound transaction", async () => {
   const black = variant({ id: VARIANT_ID, title: "Siyah / M", sku: "BLACK-M", attributes: { renk: "Siyah", beden: "M" } });

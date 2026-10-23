@@ -1,4 +1,5 @@
 import type {
+  ProductTaxChoice,
   CatalogProductSort,
   CatalogProductStockFilter,
   CatalogProductListVariantSummary,
@@ -19,6 +20,7 @@ import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.
 export type { CatalogProductListVariantSummary } from "@celebix/saas-contracts";
 
 export interface CatalogProductFields {
+  readonly tax?: ProductTaxChoice;
   readonly slug: string;
   readonly title: string;
   readonly description?: string;
@@ -27,6 +29,7 @@ export interface CatalogProductFields {
 }
 
 export interface CatalogVariantFields {
+  readonly tax?: ProductTaxChoice | null;
   readonly title: string;
   readonly sku?: string;
   readonly barcode?: string;

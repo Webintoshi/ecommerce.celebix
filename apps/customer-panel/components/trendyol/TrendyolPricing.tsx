@@ -10,7 +10,7 @@ export function TrendyolPricingFields({draft,disabled,onChange}:Readonly<{draft:
     <div className={styles.formGrid}>{amount('Komisyon (%)','commission')}{amount('Ortalama kargo (TL)','shipping')}</div>
     <label className={styles.check}><input type="checkbox" checked={draft.commissionVatIncluded} disabled={disabled} onChange={event=>change('commissionVatIncluded',event.target.checked)}/>Komisyon oranına KDV dahil</label>
     <details className={styles.advanced}><summary>Vergi, stopaj ve diğer kesintiler</summary><div className={styles.formGrid}>
-      {!draft.commissionVatIncluded?amount('Komisyon KDV’si (%)','commissionVat'):null}{amount('Diğer kesinti (TL)','otherFee')}{amount('Ürün KDV’si (%)','productVat')}{amount('Stopaj (%)','withholding')}
+      {!draft.commissionVatIncluded?amount('Komisyon KDV’si (%)','commissionVat'):null}{amount('Diğer kesinti (TL)','otherFee')}{amount('Örnek ürün KDV’si (%)','productVat')}{amount('Stopaj (%)','withholding')}
       <label className={styles.field}>Fiyat yuvarlama<select value={draft.rounding} disabled={disabled} onChange={event=>change('rounding',event.target.value as PricingDraft['rounding'])}><option value="cent">Kuruşa yukarı</option><option value="lira">Tam liraya yukarı</option><option value="ninety">,90 ile bitecek şekilde yukarı</option></select></label>
     </div><label className={styles.check}><input type="checkbox" checked={draft.coverWithholding} disabled={disabled} onChange={event=>change('coverWithholding',event.target.checked)}/>Stopajı da fiyatla karşıla</label><p className={styles.help}>Kapalıyken web tutarı stopaj öncesinde korunur. Beklenen ödeme stopaj kesintisini her zaman içerir.</p></details>
   </div>;

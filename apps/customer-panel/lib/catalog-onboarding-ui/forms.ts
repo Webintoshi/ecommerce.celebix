@@ -3,9 +3,12 @@ import {
   type CatalogAdvancedCreateIntent,
   type CatalogOnboardingIntent,
   type CatalogQuickCreateIntent,
+  type ProductTaxChoice,
+  parseProductTaxChoice,
 } from "@celebix/saas-contracts";
 
 import { parseProductMeasurements, type ProductMeasurementDraft } from "../catalog-ui/product-measurements.ts";
+import {sellingPriceCents,type PriceEntryBasis} from '../catalog-ui/product-tax.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
@@ -25,6 +28,8 @@ export type QuickCreateFormInput = Readonly<{
   publish: boolean;
   stockQuantity?: string;
   categoryId?: string;
+  tax?: ProductTaxChoice;
+  priceBasis?: PriceEntryBasis;
 }>;
 
 function invalid<T>(error: string): CatalogFormResult<T> {
@@ -64,13 +69,15 @@ function stockQuantity(value: unknown): number | null {
 }
 
 export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogFormResult<CatalogOnboardingIntent> {
-  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId", "sku", "barcode", "channelIds", "measurements"], ["title", "price", "publish"])) {
+  if (!exactKeys(input, ["title", "price", "publish", "stockQuantity", "categoryId", "sku", "barcode", "channelIds", "measurements", "tax", "priceBasis"], ["title", "price", "publish"])) {
     return invalid("Ürün bilgileri geçersiz.");
   }
   if (typeof input.title !== "string") return invalid("Ürün adı zorunludur.");
   const title = input.title.trim();
   if (title.length < 1 || title.length > 200 || CONTROL.test(title)) return invalid("Ürün adı zorunludur.");
-  const priceCents = parseTurkishMoneyToCents(input.price);
+  let tax:ProductTaxChoice|undefined;try{tax=input.tax===undefined?undefined:parseProductTaxChoice(input.tax);}catch{return invalid('KDV seçimini kontrol edin.');}
+  const enteredPrice = parseTurkishMoneyToCents(input.price);
+  const priceCents = enteredPrice===null?null:sellingPriceCents(enteredPrice,input.priceBasis??'included',tax??null);
   if (priceCents === null) return invalid("Geçerli bir satış fiyatı girin.");
   if (input.publish !== true && input.publish !== false) return invalid("Yayın tercihi geçersiz.");
   if (input.publish === true && (input.categoryId === undefined || input.categoryId === "")) return invalid("Satışa açmadan önce kategori seçin.");
@@ -104,6 +111,7 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
       kind: "advanced",
       productType: "physical",
       title,
+      ...(tax===undefined?{}:{tax}),
       publish: input.publish,
       variants: [{
         title: "Standart",
@@ -128,6 +136,7 @@ export function buildQuickCreateIntent(input: QuickCreateFormInput): CatalogForm
     kind: "quick" as const,
     ...(measurements.value === undefined ? {} : { measurements: measurements.value }),
     title,
+    ...(tax===undefined?{}:{tax}),
     ...(input.sku ? { sku: input.sku } : {}),
     priceCents,
     publish: input.publish,

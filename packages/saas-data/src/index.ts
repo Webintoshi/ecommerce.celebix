@@ -212,3 +212,6 @@ export { PostgresPublicWhatsAppOrderRepository } from "./whatsapp-ordering/repos
 export type { PublicWhatsAppOrderRepository, PublicWhatsAppOrderProjection, PostgresPublicWhatsAppOrderRepositoryOptions } from "./whatsapp-ordering/repository.ts";
 export {PostgresOrderEditRepository,OrderEditError,ORDER_EDIT_ERRORS} from './order-edit/repository.ts';
 export type {OrderEditRepository,OrderEditErrorCode} from './order-edit/repository.ts';
+
+export {createPostgresProductTaxRepository} from './product-tax/repository.ts';
+export type {ProductTaxRepository,ProductTaxReadInput} from './product-tax/repository.ts';

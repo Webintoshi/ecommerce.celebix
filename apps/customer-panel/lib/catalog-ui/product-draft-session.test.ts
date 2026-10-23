@@ -220,3 +220,23 @@ test("a partially completed advanced creation cannot produce another product thr
  const pending=updateProductDraft(session,{creationRecovery:recovery});
  assert.equal(quickDraftRequiresDetailedSave(pending.current),true);
 });
+
+test("opening quick mode with blank VAT and included entry does not dirty a legacy draft", () => {
+  const empty = createEmptyProductDraftSession();
+  const opened = mergeQuickProductDraft(empty, { title: "", sku: "", barcode: "", price: "", stockQuantity: "", categoryId: "", media: [], taxChoice: "", priceBasis: "included" });
+  assert.equal(productDraftIsDirty(opened), false);
+});
+
+test("VAT selection and explicit net entry survive quick-detailed handoff without changing money or overrides", () => {
+  const empty = createEmptyProductDraftSession();
+  const quick = mergeQuickProductDraft(empty, { title: "Kupa", sku: "SKU", price: "100,00", stockQuantity: "2", categoryId: "", media: [], taxChoice: "2000", priceBasis: "excluded" });
+  assert.equal(quick.current.taxChoice, "2000");
+  assert.equal(quick.current.variants[0]?.price, "100,00");
+  assert.equal(quick.current.variants[0]?.priceBasis, "excluded");
+  assert.equal(quickDraftRequiresDetailedSave(quick.current), false);
+  const advanced = updateProductDraft(quick, { kind: "variant", variants: [{ ...quick.current.variants[0]!, taxChoice: "0", attributes: { Beden: "S" } }, { ...quick.current.variants[0]!, taxChoice: "exempt", attributes: { Beden: "M" } }] });
+  const handedBack = mergeQuickProductDraft(advanced, { title: "Kupa yeni", sku: "", price: "", stockQuantity: "", categoryId: "", media: [], taxChoice: "1000", priceBasis: "included" });
+  assert.equal(handedBack.current.taxChoice, "1000");
+  assert.deepEqual(handedBack.current.variants, advanced.current.variants);
+  assert.equal(quickDraftRequiresDetailedSave(handedBack.current), true);
+});

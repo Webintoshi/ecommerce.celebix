@@ -1,10 +1,10 @@
-import {calculateTrendyolPrice,parseTrendyolListingInput,trendyolInteger,trendyolUuid} from '@celebix/saas-contracts';
+import {calculateTrendyolPrice,parseTrendyolListingInput,parseProductTaxChoice,trendyolTaxIssue,trendyolVatRate,trendyolInteger,trendyolUuid} from '@celebix/saas-contracts';
 import {openTrendyolCredential} from './credential.ts';
 import {TrendyolProviderError,type TrendyolProvider} from './provider.ts';
 import {trendyolFence,trendyolFingerprint,type TrendyolJob,type TrendyolWorkflowRepository} from './repository.ts';
 import type {MerchantProviderCredentialKeyring} from '../provider-execution/credential-crypto.ts';
 
-type Provider=Pick<TrendyolProvider,'submitInventory'|'createProducts'|'productOrNull'|'product'|'batch'|'getInventory'|'orderStream'|'getOrder'|'registerWebhook'>;
+type Provider=Pick<TrendyolProvider,'submitInventory'|'createProducts'|'productOrNull'|'product'|'getProductTax'|'batch'|'getInventory'|'orderStream'|'getOrder'|'registerWebhook'>;
 type Options=Readonly<{repository:TrendyolWorkflowRepository;provider:Provider;keyring:MerchantProviderCredentialKeyring;panelOrigin:string;now?:()=>Date}>;
 type Item=Record<string,unknown>;
 type Outcome={variantId:string;status:'submitted'|'active'|'failed';mappingVersion:number;fingerprint?:string;requiresApproval?:boolean;requiresInventory?:boolean;requeue?:boolean;issue?:string};
@@ -76,11 +76,17 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
     // An unknown queued write may still apply later; neither an old fingerprint nor a current read proves settlement.
     if(item.issue==='provider_outcome_unknown'){outcomes.push({...base,status:'failed',issue:'provider_outcome_unknown'});continue;}
     let mapping;try{mapping=parseTrendyolListingInput(item.mapping);}catch{outcomes.push({...base,status:'failed'});continue;}
-    const withdraw=!mapping.enabled||item.webPriceCents===null;
+    const withdraw=!mapping.enabled||item.webPriceCents===null||item.quantity===0;
+    let vatRate:number|null=null;
+    if(!withdraw){
+     let tax;try{tax=item.tax===null||item.tax===undefined?null:parseProductTaxChoice(item.tax);}catch{tax=null;}
+     const issue=trendyolTaxIssue(tax);vatRate=trendyolVatRate(tax);
+     if(issue){outcomes.push({...base,status:'failed',issue});continue;}
+     if(mapping.vatRate!==vatRate){outcomes.push({...base,status:'failed',issue:'tax_conflict'});continue;}
+    }
     let quantity=withdraw?0:Math.min(trendyolInteger(item.quantity,0,Number.MAX_SAFE_INTEGER),20000);
-    const target=withdraw?{barcode:mapping.barcode,quantity}:{barcode:mapping.barcode,quantity,salePriceCents:calculateTrendyolPrice(trendyolInteger(item.webPriceCents,1,999999999999),{...job.pricing,productVatBps:mapping.vatRate*100}).salePriceCents};
+    const target=withdraw?{barcode:mapping.barcode,quantity}:{barcode:mapping.barcode,quantity,salePriceCents:calculateTrendyolPrice(trendyolInteger(item.webPriceCents,1,999999999999),{...job.pricing,productVatBps:vatRate!*100}).salePriceCents};
     const fingerprint=trendyolFingerprint(target),outcome:Outcome={...base,status:'submitted',fingerprint};
-    if(item.lastPayloadFingerprint===fingerprint){outcomes.push({...outcome,status:'active'});continue;}
     if(withdraw&&mapping.mode==='create'&&item.providerSubmitted!==true){outcomes.push({...outcome,status:'active'});continue;}
     let create=mapping.mode==='create'&&item.providerSubmitted!==true&&!withdraw;
     if(create){
@@ -93,13 +99,18 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
      }
     }
     const nextGroup=create?'create':'inventory';if(group&&group!==nextGroup)continue;group=nextGroup;
+    if(!create&&!withdraw){
+     if(lookups>=4)continue;lookups++;
+     if(await provider.getProductTax(credential,mapping.barcode)!==vatRate){outcomes.push({...base,status:'failed',issue:'tax_conflict'});continue;}
+    }
+    if(item.lastPayloadFingerprint===fingerprint){outcomes.push({...outcome,status:'active'});continue;}
     if(create){
      try{
       const images=Array.isArray(item.images)?item.images.slice(0,8):[];
       if(images.length<1||images.length>8)throw TypeError();
       const attrs=mapping.attributes.map(a=>a.valueId===undefined?{attributeId:a.attributeId,attributeValue:a.value}:{attributeId:a.attributeId,attributeValueIds:[a.valueId]});
       if(!attrs.length)throw TypeError();
-      creation.push({barcode:mapping.barcode,title:text(item.title,100),description:text(item.description,30000),productMainId:trendyolUuid(item.productId),brandId:mapping.brandId,categoryId:mapping.categoryId,quantity,vatRate:mapping.vatRate,listPrice:('salePriceCents'in target?target.salePriceCents!:0)/100,salePrice:('salePriceCents'in target?target.salePriceCents!:0)/100,dimensionalWeight:mapping.dimensionalWeight,images:images.map(url=>({url:text(url,2048)})),attributes:attrs,cargoProviders:[mapping.cargoProviderCode],...(typeof item.sku==='string'&&item.sku?{stockCode:item.sku}:{})});submitted.push({...outcome,requiresApproval:true});
+      creation.push({barcode:mapping.barcode,title:text(item.title,100),description:text(item.description,30000),productMainId:trendyolUuid(item.productId),brandId:mapping.brandId,categoryId:mapping.categoryId,quantity,vatRate:vatRate!,listPrice:('salePriceCents'in target?target.salePriceCents!:0)/100,salePrice:('salePriceCents'in target?target.salePriceCents!:0)/100,dimensionalWeight:mapping.dimensionalWeight,images:images.map(url=>({url:text(url,2048)})),attributes:attrs,cargoProviders:[mapping.cargoProviderCode],...(typeof item.sku==='string'&&item.sku?{stockCode:item.sku}:{})});submitted.push({...outcome,requiresApproval:true});
      }catch{outcomes.push({...outcome,status:'failed'});}
     }else{inventory.push(target);submitted.push({...outcome,requiresApproval:false});}
    }

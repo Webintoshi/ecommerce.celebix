@@ -116,3 +116,13 @@ test('commission operation lookup binds operation identity and supports not-yet-
  const c=new Client({outcome:'found',result_payload:null});assert.equal(await(repo(c)as any).commissionPaymentOperation({...authority(),operationId:OP}),null);
  const bad=new Client({outcome:'found',result_payload:{...commissionPaymentResult,operationId:ACCOUNT,payment:{...commissionPayment,id:ACCOUNT}}});await assert.rejects(()=>(repo(bad)as any).commissionPaymentOperation({...authority(),operationId:OP}),e=>accountingRepositoryErrorCode(e)==='unavailable');assert.equal(bad.queries.at(-1)?.text,'ROLLBACK');
 });
+test('sales tax read binds the requested period without altering ledgers',async()=>{
+ const filters={dateFrom:'2026-10-01',dateTo:'2026-10-31',currency:'TRY'};
+ const response={dateFrom:'2026-10-01',dateTo:'2026-10-31',timeZone:'UTC',startAt:'2026-10-01T00:00:00.000Z',endAt:'2026-11-01T00:00:00.000Z',currencies:[],limitations:['purchase_vat_not_tracked','unallocated_returns_unknown','deleted_order_breakdown_unavailable']};
+ const c=new Client({outcome:'found',result_payload:response});assert.deepEqual(await repo(c).tax({...authority(),filters}),response);
+ const call=c.queries.find(q=>q.text.includes('FROM saas.accounting_tax_report'))!;
+ assert.deepEqual(call.values?.slice(0,7),[STORE,PRINCIPAL,MEMBER,PLAN,'growth',2,NOW]);
+ assert.deepEqual(JSON.parse(call.values?.[7]as string),filters);
+ assert.ok(c.queries.some(q=>q.text==='BEGIN READ ONLY'));
+ const bad=new Client({outcome:'found',result_payload:{...response,startAt:'2026-09-01T00:00:00.000Z'}});await assert.rejects(()=>repo(bad).tax({...authority(),filters}));assert.ok(bad.queries.some(q=>q.text==='ROLLBACK'));
+});

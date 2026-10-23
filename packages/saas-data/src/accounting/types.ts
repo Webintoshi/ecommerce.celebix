@@ -1,3 +1,4 @@
+import type {AccountingTaxFilters,AccountingTaxReport} from '../../../saas-contracts/src/accounting/tax.ts';
 import type {AccountingCommissions,AccountingCommissionsFilters} from '../../../saas-contracts/src/accounting/index.ts';
 import type {AccountingCommissionBalances,AccountingCommissionPaymentDetail,AccountingCommissionPaymentAction,AccountingCommissionPaymentIntentMap,AccountingCommissionPaymentResult} from '../../../saas-contracts/src/accounting/index.ts';
 import type {AccountingProfitability,AccountingProfitabilityFilters} from '../../../saas-contracts/src/accounting/index.ts';
@@ -12,6 +13,7 @@ export interface AccountingReadInput extends AccountingAuthorityInput { readonly
 export interface AccountingCommissionsInput extends AccountingAuthorityInput {readonly filters:AccountingCommissionsFilters;}
 export interface AccountingCommissionPaymentsInput extends AccountingAuthorityInput {readonly membershipId:string;}
 export interface AccountingCommissionPaymentMutationInput<K extends AccountingCommissionPaymentAction> extends AccountingAuthorityInput {readonly kind:K;readonly operationId:string;readonly intent:AccountingCommissionPaymentIntentMap[K];}
+export interface AccountingTaxInput extends AccountingAuthorityInput {readonly filters:AccountingTaxFilters;}
 export interface AccountingProfitabilityInput extends AccountingAuthorityInput {readonly filters:AccountingProfitabilityFilters;}
 export interface AccountingCustomerInput extends AccountingAuthorityInput { readonly customerId:string; readonly currency?:string; }
 export interface AccountingOrderInput extends AccountingAuthorityInput { readonly orderId:string; }
@@ -34,6 +36,7 @@ export interface AccountingRepository {
  commissionPaymentMutate<K extends AccountingCommissionPaymentAction>(input:AccountingCommissionPaymentMutationInput<K>):Promise<AccountingCommissionPaymentResult>;
  commissionPaymentOperation(input:AccountingOperationInput):Promise<AccountingCommissionPaymentResult|null>;
  access(input:AccountingAuthorityInput):Promise<import('../../../saas-contracts/src/accounting/index.ts').AccountingAccess>;
+ tax(input:AccountingTaxInput):Promise<AccountingTaxReport>;
  profitability(input:AccountingProfitabilityInput):Promise<AccountingProfitability>;
  suppliers(input:AccountingSuppliersInput):Promise<AccountingSupplierList>;
  supplier(input:AccountingSupplierInput):Promise<AccountingSupplierDetail>;

@@ -1,4 +1,5 @@
 import type { Product, ProductVariant, ProductMeasurements } from "../catalog/types.ts";
+import type { ProductTaxChoice } from '../product-tax/index.ts';
 
 export const CATALOG_ONBOARDING_PRODUCT_TYPES = Object.freeze(["physical", "digital"] as const);
 export const CATALOG_ONBOARDING_RESOURCE_KINDS = Object.freeze([
@@ -27,6 +28,7 @@ export interface CatalogOnboardingInventoryAllocation {
 }
 
 export interface CatalogOnboardingVariantIntent {
+  readonly tax?: ProductTaxChoice | null;
   readonly title: string;
   readonly sku?: string;
   readonly barcode?: string;
@@ -63,6 +65,7 @@ export interface CatalogOnboardingResourceIds {
 }
 
 export interface CatalogQuickCreateIntent {
+  readonly tax?: ProductTaxChoice;
   readonly kind: "quick";
   readonly title: string;
   readonly sku?: string;
@@ -74,6 +77,7 @@ export interface CatalogQuickCreateIntent {
 }
 
 export interface CatalogAdvancedCreateIntent {
+  readonly tax?: ProductTaxChoice;
   readonly contentOrigins?: import("../content-authoring/types.ts").ContentAuthoringFieldOriginsInput;
   readonly kind: "advanced";
   readonly productType: CatalogOnboardingProductType;

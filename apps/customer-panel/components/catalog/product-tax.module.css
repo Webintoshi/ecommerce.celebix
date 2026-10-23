@@ -1,0 +1,7 @@
+.fields { display: grid; gap: 12px; min-width: 0; }
+.field { display: grid; gap: 8px; min-width: 0; font-size: 13px; font-weight: 500; color: var(--cp-text-primary); }
+.field select, .field input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; }
+.field select:focus-visible, .field input:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.basis { display: grid; gap: 8px; min-width: 0; }
+.help { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
+@media (max-width: 640px) { .field input, .field select { font-size: 16px; } }

@@ -6,6 +6,12 @@ import { CatalogApiError, createCatalogApiClient } from "./client.ts";
 const PRODUCT_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const VARIANT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const OPERATION_ID = "77777777-7777-4777-8777-777777777777";
+test('standalone VAT read validates its versioned sidecar and rejects mismatched product identity',async()=>{
+ const requests:any[]=[];const dto={productId:PRODUCT_ID,productVersion:3,tax:null,variants:[{variantId:VARIANT_ID,variantVersion:2,tax:null,effectiveTax:null,taxSource:'unknown'}]};
+ const client=createCatalogApiClient({fetch:async(url,init)=>{requests.push({url,init});return Response.json(dto);}});
+ assert.deepEqual(await client.getProductTax(PRODUCT_ID),dto);assert.equal(requests[0].url,`/api/catalog/products/${PRODUCT_ID}/tax`);assert.equal(requests[0].init.cache,'no-store');assert.equal(requests[0].init.credentials,'same-origin');
+ const wrong=createCatalogApiClient({fetch:async()=>Response.json({...dto,productId:VARIANT_ID})});await assert.rejects(wrong.getProductTax(PRODUCT_ID));
+});
 const SUMMARY = Object.freeze({
   totalProducts: 4,
   activeProducts: 3,

@@ -1,4 +1,5 @@
-import type { ProductStatus, ProductMeasurements } from "@celebix/saas-contracts";
+import {parseProductTaxChoice,type ProductTaxChoice,type ProductStatus,type ProductMeasurements} from "@celebix/saas-contracts";
+import {taxFromChoice,sellingPriceCents,effectiveTax,type PriceEntryBasis} from './product-tax.ts';
 
 import { parseTurkishMoneyToCents } from "./money.ts";
 import { parseProductMeasurements, type ProductMeasurementDraft } from "./product-measurements.ts";
@@ -9,6 +10,7 @@ export type CatalogProductFields = Readonly<{
   description?: string;
   status: Exclude<ProductStatus, "archived">;
   currency: string;
+  tax?: ProductTaxChoice;
 }>;
 
 export type CatalogVariantFields = Readonly<{
@@ -16,6 +18,7 @@ export type CatalogVariantFields = Readonly<{
   sku?: string;
   barcode?: string;
   priceCents: number;
+  tax?: ProductTaxChoice|null;
   compareAtCents?: number;
   costCents?: number;
   stockTracking: boolean;
@@ -36,9 +39,9 @@ const CREATE_KEYS = Object.freeze([
   "title", "slug", "description", "status", "currency", "variantTitle", "sku", "barcode",
   "price", "compareAt", "cost", "stockTracking", "stockQuantity", "measurements",
 ] as const);
-const PRODUCT_KEYS = Object.freeze(["title", "slug", "description", "status", "currency"] as const);
+const PRODUCT_KEYS = Object.freeze(["title", "slug", "description", "status", "currency", "taxChoice"] as const);
 const VARIANT_KEYS = Object.freeze([
-  "title", "sku", "barcode", "price", "compareAt", "cost", "stockTracking", "stockQuantity", "measurements",
+  "title", "sku", "barcode", "price", "compareAt", "cost", "stockTracking", "stockQuantity", "measurements", "taxChoice", "priceBasis", "productTax",
 ] as const);
 
 function invalid(message: string): Invalid {
@@ -79,6 +82,7 @@ function productFields(value: unknown, allowed = PRODUCT_KEYS): CatalogFormResul
   if (description === null) return invalid("Açıklama geçersiz.");
   if (status === null) return invalid("Ürün durumu geçersiz.");
   if (parsed.currency !== "TRY") return invalid("Para birimi bu pilotta TRY olmalıdır.");
+  let tax:ProductTaxChoice|null= null;try{if(parsed.taxChoice!==undefined){if(typeof parsed.taxChoice!=='string')throw Error();tax=taxFromChoice(parsed.taxChoice);}}catch{return invalid('KDV seçimini kontrol edin.');}
   return Object.freeze({
     ok: true,
     value: Object.freeze({
@@ -87,6 +91,7 @@ function productFields(value: unknown, allowed = PRODUCT_KEYS): CatalogFormResul
       ...(description === undefined ? {} : { description }),
       status,
       currency: "TRY",
+      ...(tax===null?{}:{tax}),
     }),
   });
 }
@@ -128,6 +133,7 @@ function variantFields(
   } catch {
     return invalid("Para alanlarında virgülden sonra en fazla iki basamak kullanın.");
   }
+  let tax:ProductTaxChoice|null=null;try{if(parsed.taxChoice!==undefined){if(typeof parsed.taxChoice!=='string')throw Error();tax=taxFromChoice(parsed.taxChoice);}const inherited=parsed.productTax==null?null:parseProductTaxChoice(parsed.productTax);const gross=sellingPriceCents(priceCents,(parsed.priceBasis??'included') as PriceEntryBasis,effectiveTax(inherited,tax));if(gross===null)throw Error();priceCents=gross;}catch{return invalid('KDV ve fiyat girişini kontrol edin.');}
   if (compareAtCents !== undefined && compareAtCents < priceCents) {
     return invalid("Karşılaştırma fiyatı satış fiyatından düşük olamaz.");
   }
@@ -146,6 +152,7 @@ function variantFields(
       ...(sku === undefined ? {} : { sku }),
       ...(barcode === undefined ? {} : { barcode }),
       priceCents,
+      ...(parsed.taxChoice===undefined?{}:{tax}),
       ...(compareAtCents === undefined ? {} : { compareAtCents }),
       ...(costCents === undefined ? {} : { costCents }),
       stockTracking: parsed.stockTracking,
@@ -214,7 +221,7 @@ export function buildVariantCreatePayload(
 }
 
 export function buildVariantBatchPayload(
-  rows: readonly Readonly<{ title: string; sku: string; barcode: string; price: string; compareAt: string; cost: string; stockQuantity: string; attributes: Readonly<Record<string, string>>; measurements?: ProductMeasurementDraft; continueSellingWhenOutOfStock?: boolean; shippingDesi?: string; hsCode?: string }>[],
+  rows: readonly Readonly<{ title: string; sku: string; barcode: string; price: string; taxChoice?:string;priceBasis?:PriceEntryBasis;productTax?:ProductTaxChoice|null; compareAt: string; cost: string; stockQuantity: string; attributes: Readonly<Record<string, string>>; measurements?: ProductMeasurementDraft; continueSellingWhenOutOfStock?: boolean; shippingDesi?: string; hsCode?: string }>[],
 ): CatalogFormResult<Readonly<{ variants: readonly CatalogVariantFields[] }>> {
   if (rows.length < 1 || rows.length > 100) return invalid("1–100 varyant seçin.");
   const variants: CatalogVariantFields[] = [];

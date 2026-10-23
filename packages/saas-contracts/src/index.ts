@@ -1,3 +1,5 @@
+export * from './product-tax/index.ts';
+
 /**
  * Frozen shared SaaS contracts.
  *

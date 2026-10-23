@@ -1,3 +1,4 @@
+import {parseProductTaxChoice,type ProductTaxChoice} from '../product-tax/index.ts';
 /** Shared, non-secret Trendyol panel contract. Money is cents; rates are basis points. */
 export type TrendyolPricingRule = Readonly<{
   commissionBps:number; commissionVatIncluded:boolean; commissionVatBps:number;
@@ -14,9 +15,13 @@ export type TrendyolOverview=Readonly<{
 }>;
 export type TrendyolProduct=Readonly<{productId:string;variantId:string;title:string;sku:string|null;barcode:string|null;webPriceCents:number|null;quantity:number;mapping:TrendyolListingInput|null;status:'not_configured'|'queued'|'submitted'|'active'|'failed'|'excluded';issue:string|null;updatedAt:string}>;
 export type TrendyolProducts=Readonly<{items:readonly TrendyolProduct[];nextCursor:string|null}>;
+export type TrendyolTaxProduct=TrendyolProduct&Readonly<{tax:ProductTaxChoice|null}>;
+export type TrendyolTaxProducts=Readonly<{items:readonly TrendyolTaxProduct[];nextCursor:string|null}>;
+export function trendyolVatRate(tax:ProductTaxChoice|null):number|null{if(tax===null)return null;const choice=parseProductTaxChoice(tax);if(choice.treatment==='exempt')return 0;return[0,100,1000,2000].includes(choice.rateBps)?choice.rateBps/100:null;}
+export function trendyolTaxIssue(tax:ProductTaxChoice|null):'tax_required'|'tax_unsupported'|null{return tax===null?'tax_required':trendyolVatRate(tax)===null?'tax_unsupported':null;}
 export type TrendyolOrderIssues=Readonly<{items:readonly Readonly<{orderId:string|null;externalOrderId:string;orderNumber:string;state:string;issue:string|null}>[]}>;
 export type TrendyolSaveResult=Readonly<{saved:true;replayed:boolean}>;
-export const TRENDYOL_ERROR_CODES=['invalid_input','unauthenticated','membership_denied','store_inactive','feature_not_enabled','not_connected','needs_reconnect','operation_mismatch','version_conflict','commit_unknown','unavailable','rate_limited','provider_rejected','mapping_required','stock_conflict','quota_blocked','stale'] as const;
+export const TRENDYOL_ERROR_CODES=['invalid_input','unauthenticated','membership_denied','store_inactive','feature_not_enabled','not_connected','needs_reconnect','operation_mismatch','version_conflict','commit_unknown','unavailable','rate_limited','provider_rejected','mapping_required','stock_conflict','quota_blocked','stale','tax_required','tax_unsupported','tax_conflict'] as const;
 export type TrendyolErrorCode=typeof TRENDYOL_ERROR_CODES[number];
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MONEY_MAX=999_999_999_999;
@@ -88,6 +93,13 @@ export function parseTrendyolProducts(value:unknown):TrendyolProducts{
   });return Object.freeze({items:Object.freeze(items),nextCursor:v.nextCursor as string|null});
 }
 export function parseTrendyolSaveResult(value:unknown):TrendyolSaveResult{const v=trendyolObject(value,['saved','replayed'],['queued']);if(v.saved!==true||typeof v.replayed!=='boolean')bad();if(v.queued!==undefined)trendyolInteger(v.queued);return Object.freeze({saved:true,replayed:v.replayed});}
+export function parseTrendyolTaxProducts(value:unknown):TrendyolTaxProducts{
+ const root=trendyolObject(value,['items','nextCursor']);if(!Array.isArray(root.items)||root.items.length>50)bad();
+ const rows=root.items.map(item=>trendyolObject(item,['productId','variantId','title','sku','barcode','webPriceCents','quantity','mapping','status','issue','updatedAt','tax']));
+ const taxes=rows.map(item=>item.tax===null?null:parseProductTaxChoice(item.tax));
+ const base=parseTrendyolProducts({items:rows.map(({tax,...item})=>item),nextCursor:root.nextCursor});
+ return Object.freeze({items:Object.freeze(base.items.map((item,index)=>Object.freeze({...item,tax:taxes[index]}))),nextCursor:base.nextCursor});
+}
 export function parseTrendyolOrderIssues(value:unknown):TrendyolOrderIssues{
   const v=trendyolObject(value,['items']);if(!Array.isArray(v.items)||v.items.length>50)bad();
   const items=v.items.map(value=>{const row=trendyolObject(value,['orderId','externalOrderId','orderNumber','state','issue']);if(row.orderId!==null)trendyolUuid(row.orderId);text(row.externalOrderId,200);text(row.orderNumber,200);text(row.state,80);if(row.issue!==null&&!/^[a-z0-9_]{1,80}$/.test(text(row.issue,80)))bad();return Object.freeze(row) as TrendyolOrderIssues['items'][number];});

@@ -1,14 +1,14 @@
 import {createHash,randomBytes} from 'node:crypto';
 import {hasCommercialCapability,isMerchantActionAllowed,parseTrendyolListingInput,parseTrendyolPricingRule,parseTrendyolSecret,parseTrendyolSellerId,trendyolInteger,trendyolObject,trendyolUuid,type TrendyolErrorCode} from '@celebix/saas-contracts';
 import {openTrendyolCredential,sealTrendyolCredential} from '../../../../packages/saas-data/src/trendyol/credential.ts';
-import {trendyolErrorCode,trendyolFingerprint} from '../../../../packages/saas-data/src/trendyol/repository.ts';
+import {trendyolErrorCode,trendyolFingerprint,TrendyolRepositoryError} from '../../../../packages/saas-data/src/trendyol/repository.ts';
 import {TrendyolProviderError,type TrendyolProviderOption} from '../../../../packages/saas-data/src/trendyol/provider.ts';
 import {readOrderPanelSessionCookie} from '../order-http/request-input.ts';
 import {approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape} from '../panel-origin-authority.ts';
 import type {ServerTrendyolRuntime} from '../server-trendyol/runtime.ts';
 const ROOT='/api/marketplaces/trendyol';
 type Dependencies=Readonly<{resolveRuntime():Promise<ServerTrendyolRuntime|null>;now():Date;requestId():string}>;
-const STATUS:Partial<Record<TrendyolErrorCode,number>>={invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,feature_not_enabled:403,not_connected:409,needs_reconnect:409,operation_mismatch:409,version_conflict:409,commit_unknown:503,unavailable:503,rate_limited:429,provider_rejected:422,mapping_required:409,stock_conflict:409,quota_blocked:409};
+const STATUS:Partial<Record<TrendyolErrorCode,number>>={invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,feature_not_enabled:403,not_connected:409,needs_reconnect:409,operation_mismatch:409,version_conflict:409,commit_unknown:503,unavailable:503,rate_limited:429,provider_rejected:422,mapping_required:409,stock_conflict:409,quota_blocked:409,tax_required:409,tax_unsupported:409,tax_conflict:409};
 export function trendyolHttpErrorCode(error:unknown):TrendyolErrorCode{
  if(error instanceof TrendyolProviderError){switch(error.code){case'provider_limit':return'rate_limited';case'needs_reconnect':return'needs_reconnect';case'invalid_input':return'invalid_input';case'provider_rejected':case'provider_denied':case'provider_conflict':return'provider_rejected';default:return'unavailable';}}
  return trendyolErrorCode(error);
@@ -53,8 +53,9 @@ export function createTrendyolHttpHandlers(deps:Dependencies){
    const params=new URL(request.url).searchParams;
    try{
     if(area==='products'){
-     if([...params.keys()].some(k=>!['cursor','limit'].includes(k)||params.getAll(k).length!==1))throw TypeError();const cursor=params.has('cursor')?trendyolUuid(params.get('cursor')):undefined;const raw=params.get('limit')??'25';if(!/^[1-9][0-9]?$/.test(raw)||Number(raw)>50)throw TypeError();
-     return execute(()=>runtime.repository.products({tenantContext,now,limit:Number(raw),...(cursor?{cursor}:{})}));
+     if([...params.keys()].some(k=>!['cursor','limit','tax'].includes(k)||params.getAll(k).length!==1))throw TypeError();const cursor=params.has('cursor')?trendyolUuid(params.get('cursor')):undefined;const raw=params.get('limit')??'25';if(!/^[1-9][0-9]?$/.test(raw)||Number(raw)>50)throw TypeError();
+     if(params.has('tax')&&params.get('tax')!=='1')throw TypeError();
+     return execute(()=>params.get('tax')==='1'?runtime.repository.productsTax({tenantContext,now,limit:Number(raw),...(cursor?{cursor}:{})}):runtime.repository.products({tenantContext,now,limit:Number(raw),...(cursor?{cursor}:{})}));
     }
     if([...params.keys()].some(k=>!['kind','categoryId','search'].includes(k)||params.getAll(k).length!==1))throw TypeError();
     const kind=params.get('kind');if(!['categories','brands','attributes','cargo'].includes(kind??''))throw TypeError();
@@ -95,6 +96,7 @@ export function createTrendyolHttpHandlers(deps:Dependencies){
      const secret=await runtime.repository.credential({tenantContext,now}),credential=openTrendyolCredential({storeId:tenantContext.store.id,version:secret.credentialVersion,envelope:secret.credential,keyring:runtime.keyring});
      if(listing.enabled&&listing.mode==='existing'){
       const product=await runtime.provider.product(credential,listing.barcode);if(product.archived||!product.approved)throw new TrendyolProviderError('provider_rejected');
+      if(await runtime.provider.getProductTax(credential,listing.barcode)!==listing.vatRate)throw new TrendyolRepositoryError('tax_conflict');
      }else if(listing.enabled&&listing.mode==='create'){
       if(![0,1,10,20].includes(listing.vatRate))throw new TrendyolProviderError('invalid_input');
       const schema=await runtime.provider.options(credential,{kind:'attributes',categoryId:listing.categoryId!});

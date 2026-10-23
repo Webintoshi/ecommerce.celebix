@@ -1,4 +1,4 @@
-import { parseProductMeasurements } from "@celebix/saas-contracts";
+import { parseProductMeasurements,parseProductTaxChoice } from "@celebix/saas-contracts";
 import { CatalogRepositoryError } from "../catalog/errors.ts";
 import { catalogAuthority, type ValidatedCatalogAuthority } from "../catalog/validation.ts";
 import { CatalogMigrationRepositoryError, type CatalogMigrationErrorCode } from "./errors.ts";
@@ -138,8 +138,9 @@ function attributes(value: unknown): Readonly<Record<string, string>> {
   return Object.freeze(result);
 }
 
+function migrationTax(value: unknown) {try{return parseProductTaxChoice(value);}catch{fail();}}
 function migrationVariant(value: unknown): CatalogMigrationVariant {
-  const variant = exactCatalogMigrationInput(value, ["title", "priceCents", "stockQuantity", "attributes"], ["sku", "barcode", "compareAtCents", "measurements"]);
+  const variant = exactCatalogMigrationInput(value, ["title", "priceCents", "stockQuantity", "attributes"], ["sku", "barcode", "compareAtCents", "measurements", "tax"]);
   const sku = variant.sku === undefined ? undefined : text(variant.sku, 1, 64);
   if (sku !== undefined && !SKU.test(sku)) fail();
   const barcode = variant.barcode === undefined ? undefined : text(variant.barcode, 1, 128);
@@ -151,6 +152,7 @@ function migrationVariant(value: unknown): CatalogMigrationVariant {
     try { measurements = parseProductMeasurements(variant.measurements); } catch { fail(); }
   }
   return Object.freeze({
+    ...(Object.hasOwn(variant,'tax')?{tax:variant.tax===null?null:migrationTax(variant.tax)}:{}),
     title: text(variant.title, 1, 120), ...(sku === undefined ? {} : { sku }), ...(barcode === undefined ? {} : { barcode }),
     priceCents, ...(compareAtCents === undefined ? {} : { compareAtCents }),
     stockQuantity: catalogMigrationInteger(variant.stockQuantity, 0, MAX_STOCK), attributes: attributes(variant.attributes),
@@ -179,7 +181,7 @@ function sourceMetadata(value: unknown): Readonly<Record<string, unknown>> {
 export function catalogMigrationProducts(value: unknown): readonly CatalogMigrationProduct[] {
   if (!Array.isArray(value) || value.length < 1 || value.length > 25) fail();
   const products = value.map((candidate) => {
-    const parsed = exactCatalogMigrationInput(candidate, ["sourceProductId", "title", "slug", "status", "categorySlugs", "brandSlugs", "variant", "sourceImageDigests"], ["description", "additionalVariants", "sourceMetadata"]);
+    const parsed = exactCatalogMigrationInput(candidate, ["sourceProductId", "title", "slug", "status", "categorySlugs", "brandSlugs", "variant", "sourceImageDigests"], ["description", "additionalVariants", "sourceMetadata", "tax"]);
     const sourceProductId = text(parsed.sourceProductId, 1, 20);
     if (!SOURCE_ID.test(sourceProductId)) fail();
     if (parsed.sourceMetadata !== undefined && object(object(parsed.sourceMetadata).fields).id !== sourceProductId) fail();
@@ -193,6 +195,7 @@ export function catalogMigrationProducts(value: unknown): readonly CatalogMigrat
     }
     return Object.freeze({
       sourceProductId,
+      ...(Object.hasOwn(parsed,'tax')?{tax:migrationTax(parsed.tax)}:{}),
       title: text(parsed.title, 1, 200),
       slug: slug(parsed.slug),
       ...(parsed.description === undefined ? {} : { description: description(parsed.description) }),

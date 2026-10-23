@@ -1,3 +1,4 @@
+import type {ProductTaxChoice} from '../product-tax/index.ts';
 export const CATALOG_ADMIN_RESOURCE_KINDS = Object.freeze([
   "collection",
   "brand",
@@ -85,6 +86,7 @@ export interface CatalogAdminImportJob {
 }
 
 export interface CatalogAdminImportRow {
+  readonly tax?: ProductTaxChoice;
   readonly title: string;
   readonly slug: string;
   readonly priceCents: number;

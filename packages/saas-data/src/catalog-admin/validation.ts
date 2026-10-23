@@ -1,4 +1,4 @@
-import { CATALOG_ADMIN_RESOURCE_KINDS, PRODUCT_REVIEW_STATUSES, parseCatalogSizeGuideConfig, type CatalogAdminJson, type CatalogAdminResourceKind, type ProductReviewStatus } from "@celebix/saas-contracts";
+import { CATALOG_ADMIN_RESOURCE_KINDS, PRODUCT_REVIEW_STATUSES, parseCatalogSizeGuideConfig, parseProductTaxChoice, type CatalogAdminJson, type CatalogAdminResourceKind, type ProductReviewStatus } from "@celebix/saas-contracts";
 import { catalogAuthority } from "../catalog/validation.ts";
 import { CatalogAdminRepositoryError } from "./errors.ts";
 import type { CatalogAdminImportProduct, CatalogAdminImportRow, CatalogAdminImportVariant } from "./types.ts";
@@ -32,7 +32,8 @@ export function catalogAdminConfig(value: unknown, kind?: CatalogAdminResourceKi
   return result as Readonly<Record<string, CatalogAdminJson>>;
 }
 export function uniqueCatalogIds(value: unknown): readonly string[] { if (!Array.isArray(value) || value.length > 10_000 || Buffer.byteLength(JSON.stringify(value), "utf8") > 400_000) fail(); const ids = Object.freeze(value.map(catalogAdminUuid)); if (new Set(ids).size !== ids.length) fail(); return ids; }
-export function catalogAdminImportRows(value: unknown): readonly CatalogAdminImportRow[] { if (!Array.isArray(value) || value.length < 1 || value.length > 100) fail(); const rows = Object.freeze(value.map((entry) => { const row = exactCatalogAdminInput(entry, ["title", "slug", "priceCents", "stockQuantity"], ["sku"]); if (!Number.isSafeInteger(row.priceCents) || (row.priceCents as number) < 0 || !Number.isSafeInteger(row.stockQuantity) || (row.stockQuantity as number) < 0) fail(); const sku = row.sku === undefined ? undefined : catalogAdminText(row.sku, 1, 64, SKU); return Object.freeze({ title: catalogAdminText(row.title, 1, 200), slug: catalogAdminProductSlug(row.slug), priceCents: row.priceCents as number, ...(sku === undefined ? {} : { sku }), stockQuantity: row.stockQuantity as number }); })); if (Buffer.byteLength(JSON.stringify(rows), "utf8") > 131_072) fail(); return rows; }
+function importTax(value: unknown){try{return parseProductTaxChoice(value);}catch{fail();}}
+export function catalogAdminImportRows(value: unknown): readonly CatalogAdminImportRow[] { if (!Array.isArray(value) || value.length < 1 || value.length > 100) fail(); const rows = Object.freeze(value.map((entry) => { const row = exactCatalogAdminInput(entry, ["title", "slug", "priceCents", "stockQuantity"], ["sku","tax"]); if (!Number.isSafeInteger(row.priceCents) || (row.priceCents as number) < 0 || !Number.isSafeInteger(row.stockQuantity) || (row.stockQuantity as number) < 0) fail(); const sku = row.sku === undefined ? undefined : catalogAdminText(row.sku, 1, 64, SKU); return Object.freeze({ ...(Object.hasOwn(row,'tax')?{tax:importTax(row.tax)}:{}), title: catalogAdminText(row.title, 1, 200), slug: catalogAdminProductSlug(row.slug), priceCents: row.priceCents as number, ...(sku === undefined ? {} : { sku }), stockQuantity: row.stockQuantity as number }); })); if (Buffer.byteLength(JSON.stringify(rows), "utf8") > 131_072) fail(); return rows; }
 
 function importInteger(value: unknown): number { if (!Number.isSafeInteger(value) || (value as number) < 0) fail(); return value as number; }
 function catalogAdminImportAttributes(value: unknown): Readonly<Record<string, string>> {
@@ -41,7 +42,7 @@ function catalogAdminImportAttributes(value: unknown): Readonly<Record<string, s
   return Object.freeze(Object.fromEntries(Object.entries(selected).map(([key, entry]) => [key, catalogAdminText(entry, 0, 256)])));
 }
 function catalogAdminImportVariant(value: unknown): CatalogAdminImportVariant {
-  const variant = exactCatalogAdminInput(value, ["title", "priceCents", "stockQuantity", "attributes"], ["sku", "barcode", "compareAtCents", "costCents"]);
+  const variant = exactCatalogAdminInput(value, ["title", "priceCents", "stockQuantity", "attributes"], ["sku", "barcode", "compareAtCents", "costCents", "tax"]);
   const priceCents = importInteger(variant.priceCents);
   const compareAtCents = variant.compareAtCents === undefined ? undefined : importInteger(variant.compareAtCents);
   const costCents = variant.costCents === undefined ? undefined : importInteger(variant.costCents);
@@ -49,6 +50,7 @@ function catalogAdminImportVariant(value: unknown): CatalogAdminImportVariant {
   const selectedSku = variant.sku === undefined ? undefined : catalogAdminText(variant.sku, 1, 64, SKU);
   const selectedBarcode = variant.barcode === undefined ? undefined : catalogAdminText(variant.barcode, 1, 128);
   return Object.freeze({
+    ...(Object.hasOwn(variant,'tax')?{tax:variant.tax===null?null:importTax(variant.tax)}:{}),
     title: catalogAdminText(variant.title, 1, 200),
     ...(selectedSku ? { sku: selectedSku } : {}),
     ...(selectedBarcode ? { barcode: selectedBarcode } : {}),
@@ -65,7 +67,7 @@ export function catalogAdminImportProducts(value: unknown): readonly CatalogAdmi
   const skus = new Set<string>();
   let variantCount = 0;
   const products = value.map((entry) => {
-    const product = exactCatalogAdminInput(entry, ["title", "slug", "status", "variants"], ["description"]);
+    const product = exactCatalogAdminInput(entry, ["title", "slug", "status", "variants"], ["description", "tax"]);
     if (!Array.isArray(product.variants) || product.variants.length < 1 || product.variants.length > 50 || !["draft", "active"].includes(String(product.status))) fail();
     const selectedSlug = catalogAdminProductSlug(product.slug);
     if (slugs.has(selectedSlug)) fail();
@@ -79,7 +81,7 @@ export function catalogAdminImportProducts(value: unknown): readonly CatalogAdmi
       return selected;
     }));
     const selectedDescription = product.description === undefined ? undefined : catalogAdminText(product.description, 1, 10_000);
-    return Object.freeze({ title: catalogAdminText(product.title, 1, 200), slug: selectedSlug, ...(selectedDescription ? { description: selectedDescription } : {}), status: product.status as "draft" | "active", variants });
+    return Object.freeze({ ...(Object.hasOwn(product,'tax')?{tax:importTax(product.tax)}:{}), title: catalogAdminText(product.title, 1, 200), slug: selectedSlug, ...(selectedDescription ? { description: selectedDescription } : {}), status: product.status as "draft" | "active", variants });
   });
   if (JSON.stringify(products).length > 120_000) fail();
   return Object.freeze(products);

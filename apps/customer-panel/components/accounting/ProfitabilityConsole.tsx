@@ -7,6 +7,7 @@ import {PanelPageHeader,PanelPageShell} from '@/components/panel/PanelPageShell'
 import {accountingUi} from '@/lib/accounting-ui/client';
 import {accountingMoney as money} from '@/lib/accounting-ui/model';
 import {defaultProfitabilityPeriod,profitabilityFilters,profitabilityGaps,profitabilityCostNotice,type ProfitabilityFilters} from '@/lib/accounting-ui/profitability-model';
+import {AccountingTaxSummary} from './AccountingTaxSummary';
 import {AccountingNavigation} from './AccountingNavigation';
 import {AccountingEmptyState} from './AccountingEmptyState';
 import shared from './accounting.module.css';
@@ -69,5 +70,6 @@ function ProfitabilityWorkspace({canRead,scopeKey}:{canRead:boolean;scopeKey:str
    {data?data.currencies.length?data.currencies.map(row=><CurrencySummary key={row.currency} row={row}/>):<AccountingEmptyState variant="profitability" title="Bu dönemde muhasebe hareketi yok." description="Tarih veya para birimi filtresini değiştir."/>:null}
   </div>
   <p className={styles.reportNote}>{data?.currencies.some(row=>row.grossProfitCents===null&&row.knownProfit)?'Kısmi kâr yalnız maliyeti bilinen satışları içerir; işletme gideri ve komisyon düşülmez. Tutarlar vergi ve kaydedilmemiş giderler hariçtir.':'Satılan ürün maliyeti ve kayıtlı giderler sonrası; vergi ve kaydedilmemiş giderler hariç. Tedarikçi ödemeleri ürün maliyetinden ayrı izlenir; gider türü bilinmiyorsa kâr gösterilmez.'}</p>
+  <AccountingTaxSummary scopeKey={scopeKey} filters={filters} revision={revision}/>
  </div></PanelPageShell>;
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import {
+  parseProductTaxChoice,
   parseContentAuthoringFieldOrigins,
   type ContentAuthoringFieldOriginsInput,
   parseCatalogProductListQuery,
@@ -73,19 +74,20 @@ function exact(value: unknown, required: readonly string[], optional: readonly s
 }
 
 function productFields(value: unknown): CatalogProductFields | null {
-  const parsed = exact(value, ["slug", "title", "status", "currency"], ["description"]);
+  const parsed = exact(value, ["slug", "title", "status", "currency"], ["description", "tax"]);
   if (parsed === null) return null;
   try {
     const product = parseProduct({
       id: SYNTHETIC_PRODUCT_ID,
       storeId: SYNTHETIC_STORE_ID,
-      ...parsed,
+      ...Object.fromEntries(Object.entries(parsed).filter(([key]) => key !== "tax")),
       createdAt: SYNTHETIC_TIME,
       updatedAt: SYNTHETIC_TIME,
       version: 1,
     });
     if (product.status === "archived") return null;
     return Object.freeze({
+      ...(Object.hasOwn(parsed, "tax") ? { tax: parseProductTaxChoice(parsed.tax) } : {}),
       slug: product.slug,
       title: product.title,
       ...(product.description === undefined ? {} : { description: product.description }),
@@ -99,7 +101,7 @@ function variantFields(value: unknown): CatalogVariantFields | null {
   const parsed = exact(
     value,
     ["title", "priceCents", "stockTracking", "stockQuantity", "attributes"],
-    ["sku", "barcode", "compareAtCents", "costCents", "measurements"],
+    ["sku", "barcode", "compareAtCents", "costCents", "measurements", "tax"],
   );
   if (parsed === null) return null;
   try {
@@ -107,13 +109,14 @@ function variantFields(value: unknown): CatalogVariantFields | null {
       id: SYNTHETIC_VARIANT_ID,
       productId: SYNTHETIC_PRODUCT_ID,
       storeId: SYNTHETIC_STORE_ID,
-      ...Object.fromEntries(Object.entries(parsed).filter(([key, value]) => key !== "measurements" || value !== null)),
+      ...Object.fromEntries(Object.entries(parsed).filter(([key, value]) => key !== "tax" && (key !== "measurements" || value !== null))),
       status: "active",
       createdAt: SYNTHETIC_TIME,
       updatedAt: SYNTHETIC_TIME,
       version: 1,
     });
     return Object.freeze({
+      ...(Object.hasOwn(parsed, "tax") ? { tax: parsed.tax === null ? null : parseProductTaxChoice(parsed.tax) } : {}),
       title: variant.title,
       ...(variant.sku === undefined ? {} : { sku: variant.sku }),
       ...(variant.barcode === undefined ? {} : { barcode: variant.barcode }),

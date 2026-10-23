@@ -12,6 +12,10 @@ test('Trendyol native request uses trusted tenant snapshot and rejects secret-be
  assert.deepEqual(f.calls.find(c=>c.text.includes('trendyol_command'))!.values.slice(0,7),[id,id,id,tenant.entitlements.planId,'starter',2,now.toISOString()]);
  assert.ok(f.calls.some(c=>c.text==='ROLLBACK'));
 });
+test('canonical VAT product reads use the opt-in native action and preserve unknown tax',async()=>{
+ const item={productId:id,variantId:id,title:'Product',sku:null,barcode:null,webPriceCents:1000,quantity:1,mapping:null,status:'not_configured',issue:null,updatedAt:now.toISOString(),tax:null},f=fixture({outcome:'found',result_payload:{items:[item],nextCursor:null}}),r=createPostgresTrendyolRepository({pool:f.pool});
+ assert.deepEqual(await (r as any).productsTax({tenantContext:tenant,now}),{items:[item],nextCursor:null});assert.equal(f.calls.find(call=>call.text.includes('trendyol_command'))?.values[7],'products_tax');
+});
 test('free package and forged identities cannot reach persistence even if browser UI is bypassed',async()=>{
  const f=fixture({}),r=createPostgresTrendyolRepository({pool:f.pool});
  await assert.rejects(()=>r.overview({tenantContext:{...tenant,entitlements:{...tenant.entitlements,features:['integrations']}},now}),{code:'feature_not_enabled'});

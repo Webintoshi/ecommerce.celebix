@@ -37,6 +37,16 @@ test('connection validation uses approved Product V2 with required Basic and Use
   assert.equal(call.init.redirect,'error');assert.equal(call.init.cache,'no-store');
   assert.ok(call.init.signal instanceof AbortSignal);
 });
+test('approved catalogue VAT lookup validates seller and exact barcode without fabricating a missing rate',async()=>{
+ let call='';const p=provider(async url=>{call=String(url);return Response.json({totalPages:1,page:0,content:[{variants:[{supplierId:123,barcode:'BAR-1',vatRate:10},{supplierId:123,barcode:'OTHER',vatRate:20}]}]});});
+ assert.equal(await (p as any).getProductTax(credential,'BAR-1'),10);const url=new URL(call);assert.equal(url.pathname,'/integration/product/sellers/123/products/approved');assert.equal(url.searchParams.get('barcode'),'BAR-1');
+ const missing=provider(async()=>Response.json({totalPages:1,page:0,content:[{variants:[{supplierId:123,barcode:'BAR-1'}]}]}));assert.equal(await (missing as any).getProductTax(credential,'BAR-1'),null);
+ const foreign=provider(async()=>Response.json({totalPages:1,page:0,content:[{variants:[{supplierId:456,barcode:'BAR-1',vatRate:20}]}]}));await assert.rejects(()=>(foreign as any).getProductTax(credential,'BAR-1'),errorCode('provider_unavailable'));
+});
+test('new order tax evidence comes from the reported line VAT and absent VAT stays unknown',()=>{
+ const raw=packageFixture();raw.lines[0]={...raw.lines[0],vatRate:10}as any;const reported=implementation.normalizeTrendyolOrderPackage(raw,'123');assert.deepEqual((reported.lines[0]as any).tax,{treatment:'taxable',rateBps:1000});
+ assert.equal((implementation.normalizeTrendyolOrderPackage(packageFixture(),'123').lines[0]as any).tax,null);
+});
 
 test('invalid seller and header credentials fail before transport and explicit stage never changes by caller URL',async()=>{
   let calls=0;
@@ -107,7 +117,7 @@ test('stream converts ISO bounds to millisecond filters while preserving opaque 
   assert.equal(query!.searchParams.get('lastModifiedEndDate'),'1790899200000');
   assert.equal(query!.searchParams.get('nextCursor'),'cursor+previous/==');
   assert.equal(result.nextCursor,'cursor+next/==');assert.equal(result.hasMore,true);
-  assert.deepEqual(result.packages[0],{packageId:'456',externalOrderId:'ORDER-1',orderNumber:'ORDER-1',modifiedAt:end,orderedAt:start,status:'Created',currency:'TRY',customer:{name:'Ayşe Yılmaz',email:'relay@example.test',phone:null},shippingAddress:{address1:'Example street',city:'Istanbul',countryCode:'TR',phone:null},tracking:{code:'123456789',url:'https://tracking.trendyol.com/?id=123',carrier:'Trendyol Express'},totalCents:19000,shippingCents:0,discountCents:1000,lines:[{lineId:'789',barcode:'BAR-1',sku:'SKU-1',title:'Ürün',quantity:2,unitPriceCents:9500,discountCents:1000,totalCents:19000,status:'Created',unitIds:['UNIT-A','UNIT-B']}]});
+  assert.deepEqual(result.packages[0],{packageId:'456',externalOrderId:'ORDER-1',orderNumber:'ORDER-1',modifiedAt:end,orderedAt:start,status:'Created',currency:'TRY',customer:{name:'Ayşe Yılmaz',email:'relay@example.test',phone:null},shippingAddress:{address1:'Example street',city:'Istanbul',countryCode:'TR',phone:null},tracking:{code:'123456789',url:'https://tracking.trendyol.com/?id=123',carrier:'Trendyol Express'},totalCents:19000,shippingCents:0,discountCents:1000,lines:[{tax:null,lineId:'789',barcode:'BAR-1',sku:'SKU-1',title:'Ürün',quantity:2,unitPriceCents:9500,discountCents:1000,totalCents:19000,status:'Created',unitIds:['UNIT-A','UNIT-B']}]});
 });
 
 test('stream rejects overlong ranges, foreign sellers and nonprogressing cursors',async()=>{

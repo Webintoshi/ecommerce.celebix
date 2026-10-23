@@ -137,6 +137,12 @@ test("rich imports select v2 and preserve nested variants without accepting brow
   assert.equal(calls.length, 1);
   assert.deepEqual((calls[0] as Record<string, unknown>).tenantContext, tenant());
 });
+test('import HTTP preserves configured tax for products and inheriting variants',async()=>{
+ const calls:any[]=[],tax={treatment:'taxable',rateBps:1000},result={id:RESOURCE,version:1,status:'completed',updatedAt:NOW.toISOString(),replayed:false};
+ const h=handlers(repository({async importProducts(input){calls.push(input);return result;},async importProductsV2(input){calls.push(input);return result;}}));
+ const row={title:'Product',slug:'test-product',priceCents:12000,stockQuantity:1,tax};assert.equal((await h.importProducts(request('/api/catalog/admin/imports','POST',{fileName:'tax.csv',rows:[row]}))).status,200);assert.deepEqual(calls[0].rows[0].tax,tax);
+ const product={title:'Product',slug:'test-product',status:'active',tax,variants:[{title:'Default',priceCents:12000,stockQuantity:1,attributes:{},tax:null}]};assert.equal((await h.importProducts(request('/api/catalog/admin/imports','POST',{fileName:'tax.csv',products:[product]}))).status,200);assert.deepEqual(calls[1].products[0].tax,tax);assert.equal(calls[1].products[0].variants[0].tax,null);
+});
 test("imports reject product slugs outside the durable catalog contract before repository access", async () => {
   const calls: unknown[] = [];
   const h = handlers(repository({ async importProducts(input) { calls.push(input); return { id: RESOURCE, version: 1, status: "completed", updatedAt: NOW.toISOString(), replayed: false }; } }));

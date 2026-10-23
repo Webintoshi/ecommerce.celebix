@@ -29,39 +29,39 @@
 
 Files: packages/saas-contracts/src/product-tax/*; packages/saas-data/src/product-tax/*; catalog/catalog-onboarding validators/repositories; Customer Panel tax GET route/runtime.
 
-- [ ] Write failing choice/projection/arithmetic, tenant authority and replay tests.
-- [ ] Implement strict shared tax helpers, atomic opt-in scalar wrappers and optional JSON fields; preserve old responses/fingerprints.
-- [ ] Pass focused tests and coordinate exact SQL/HTTP interfaces.
+- [x] Write failing choice/projection/arithmetic, tenant authority and replay tests.
+- [x] Implement strict shared tax helpers, atomic opt-in scalar wrappers and optional JSON fields; preserve old responses/fingerprints.
+- [x] Pass focused tests and coordinate exact SQL/HTTP interfaces.
 
 ### Task2: Native metadata and immutable sale evidence
 
 Files: new apps/owner/scripts/sql/saas/202610230268_product_tax.{up,down}.sql, assertions and focused disposable native tests.
 
-- [ ] Prove current missing metadata/prepared evidence failures.
-- [ ] Add constrained nullable catalog tax, narrow read authority and atomic writers.
-- [ ] Capture future checkout/POS preparation, settlement and revision/return tax evidence; expose dated accounting tax/coverage.
-- [ ] Prove old prices/orders/ledgers, tenant/version/replay and safe rollback protections.
+- [x] Prove current missing metadata/prepared evidence failures.
+- [x] Add constrained nullable catalog tax, narrow read authority and atomic writers.
+- [x] Capture future checkout/POS preparation, settlement and revision/return tax evidence; expose dated accounting tax/coverage.
+- [x] Prove old prices/orders/ledgers, tenant/version/replay and safe rollback protections.
 
 ### Task3: Product experience
 
 Files: product quick/advanced/detail/variant components and form/draft/client helpers.
 
-- [ ] Add failing UI/model tests for required new selection, missing existing data and rate-only price preservation.
-- [ ] Implement KDV field, variant inheritance, explicit exclusive-entry conversion/preview and atomic payloads; preserve drafts/retries.
+- [x] Add failing UI/model tests for required new selection, missing existing data and rate-only price preservation.
+- [x] Implement KDV field, variant inheritance, explicit exclusive-entry conversion/preview and atomic payloads; preserve drafts/retries.
 - [ ] Pass focused create/edit and keyboard/recovery checks.
 
 ### Task4: Marketplace and accounting integration
 
 Files: Trendyol editor/worker/native bridge migration269; accounting tax contracts/data/API/workspace.
 
-- [ ] Prove missing/default/provider conflict and dated coverage failures.
-- [ ] Use canonical VAT for future mapping/delivery, surface missing/unsupported tax; keep Google gross prices unchanged.
-- [ ] Add scoped sales VAT accounting breakdown with historical unknown coverage, without changing existing profit/cash meaning.
-- [ ] Pass money, queue267, orders/accounting and API authority regression tests.
+- [x] Prove missing/default/provider conflict and dated coverage failures.
+- [x] Use canonical VAT for future mapping/delivery, surface missing/unsupported tax; keep Google gross prices unchanged.
+- [x] Add scoped sales VAT accounting breakdown with historical unknown coverage, without changing existing profit/cash meaning.
+- [x] Pass money, queue267, orders/accounting and API authority regression tests.
 
 ### Task5: Review and shared rollout
 
-- [ ] Independently review cross-component tax and compatibility boundaries; fix confirmed findings.
+- [x] Independently review cross-component tax and compatibility boundaries; fix confirmed findings.
 - [ ] Run affected typechecks/builds and source-bound current/historical signup rehearsals; commit tested sources/proof.
 - [ ] Fresh live preflight and transactional native installation with all existing rows protected.
 - [ ] Publish NET→SITE; verify candidate runtime, unchanged witnesses/env and authenticated shared product/accounting UI.

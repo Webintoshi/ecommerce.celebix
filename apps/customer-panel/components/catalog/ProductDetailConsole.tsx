@@ -5,6 +5,9 @@ import { CommercialFeatureLink } from "@/components/commercial-packages/Commerci
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { ContentAuthoringRequest, ContentAuthoringFieldOriginsInput, CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, ProductVariant } from "@celebix/saas-contracts";
+import type {ProductTaxChoice,ProductTaxRead,ProductTaxVariantRead} from '@celebix/saas-contracts';
+import {ProductTaxFields,ProductPriceBasis} from './ProductTaxFields';
+import {taxChoice as choiceForTax,taxLabel,safeTaxChoice,effectiveTaxForChoice,type PriceEntryBasis} from '@/lib/catalog-ui/product-tax';
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
 import { Archive, ArrowLeft, Eye, Image as ImageIcon, MoreHorizontal, Pencil, Plus, RotateCcw, ScanBarcode, Trash2 } from "lucide-react";
 
@@ -47,12 +50,14 @@ function value(data: FormData, key: string) {
   return typeof candidate === "string" ? candidate : "";
 }
 
-function variantValues(data: FormData) {
+function variantValues(data: FormData,productTax:ProductTaxChoice|null=null) {
   return {
     title: value(data, "title"),
     sku: value(data, "sku"),
     barcode: value(data, "barcode"),
     price: value(data, "price"),
+    ...(data.has('taxChoice')?{taxChoice:value(data,'taxChoice'),productTax}:{}),
+    ...(data.has('priceBasis')?{priceBasis:value(data,'priceBasis')}:{}),
     compareAt: value(data, "compareAt"),
     cost: value(data, "cost"),
     stockTracking: data.get("stockTracking") === "on",
@@ -74,15 +79,19 @@ function displayVariantPrice(variant: ProductVariant, currency: string): string 
   return current === null ? "Fiyat güncelleniyor" : formatTurkishMoney(current, currency);
 }
 
-function VariantFields({ variant, skuPrefix, onBarcodeGenerated, showMeasurementValidation }: { variant?: ProductVariant; skuPrefix?: string; onBarcodeGenerated?: () => void; showMeasurementValidation?: boolean }) {
+function VariantFields({ variant, skuPrefix, onBarcodeGenerated, showMeasurementValidation,productTax=null,tax,taxAvailable=false }: { variant?: ProductVariant; skuPrefix?: string; onBarcodeGenerated?: () => void; showMeasurementValidation?: boolean;productTax?:ProductTaxChoice|null;tax?:ProductTaxVariantRead;taxAvailable?:boolean }) {
+  const [choice,setChoice]=useState(choiceForTax(tax?.tax)),[basis,setBasis]=useState<PriceEntryBasis>('included'),[price,setPrice]=useState(variant?formatTurkishMoneyInput(variant.priceCents):'');
+  const choiceDirty=useRef(false);
+  useEffect(()=>{if(taxAvailable&&!choiceDirty.current)setChoice(choiceForTax(tax?.tax));},[taxAvailable,tax?.tax]);
   return (
     <div className="form-grid compact-form-grid">
       <label className="field field-wide"><span>Varyant adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={variant?.title ?? ""} /></label>
       <SkuInput key={variant?.id ?? "new"} labelClassName="field" name="sku" skuPrefix={skuPrefix} value={variant?.sku ?? ""} />
       <BarcodeInput labelClassName="field" name="barcode" defaultValue={variant?.barcode ?? ""} onGenerated={onBarcodeGenerated} />
-      <label className="field"><span>Satış fiyatı <b>*</b></span><div className="money-input"><input name="price" required inputMode="decimal" defaultValue={variant ? formatTurkishMoneyInput(variant.priceCents) : ""} /><span>₺</span></div></label>
+      <label className="field"><span>Satış fiyatı <b>*</b></span><div className="money-input"><input name="price" required inputMode="decimal" value={price} onChange={event=>setPrice(event.target.value)} /><span>₺</span></div></label>
+      {taxAvailable?<><ProductTaxFields value={choice} onChange={next=>{choiceDirty.current=true;setChoice(next);}} productTax={productTax} variant label="Varyant KDV oranı"/><ProductPriceBasis value={basis} onChange={setBasis} price={price} tax={effectiveTaxForChoice(productTax,choice)}/></>:null}
       <label className="field"><span>Karşılaştırma fiyatı</span><div className="money-input"><input name="compareAt" inputMode="decimal" defaultValue={variant?.compareAtCents === undefined ? "" : formatTurkishMoneyInput(variant.compareAtCents)} /><span>₺</span></div></label>
-      <label className="field"><span>Maliyet</span><div className="money-input"><input name="cost" inputMode="decimal" defaultValue={variant?.costCents === undefined ? "" : formatTurkishMoneyInput(variant.costCents)} /><span>₺</span></div></label>
+      <label className="field"><span>Maliyet</span><div className="money-input"><input name="cost" inputMode="decimal" defaultValue={variant?.costCents === undefined ? "" : formatTurkishMoneyInput(variant.costCents)} /><span>₺</span></div><small>Girilen maliyete KDV eklenmez.</small></label>
       <label className="field"><span>Stok adedi <b>*</b></span><input name="stockQuantity" required inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" defaultValue={String(variant?.stockQuantity ?? 0)} /></label>
       <ProductMeasurementFields defaultValue={measurementsToDraft(variant?.measurements)} showValidation={showMeasurementValidation} />
       <label className="check-field field-wide"><input name="stockTracking" type="checkbox" defaultChecked={variant?.stockTracking ?? true} /><span><strong>Stok takibi açık</strong><small>Mevcut stok adedini satışlarla birlikte izleyin.</small></span></label>
@@ -108,6 +117,8 @@ function ProductDetailConsoleWorkspace({
   const variantContentRevision = useRef(0);
   const generalFormRef = useRef<HTMLFormElement>(null);
   const [detail, setDetail] = useState<ProductDetailResult>();
+  const [taxRead,setTaxRead]=useState<ProductTaxRead>(),[productTaxChoice,setProductTaxChoice]=useState(''),[taxLoadError,setTaxLoadError]=useState(false);
+  const taxDirty=useRef(false);
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
   const [merchandisingState, setMerchandisingState] = useState<"loading" | "ready" | "error">("loading");
   const [merchandisingError, setMerchandisingError] = useState("");
@@ -217,6 +228,8 @@ function ProductDetailConsoleWorkspace({
   }, [productId]);
 
   useEffect(() => { void load(); }, [load]);
+  const loadTax=useCallback(async()=>{try{const next=await catalogApi.getProductTax(productId);setTaxRead(next);if(!taxDirty.current)setProductTaxChoice(choiceForTax(next.tax));setTaxLoadError(false);}catch{setTaxLoadError(true);}},[productId]);
+  useEffect(()=>{void loadTax();},[loadTax]);
 
   useEffect(() => {
     if (loading || detail === undefined) return;
@@ -291,6 +304,7 @@ function ProductDetailConsoleWorkspace({
   }
 
   function resetProductDraft() {
+    taxDirty.current=false;setProductTaxChoice(choiceForTax(taxRead?.tax));
     pendingOrigins.current = {};
     authoringIdentity.current = crypto.randomUUID();
     dirtyEditorsRef.current.clear("product");
@@ -419,6 +433,8 @@ function ProductDetailConsoleWorkspace({
   async function loadServerSnapshot() {
     const replaced = await load();
     if (!replaced) return;
+    taxDirty.current=false;
+    await loadTax();
     authoringIdentity.current = crypto.randomUUID();
     pendingOrigins.current = {};
     savedDescriptionOrigin.current = {};
@@ -443,11 +459,13 @@ function ProductDetailConsoleWorkspace({
     const parsed = buildProductUpdatePayload({
       title: value(data, "title"), slug: detail.product.slug, description: value(data, "description"),
       status: detail.product.status, currency: value(data, "currency"),
+      ...(taxDirty.current?{taxChoice:productTaxChoice}:{}),
     }, detail.product.version);
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("product", async () => {
       const result = await catalogApi.updateProduct(productId, {...parsed.value,...(Object.hasOwn(pendingOrigins.current,"description") ? {contentOrigins:{description:pendingOrigins.current.description}} : {})});
       setDetail((current) => current && Object.freeze({ ...current, product: result.product }));
+      taxDirty.current=false;void loadTax();
       if (Object.hasOwn(pendingOrigins.current, "description")) {
         savedDescriptionOrigin.current = { description: pendingOrigins.current.description };
       }
@@ -478,11 +496,12 @@ function ProductDetailConsoleWorkspace({
     if (!canManage || detail === undefined || detail.product.status === "archived") return;
     if (merchandisingState !== "ready" || !onboarding) { setError("SKU ayarı yüklenemedi. Satış ayarlarını yeniden yükleyin."); return; }
     setShowMeasurementValidation(true);
-    const parsed = buildVariantCreatePayload(variantValues(new FormData(event.currentTarget)));
+    const parsed = buildVariantCreatePayload(variantValues(new FormData(event.currentTarget),taxRead?.tax??null));
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-variant", async () => {
       const result = await catalogApi.createVariant(productId, parsed.value);
       setDetail((current) => current && Object.freeze({ ...current, variants: Object.freeze([...current.variants, result.variant]) }));
+      void loadTax();
       dirtyEditorsRef.current.clear("variant-create");
       setCreatingVariant(false);
       setNotice("Yeni varyant oluşturuldu.");
@@ -509,11 +528,12 @@ function ProductDetailConsoleWorkspace({
       setError("Bir üründe en fazla 100 varyant olabilir."); return;
     }
     setShowMeasurementValidation(true);
-    const parsed = buildVariantBatchPayload(attributeVariants);
+    const parsed = buildVariantBatchPayload(attributeVariants.map(row=>({...row,productTax:taxRead?.tax??null})));
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-attribute-variants", async () => {
       await catalogApi.createVariantBatch(productId, parsed.value);
       const refreshed = await load();
+      void loadTax();
       setAttributeVariants([]);
       dirtyEditorsRef.current.clear("variant-batch");
       setCreatingAttributeVariants(false);
@@ -527,7 +547,7 @@ function ProductDetailConsoleWorkspace({
     if (merchandisingState !== "ready" || !onboarding) { setError("SKU ayarı yüklenemedi. Satış ayarlarını yeniden yükleyin."); return; }
     setShowMeasurementValidation(true);
     const parsed = buildVariantUpdatePayload(
-      variantValues(new FormData(event.currentTarget)),
+      variantValues(new FormData(event.currentTarget),taxRead?.tax??null),
       variant.version,
       variant.attributes,
     );
@@ -539,6 +559,7 @@ function ProductDetailConsoleWorkspace({
         variants: Object.freeze(current.variants.map((item) => item.id === variant.id ? result.variant : item)),
       }));
       dirtyEditorsRef.current.clear("variant-edit");
+      void loadTax();
       setEditingVariant(undefined);
       setNotice("Varyant güncellendi.");
     });
@@ -708,6 +729,7 @@ function ProductDetailConsoleWorkspace({
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>İşlem tamamlanamadı</strong><p>{error}</p></div>{conflict ? <button className="button button-secondary" type="button" onClick={() => void loadServerSnapshot()}>Sunucudaki sürümü yükle</button> : null}</div> : null}
       {merchandisingState === "error" ? <div className="feedback feedback-error" role="alert"><div><strong>Satış ayarları yüklenemedi</strong><p>{merchandisingError}</p></div><button className="button button-secondary" type="button" onClick={() => void reloadMerchandising()}>Tekrar dene</button></div> : null}
       {notice ? <div className="feedback feedback-success" role="status"><div><p>{notice}</p></div></div> : null}
+      {taxLoadError?<p className="field-hint" role="status">KDV bilgileri yüklenemedi. Diğer ürün bilgileri korunur. <button type="button" className="button button-text" onClick={()=>void loadTax()}>KDV bilgisini yeniden yükle</button></p>:null}
 
       <div className={styles.workspace}>
         <div className={styles.mainColumn}>
@@ -733,6 +755,7 @@ function ProductDetailConsoleWorkspace({
                     </fieldset>
                     <div className={styles.summaryStrip}>
                       <div><small>Başlangıç fiyatı</small><strong>{salePrice}</strong></div>
+                      {taxRead?<ProductTaxFields label="Ürün KDV oranı" value={productTaxChoice} allowUnspecified={taxRead.tax===null} disabled={busy!==''} onChange={value=>{setProductTaxChoice(value);taxDirty.current=true;markDetailDirty('product');}}/>:<div><small>KDV</small><strong>{taxLoadError?'Bilgi alınamadı':'Yükleniyor…'}</strong></div>}
                       <div><small>Toplam stok</small><strong>{stockValue}</strong></div>
                     </div>
                     {productDirty ? <div className={styles.formActions}><span>Kaydedilmemiş ürün bilgileri</span><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("product")) resetProductDraft(); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== ""}>{busy === "product" ? "Kaydediliyor…" : "Bilgileri kaydet"}</button></div> : null}
@@ -743,6 +766,7 @@ function ProductDetailConsoleWorkspace({
                     <ProductDescriptionPreview source={product.description} emptyMessage="Bu ürün için açıklama eklenmemiş." />
                     <div className={styles.summaryStrip}>
                       <div><small>Başlangıç fiyatı</small><strong>{salePrice}</strong></div>
+                      <div><small>Ürün KDV oranı</small><strong>{taxRead?taxLabel(taxRead.tax):'Bilgi alınamadı'}</strong></div>
                       <div><small>Toplam stok</small><strong>{stockValue}</strong></div>
                     </div>
                   </div>
@@ -764,14 +788,14 @@ function ProductDetailConsoleWorkspace({
 
             {creatingVariant && canManage && !archived ? (
               <form ref={newVariantFormRef} className="catalog-form inset-form" onSubmit={createVariant} onChange={() => markDetailDirty("variant-create")}>
-                <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><legend>Yeni varyant</legend><VariantFields showMeasurementValidation={showMeasurementValidation} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-create")} /></fieldset>
+                <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><legend>Yeni varyant</legend><VariantFields taxAvailable={Boolean(taxRead)} productTax={taxRead?.tax??null} showMeasurementValidation={showMeasurementValidation} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-create")} /></fieldset>
                 <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-create")) setCreatingVariant(false); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "new-variant" ? "Oluşturuluyor…" : "Varyantı oluştur"}</button></div>
               </form>
             ) : null}
 
             {creatingAttributeVariants && canManage && !archived ? <form className="catalog-form inset-form" onSubmit={(event) => void createAttributeVariants(event)}>
               <AttributeVariantPicker baseSku={deriveProductBaseSku(variants.filter(variant => variant.status !== "archived"))} onAttributeIdsChange={setAttributeDraftIds} value={attributeVariants} onChange={changeAttributeVariants} existing={variants} disabled={busy !== "" || merchandisingState !== "ready"} />
-              {attributeVariants.length ? <ProductVariantBuilder showValidation={showMeasurementValidation} variants={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} allowMultiple allowManualAdd={false} skuPrefix={onboarding?.options.skuPrefix} /> : null}
+              {attributeVariants.length ? <ProductVariantBuilder productTax={taxRead?.tax??null} showValidation={showMeasurementValidation} variants={attributeVariants} onChange={(next) => { markDetailDirty("variant-batch"); setAttributeVariants(next); }} allowMultiple allowManualAdd={false} skuPrefix={onboarding?.options.skuPrefix} /> : null}
               <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges("variant-batch")) return; setCreatingAttributeVariants(false); setAttributeVariants([]); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready" || !attributeVariants.length}>{busy === "new-attribute-variants" ? "Kaydediliyor…" : String(attributeVariants.length) + " varyantı oluştur"}</button></div>
             </form> : null}
 
@@ -782,13 +806,14 @@ function ProductDetailConsoleWorkspace({
                   <div className={styles.variantIdentity}>{thumbnail(variant.id)}<div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
                   {editingVariant === variant.id && canManage && !archived ? (
                     <form ref={editedVariantFormRef} className="catalog-form inset-form" onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
-                      <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields showMeasurementValidation={showMeasurementValidation} variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
+                      <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields taxAvailable={Boolean(taxRead?.variants.some(item=>item.variantId===variant.id))} tax={taxRead?.variants.find(item=>item.variantId===variant.id)} productTax={taxRead?.tax??null} showMeasurementValidation={showMeasurementValidation} variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
                       <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-edit")) setEditingVariant(undefined); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "variant-" + variant.id ? "Kaydediliyor…" : "Varyantı kaydet"}</button></div>
                     </form>
                   ) : (
                     <>
                       <div className={styles.variantValues}>
                         <span><small>Fiyat</small><strong>{displayVariantPrice(variant, product.currency)}</strong></span>
+                        <span><small>KDV</small><strong>{taxRead?taxLabel(taxRead.variants.find(item=>item.variantId===variant.id)?.effectiveTax??null):'Bilgi alınamadı'}</strong>{taxRead?.variants.find(item=>item.variantId===variant.id)?.taxSource==='product'?<small>Üründen</small>:null}</span>
                         <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined || currentVariantPrice(variant) === null || variant.compareAtCents <= currentVariantPrice(variant)! ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
                         <span><small>Stok</small><strong>{variant.stockTracking ? String(variant.stockQuantity) + " adet" : "Takip dışı"}</strong></span>
                       </div>

@@ -1,4 +1,5 @@
 import type {
+  ProductTaxChoice,
   CatalogAdminImportJob,
   CatalogAdminImportRow,
   CatalogAdminJson,
@@ -37,6 +38,7 @@ export interface ListProductReviewsInput extends CatalogAdminAuthorityInput { re
 export interface ModerateProductReviewInput extends CatalogAdminAuthorityInput { readonly operationId: string; readonly reviewId: string; readonly expectedVersion: number; readonly status: Exclude<ProductReviewStatus, "pending">; readonly reply?: string }
 export interface ImportCatalogProductsInput extends CatalogAdminAuthorityInput { readonly operationId: string; readonly fileName: string; readonly rows: readonly CatalogAdminImportRow[] }
 export interface CatalogAdminImportVariant {
+  readonly tax?: ProductTaxChoice | null;
   readonly title: string;
   readonly sku?: string;
   readonly barcode?: string;
@@ -47,6 +49,7 @@ export interface CatalogAdminImportVariant {
   readonly attributes: Readonly<Record<string, string>>;
 }
 export interface CatalogAdminImportProduct {
+  readonly tax?: ProductTaxChoice;
   readonly title: string;
   readonly slug: string;
   readonly description?: string;

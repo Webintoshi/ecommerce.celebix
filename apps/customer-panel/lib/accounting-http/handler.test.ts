@@ -125,3 +125,17 @@ test('cash count routes bind one cash account and reject cashier origin and extr
 });
 
 test('supplier routes use exact owner origin paths and deny cashier or duplicate authority',async()=>{const calls:any[]=[];const h=setup({suppliers:async(v:unknown)=>{calls.push(v);return{};},supplier:async(v:unknown)=>{calls.push(v);return{};},supplierMutate:async(v:unknown)=>{calls.push(v);return{};},supplierOperation:async(v:unknown)=>{calls.push(v);return null;}}) as any;assert.equal(typeof h.suppliers,'function');assert.equal((await h.suppliers(request('/api/accounting/suppliers?status=open&due=overdue'))).status,200);assert.deepEqual(calls[0].filters,{status:'open',due:'overdue'});assert.equal((await h.supplier(request(`/api/accounting/suppliers/${ID}`),ID)).status,200);const intent={supplierName:'Örnek',amountCents:10000,currency:'TRY',occurredOn:'2026-10-01',dueOn:null,documentNumber:null,note:'Mal alımı'};assert.equal((await h.supplierMutate(request('/api/accounting/suppliers/actions/createDebt','POST',intent),'createDebt')).status,200);assert.equal(calls[2].operationId,OP);assert.equal((await h.supplierOperation(request(`/api/accounting/supplier-operations/${OP}`),OP)).status,200);assert.equal((await h.suppliers(request('/api/accounting/suppliers?status=open&status=paid'))).status,400);assert.equal((await h.suppliers(request('/api/accounting/suppliers?storeId='+ID))).status,400);assert.equal((await h.supplierMutate(request('/api/accounting/suppliers/actions/createDebt','POST',intent,{origin:'https://evil.test'}),'createDebt')).status,403);assert.equal((await (setup({},'cashier') as any).suppliers(request('/api/accounting/suppliers'))).status,403);assert.equal(calls.length,4);});
+
+const taxReport={dateFrom:'2026-10-01',dateTo:'2026-10-31',timeZone:'UTC',startAt:'2026-10-01T00:00:00.000Z',endAt:'2026-11-01T00:00:00.000Z',currencies:[],limitations:['purchase_vat_not_tracked','unallocated_returns_unknown','deleted_order_breakdown_unavailable']};
+test('VAT report binds period, admits granted cashiers, and rejects fabricated query authority',async()=>{
+ const path='/api/accounting/tax?dateFrom=2026-10-01&dateTo=2026-10-31',calls:any[]=[];
+ for(const role of ['store_owner','admin','cashier']){const h=setup({access:async()=>({canManageAccounting:true,canCollectReceivables:true}),tax:async(input:any)=>{calls.push(input);return taxReport;}},role);const response=await h.tax(request(path));assert.equal(response.status,200);assert.deepEqual(await response.json(),{data:taxReport});assert.equal(response.headers.get('cache-control'),'no-store');}
+ assert.equal(calls.length,3);assert.ok(calls.every(input=>input.tenantContext.store.id===ID));
+ assert.equal((await setup({tax:async()=>taxReport},'cashier').tax(request(path))).status,403);
+ const h=setup({tax:async()=>{throw Error('must not run');}});for(const suffix of ['&storeId='+ID,'&dateFrom=2026-10-01','&currency=TRY&currency=EUR'])assert.equal((await h.tax(request(path+suffix))).status,400);
+ assert.equal((await h.tax(request(path,'POST'))).status,405);
+});
+test('VAT report rejects malformed amounts and an unrelated reporting period',async()=>{
+ const path='/api/accounting/tax?dateFrom=2026-10-01&dateTo=2026-10-31';
+ for(const report of [{...taxReport,startAt:'2026-09-01T00:00:00.000Z'},{...taxReport,limitations:[]},{...taxReport,currencies:[{currency:'TRY',vatCents:-1}]}])assert.equal((await setup({tax:async()=>report}).tax(request(path))).status,503);
+});

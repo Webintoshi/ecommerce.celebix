@@ -15,6 +15,7 @@ export async function handleDefaultAccountingGet(request:Request,context:Context
   if(path.length===2&&path[0]==='commission-payments')return handlers.commissionPayments(request,path[1]);
   if(path.length===2&&path[0]==='commission-payment-operations')return handlers.commissionPaymentOperation(request,path[1]);
   if(path.length===1&&path[0]==='commissions')return handlers.commissions(request);
+  if(path.length===1&&path[0]==='tax')return handlers.tax(request);
   if(path.length===1&&path[0]==='profitability')return handlers.profitability(request);
   if(path.length===1&&path[0]==='suppliers')return handlers.suppliers(request);
   if(path.length===2&&path[0]==='suppliers')return handlers.supplier(request,path[1]);

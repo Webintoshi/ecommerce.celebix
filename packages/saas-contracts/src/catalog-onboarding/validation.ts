@@ -1,4 +1,5 @@
 import { parseContentAuthoringFieldOrigins } from "../content-authoring/origins.ts";
+import { parseProductTaxChoice } from '../product-tax/index.ts';
 import { parseProduct, parseProductVariant, parseProductMeasurements } from "../catalog/validation.ts";
 import {
   CATALOG_ONBOARDING_CHANNEL_KINDS,
@@ -139,12 +140,13 @@ function variantIntent(value: unknown, productType: "physical" | "digital"): Cat
   const parsed = exact(value, [
     "title", "priceCents", "stockTracking", "stockQuantity", "attributes",
     "continueSellingWhenOutOfStock", "inventory",
-  ], ["sku", "barcode", "compareAtCents", "costCents", "unitPricing", "shippingDesiMilli", "hsCode", "measurements"]);
+  ], ["sku", "barcode", "compareAtCents", "costCents", "unitPricing", "shippingDesiMilli", "hsCode", "measurements", "tax"]);
   const priceCents = integer(parsed.priceCents, 0);
   const compareAtCents = Object.hasOwn(parsed, "compareAtCents") ? integer(parsed.compareAtCents, 0) : undefined;
   if (compareAtCents !== undefined && compareAtCents < priceCents) invalid();
   if (productType === "digital" && (Object.hasOwn(parsed, "shippingDesiMilli") || Object.hasOwn(parsed, "hsCode"))) invalid();
   const output = {
+    ...(Object.hasOwn(parsed, 'tax') ? {tax: parsed.tax === null ? null : parseProductTaxChoice(parsed.tax)} : {}),
     title: text(parsed.title, 1, 200),
     ...(Object.hasOwn(parsed, "sku") ? { sku: optionalText(parsed, "sku", 1, 64, SKU)! } : {}),
     ...(Object.hasOwn(parsed, "barcode") ? { barcode: optionalText(parsed, "barcode", 1, 128)! } : {}),
@@ -194,10 +196,11 @@ function resourceIds(value: unknown): CatalogOnboardingResourceIds {
 }
 
 function parseQuick(value: Record<string, unknown>): CatalogQuickCreateIntent {
-  const parsed = exact(value, ["kind", "title", "priceCents", "publish"], ["stockQuantity", "categoryId", "sku", "measurements"]);
+  const parsed = exact(value, ["kind", "title", "priceCents", "publish"], ["stockQuantity", "categoryId", "sku", "measurements", "tax"]);
   if (parsed.kind !== "quick") invalid();
   return Object.freeze({
     kind: "quick",
+    ...(Object.hasOwn(parsed, 'tax') ? {tax: parseProductTaxChoice(parsed.tax)} : {}),
     ...(Object.hasOwn(parsed, "measurements") ? { measurements: parseProductMeasurements(parsed.measurements) } : {}),
     title: text(parsed.title, 1, 200),
     ...(Object.hasOwn(parsed, "sku") ? { sku: optionalText(parsed, "sku", 1, 64, SKU)! } : {}),
@@ -211,11 +214,12 @@ function parseQuick(value: Record<string, unknown>): CatalogQuickCreateIntent {
 function parseAdvanced(value: Record<string, unknown>): CatalogAdvancedCreateIntent {
   const parsed = exact(value, [
     "kind", "productType", "title", "publish", "variants", "categoryIds", "resourceIds", "channelIds", "profile",
-  ], ["description", "contentOrigins"]);
+  ], ["description", "contentOrigins", "tax"]);
   if (parsed.kind !== "advanced") invalid();
   const productType = enumValue(parsed.productType, CATALOG_ONBOARDING_PRODUCT_TYPES);
   return Object.freeze({
     kind: "advanced",
+    ...(Object.hasOwn(parsed, 'tax') ? {tax: parseProductTaxChoice(parsed.tax)} : {}),
     ...(Object.hasOwn(parsed, "contentOrigins") ? { contentOrigins: parseContentAuthoringFieldOrigins(parsed.contentOrigins) } : {}),
     productType,
     title: text(parsed.title, 1, 200),

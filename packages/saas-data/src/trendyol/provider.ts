@@ -1,3 +1,4 @@
+import type {ProductTaxChoice} from '@celebix/saas-contracts';
 /** Current Turkish Product V2 / Order V2 transport. No legacy public-schema adapter dependency. */
 export type TrendyolCredential = Readonly<{sellerId:string;apiKey:string;apiSecret:string}>;
 export type TrendyolProviderErrorCode = 'invalid_input'|'provider_unavailable'|'provider_timeout'|'provider_limit'|'needs_reconnect'|'provider_denied'|'provider_rejected'|'provider_conflict'|'provider_outcome_unknown'|'order_evidence_invalid';
@@ -14,7 +15,7 @@ export class TrendyolProviderError extends Error {
 export function trendyolProviderErrorCode(error:unknown):TrendyolProviderErrorCode {
   return error instanceof TrendyolProviderError?error.code:'provider_unavailable';
 }
-export type TrendyolOrderLine = Readonly<{lineId:string;barcode:string;sku:string|null;title:string;quantity:number;unitPriceCents:number;discountCents:number;totalCents:number;status:string;unitIds:string[]}>;
+export type TrendyolOrderLine = Readonly<{tax:ProductTaxChoice|null;lineId:string;barcode:string;sku:string|null;title:string;quantity:number;unitPriceCents:number;discountCents:number;totalCents:number;status:string;unitIds:string[]}>;
 export type TrendyolOrderPackage = Readonly<{
   packageId:string;externalOrderId:string;orderNumber:string;modifiedAt:string;orderedAt:string;status:string;currency:'TRY';
   customer:Readonly<{name:string;email:string;phone:string|null}>;shippingAddress:Record<string,unknown>;
@@ -144,7 +145,8 @@ export function normalizeTrendyolOrderPackage(payload:unknown,expectedSellerId:s
     else if(discountPerUnit!==null)discountCents=integer(discountPerUnit*quantity,0,MAX_CENTS,code);
     else fail(code);
     if(l.lineGrossAmount!==undefined&&Math.abs(money(l.lineGrossAmount)*quantity-totalCents-discountCents)>quantity)fail(code);
-    return {lineId,barcode:barcode(l.barcode,code),sku:optionalText(l.stockCode,100),title:text(l.productName,1000,code),quantity,unitPriceCents,discountCents,totalCents,status:l.orderLineItemStatusName===undefined?selectedStatus:status(l.orderLineItemStatusName),unitIds};
+    const tax:ProductTaxChoice|null=l.vatRate===undefined||l.vatRate===null?null:{treatment:'taxable',rateBps:integer(l.vatRate,0,100,code)*100};
+    return {tax,lineId,barcode:barcode(l.barcode,code),sku:optionalText(l.stockCode,100),title:text(l.productName,1000,code),quantity,unitPriceCents,discountCents,totalCents,status:l.orderLineItemStatusName===undefined?selectedStatus:status(l.orderLineItemStatusName),unitIds};
   });
   if(!lines.length)fail(code);
   const totalCents=money(p.packageTotalPrice),lineDiscounts=sum(lines.map(line=>line.discountCents));
@@ -321,6 +323,18 @@ export class TrendyolProvider {
   async productOrNull(credential:TrendyolCredential,value:string):Promise<Awaited<ReturnType<TrendyolProvider['product']>>|null> {
     try{return await this.product(credential,value);}
     catch(error){if(error instanceof TrendyolProviderError&&error.httpStatus===404)return null;throw error;}
+  }
+  /** Approved V2 variants expose VAT; the basic barcode lookup does not. */
+  async getProductTax(credential:TrendyolCredential,value:string):Promise<number|null> {
+    const code=barcode(value),query=new URLSearchParams({barcode:code,size:'100',page:'0'}),response=record(await this.request(credential,`${this.sellerPath(credential,'product')}/products/approved?${query}`));
+    if(integer(response.totalPages,0,100)>1)fail('provider_limit');if(response.page!==undefined&&integer(response.page,0,100)!==0)fail();
+    let found=false,vatRate:number|null=null;
+    for(const raw of list(response.content,100))for(const item of list(record(raw).variants,1000)){
+      const variant=record(item);if(variant.barcode!==code)continue;if(found)fail();found=true;
+      if(variant.supplierId!==undefined&&identifier(variant.supplierId,'provider_unavailable')!==credential.sellerId)fail();
+      vatRate=variant.vatRate===undefined||variant.vatRate===null?null:integer(variant.vatRate,0,100);
+    }
+    return vatRate;
   }
   async getInventory(credential:TrendyolCredential,barcodes:readonly string[]):Promise<{items:{barcode:string;quantity:number;salePriceCents:number}[]}> {
     const codes=list(barcodes,50,'invalid_input').map(value=>barcode(value)),wanted=new Set(codes);

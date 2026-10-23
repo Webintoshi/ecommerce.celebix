@@ -21,6 +21,8 @@ import { buildCatalogCategoryHierarchy } from "@/lib/catalog-onboarding-ui/categ
 import { buildQuickCreateIntent, parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import { SkuInput } from "@/components/catalog/SkuInput";
 import { BarcodeInput } from "@/components/catalog/BarcodeInput";
+import {ProductTaxFields,ProductPriceBasis} from '@/components/catalog/ProductTaxFields';
+import {safeTaxChoice,type PriceEntryBasis} from '@/lib/catalog-ui/product-tax';
 import { ProductMeasurementFields } from "@/components/catalog/ProductMeasurementFields";
 import type { ProductMeasurementDraft } from "@/lib/catalog-ui/product-measurements";
 import { completeProductMedia, type ProductMediaSelection } from "@/lib/catalog-onboarding-ui/media-completion";
@@ -98,6 +100,8 @@ export function ProductQuickCreateDialog({
   const [categoryId, setCategoryId] = useState(draftSession?.current.categoryIds[0] ?? "");
   const [title, setTitle] = useState(draftSession?.current.title ?? "");
   const [price, setPrice] = useState(draftSession?.current.variants[0]?.price ?? "");
+  const [taxChoice,setTaxChoice]=useState(draftSession?.current.taxChoice??'');
+  const [priceBasis,setPriceBasis]=useState<PriceEntryBasis>(draftSession?.current.variants[0]?.priceBasis??'included');
   const [sku, setSku] = useState(draftSession?.current.variants[0]?.sku ?? "");
   const [barcode, setBarcode] = useState(draftSession?.current.variants[0]?.barcode ?? "");
   const [measurements, setMeasurements] = useState<ProductMeasurementDraft>(draftSession?.current.variants[0]?.measurements ?? {});
@@ -142,10 +146,10 @@ export function ProductQuickCreateDialog({
 
   useEffect(() => {
     if (draftSession === undefined || onDraftSessionChange === undefined) return;
-    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, sku, barcode, measurements, stockQuantity, categoryId, media: images }));
+    onDraftSessionChange(mergeQuickProductDraft(draftSession, { title, price, taxChoice, priceBasis, sku, barcode, measurements, stockQuantity, categoryId, media: images }));
   // The parent replaces draftSession after each projection; local fields are the source for this handoff.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, price, sku, barcode, measurements, stockQuantity, categoryId, images, onDraftSessionChange]);
+  }, [title, price, taxChoice, priceBasis, sku, barcode, measurements, stockQuantity, categoryId, images, onDraftSessionChange]);
 
   function requestClose() {
     if (submittingRef.current && !window.confirm("Ürün kaydı sürüyor. Yine de kapatmak istiyor musunuz?")) return;
@@ -226,6 +230,7 @@ export function ProductQuickCreateDialog({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if(!safeTaxChoice(taxChoice)){setError('KDV oranı veya muafiyet seçin.');return;}
     if (submittingRef.current || barcodeBusy || createdProductIdRef.current) return;
     if (requiresDetailed) { setError("Ayrıntıların korunuyor. Kaydı detaylı formdan tamamla."); return; }
     const form = event.currentTarget;
@@ -240,6 +245,7 @@ export function ProductQuickCreateDialog({
       measurements,
       channelIds: options?.channels.filter((channel) => channel.kind === "storefront").map(({ id }) => id) ?? [],
       price: field(data, "price"),
+      tax:safeTaxChoice(taxChoice)!,priceBasis,
       publish,
       stockQuantity: field(data, "stockQuantity"),
       categoryId: field(data, "categoryId"),
@@ -318,6 +324,8 @@ export function ProductQuickCreateDialog({
           <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Ürün adı" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>
           {hasVariantDraft ? <div className={workspace.variantSummary}><strong>{draftSession?.current.variants.length ?? 0} varyant</strong><button type="button" onClick={onAdvanced}>Varyantları düzenle</button></div> : <>
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input ref={priceRef} name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
+          <ProductTaxFields value={taxChoice} onChange={setTaxChoice} required/>
+          <ProductPriceBasis value={priceBasis} onChange={setPriceBasis} price={price} tax={safeTaxChoice(taxChoice)}/>
           <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
           <div className={workspace.identifiers}><SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} /><BarcodeInput value={barcode} onChange={setBarcode} reservationIdentity={barcodeIdentityRef.current} actionLabel="Oluştur" onBusyChange={setBarcodeBusy} /></div>
           <ProductMeasurementFields value={measurements} onChange={setMeasurements} showValidation={showMeasurementValidation} />

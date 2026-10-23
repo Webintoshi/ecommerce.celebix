@@ -14,6 +14,7 @@ import type {
   CatalogOnboardingVariantIntent,
   CatalogProductEditorProjection,
   CatalogProductMerchandisingFields,
+  ProductTaxChoice,
 } from "@celebix/saas-contracts";
 
 import { CatalogOnboardingApiError, catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
@@ -32,6 +33,8 @@ import {
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { assignVariantSkus, attributeChoices, deriveProductBaseSku, variantAttributeKey, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
 import { SkuInput } from "@/components/catalog/SkuInput";
+import {ProductTaxFields} from '@/components/catalog/ProductTaxFields';
+import {safeTaxChoice,taxFromChoice,sellingPriceCents,effectiveTax} from '@/lib/catalog-ui/product-tax';
 import { catalogAdminApi } from "@/lib/catalog-admin-ui/client";
 import { ContentAuthoringTextField, type TextAuthoringController } from "@/components/content-authoring/ContentAuthoringTextField";
 import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
@@ -101,8 +104,10 @@ function initialChannelIds(options: CatalogOnboardingOptions, editor?: CatalogPr
   return Object.freeze(storefrontChannels.length ? storefrontChannels : options.channels.map((channel) => channel.id));
 }
 
-function variantIntent(variant: VariantDraft, productType: "physical" | "digital"): CatalogOnboardingVariantIntent | null {
-  const priceCents = parseTurkishMoneyToCents(variant.price);
+function variantIntent(variant: VariantDraft, productType: "physical" | "digital",productTax:ProductTaxChoice|null=null): CatalogOnboardingVariantIntent | null {
+  let tax:ProductTaxChoice|null;try{tax=taxFromChoice(variant.taxChoice??'');}catch{return null;}
+  const enteredPrice = parseTurkishMoneyToCents(variant.price);
+  const priceCents=enteredPrice===null?null:sellingPriceCents(enteredPrice,variant.priceBasis??'included',effectiveTax(productTax,tax));
   const stockQuantity = positiveInteger(variant.stockQuantity, 0);
   const compareAtCents = optionalMoney(variant.compareAt);
   const costCents = optionalMoney(variant.cost);
@@ -115,6 +120,7 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
     ...(variant.sku.trim() ? { sku: variant.sku.trim() } : {}),
     ...(variant.barcode.trim() ? { barcode: variant.barcode.trim() } : {}),
     priceCents,
+    tax,
     ...(compareAtCents === undefined ? {} : { compareAtCents }),
     ...(costCents === undefined ? {} : { costCents }),
     stockTracking: true,
@@ -138,6 +144,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const seoAiTrigger = useRef<HTMLButtonElement>(null);
   const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
   const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
+  const [taxChoice,setTaxChoice]=useState(draftSession?.current.taxChoice??'');
   const [variants, setVariants] = useState<readonly VariantDraft[]>(() => draftSession?.current.variants ?? initialVariants(editor));
   const [selectedVariantAttributeIds, setSelectedVariantAttributeIds] = useState<readonly string[]>(draftSession?.current.resourceAttributeIds ?? editor?.resourceIds.attributes ?? []);
   const [authoringAttributeChoices, setAuthoringAttributeChoices] = useState<readonly CatalogAttributeChoice[]>([]);
@@ -197,7 +204,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const activeResources = (resourceKind: CatalogOnboardingResourceKind) => options.resources.filter(({ kind: selectedKind }) => selectedKind === resourceKind);
   const createPending = pendingBarcodeCount > 0 || attributeSaving;
   const createBlocked = busy || createPending;
-  const validVariantCount = variants.filter((variant) => variantIntent(variant, productType) !== null).length;
+  const validVariantCount = variants.filter((variant) => variantIntent(variant, productType,safeTaxChoice(taxChoice)) !== null).length;
 
   useEffect(() => { if (!editing) onBusyChange?.(busy || createPending); }, [busy, createPending, editing, onBusyChange]);
   useEffect(() => {
@@ -224,6 +231,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     onDraftSessionChange(updateProductDraft(draftSession, {
       kind,
       productType,
+      taxChoice,
       title: titleValue,
       description: descriptionValue,
       contentOrigins,
@@ -250,7 +258,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     }));
   // Parent session updates are projections of these local fields.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, productType, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, channelSelectionTouched, selectedVariantAttributeIds, media, editing, onDraftSessionChange, createFieldRevision, contentOrigins, authoringDraftId, creationRecovery]);
+  }, [kind, productType, taxChoice, titleValue, descriptionValue, variants, categoryIds, collectionIds, tagIds, selectedChannelIds, channelSelectionTouched, selectedVariantAttributeIds, media, editing, onDraftSessionChange, createFieldRevision, contentOrigins, authoringDraftId, creationRecovery]);
 
   function markEditingDirty() {
     if (!editing && recoveryRef.current) return;
@@ -477,9 +485,11 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
     const data = new FormData(event.currentTarget);
     const publish = true;
-    const parsedCreateVariants = editing ? [] : variants.map((variant) => variantIntent(variant, productType));
+    const tax=safeTaxChoice(taxChoice);
+    const parsedCreateVariants = editing ? [] : variants.map((variant) => variantIntent(variant, productType,tax));
     if (!editing) {
       setShowValidation(true);
+      if(!tax){setError('KDV oranı veya muafiyet seçin.');return;}
       if (!titleValue.trim() || (publish && categoryIds.length === 0) || parsedCreateVariants.length === 0 || parsedCreateVariants.some((variant) => variant === null)) {
         setError("Zorunlu ürün ve satış alanlarını kontrol edin.");
         if (!titleValue.trim()) titleRef.current?.focus();
@@ -525,7 +535,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
       if(recoveryRef.current) created=recoveryRef.current.result;
       else {
         const candidate: CatalogAdvancedCreateIntent = {
-          kind: "advanced", productType, title: text(data, "title"), ...(text(data, "description") ? { description: text(data, "description") } : {}), publish,
+          kind: "advanced", productType, tax:tax!, title: text(data, "title"), ...(text(data, "description") ? { description: text(data, "description") } : {}), publish,
           variants: parsedCreateVariants as readonly CatalogOnboardingVariantIntent[], categoryIds: submittedCategoryIds, resourceIds, channelIds, profile, ...(Object.keys(contentOrigins).length ? {contentOrigins} : {}),
         };
         const parsed = buildAdvancedCreateIntent(candidate);
@@ -603,8 +613,8 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
             </div>
             <div className={createStyles.coreFields}>
               <label className={createStyles.field}><span>Ürün adı <span aria-hidden="true">*</span></span><input className={createStyles.titleInput} ref={titleRef} name="title" required maxLength={200} autoFocus value={titleValue} onChange={(event) => setTitleValue(event.target.value)} aria-invalid={showValidation && !titleValue.trim()} />{showValidation && !titleValue.trim() ? <small className={createStyles.fieldError}>Ürün adı gerekli.</small> : null}</label>
-              {kind === "simple" ? <fieldset id="product-commerce" className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} /></fieldset> : <div className={createStyles.variantSummary}><fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><SkuInput label="Ürün SKU" skuPrefix={options.skuPrefix} value={simpleVariantRef.current.sku} onChange={changeProductSku} labelClassName={createStyles.field} /></fieldset><strong>{variants.length} varyant</strong><span>Fiyat, stok, SKU ve barkod aşağıda.</span><a href="#product-commerce">Varyantlara git</a></div>}
-              <label className={createStyles.field}><span>Ürün türü</span><select value={productType} onChange={(event) => setProductType(event.target.value as "physical" | "digital")}><option value="physical">Fiziksel ürün</option><option value="digital">Dijital ürün</option></select></label>
+              {kind === "simple" ? <fieldset id="product-commerce" className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} /></fieldset> : <div className={createStyles.variantSummary}><fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><SkuInput label="Ürün SKU" skuPrefix={options.skuPrefix} value={simpleVariantRef.current.sku} onChange={changeProductSku} labelClassName={createStyles.field} /></fieldset><strong>{variants.length} varyant</strong><span>Fiyat, stok, SKU ve barkod aşağıda.</span><a href="#product-commerce">Varyantlara git</a></div>}
+              <ProductTaxFields value={taxChoice} onChange={value=>{setTaxChoice(value);markEditingDirty();}} required/><label className={createStyles.field}><span>Ürün türü</span><select value={productType} onChange={(event) => setProductType(event.target.value as "physical" | "digital")}><option value="physical">Fiziksel ürün</option><option value="digital">Dijital ürün</option></select></label>
             </div>
           </section>
           {showValidation && validVariantCount < variants.length ? <p className={createStyles.fieldError} role="alert">Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
@@ -612,7 +622,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
           <section id={kind === "variant" ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
             <div className={createStyles.sectionHeader}><h2 id="create-variants-title">Varyantlar{kind === "variant" ? <span className={createStyles.count}>{variants.length}</span> : null}</h2><button ref={variantAddRef} type="button" className={createStyles.inlineAction} disabled={createBlocked || variantBuilderOpen} onClick={openVariantBuilder} aria-expanded={variantBuilderOpen} aria-controls="create-variant-builder"><Plus aria-hidden="true" />Varyant ekle</button></div>
             {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantGalleryEditor media={media.map(item=>({id:item.localId!,url:item.preview,altText:item.altText}))} variants={galleryTargets} assignments={variants.flatMap((variant,index)=>variant.mediaIds === undefined?[]:[{variantId:galleryTargets[index]!.id,mediaIds:variant.mediaIds}])} onAssignmentsChange={changeDraftGalleries} canManage={!createBlocked && !creationRecovery}>
-              {({thumbnail})=><ProductVariantBuilder presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
+              {({thumbnail})=><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
               </ProductVariantGalleryEditor></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
             {variantBuilderOpen ? <div ref={variantBuilderRef} id="create-variant-builder" className={createStyles.builder} tabIndex={-1} role="group" aria-label="Varyant seçimi" onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented && !attributeSavingRef.current) { event.preventDefault(); closeVariantBuilder(); } }}>
               <AttributeVariantPicker presentation="create" baseSku={kind === "simple" ? variants[0]?.sku : simpleVariantRef.current.sku} value={pendingVariants} onChange={changePendingVariants} onAttributeIdsChange={setPendingAttributeIds} initialPrice={kind === "simple" ? variants[0]?.price : simpleVariantRef.current.price} initialStock={kind === "simple" ? variants[0]?.stockQuantity : simpleVariantRef.current.stockQuantity} disabled={busy} onBusyChange={trackAttributeBusy} />

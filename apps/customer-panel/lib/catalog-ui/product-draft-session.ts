@@ -16,6 +16,8 @@ export type ProductDraftVariant = Readonly<{
   sku: string;
   barcode: string;
   price: string;
+  taxChoice?: string;
+  priceBasis?: 'included'|'excluded';
   compareAt: string;
   cost: string;
   stockQuantity: string;
@@ -42,6 +44,7 @@ export type ProductDraft = Readonly<{
   authoringDraftId?: string;
   kind: "simple" | "variant";
   productType: "physical" | "digital";
+  taxChoice?: string;
   title: string;
   description: string;
   variants: readonly ProductDraftVariant[];
@@ -79,6 +82,8 @@ type QuickProductDraft = Readonly<{
   barcode?: string;
   measurements?: ProductMeasurementDraft;
   price: string;
+  taxChoice?: string;
+  priceBasis?: 'included'|'excluded';
   stockQuantity: string;
   categoryId: string;
   media: readonly ProductDraftMedia[];
@@ -122,18 +127,24 @@ const EMPTY_DRAFT: ProductDraft = {
 };
 
 function freezeDraft(draft: ProductDraft): ProductDraft {
-  const freezeVariant = (variant: ProductDraftVariant) => Object.freeze({
-    ...variant,
+  const freezeVariant = (variant: ProductDraftVariant) => {
+    const {taxChoice,priceBasis,...variantFields}=variant;
+    return Object.freeze({
+    ...variantFields,
+    ...(taxChoice?{taxChoice}:{}),
+    ...(priceBasis==='excluded'?{priceBasis}:{}),
     attributes: Object.freeze({ ...variant.attributes }),
     ...(variant.mediaIds === undefined ? {} : {mediaIds:Object.freeze([...variant.mediaIds])}),
     ...(variant.measurements === undefined ? {} : { measurements: Object.freeze({ ...variant.measurements }) }),
   });
+  };
   const variants = draft.variants.map(freezeVariant);
-  const { standardVariant, channelSelectionTouched, ...fields } = draft;
+  const { standardVariant, channelSelectionTouched, taxChoice, ...fields } = draft;
   const media = draft.media.map((item) => Object.freeze({ ...item }));
 
   return Object.freeze({
     ...fields,
+    ...(taxChoice?{taxChoice}:{}),
     ...(draft.contentOrigins === undefined ? {} : {contentOrigins:Object.freeze(Object.fromEntries(Object.entries(draft.contentOrigins).map(([field,origin])=>[field,origin === null?null:Object.freeze({...origin})])))}),
     variants: Object.freeze(variants),
     ...(standardVariant === undefined ? {} : { standardVariant: freezeVariant(standardVariant) }),
@@ -194,12 +205,14 @@ export function mergeQuickProductDraft(
     || session.current.variants.some((variant) => Object.keys(variant.attributes).length > 0);
   return updateProductDraft(session, {
     title: quick.title,
+    ...(quick.taxChoice===undefined?{}:{taxChoice:quick.taxChoice}),
     variants: preserveVariantDraft ? session.current.variants : [{
       ...firstVariant,
       sku: quick.sku,
       ...(quick.barcode === undefined ? {} : { barcode: quick.barcode }),
       ...(quick.measurements === undefined || (!Object.keys(quick.measurements).length && firstVariant.measurements === undefined) ? {} : { measurements: quick.measurements }),
       price: quick.price,
+      ...(quick.priceBasis===undefined?{}:{priceBasis:quick.priceBasis}),
       stockQuantity: quick.stockQuantity,
     }],
     categoryIds: session.current.categoryIds.length > 1
@@ -229,6 +242,7 @@ export function quickDraftRequiresDetailedSave(draft: ProductDraft, defaultStore
     || [draft.collectionIds, draft.tagIds, draft.resourceAttributeIds, draft.resourceExtraIds, draft.resourceDefinitionIds]
       .some((ids) => ids.length > 0)
     || draft.variants.some((variant) => variant.mediaIds !== undefined || Object.keys(variant.attributes).length > 0
+      || Boolean(variant.taxChoice)
       || Boolean(variant.compareAt.trim() || variant.cost.trim() || variant.shippingDesi.trim() || variant.hsCode.trim())
       || variant.continueSellingWhenOutOfStock);
 }

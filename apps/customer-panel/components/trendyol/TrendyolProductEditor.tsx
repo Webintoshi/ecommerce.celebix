@@ -1,16 +1,17 @@
 'use client';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
-import {parseTrendyolListingInput,type TrendyolProduct,type TrendyolListingInput,type TrendyolPricingRule} from '@celebix/saas-contracts';
+import Link from 'next/link';
+import {parseTrendyolListingInput,trendyolVatRate,trendyolTaxIssue,type TrendyolTaxProduct,type TrendyolListingInput,type TrendyolPricingRule} from '@celebix/saas-contracts';
 import {OrderActionDialog} from '@/components/orders/OrderActionDialog';
 import {type TrendyolClient,type TrendyolOption} from '@/lib/trendyol-ui/client';
 import {definitiveFailure,errorCode,failureMessage} from '@/lib/trendyol-ui/model';
 import {TrendyolPricePreview} from './TrendyolPricing';
 import styles from './trendyol.module.css';
 type AttributeDraft=Readonly<{valueId:string;value:string}>;
-type Draft={mode:'existing'|'create';barcode:string;category:string;brand:string;cargo:string;vat:string;weight:string;enabled:boolean;attributes:Record<number,AttributeDraft>};
-function initial(product:TrendyolProduct):Draft {const m=product.mapping;return{mode:m?.mode??'existing',barcode:m?.barcode??product.barcode??'',category:m?.categoryId?String(m.categoryId):'',brand:m?.brandId?String(m.brandId):'',cargo:m?.cargoProviderCode??'',vat:String(m?.vatRate??20),weight:String(m?.dimensionalWeight??1),enabled:m?.enabled??true,attributes:Object.fromEntries((m?.attributes??[]).map(a=>[a.attributeId,{valueId:a.valueId?String(a.valueId):'',value:a.value??''}]))};}
+type Draft={mode:'existing'|'create';barcode:string;category:string;brand:string;cargo:string;weight:string;enabled:boolean;attributes:Record<number,AttributeDraft>};
+function initial(product:TrendyolTaxProduct):Draft {const m=product.mapping;return{mode:m?.mode??'existing',barcode:m?.barcode??product.barcode??'',category:m?.categoryId?String(m.categoryId):'',brand:m?.brandId?String(m.brandId):'',cargo:m?.cargoProviderCode??'',weight:String(m?.dimensionalWeight??1),enabled:m?.enabled??true,attributes:Object.fromEntries((m?.attributes??[]).map(a=>[a.attributeId,{valueId:a.valueId?String(a.valueId):'',value:a.value??''}]))};}
 const EMPTY:readonly TrendyolOption[]=[];
-export function TrendyolProductEditor({product,pricing,client,onClose,onSaved}:Readonly<{product:TrendyolProduct;pricing:TrendyolPricingRule;client:TrendyolClient;onClose:()=>void;onSaved:()=>void}>){
+export function TrendyolProductEditor({product,pricing,client,onClose,onSaved}:Readonly<{product:TrendyolTaxProduct;pricing:TrendyolPricingRule;client:TrendyolClient;onClose:()=>void;onSaved:()=>void}>){
   const [draft,setDraft]=useState(()=>initial(product));const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const [attempt,setAttempt]=useState<{input:TrendyolListingInput;operationId:string}|null>(null);
   const [choices,setChoices]=useState<{categories:readonly TrendyolOption[];brands:readonly TrendyolOption[];cargo:readonly TrendyolOption[]}>({categories:EMPTY,brands:EMPTY,cargo:EMPTY});
@@ -26,19 +27,20 @@ export function TrendyolProductEditor({product,pricing,client,onClose,onSaved}:R
     void client.options({kind:'attributes',categoryId:Number(draft.category)}).then(result=>{if(alive.current&&ticket===attributeRead.current)setAttributes(result.items);}).catch(caught=>{if(alive.current&&ticket===attributeRead.current)setAttrsError(errorCode(caught));}).finally(()=>{if(alive.current&&ticket===attributeRead.current)setAttrsBusy(false);});
     return()=>{attributeRead.current++;};
   },[draft.category,draft.mode,attrsRevision,client]);
-  const locked=busy||Boolean(attempt);
+  const locked=busy||Boolean(attempt),vatRate=trendyolVatRate(product.tax),taxIssue=trendyolTaxIssue(product.tax);
   function change<K extends keyof Draft>(key:K,value:Draft[K]){if(locked)return;setError('');setDraft(current=>({...current,[key]:value,...(key==='category'?{attributes:{}}:{})}));}
   function attribute(id:number,value:AttributeDraft){if(locked)return;setError('');setDraft(current=>({...current,attributes:{...current.attributes,[id]:value}}));}
   async function submit(event:FormEvent){event.preventDefault();if(saving.current)return;
     let command=attempt;
     if(!command){
+      if(taxIssue&&(draft.enabled||!product.mapping)){setError(taxIssue);return;}
       if(draft.mode==='create'&&(choicesBusy||choicesError||attrsBusy||attrsError)){setError('options_required');return;}
       const missing=attributes.find(a=>a.required&&!draft.attributes[Number(a.id)]?.valueId&&!draft.attributes[Number(a.id)]?.value.trim());
       if(draft.mode==='create'&&missing){setError('required_attributes');return;}
       if(draft.mode==='create'&&Object.values(draft.attributes).some(value=>value.value.trim().length>50)){setError('attribute_too_long');return;}
       const invalidAttribute=attributes.some(a=>{const v=draft.attributes[Number(a.id)];return v&&(v.valueId?!a.values?.some(option=>String(option.id)===v.valueId):Boolean(v.value.trim())&&!a.allowCustom);});
       if(draft.mode==='create'&&invalidAttribute){setError('invalid_attributes');return;}
-      try{const input=parseTrendyolListingInput({variantId:product.variantId,barcode:draft.barcode.trim(),mode:draft.mode,categoryId:draft.category?Number(draft.category):null,brandId:draft.brand?Number(draft.brand):null,cargoProviderCode:draft.cargo||null,vatRate:Number(draft.vat),dimensionalWeight:Number(draft.weight.replace(',','.')),enabled:draft.enabled,attributes:Object.entries(draft.attributes).filter(([,v])=>v.valueId||v.value.trim()).map(([id,v])=>({attributeId:Number(id),...(v.valueId?{valueId:Number(v.valueId)}:{value:v.value.trim()})}))});command={input,operationId:crypto.randomUUID()};}catch{setError('invalid_input');return;}
+      try{const input=parseTrendyolListingInput({variantId:product.variantId,barcode:draft.barcode.trim(),mode:draft.mode,categoryId:draft.category?Number(draft.category):null,brandId:draft.brand?Number(draft.brand):null,cargoProviderCode:draft.cargo||null,vatRate:vatRate??product.mapping?.vatRate,dimensionalWeight:Number(draft.weight.replace(',','.')),enabled:draft.enabled,attributes:Object.entries(draft.attributes).filter(([,v])=>v.valueId||v.value.trim()).map(([id,v])=>({attributeId:Number(id),...(v.valueId?{valueId:Number(v.valueId)}:{value:v.value.trim()})}))});command={input,operationId:crypto.randomUUID()};}catch{setError('invalid_input');return;}
     }
     setAttempt(command);saving.current=true;setBusy(true);setError('');
     try{await client.map(command.input,command.operationId);if(alive.current){setAttempt(null);onSaved();}}
@@ -61,8 +63,8 @@ export function TrendyolProductEditor({product,pricing,client,onClose,onSaved}:R
         {attrsError?<div className={styles.feedback}><p role="alert">Kategori özellikleri yüklenemedi. {failureMessage(attrsError)}</p><button type="button" className="button button-secondary" disabled={locked||attrsBusy} onClick={()=>setAttrsRevision(value=>value+1)}>Özellikleri yeniden yükle</button></div>:null}
         {attributes.length?<div className={styles.formGrid}>{attributes.map(a=>{const value=draft.attributes[Number(a.id)]??{valueId:'',value:''};return <div key={a.id} className={styles.attribute}><label className={styles.field}>{a.name}{a.required?' *':''}{a.values?.length?<select aria-label={a.name} value={value.valueId} required={a.required&&!value.value.trim()} disabled={locked} onChange={event=>attribute(Number(a.id),{valueId:event.target.value,value:''})}><option value="">Seçin{a.allowCustom?' veya aşağıya yazın':''}</option>{a.values.map(v=><option key={v.id} value={v.id}>{v.name}</option>)}</select>:null}{!a.values?.length&&a.allowCustom?<input aria-label={a.name} value={value.value} required={a.required} maxLength={50} disabled={locked} onChange={event=>attribute(Number(a.id),{valueId:'',value:event.target.value})}/>:null}</label>{!a.values?.length&&!a.allowCustom?<p className={styles.help}>Bu özellik için seçilebilir değer alınamadı. Özellikleri yeniden yükleyin.</p>:null}{a.allowCustom&&a.values?.length?<label className={styles.field}>Özel {a.name.toLocaleLowerCase('tr-TR')}<input aria-label={`Özel ${a.name}`} value={value.value} maxLength={50} disabled={locked} onChange={event=>attribute(Number(a.id),{valueId:'',value:event.target.value})}/></label>:null}</div>;})}</div>:null}
       </section>:null}
-      <div className={styles.formGrid}><label className={styles.field}>Ürün KDV oranı (%)<input aria-label="Ürün KDV oranı (%)" inputMode="numeric" value={draft.vat} required disabled={locked} onChange={event=>change('vat',event.target.value)}/></label><label className={styles.field}>Desi<input aria-label="Desi" inputMode="decimal" value={draft.weight} required disabled={locked} onChange={event=>change('weight',event.target.value)}/></label></div>
-      {product.webPriceCents!==null?<TrendyolPricePreview webPriceCents={product.webPriceCents} rule={{...pricing,productVatBps:Number(draft.vat)*100}}/>:null}
+      <div className={styles.formGrid}><div className={styles.field}><span>Kayıtlı ürün KDV’si</span><output aria-label="Kayıtlı ürün KDV’si">{product.tax===null?'Belirlenmedi':product.tax.treatment==='exempt'?'KDV istisnası':`%${(product.tax.rateBps/100).toLocaleString('tr-TR')}`}</output><p className={styles.help}>{taxIssue?failureMessage(taxIssue):'Ürün kartındaki vergi seçimi kullanılır.'} <Link href={`/products/${product.productId}`}>Üründe düzenle</Link></p></div><label className={styles.field}>Desi<input aria-label="Desi" inputMode="decimal" value={draft.weight} required disabled={locked} onChange={event=>change('weight',event.target.value)}/></label></div>
+      {product.webPriceCents!==null&&vatRate!==null?<TrendyolPricePreview webPriceCents={product.webPriceCents} rule={{...pricing,productVatBps:vatRate*100}}/>:null}
       <label className={styles.check}><input type="checkbox" checked={draft.enabled} disabled={locked} onChange={event=>change('enabled',event.target.checked)}/>Stok ve fiyat aktarımı açık</label>
       {error?<p className={styles.feedback} role="alert">{error==='required_attributes'?'Zorunlu kategori özelliklerini tamamlayın.':error==='attribute_too_long'?'Özellik değeri en fazla 50 karakter olabilir.':error==='invalid_attributes'?'Kategori özelliklerini güncel seçeneklerden yeniden seçin.':error==='options_required'?'Kategori ve özellik seçeneklerini yeniden yükleyin.':failureMessage(error)}</p>:null}
     </form>

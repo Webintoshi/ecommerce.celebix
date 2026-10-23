@@ -196,6 +196,11 @@ test("createProduct validates, fingerprints, and sends one SQL mutation", async 
   assert.deepEqual(JSON.parse(String(call.values[12])), { kind: "quick", title: "Seramik Kupa", priceCents: 12990, publish: false });
   assert.equal(writer.calls.filter(({ text }) => text === "BEGIN ISOLATION LEVEL READ COMMITTED").length, 1);
 });
+test('onboarding sends explicit tax in the same intent JSON without changing the saved gross price',async()=>{
+ const writer=new Client(text=>text.includes('catalog_onboard_product')?[{outcome:'created',result_payload:onboardingResult()}]:[]),tax={treatment:'taxable',rateBps:1000}as const;
+ await repository(new Pool([writer])).createProduct({tenantContext:tenant(),now:NOW,operationId:OPERATION,intent:{kind:'quick',title:'Product',priceCents:12990,publish:false,tax}});
+ const sql=sqlCall(writer,'catalog_onboard_product_with_origins'),intent=JSON.parse(String(sql.values[12]));assert.deepEqual(intent.tax,tax);assert.equal(intent.priceCents,12990);assert.equal(writer.calls.filter(call=>call.text.includes('saas.catalog_')).length,1);
+});
 
 test("quick create reports a cross-product SKU ownership rejection without exposing SQL", async () => {
   const writer = new Client((text) => {

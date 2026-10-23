@@ -1,4 +1,5 @@
 import {
+  parseProductTaxChoice,
   STORE_MEMBERSHIP_ROLES,
   parseCatalogProductListQuery,
   parseProduct,
@@ -125,13 +126,13 @@ export function catalogAuthority(context: TenantContext, currentTime: Date): Val
 }
 
 export function productFields(value: unknown): CatalogProductFields {
-  const parsed = exact(value, ["slug", "title", "status", "currency"], ["description"]);
+  const parsed = exact(value, ["slug", "title", "status", "currency"], ["description", "tax"]);
   let projection;
   try {
     projection = parseProduct({
       id: SYNTHETIC_ID,
       storeId: SYNTHETIC_STORE_ID,
-      ...parsed,
+      ...Object.fromEntries(Object.entries(parsed).filter(([key]) => key !== "tax")),
       createdAt: SYNTHETIC_TIME,
       updatedAt: SYNTHETIC_TIME,
       version: 1,
@@ -139,6 +140,7 @@ export function productFields(value: unknown): CatalogProductFields {
   } catch { fail(); }
   if (projection.status === "archived") fail();
   return Object.freeze({
+    ...(Object.hasOwn(parsed, "tax") ? { tax: validatedTax(parsed.tax) } : {}),
     slug: projection.slug,
     title: projection.title,
     ...(projection.description === undefined ? {} : { description: projection.description }),
@@ -151,7 +153,7 @@ export function variantFields(value: unknown): CatalogVariantFields {
   const parsed = exact(
     value,
     ["title", "priceCents", "stockTracking", "stockQuantity", "attributes"],
-    ["sku", "barcode", "compareAtCents", "costCents", "measurements"],
+    ["sku", "barcode", "compareAtCents", "costCents", "measurements", "tax"],
   );
   let projection;
   try {
@@ -159,7 +161,7 @@ export function variantFields(value: unknown): CatalogVariantFields {
       id: SYNTHETIC_ID,
       productId: SYNTHETIC_ID,
       storeId: SYNTHETIC_STORE_ID,
-      ...Object.fromEntries(Object.entries(parsed).filter(([key, value]) => key !== "measurements" || value !== null)),
+      ...Object.fromEntries(Object.entries(parsed).filter(([key, value]) => key !== "tax" && (key !== "measurements" || value !== null))),
       status: "active",
       createdAt: SYNTHETIC_TIME,
       updatedAt: SYNTHETIC_TIME,
@@ -167,6 +169,7 @@ export function variantFields(value: unknown): CatalogVariantFields {
     });
   } catch { fail(); }
   return Object.freeze({
+    ...(Object.hasOwn(parsed, "tax") ? { tax: parsed.tax === null ? null : validatedTax(parsed.tax) } : {}),
     title: projection.title,
     ...(projection.sku === undefined ? {} : { sku: projection.sku }),
     ...(projection.barcode === undefined ? {} : { barcode: projection.barcode }),
@@ -179,6 +182,8 @@ export function variantFields(value: unknown): CatalogVariantFields {
     ...(Object.hasOwn(parsed, "measurements") ? { measurements: parsed.measurements === null ? null : projection.measurements! } : {}),
   });
 }
+
+function validatedTax(value: unknown) { try { return parseProductTaxChoice(value); } catch { fail(); } }
 
 export function pageSize(value: unknown): number {
   if (!Number.isSafeInteger(value) || (value as number) < 1 || (value as number) > 100) fail();

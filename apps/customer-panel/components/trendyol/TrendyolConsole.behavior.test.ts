@@ -6,9 +6,9 @@ import {compile,mounted,click,input} from '../../lib/mira-final-test-support.ts'
 const productId='f6d8029d-5456-4e82-85cf-e877d9bdaaa4',variantId='947b39e9-f3f1-4a96-a101-4b4c46c1c383';
 const pricing={commissionBps:1700,commissionVatIncluded:true,commissionVatBps:2000,averageShippingCents:9000,otherFeeCents:0,productVatBps:2000,withholdingBps:100,coverWithholding:false,rounding:'cent'};
 const overview={connection:{connected:true,sellerId:'123456',status:'connected',version:2,settingsVersion:7,lastOrdersAt:null,lastErrorCode:null},pricing,counts:{mapped:1,pending:1,failed:0},webhookUrl:null};
-const product={productId,variantId,title:'Pamuk gömlek',sku:'GOM-M',barcode:'GOM-M',webPriceCents:10000,quantity:3,mapping:null,status:'submitted',issue:null,updatedAt:'2026-10-23T00:00:00Z'};
+const product={productId,variantId,title:'Pamuk gömlek',sku:'GOM-M',barcode:'GOM-M',webPriceCents:10000,quantity:3,mapping:null,status:'submitted',issue:null,updatedAt:'2026-10-23T00:00:00Z',tax:{treatment:'taxable',rateBps:2000}};
 function component(client:Record<string,unknown>){assert.ok(existsSync(new URL('./TrendyolConsole.tsx',import.meta.url)),'Native Trendyol screen is missing');return compile('components/trendyol/TrendyolConsole.tsx',{'@/lib/trendyol-ui/client':{trendyolClient:client}}).TrendyolConsole;}
-const base={overview:async()=>overview,products:async()=>({items:[product],nextCursor:null}),orderIssues:async()=>({items:[]}),options:async()=>({items:[]})};
+const base={overview:async()=>overview,productsTax:async()=>({items:[product],nextCursor:null}),orderIssues:async()=>({items:[]}),options:async()=>({items:[]})};
 function field(host:HTMLElement,label:string){const result=host.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);assert.ok(result,label);return result;}
 test('action-required imports show order number and recovery without exposing other orders, then refresh explicitly',async()=>{
  let reads=0;const Component=component({...base,orderIssues:async()=>({items:++reads===1?[{orderId:null,externalOrderId:'EXT-1',orderNumber:'BEKLEYEN-123',state:'action_required',issue:'mapping_required'},{orderId:productId,externalOrderId:'EXT-2',orderNumber:'ALINMIS-456',state:'imported',issue:null}]:[]})});
@@ -89,14 +89,30 @@ test('settings version conflict preserves edits and asks the next explicit save 
  });
 });
 
-test('mapped product and editing preview use listing VAT for withholding coverage while the global example retains store VAT',async()=>{
- const mapping={variantId,barcode:'VAT-0',categoryId:null,brandId:null,vatRate:0,dimensionalWeight:1,cargoProviderCode:null,attributes:[],enabled:true,mode:'existing'};
- const Component=component({...base,overview:async()=>({...overview,pricing:{...pricing,coverWithholding:true}}),products:async()=>({items:[{...product,mapping}],nextCursor:null})});
+test('product prices and mapping derive saved canonical VAT while the global VAT field remains an example',async()=>{
+ const mapping={variantId,barcode:'VAT-0',categoryId:null,brandId:null,vatRate:20,dimensionalWeight:1,cargoProviderCode:null,attributes:[],enabled:true,mode:'existing'};
+ const calls:any[]=[];const Component=component({...base,overview:async()=>({...overview,pricing:{...pricing,coverWithholding:true}}),productsTax:async()=>({items:[{...product,tax:{treatment:'taxable',rateBps:0},mapping}],nextCursor:null}),map:async(body:unknown)=>{calls.push(body);return {saved:true,replayed:false};}});
  await mounted(Component,{canManage:true},async(host:HTMLElement,window)=>{
-  assert.match(host.querySelector('tbody')?.textContent??'',/231,71/,'0% listing VAT gives a full 1% withholding base');
+  assert.match(host.querySelector('tbody')?.textContent??'',/231,71/,'canonical zero VAT overrides the stale mapping and example');
   assert.match(host.querySelector('[aria-label="Örnek fiyat hesaplaması"]')?.textContent??'',/231,24/,'global example retains the store VAT assumption');
   await click(host,'Pamuk gömlek Trendyol eşlemesini düzenle');assert.match(host.querySelector('#trendyol-mapping-form')?.textContent??'',/231,71/);
-  await input(window,field(host,'Ürün KDV oranı (%)'),'20');assert.match(host.querySelector('#trendyol-mapping-form')?.textContent??'',/231,24/);
+  assert.equal(host.querySelector('input[aria-label="Ürün KDV oranı (%)"]'),null);assert.match(host.querySelector('[aria-label="Kayıtlı ürün KDV’si"]')?.textContent??'',/%0/);assert.ok(host.querySelector(`#trendyol-mapping-form a[href="/products/${productId}"]`));assert.ok(field(host,'Örnek ürün KDV’si (%)'));
+  await click(host,'Eşlemeyi kaydet');assert.equal(calls[0].vatRate,0);
+ });
+});
+
+test('unknown canonical VAT prevents enabling a new mapping and does not invent a product price',async()=>{
+ const calls:any[]=[];const Component=component({...base,productsTax:async()=>({items:[{...product,tax:null}],nextCursor:null}),map:async(body:unknown)=>{calls.push(body);return {saved:true,replayed:false};}});
+ await mounted(Component,{canManage:true},async(host:HTMLElement)=>{
+  assert.doesNotMatch(host.querySelector('tbody')?.textContent??'',/228,92/);await click(host,'Pamuk gömlek Trendyol eşlemesini düzenle');assert.match(host.querySelector('#trendyol-mapping-form')?.textContent??'',/KDV.*belirleyin/);await click(host,'Eşlemeyi kaydet');assert.equal(calls.length,0);
+ });
+});
+
+test('existing unknown-tax listing can still be disabled without assigning canonical VAT',async()=>{
+ const mapping={variantId,barcode:'OLD-1',categoryId:null,brandId:null,vatRate:18,dimensionalWeight:1,cargoProviderCode:null,attributes:[],enabled:true,mode:'existing'};
+ const calls:any[]=[];const Component=component({...base,productsTax:async()=>({items:[{...product,tax:null,mapping}],nextCursor:null}),map:async(body:unknown)=>{calls.push(body);return {saved:true,replayed:false};}});
+ await mounted(Component,{canManage:true},async(host:HTMLElement)=>{
+  await click(host,'Pamuk gömlek Trendyol eşlemesini düzenle');const enabled=host.querySelector<HTMLInputElement>('#trendyol-mapping-form input[type="checkbox"]');assert.ok(enabled);await act(async()=>enabled.click());await click(host,'Eşlemeyi kaydet');assert.equal(calls.length,1);assert.equal(calls[0].enabled,false);assert.equal(calls[0].vatRate,18);
  });
 });
 

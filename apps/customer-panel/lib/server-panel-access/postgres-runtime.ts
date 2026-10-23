@@ -72,6 +72,8 @@ import { createPostgresPanelSessionRepository } from "../panel-session-persisten
 import { createPostgresCrossHostSessionHandoffRepository } from "../cross-host-session-handoff/postgres-repository.ts";
 import { createPostgresPanelStoreOptionRepository } from "../panel-store-options/postgres-repository.ts";
 import { registerServerAdminHostAuthRuntime } from "../server-admin-host-auth/runtime.ts";
+import {createPostgresProductTaxRepository} from '@celebix/saas-data';
+import {registerServerProductTaxRepository} from '../server-product-tax/runtime.ts';
 import { registerServerCatalogRepository } from "../server-catalog/runtime.ts";
 import { registerServerBarcodeLabelRepository } from "../server-barcode-labels/runtime.ts";
 import { registerServerCatalogOnboardingRepository } from "../server-catalog-onboarding/runtime.ts";
@@ -1099,6 +1101,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
         stateKey: new Uint8Array(config.keys.handoff),
       },
     });
+    registerServerProductTaxRepository(access, createPostgresProductTaxRepository({pool,timeouts:TIMEOUTS}));
     registerServerCatalogRepository(access, createPostCommitInvalidatingRepository(catalogRepository, {
       createProduct: ["catalog"], updateProduct: ["catalog"], archiveProduct: ["catalog"], restoreProduct: ["catalog"], deleteProduct: [],
       removeProduct: ["catalog"], bulkMutateProducts: ["catalog"], createVariant: ["catalog"], updateVariant: ["catalog"], archiveVariant: ["catalog"],

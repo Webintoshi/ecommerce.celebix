@@ -1,4 +1,5 @@
 import { parseCatalogCollectionDescription } from "../catalog-collections/index.ts";
+import {parseProductTaxChoice} from '../product-tax/index.ts';
 import {
   CATALOG_ADMIN_RESOURCE_KINDS,
   CATALOG_IMPORT_STATUSES,
@@ -87,9 +88,10 @@ function importRows(value: unknown): readonly CatalogAdminImportRow[] {
       const parsed = exact(
         entry,
         ["title", "slug", "priceCents", "stockQuantity"],
-        ["sku"],
+        ["sku", "tax"],
       );
       return Object.freeze({
+        ...(Object.hasOwn(parsed,'tax')?{tax:parseProductTaxChoice(parsed.tax)}:{}),
         title: text(parsed.title, 1, 200),
         slug: text(parsed.slug, 3, 100, SLUG),
         priceCents: integer(parsed.priceCents),

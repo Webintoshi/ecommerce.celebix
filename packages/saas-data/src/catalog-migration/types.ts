@@ -1,4 +1,4 @@
-import type { TenantContext, ProductMeasurements } from "@celebix/saas-contracts";
+import type { TenantContext, ProductMeasurements, ProductTaxChoice } from "@celebix/saas-contracts";
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 
 export interface CatalogMigrationTaxonomy {
@@ -11,6 +11,7 @@ export interface CatalogMigrationCategory extends CatalogMigrationTaxonomy {
 }
 
 export interface CatalogMigrationVariant {
+  readonly tax?: ProductTaxChoice | null;
   readonly title: string;
   readonly sku?: string;
   readonly barcode?: string;
@@ -22,6 +23,7 @@ export interface CatalogMigrationVariant {
 }
 
 export interface CatalogMigrationProduct {
+  readonly tax?: ProductTaxChoice;
   readonly sourceProductId: string;
   readonly title: string;
   readonly slug: string;

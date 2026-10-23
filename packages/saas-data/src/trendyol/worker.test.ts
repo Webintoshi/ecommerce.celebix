@@ -9,9 +9,11 @@ const keyring={activeKeyId:'test',keys:[{keyId:'test',key:new Uint8Array(32).fil
 const mapping={variantId:V,barcode:'SKU-1',categoryId:null,brandId:null,vatRate:20,dimensionalWeight:1,cargoProviderCode:null,attributes:[],enabled:true,mode:'existing'};
 function fixture(kind='catalog',payload:any={items:[{variantId:V,productId:ID,title:'Product',sku:'SKU-1',barcode:'SKU-1',webPriceCents:10000,quantity:2,mapping,status:'queued',issue:null,updatedAt:now().toISOString(),mappingVersion:1,lastPayloadFingerprint:null,providerSubmitted:true,description:'Product',images:[]}]}){
  payload=structuredClone(payload);
+ if(kind==='catalog')for(const item of payload.items)if(!Object.hasOwn(item,'tax'))item.tax={treatment:'taxable',rateBps:2000};
  const job:any={id:ID,storeId:ID,sellerId:'123',connectionVersion:1,credentialVersion:1,generation:1,leaseId:V,kind,payload,pricing:{...DEFAULT_TRENDYOL_PRICING,commissionBps:1700,averageShippingCents:9000,withholdingBps:0},credential:sealTrendyolCredential({storeId:ID,version:1,credential:{sellerId:'123',apiKey:'key',apiSecret:'secret',webhookSecret:'a'.repeat(64)},keyring})};
  const calls:any[]=[], repository:any={claim:async()=>[job],read:async()=>job,beginDispatch:async()=>true,complete:async(_f:any,r:any)=>{calls.push(['complete',r]);return{};},defer:async(_f:any,c:any)=>calls.push(['defer',c]),importPackages:async(_f:any,p:any)=>{calls.push(['import',p]);return{state:'imported'};}};
  const provider:any={submitInventory:async(_c:any,items:any)=>{calls.push(['inventory',items]);return{batchId:'batch-1'};},createProducts:async(_c:any,items:any)=>{calls.push(['create',items]);return{batchId:'batch-1'};},productOrNull:async()=>null,batch:async()=>({complete:true,items:[{barcode:'SKU-1',status:'success',errors:[]}]}),product:async()=>({barcode:'SKU-1',approved:true,archived:false,listingId:'l',contentId:'c'}),registerWebhook:async(_c:any,p:any)=>calls.push(['hook',p]),orderStream:async()=>({packages:[{orderNumber:'order-1'}],nextCursor:null,hasMore:false}),getOrder:async()=>({packages:[{orderNumber:'order-1'}]})};
+ provider.getProductTax=async()=>20;
  return{job,calls,repository,provider,run:()=>processTrendyolJobs({repository,provider,keyring,panelOrigin:'https://panel.saas-staging.celebix.net',now})};
 }
 test('catalog gross-up is per tenant; lease is rechecked before POST and returned batch is durable',async()=>{
@@ -98,4 +100,15 @@ test('an already pending remote creation is priced only after approval and a new
 
 test('an existing remote mapping withdraws stock even before its first local batch',async()=>{
  const f=fixture();Object.assign(f.job.payload.items[0],{providerSubmitted:false,webPriceCents:null});await f.run();assert.deepEqual(f.calls[0],['inventory',[{barcode:'SKU-1',quantity:0}]]);
+});
+test('missing unsupported or conflicting canonical VAT blocks catalog sends without a guessed rate',async()=>{
+ for(const [tax,issue]of[[null,'tax_required'],[{treatment:'taxable',rateBps:500},'tax_unsupported'],[{treatment:'taxable',rateBps:1000},'tax_conflict']]as const){const f=fixture();f.job.payload.items[0].tax=tax;await f.run();assert.deepEqual(f.calls,[['complete',{items:[{variantId:V,mappingVersion:1,status:'failed',issue}]}]]);}
+});
+test('remote VAT drift stays actionable even if the stock-price target matches a confirmed fingerprint',async()=>{
+ const f=fixture();await f.run();f.job.payload.items[0].lastPayloadFingerprint=f.calls[1][1].items[0].fingerprint;f.calls.length=0;f.provider.getProductTax=async()=>10;
+ await f.run();assert.deepEqual(f.calls,[['complete',{items:[{variantId:V,mappingVersion:1,status:'failed',issue:'tax_conflict'}]}]]);
+});
+test('explicit exemption uses provider zero while unknown tax still permits a stock-zero withdrawal',async()=>{
+ const exempt=fixture();exempt.job.payload.items[0].tax={treatment:'exempt',rateBps:null};exempt.job.payload.items[0].mapping.vatRate=0;exempt.provider.getProductTax=async()=>0;await exempt.run();assert.equal(exempt.calls[0][0],'inventory');
+ const withdraw=fixture();Object.assign(withdraw.job.payload.items[0],{tax:null,quantity:0});withdraw.provider.getProductTax=async()=>{throw Error('withdrawal must not look up VAT');};await withdraw.run();assert.deepEqual(withdraw.calls[0],['inventory',[{barcode:'SKU-1',quantity:0}]]);
 });

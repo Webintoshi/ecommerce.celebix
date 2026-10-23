@@ -9,6 +9,9 @@ import { parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import createStyles from "./create-advanced.module.css";
 import { ProductMeasurementFields } from "@/components/catalog/ProductMeasurementFields";
 import type { ProductMeasurementDraft } from "@/lib/catalog-ui/product-measurements";
+import type {ProductTaxChoice} from '@celebix/saas-contracts';
+import {ProductTaxFields,ProductPriceBasis} from '@/components/catalog/ProductTaxFields';
+import {safeTaxChoice,effectiveTaxForChoice,type PriceEntryBasis} from '@/lib/catalog-ui/product-tax';
 
 export type VariantDraft = Readonly<{
   localId?: string;
@@ -17,6 +20,8 @@ export type VariantDraft = Readonly<{
   sku: string;
   barcode: string;
   price: string;
+  taxChoice?: string;
+  priceBasis?: PriceEntryBasis;
   compareAt: string;
   cost: string;
   stockQuantity: string;
@@ -31,10 +36,11 @@ export function emptyVariant(title = "Standart", attributes: Readonly<Record<str
   return Object.freeze({ title, sku: "", barcode: "", price: "", compareAt: "", cost: "", stockQuantity: "0", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes });
 }
 
-export function ProductVariantBuilder({ variants, onChange, allowMultiple, showShipping = false, allowManualAdd = true, simplified = false, skuPrefix, presentation = "default", onBarcodeBusyChange, disableStructureChanges = false, showValidation = false, renderGallery }: Readonly<{
+export function ProductVariantBuilder({ variants, onChange, allowMultiple, productTax=null, showShipping = false, allowManualAdd = true, simplified = false, skuPrefix, presentation = "default", onBarcodeBusyChange, disableStructureChanges = false, showValidation = false, renderGallery }: Readonly<{
   variants: readonly VariantDraft[];
   onChange(value: readonly VariantDraft[]): void;
   allowMultiple: boolean;
+  productTax?: ProductTaxChoice|null;
   showShipping?: boolean;
   allowManualAdd?: boolean;
   simplified?: boolean;
@@ -66,7 +72,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
       const invalidPrice = parseTurkishMoneyToCents(variant.price) === null;
       const invalidStock = variant.stockQuantity !== "" && (!/^(?:0|[1-9]\d*)$/.test(variant.stockQuantity) || !Number.isSafeInteger(Number(variant.stockQuantity)));
       const invalidMoney = (value: string) => value !== "" && parseTurkishMoneyToCents(value) === null;
-      const invalidDetails = !variant.title.trim() || invalidMoney(variant.compareAt) || invalidMoney(variant.cost) || (showShipping && invalidMoney(variant.shippingDesi));
+      const invalidDetails = Boolean(variant.taxChoice&&!safeTaxChoice(variant.taxChoice)) || (variant.priceBasis==='excluded'&&!effectiveTaxForChoice(productTax,variant.taxChoice??'')) || !variant.title.trim() || invalidMoney(variant.compareAt) || invalidMoney(variant.cost) || (showShipping && invalidMoney(variant.shippingDesi));
       return <article className={allowMultiple ? createStyles.variantRow : createStyles.standardRow} key={rowKey}>
       {allowMultiple ? <div className={createStyles.variantName} style={{display:"flex",alignItems:"center",gap:12}}>{renderGallery?.(variant,index)}<strong>{variant.title || `Varyant ${index + 1}`}</strong></div> : null}
       <div className={createStyles.priceStock}>
@@ -80,13 +86,15 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
       <details className={createStyles.variantDetails} open={showValidation && invalidDetails}>
         <summary><span>{allowMultiple ? "Varyant detayları" : "Diğer satış bilgileri"}</span><ChevronDown aria-hidden="true" /></summary>
         <div className={createStyles.detailsBody}>
+          {allowMultiple?<ProductTaxFields label={`${variant.title||'Varyant'} KDV oranı`} value={variant.taxChoice??''} onChange={taxChoice=>change(index,{taxChoice})} variant productTax={productTax}/>:null}
+          <ProductPriceBasis value={variant.priceBasis??'included'} onChange={priceBasis=>change(index,{priceBasis})} price={variant.price} tax={effectiveTaxForChoice(productTax,variant.taxChoice??'')}/>
           <div className={createStyles.fieldGrid}>
             {allowMultiple ? <label className={`${createStyles.field} ${createStyles.wide}`}><span>Varyant adı</span><input required value={variant.title} maxLength={200} onChange={(event) => change(index, { title: event.target.value })} /></label> : null}
             <label className={createStyles.field}><span>Karşılaştırma fiyatı</span><input inputMode="decimal" placeholder="0,00" value={variant.compareAt} onChange={(event) => change(index, { compareAt: event.target.value })} /></label>
-            <label className={createStyles.field}><span>Maliyet</span><input inputMode="decimal" placeholder="0,00" value={variant.cost} onChange={(event) => change(index, { cost: event.target.value })} /></label>
+            <label className={createStyles.field}><span>Maliyet</span><input inputMode="decimal" placeholder="0,00" value={variant.cost} onChange={(event) => change(index, { cost: event.target.value })} /><small>Girilen maliyete KDV eklenmez.</small></label>
             {showShipping ? <><label className={createStyles.field}><span>Kargo desi</span><input inputMode="decimal" value={variant.shippingDesi} onChange={(event) => change(index, { shippingDesi: event.target.value })} /></label><label className={createStyles.field}><span>GTİP / HS kodu</span><input maxLength={32} value={variant.hsCode} onChange={(event) => change(index, { hsCode: event.target.value })} /></label></> : null}
           </div>
-          {showValidation && invalidDetails ? <p className={createStyles.fieldError}>Varyant adı ve ek satış alanlarını kontrol edin.</p> : null}
+          {showValidation && invalidDetails ? <p className={createStyles.fieldError}>Varyant adı, KDV ve ek satış alanlarını kontrol edin.</p> : null}
           <div className={createStyles.variantDetailFooter}><label className={createStyles.check}><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label>{allowMultiple ? <button className={createStyles.dangerAction} type="button" disabled={disableStructureChanges} onClick={() => { if (window.confirm(`${variant.title || "Bu varyant"} ve girilmiş satış bilgileri kaldırılacak. Devam edilsin mi?`)) onChange(Object.freeze(variants.filter((_, position) => position !== index))); }}><Trash2 aria-hidden="true" />Kaldır</button> : null}</div>
         </div>
       </details>
@@ -112,10 +120,12 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, showS
       <details className="onboarding-variant-advanced">
         <summary><span>Diğer bilgiler</span><ChevronDown aria-hidden="true" /></summary>
         <div className="onboarding-editor-grid">
+          <ProductTaxFields label={`${variant.title||'Varyant'} KDV oranı`} value={variant.taxChoice??''} onChange={taxChoice=>change(index,{taxChoice})} variant productTax={productTax}/>
+          <ProductPriceBasis value={variant.priceBasis??'included'} onChange={priceBasis=>change(index,{priceBasis})} price={variant.price} tax={effectiveTaxForChoice(productTax,variant.taxChoice??'')}/>
           {allowMultiple && simplified ? <label className="onboarding-variant-title"><span>Varyant adı</span><input required value={variant.title} maxLength={200} onChange={(event) => change(index, { title: event.target.value })} /></label> : null}
           {simplified ? <label><span>Karşılaştırma fiyatı</span><input inputMode="decimal" placeholder="0,00" value={variant.compareAt} onChange={(event) => change(index, { compareAt: event.target.value })} /></label> : null}
           <BarcodeInput value={variant.barcode} reservationIdentity={variant} onChange={(barcode) => change(index, { barcode })} />
-          <label><span>Maliyet</span><input inputMode="decimal" value={variant.cost} onChange={(event) => change(index, { cost: event.target.value })} /></label>
+          <label><span>Maliyet</span><input inputMode="decimal" value={variant.cost} onChange={(event) => change(index, { cost: event.target.value })} /><small>Girilen maliyete KDV eklenmez.</small></label>
           {showShipping ? <><label><span>Kargo desi</span><input inputMode="decimal" value={variant.shippingDesi} onChange={(event) => change(index, { shippingDesi: event.target.value })} /></label><label><span>GTİP / HS kodu</span><input maxLength={32} value={variant.hsCode} onChange={(event) => change(index, { hsCode: event.target.value })} /></label></> : null}
           {simplified ? <label className="onboarding-check onboarding-continue-selling"><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label> : null}
         </div>

@@ -1,3 +1,5 @@
+import { compile as compileTaxFields } from "../../lib/mira-final-test-support.ts";
+import * as productTax from "../../lib/catalog-ui/product-tax.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -24,7 +26,7 @@ const created = { product: { id: "product-created", version: 1, status: "draft" 
 function draft(patch: Parameters<typeof drafts.updateProductDraft>[1] = {}) {
   const empty = drafts.createEmptyProductDraftSession();
   return drafts.updateProductDraft(empty, {
-    title: "Pamuk elbise", categoryIds: [categoryId],
+    title: "Pamuk elbise", categoryIds: [categoryId], taxChoice: "1000",
     variants: [{ ...empty.current.variants[0]!, price: "249,90", stockQuantity: "7", sku: "SIORA-001" }],
     ...patch,
   });
@@ -38,6 +40,8 @@ async function compile(sourceUrl: URL, imports: Record<string, unknown>) {
   } }).outputText;
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "@/components/catalog/ProductTaxFields") return compileTaxFields("components/catalog/ProductTaxFields.tsx");
+    if (name === "@/lib/catalog-ui/product-tax") return productTax;
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });

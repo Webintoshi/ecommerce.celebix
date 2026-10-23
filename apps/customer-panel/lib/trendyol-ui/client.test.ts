@@ -21,6 +21,11 @@ test('native reads use same-origin bounded local requests and exact cursor/optio
  assert.equal(requests[1].url,'/api/marketplaces/trendyol/options?kind=attributes&categoryId=42');
  assert.equal(requests[0].init.credentials,'same-origin');assert.equal(requests[0].init.cache,'no-store');
 });
+test('canonical VAT is explicitly requested and missing canonical data never falls back to legacy listing VAT',async()=>{
+ const {createTrendyolClient}=await import('./client.ts');let url='';const value={items:[{productId:variantId,variantId,title:'Product',sku:null,barcode:null,webPriceCents:1000,quantity:1,mapping:null,status:'not_configured',issue:null,updatedAt:'2026-10-23T10:00:00Z',tax:null}],nextCursor:null};
+ const client=createTrendyolClient(async input=>{url=String(input);return Response.json(value);});assert.deepEqual(await (client as any).productsTax(),value);assert.equal(url,'/api/marketplaces/trendyol/products?limit=25&tax=1');
+ const legacy=createTrendyolClient(async()=>Response.json({items:value.items.map(({tax,...item})=>item),nextCursor:null}));await assert.rejects(()=>(legacy as any).productsTax(),(error:any)=>error.code==='unavailable');
+});
 test('category options accept provider trees above one thousand while other option lists remain bounded',async()=>{
  const {createTrendyolClient}=await import('./client.ts');const items=Array.from({length:1001},(_,index)=>({id:index+1,name:`Kategori ${index+1}`}));
  const client=createTrendyolClient(async()=>Response.json({items}));assert.equal((await client.options({kind:'categories'})).items.length,1001);

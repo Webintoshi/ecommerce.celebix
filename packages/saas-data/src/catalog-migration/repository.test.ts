@@ -149,6 +149,12 @@ test("begin creates one tenant-scoped job and deterministic taxonomy authority",
   assert.deepEqual(JSON.parse(String(sql.values[14])), [{ id: CATEGORY, name: "Yüzükler", slug: "yuzukler" }]);
   assert.deepEqual(JSON.parse(String(sql.values[15])), [{ id: BRAND, name: "Güzide Kuyumcu", slug: "guzide-kuyumcu" }]);
 });
+test('tax-bearing simple migration chooses v2 and retains the explicit tax choices',async()=>{
+ const tax={treatment:'taxable',rateBps:1000}as const,selected=product();
+ const writer=new Client(text=>text.includes('catalog_migration_import_batch')?[{outcome:'batch_imported',result_payload:{...projection(),mappings:[{sourceProductId:selected.sourceProductId,productId:PRODUCT}]}}]:[]);
+ await repository(new Pool([writer]),[],[PRODUCT,VARIANT]).importBatch({tenantContext:tenant(),now:NOW,operationId:OPERATION,jobId:JOB,sourceDigest:DIGEST,products:[{...selected,tax,variant:{...selected.variant,tax:null}}]});
+ const sql=call(writer,'catalog_migration_import_batch');assert.match(sql.text,/catalog_migration_import_batch_v2\(/);const persisted=JSON.parse(String(sql.values[12]))[0];assert.deepEqual(persisted.tax,tax);assert.equal(persisted.variant.tax,null);
+});
 
 test("begin persists root-to-leaf category parent authority", async () => {
   const writer = new Client((text) => text.includes("catalog_migration_begin")

@@ -206,6 +206,15 @@ test("rich import persists every ordered variant through the additive v2 authori
     ],
   }]);
 });
+test('import mutations carry explicit product and variant tax through the existing atomic JSON call',async()=>{
+ const tax={treatment:'taxable',rateBps:1000}as const;
+ const legacy=new Client(text=>text.includes('catalog_admin_import_products')?[{outcome:'imported',result_payload:mutation(JOB,'completed')}]:[]);
+ await repository(new Pool([legacy]),[],[JOB,NEW_PRODUCT,VARIANT]).importProducts({tenantContext:tenant(),now:NOW,operationId:OP,fileName:'tax.csv',rows:[{title:'Product',slug:'test-product',priceCents:12000,stockQuantity:1,tax}]});
+ assert.deepEqual(JSON.parse(String(call(legacy,'catalog_admin_import_products').values[12]))[0].tax,tax);
+ const rich=new Client(text=>text.includes('catalog_admin_import_products_v2')?[{outcome:'imported',result_payload:mutation(JOB,'completed')}]:[]);
+ await repository(new Pool([rich]),[],[JOB,NEW_PRODUCT,VARIANT]).importProductsV2({tenantContext:tenant(),now:NOW,operationId:OP,fileName:'tax.csv',products:[{title:'Product',slug:'test-product',status:'active',tax,variants:[{title:'Default',priceCents:12000,stockQuantity:1,attributes:{},tax:null}]}]});
+ const product=JSON.parse(String(call(rich,'catalog_admin_import_products_v2').values[12]))[0];assert.deepEqual(product.tax,tax);assert.equal(product.variants[0].tax,null);
+});
 
 test("feed preview authority is a read-only action check with no mutation input", async () => {
   const reader = new Client((text) => text.includes("catalog_admin_authorize_feed_preview") ? [{ outcome: "authorized", result_payload: {} }] : []);

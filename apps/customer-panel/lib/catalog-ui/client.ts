@@ -10,6 +10,8 @@ import {
   parsePermanentDeletionResult,
   parseProduct,
   parseProductVariant,
+  parseProductTaxRead,
+  type ProductTaxRead,
   type CatalogProductListVariantSummary,
   type CatalogProductListQuery,
   type CatalogBulkProductIntent,
@@ -408,6 +410,10 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
       }));
       if (body === null || !Array.isArray(body.variants)) throw new CatalogApiError("unavailable", 503);
       return Object.freeze({ product: parseProduct(body.product), variants: Object.freeze(body.variants.map(parseProductVariant)) });
+    },
+
+    async getProductTax(id:string,signal?:AbortSignal):Promise<ProductTaxRead>{
+      try{const selected=productId(id);const result=parseProductTaxRead(await request(`/api/catalog/products/${selected}/tax`,{method:'GET',credentials:'same-origin',cache:'no-store',...(signal?{signal}:{})}));if(result.productId!==selected)throw Error();return result;}catch(error){if(error instanceof CatalogApiError)throw error;throw new CatalogApiError('unavailable',503);}
     },
 
     async createProduct(input: Readonly<{ product: CatalogProductFields; initialVariant: CatalogVariantFields }>): Promise<CreateProductResult> {

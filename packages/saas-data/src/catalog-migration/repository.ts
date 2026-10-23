@@ -126,7 +126,7 @@ export class PostgresCatalogMigrationRepository implements CatalogMigrationRepos
     const { parsed, authority } = this.authority(input, ["tenantContext", "now", "operationId", "jobId", "sourceDigest", "products"]);
     const operationId = catalogMigrationUuid(parsed.operationId), jobId = catalogMigrationUuid(parsed.jobId), sourceDigest = catalogMigrationDigest(parsed.sourceDigest);
     const products = catalogMigrationProducts(parsed.products);
-    const extended = products.some((product) => product.additionalVariants !== undefined || product.sourceMetadata !== undefined || product.variant.measurements !== undefined);
+    const extended = products.some((product) => product.additionalVariants !== undefined || product.sourceMetadata !== undefined || product.variant.measurements !== undefined || Object.hasOwn(product,"tax") || Object.hasOwn(product.variant,"tax"));
     const persisted = products.map((product) => ({ ...product, productId: this.uuid(), variant: { ...product.variant, variantId: this.uuid() },
       ...(product.additionalVariants === undefined ? {} : { additionalVariants: product.additionalVariants.map((variant) => ({ ...variant, variantId: this.uuid() })) }),
     }));

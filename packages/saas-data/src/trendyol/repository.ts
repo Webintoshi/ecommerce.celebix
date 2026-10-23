@@ -1,5 +1,5 @@
 import {createHash} from 'node:crypto';
-import {hasCommercialCapability,isMerchantActionAllowed,parseTrendyolOverview,parseTrendyolOrderIssues,parseTrendyolProducts,parseTrendyolPricingRule,parseTrendyolSaveResult,parseTrendyolSellerId,TRENDYOL_ERROR_CODES,trendyolInteger,trendyolUuid,type TenantContext,type TrendyolErrorCode,type TrendyolOverview,type TrendyolOrderIssues,type TrendyolProducts,type TrendyolSaveResult,type TrendyolPricingRule} from '@celebix/saas-contracts';
+import {hasCommercialCapability,isMerchantActionAllowed,parseTrendyolOverview,parseTrendyolOrderIssues,parseTrendyolProducts,parseTrendyolTaxProducts,parseTrendyolPricingRule,parseTrendyolSaveResult,parseTrendyolSellerId,TRENDYOL_ERROR_CODES,trendyolInteger,trendyolUuid,type TenantContext,type TrendyolErrorCode,type TrendyolOverview,type TrendyolOrderIssues,type TrendyolProducts,type TrendyolTaxProducts,type TrendyolSaveResult,type TrendyolPricingRule} from '@celebix/saas-contracts';
 import {acquirePostgresClient,type PostgresPoolLike,type PostgresTimeoutOptions} from '../postgres/pool.ts';
 import {parseTrendyolSealedCredential} from './credential.ts';
 import type {SealedMerchantProviderCredential} from '../provider-execution/credential-crypto.ts';
@@ -22,6 +22,7 @@ export interface TrendyolRepository{
   overview(input:TrendyolAuthority):Promise<TrendyolOverview>;
   orderIssues(input:TrendyolAuthority):Promise<TrendyolOrderIssues>;
   products(input:TrendyolAuthority&Readonly<{cursor?:string;limit?:number}>):Promise<TrendyolProducts>;
+  productsTax(input:TrendyolAuthority&Readonly<{cursor?:string;limit?:number}>):Promise<TrendyolTaxProducts>;
   credential(input:TrendyolAuthority):Promise<TrendyolConnectionSecret>;
   receipt(input:TrendyolAuthority&Readonly<{action:'connect'|'settings'|'map'|'sync'|'disconnect';operationId:string;fingerprint:string}>):Promise<TrendyolSaveResult|null>;
   command(input:TrendyolAuthority&Readonly<{action:'connect'|'settings'|'map'|'sync'|'disconnect';payload:Readonly<Record<string,unknown>>}>):Promise<TrendyolSaveResult>;
@@ -72,6 +73,7 @@ export function createPostgresTrendyolRepository(options:Options):TrendyolReposi
     overview:async input=>run(input,'overview',{},['found','ok'],parseTrendyolOverview),
     orderIssues:async input=>run(input,'order_issues',{},['found','ok'],parseTrendyolOrderIssues),
     products:async input=>{const payload=checked(()=>({limit:trendyolInteger(input.limit??25,1,50),cursor:input.cursor===undefined?null:trendyolUuid(input.cursor)}));return run(input,'products',payload,['found','ok'],parseTrendyolProducts);},
+    productsTax:async input=>{const payload=checked(()=>({limit:trendyolInteger(input.limit??25,1,50),cursor:input.cursor===undefined?null:trendyolUuid(input.cursor)}));return run(input,'products_tax',payload,['found','ok'],parseTrendyolTaxProducts);},
     credential:async input=>run(input,'credential',{},['found','ok'],v=>{const c=record(v);return Object.freeze({sellerId:parseTrendyolSellerId(c.sellerId),credential:parseTrendyolSealedCredential(c.credential),credentialVersion:trendyolInteger(c.credentialVersion,1,Number.MAX_SAFE_INTEGER),connectionVersion:trendyolInteger(c.connectionVersion,1,Number.MAX_SAFE_INTEGER),generation:trendyolInteger(c.generation,1,Number.MAX_SAFE_INTEGER)});}),
     receipt:async input=>run(input,'receipt',{targetAction:input.action,operationId:trendyolUuid(input.operationId),fingerprint:input.fingerprint},['found','not_found'],value=>value===null||!Object.keys(record(value)).length?null:parseTrendyolSaveResult(value),true),
     command:async input=>{if(!['connect','settings','map','sync','disconnect'].includes(input.action))trendyolFailure('invalid_input');return run(input,input.action,input.payload,['saved','queued','ok','replayed'],parseTrendyolSaveResult,true);},
