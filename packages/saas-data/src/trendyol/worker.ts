@@ -7,7 +7,7 @@ import type {MerchantProviderCredentialKeyring} from '../provider-execution/cred
 type Provider=Pick<TrendyolProvider,'submitInventory'|'createProducts'|'productOrNull'|'product'|'batch'|'getInventory'|'orderStream'|'getOrder'|'registerWebhook'>;
 type Options=Readonly<{repository:TrendyolWorkflowRepository;provider:Provider;keyring:MerchantProviderCredentialKeyring;panelOrigin:string;now?:()=>Date}>;
 type Item=Record<string,unknown>;
-type Outcome={variantId:string;status:'submitted'|'active'|'failed';mappingVersion:number;fingerprint?:string;requiresInventory?:boolean;requeue?:boolean;issue?:string};
+type Outcome={variantId:string;status:'submitted'|'active'|'failed';mappingVersion:number;fingerprint?:string;requiresApproval?:boolean;requiresInventory?:boolean;requeue?:boolean;issue?:string};
 function object(value:unknown):Item {if(!value||typeof value!=='object'||Array.isArray(value))throw new TrendyolProviderError('invalid_input');return value as Item;}
 function items(value:unknown):Item[]{if(!Array.isArray(value)||value.length>50)throw new TrendyolProviderError('invalid_input');return value.map(object);}
 function iso(value:unknown):string {if(typeof value!=='string'||!Number.isFinite(Date.parse(value)))throw new TrendyolProviderError('invalid_input');return new Date(value).toISOString();}
@@ -49,7 +49,7 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
      const expired:Outcome[]=original.map(item=>{
       const variantId=trendyolUuid(item.variantId),mappingVersion=trendyolInteger(item.mappingVersion,1,Number.MAX_SAFE_INTEGER),prior=previous.find(p=>p.variantId===variantId);
       const settled=prior?.status==='active'||prior?.status==='failed';
-      return {variantId,mappingVersion,status:settled?prior.status as 'active'|'failed':'failed',...(typeof item.fingerprint==='string'?{fingerprint:item.fingerprint}:{}),...(!settled||prior.issue==='provider_outcome_unknown'?{issue:'provider_outcome_unknown'}:{})};
+      return {variantId,mappingVersion,status:settled?prior.status as 'active'|'failed':'failed',...(typeof item.requiresApproval==='boolean'?{requiresApproval:item.requiresApproval}:{}),...(typeof item.fingerprint==='string'?{fingerprint:item.fingerprint}:{}),...(!settled||prior.issue==='provider_outcome_unknown'?{issue:'provider_outcome_unknown'}:{})};
      });
      await finish({items:expired,pending:false,batchComplete:true});return;
     }
@@ -61,11 +61,11 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
      if(prior?.status==='active'||prior?.status==='failed')status=prior.status;
      else if(result?.status==='failed')status='failed';
      else if(batchComplete||result?.status==='success'){
-      if(!mapping.enabled)status='active';
+      if(item.requiresApproval===false)status='active';
       else if(lookups++<4){const product=await provider.product(credential,mapping.barcode);if(product.approved&&!product.archived)status='active';else if(product.archived)status='failed';}
      }else if(batch?.complete)status='failed'; // A complete response must account for every submitted barcode.
      const requeue=status==='active'&&item.requiresInventory===true;
-     outcomes.push({variantId,mappingVersion,status,...(item.requiresInventory===true?{requiresInventory:true}:{}),...(requeue?{requeue:true}:typeof item.fingerprint==='string'?{fingerprint:item.fingerprint}:{})});
+     outcomes.push({variantId,mappingVersion,status,...(typeof item.requiresApproval==='boolean'?{requiresApproval:item.requiresApproval}:{}),...(item.requiresInventory===true?{requiresInventory:true}:{}),...(requeue?{requeue:true}:typeof item.fingerprint==='string'?{fingerprint:item.fingerprint}:{})});
     }
     await finish({items:outcomes,pending:outcomes.some(o=>o.status==='submitted'),batchComplete:batchComplete||batch?.complete===true});return;
    }
@@ -73,20 +73,14 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
    let group:'inventory'|'create'|null=null,lookups=0;
    for(const item of catalog){
     const variantId=trendyolUuid(item.variantId),mappingVersion=trendyolInteger(item.mappingVersion,1,Number.MAX_SAFE_INTEGER),base={variantId,mappingVersion};
+    // An unknown queued write may still apply later; neither an old fingerprint nor a current read proves settlement.
+    if(item.issue==='provider_outcome_unknown'){outcomes.push({...base,status:'failed',issue:'provider_outcome_unknown'});continue;}
     let mapping;try{mapping=parseTrendyolListingInput(item.mapping);}catch{outcomes.push({...base,status:'failed'});continue;}
     const withdraw=!mapping.enabled||item.webPriceCents===null;
     let quantity=withdraw?0:Math.min(trendyolInteger(item.quantity,0,Number.MAX_SAFE_INTEGER),20000);
     const target=withdraw?{barcode:mapping.barcode,quantity}:{barcode:mapping.barcode,quantity,salePriceCents:calculateTrendyolPrice(trendyolInteger(item.webPriceCents,1,999999999999),{...job.pricing,productVatBps:mapping.vatRate*100}).salePriceCents};
     const fingerprint=trendyolFingerprint(target),outcome:Outcome={...base,status:'submitted',fingerprint};
     if(item.lastPayloadFingerprint===fingerprint){outcomes.push({...outcome,status:'active'});continue;}
-    // A lost POST response is reconciled against provider truth before any deliberate retry.
-    if(item.issue==='provider_outcome_unknown'){
-     if(lookups>=4)continue;lookups++;
-     const remote=await provider.getInventory(credential,[mapping.barcode]),actual=remote.items.find(p=>p.barcode===mapping.barcode);
-     if(actual&&actual.quantity===target.quantity&&(!('salePriceCents'in target)||actual.salePriceCents===target.salePriceCents)){outcomes.push({...outcome,status:'active'});continue;}
-     // A mismatch is retained for a deliberate mapping review, never treated as permission to replay an unknown POST.
-     outcomes.push({...outcome,status:'failed',issue:'provider_outcome_unknown'});continue;
-    }
     if(withdraw&&mapping.mode==='create'&&item.providerSubmitted!==true){outcomes.push({...outcome,status:'active'});continue;}
     let create=mapping.mode==='create'&&item.providerSubmitted!==true&&!withdraw;
     if(create){
@@ -94,7 +88,7 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
      const existing=await provider.productOrNull(credential,mapping.barcode);
      if(existing){
       if(existing.archived){outcomes.push({...outcome,status:'failed'});continue;}
-      if(!existing.approved){outcomes.push({...outcome,requiresInventory:true});continue;}
+      if(!existing.approved){outcomes.push({...outcome,requiresApproval:true,requiresInventory:true});continue;}
       create=false;
      }
     }
@@ -105,9 +99,9 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
       if(images.length<1||images.length>8)throw TypeError();
       const attrs=mapping.attributes.map(a=>a.valueId===undefined?{attributeId:a.attributeId,attributeValue:a.value}:{attributeId:a.attributeId,attributeValueIds:[a.valueId]});
       if(!attrs.length)throw TypeError();
-      creation.push({barcode:mapping.barcode,title:text(item.title,100),description:text(item.description,30000),productMainId:trendyolUuid(item.productId),brandId:mapping.brandId,categoryId:mapping.categoryId,quantity,vatRate:mapping.vatRate,listPrice:('salePriceCents'in target?target.salePriceCents!:0)/100,salePrice:('salePriceCents'in target?target.salePriceCents!:0)/100,dimensionalWeight:mapping.dimensionalWeight,images:images.map(url=>({url:text(url,2048)})),attributes:attrs,cargoProviders:[mapping.cargoProviderCode],...(typeof item.sku==='string'&&item.sku?{stockCode:item.sku}:{})});submitted.push(outcome);
+      creation.push({barcode:mapping.barcode,title:text(item.title,100),description:text(item.description,30000),productMainId:trendyolUuid(item.productId),brandId:mapping.brandId,categoryId:mapping.categoryId,quantity,vatRate:mapping.vatRate,listPrice:('salePriceCents'in target?target.salePriceCents!:0)/100,salePrice:('salePriceCents'in target?target.salePriceCents!:0)/100,dimensionalWeight:mapping.dimensionalWeight,images:images.map(url=>({url:text(url,2048)})),attributes:attrs,cargoProviders:[mapping.cargoProviderCode],...(typeof item.sku==='string'&&item.sku?{stockCode:item.sku}:{})});submitted.push({...outcome,requiresApproval:true});
      }catch{outcomes.push({...outcome,status:'failed'});}
-    }else{inventory.push(target);submitted.push(outcome);}
+    }else{inventory.push(target);submitted.push({...outcome,requiresApproval:false});}
    }
    if(submitted.length){
     await fresh();if(!await repository.beginDispatch(fence,now()))throw new StaleJob();wrote=true;
@@ -117,8 +111,8 @@ export async function processTrendyolJobs(options:Options):Promise<{claimed:numb
   }catch(error){
    if(error instanceof StaleJob){stats.stale++;return;}
    let code=error instanceof TrendyolProviderError?error.code:'provider_unavailable';
-   // A known remote write followed by lost persistence must never be blindly repeated.
-   if(wrote&&!(error instanceof TrendyolProviderError))code='provider_outcome_unknown';
+   // Lost persistence or a conflicting queued write requires reconciliation before another POST.
+   if(wrote&&(!(error instanceof TrendyolProviderError)||code==='provider_conflict'))code='provider_outcome_unknown';
    const delay=error instanceof TrendyolProviderError?error.retryAfterSeconds??60:60;
    try{await repository.defer(fence,code,now(),Math.min(delay,3600));stats.deferred++;}catch{/* Lease expiry safely hands work back to the durable queue. */}
   }

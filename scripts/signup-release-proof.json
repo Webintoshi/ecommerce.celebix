@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "320fc43957116e9aeb9966346c1ba3dcadfeb6720cfe783fe20c45e2bdd302f9",
+  "inputDigest": "992295baad30d03bd23f232a80b0cd4ec08caafa1fdff300a04ca064f15c974e",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2784,6 +2784,10 @@
       "sha256": "2456ec376940a3001c1149c3054d724428ea7d098ca8bed3c4e03f720a8e7e31"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610230267_trendyol_batch_serialization.up.sql",
+      "sha256": "cd7d8324b92a3144329d51a74e5501fee221d799c53a6baac8a68b196e4081ce"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -5389,7 +5393,7 @@
     },
     {
       "path": "packages/saas-data/src/trendyol/worker.ts",
-      "sha256": "c7809a2bd46aa4b69a088acb6fe1b50c36f8d9618066860cfad7776d5f0ede2a"
+      "sha256": "4ef6c1e1119307d51af8f6ca457353d4f32fa72789b9db8ac1e8b65949c43933"
     },
     {
       "path": "packages/saas-data/src/types.ts",
