@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "7504d906c77a9ea5c44f2dcf96420e8fae8e8ae1fdec56cbf6c0b5ab3f421db9",
+  "inputDigest": "4393a1a558f6c27ffdc97f095cbdb3b400a973d8b8b04147f81a61e509b9eec9",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -129,7 +129,7 @@
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/handler.ts",
-      "sha256": "33c0b04edd84cbc180910ba856c8ab6fa1c7ed45c355defa59454b277f71a02f"
+      "sha256": "1200cb943863686a017abcd67ac93f76e0084e9cd4da0fad2052611704c216ca"
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/runtime.ts",

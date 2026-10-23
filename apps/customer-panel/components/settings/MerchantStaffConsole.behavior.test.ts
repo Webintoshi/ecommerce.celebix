@@ -11,6 +11,27 @@ test('owner staff list creates phone name role only and uses original optimistic
 test('failed create retains fields and original operation, no automatic requests',async()=>{const calls:any[]=[];await withEditor(async({window,container,render,click,change})=>{await render(React.createElement(Console,{client:client({create:async input=>{calls.push(input);throw Error('SQL SECRET');}})}));await settle();await click(container.querySelector('[data-add-staff]')!);await change(container.querySelector<HTMLInputElement>('[name="phone"]')!,'0555 111 22 33');await change(container.querySelector<HTMLInputElement>('[name="displayName"]')!,'Grace');await submit(window,container);await submit(window,container);assert.equal(calls[0].operationId,calls[1].operationId);assert.equal(container.querySelector<HTMLInputElement>('[name="phone"]')!.value,'0555 111 22 33');assert.equal(container.querySelector<HTMLInputElement>('[name="displayName"]')!.value,'Grace');assert.equal(container.textContent!.includes('SECRET'),false);assert.ok(container.querySelector('[role="alert"]'));await new Promise(r=>setTimeout(r,20));assert.equal(calls.length,2);});});
 test('edit contains no mutable phone and revoke requires explicit confirmation with row version',async()=>{const calls:any[]=[];await withEditor(async({window,container,render,click,change})=>{await render(React.createElement(Console,{client:client({update:async(id,input)=>{calls.push({id,input});return state;},revoke:async(id,input)=>{calls.push({id,input});return state;}})}));await settle();await click(container.querySelector('[data-edit-staff]')!);assert.equal(container.querySelector('input[name="phone"]'),null);await change(container.querySelector<HTMLInputElement>('[name="displayName"]')!,'Ada New');await submit(window,container);assert.equal(calls[0].id,ID);assert.equal(calls[0].input.expectedVersion,2);assert.equal(calls[0].input.phone,undefined);await click(container.querySelector('[data-revoke-staff]')!);assert.equal(calls.length,1);await submit(window,container);assert.equal(calls[1].input.expectedVersion,2);});});
 test('disabled staged state has no staff mutation actions',async()=>{let writes=0;await withEditor(async({container,render})=>{await render(React.createElement(Console,{client:client({state:async()=>({...state,enabled:false}),create:async()=>{writes++;return state;}})}));await settle();assert.equal(container.querySelector('[data-add-staff]'),null);assert.equal(container.querySelector('[data-edit-staff]'),null);assert.match(container.textContent!,/henüz etkin değil/);assert.equal(writes,0);});});
+test('a failed initial read ends the loading state and an explicit refresh restores staff actions',async()=>{
+ let reads=0;let rejectRead!:(reason:Error)=>void;
+ const initial=new Promise<typeof state>((_resolve,reject)=>{rejectRead=reject;});
+ await withEditor(async({container,render,click})=>{
+  await render(React.createElement(Console,{client:client({state:()=>++reads===1?initial:Promise.resolve(state)})}));
+  assert.match(container.textContent!,/Personel bilgileri yükleniyor/);
+  await React.act(async()=>rejectRead(new Error('private database detail')));
+  await settle();
+  assert.ok(container.querySelector('[role="alert"]'));
+  assert.equal(container.textContent!.includes('Personel bilgileri yükleniyor'),false);
+  assert.equal(container.textContent!.includes('private database detail'),false);
+  assert.equal(container.querySelector('[data-add-staff]'),null);
+  assert.equal(reads,1);
+  await click(Array.from(container.querySelectorAll('button')).find(button=>button.textContent==='Listeyi yenile')!);
+  await settle();
+  assert.equal(reads,2);
+  assert.equal(container.querySelector('[role="alert"]'),null);
+  assert.match(container.textContent!,/Ada/);
+  assert.ok(container.querySelector('[data-add-staff]'));
+ });
+});
 test('version conflict requires explicit fresh list then explicit version adoption and a new operation',async()=>{
  const {MerchantStaffError}=staffModule;
  let reads=0;const calls:any[]=[];

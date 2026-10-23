@@ -90,7 +90,9 @@ export function createMerchantPhoneHandlers(options:Readonly<{
   // Strict view model keeps internal principal and encrypted phone fields out
   // of the browser. The staff list has no authentication credentials.
   const {parseStaffState}=await import('../merchant-staff-ui/model.ts');
-  const raw=response.state;const state=parseStaffState({...raw,staff:Array.isArray(raw.staff)?raw.staff.map(item=>{const {principalId:_principal,...safe}=item as Record<string,unknown>;return safe;}):raw.staff});
+  // Phone-only staff have no membership until their first verified login.
+  // Represent that native null as the public DTO's absent optional field.
+  const raw=response.state;const state=parseStaffState({...raw,staff:Array.isArray(raw.staff)?raw.staff.map(item=>{const {principalId:_principal,membershipId,...safe}=item as Record<string,unknown>;return membershipId===null||membershipId===undefined?safe:{...safe,membershipId};}):raw.staff});
   const output=secure(Response.json({code:'ok',state,...(request.method==='GET'?{csrfToken:csrf}:{})}));if(request.method==='GET'&&!savedCsrf)output.headers.append('set-cookie',setCookie(names.staffCsrf,csrf,28800));return output;
  }catch(e){return e instanceof Unauthorized?error('unauthorized',401):e instanceof Error&&e.message==='merchant_request_invalid'?error('request_invalid'):error('unavailable',503);}}
  return Object.freeze({state:(r:Request)=>handle(r,'state'),start:(r:Request)=>handle(r,'start'),resend:(r:Request)=>handle(r,'resend'),verify:(r:Request)=>handle(r,'verify'),complete:(r:Request)=>handle(r,'complete'),bindState:(r:Request)=>handle(r,'state',true),bindStart:(r:Request)=>handle(r,'start',true),bindResend:(r:Request)=>handle(r,'resend',true),bindVerify:(r:Request)=>handle(r,'verify',true),staff});

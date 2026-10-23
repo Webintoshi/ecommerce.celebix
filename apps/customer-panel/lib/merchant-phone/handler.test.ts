@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createMerchantPhoneHandlers,MerchantActorUnavailable} from './handler.ts';
+import {parseStaffState} from '../merchant-staff-ui/model.ts';
 const origin='https://shop.admin.example.com',operation='12345678-1234-4234-8234-123456789abc';
 function fixture(){const calls:any[]=[];let authorized=true;const handlers=createMerchantPhoneHandlers({clock:()=>new Date('2026-10-13T10:00:00.000Z'),randomBytes:size=>new Uint8Array(size).fill(7),requireActor:async()=>{if(!authorized)throw Error();return 'v1.session1.'+Buffer.alloc(32,3).toString('base64url');},authenticateIngress:()=>({authenticated:true,trustedIp:'203.0.113.4'}),transport:{async command(input){calls.push(input);return {schemaVersion:1,code:'ok',state:input.action==='self_state'?{phoneMasked:null,phoneVerified:false}:{phase:'phone'}};}}});return {handlers,calls,unauthorize(){authorized=false;}};}
 function request(path:string,init:RequestInit={}){return new Request(origin+path,{...init,headers:{host:'shop.admin.example.com',...init.headers}});}
@@ -63,4 +64,54 @@ test('staff delete bridges only row identity and version behind actor, CSRF and 
  for(const change of [{role:'admin'},{displayName:'Ada'},{phone:'+905551112233'},{storeId:staffId}]){assert.equal((await handlers.staff(request(`/api/merchant-staff/${staffId}`,{method:'POST',headers,body:JSON.stringify({...input,...change})}),staffId)).status,403);}
  assert.equal(calls.length,count);
  const denied=await handlers.staff(request(`/api/merchant-staff/${staffId}`,{method:'POST',headers:{...headers,'x-celebix-merchant-staff-csrf':'invalid'},body:JSON.stringify(input)}),staffId);assert.equal(denied.status,403);assert.equal(calls.length,count);
+});
+
+const nativePendingStaff={staffId:'33333333-3333-4333-8333-333333333333',displayName:'Ada',phoneMasked:'+90 ••• 2233',role:'admin',enabled:true,version:0,phoneVerified:false,membershipId:null,principalId:null};
+function staffFixture(read:()=>Record<string,unknown>){
+ const calls:any[]=[];
+ const handlers=createMerchantPhoneHandlers({randomBytes:size=>new Uint8Array(size).fill(7),requireActor:async()=> 'private-actor',authenticateIngress:()=>({authenticated:true}),transport:{async command(input){calls.push(input);return {schemaVersion:1,code:'ok',state:read()};}}});
+ return {handlers,calls};
+}
+test('staff GET normalizes native pending membership null without weakening the strict public DTO',async()=>{
+ const membershipId='44444444-4444-4444-8444-444444444444',principalId='55555555-5555-4555-8555-555555555555';
+ const bound={...nativePendingStaff,staffId:'66666666-6666-4666-8666-666666666666',displayName:'Grace',phoneVerified:true,membershipId,principalId};
+ const f=staffFixture(()=>({version:2,enabled:true,staff:[nativePendingStaff,bound]}));
+ const response=await f.handlers.staff(request('/api/merchant-staff'));
+ assert.equal(response.status,200);
+ const body=await response.json(),{membershipId:_membership,principalId:_principal,...pendingPublic}=nativePendingStaff;
+ assert.deepEqual(body.state,{version:2,enabled:true,staff:[pendingPublic,{...pendingPublic,staffId:bound.staffId,displayName:'Grace',phoneVerified:true,membershipId}]});
+ assert.deepEqual(parseStaffState(body.state),body.state);
+ assert.equal(Object.hasOwn(body.state.staff[0],'membershipId'),false);
+ assert.equal(body.state.staff.some((row:Record<string,unknown>)=>Object.hasOwn(row,'principalId')),false);
+ assert.match(body.csrfToken,/^[A-Za-z0-9_-]{43}$/);
+ assert.equal(response.headers.get('cache-control'),'no-store');
+ assert.throws(()=>parseStaffState({version:2,enabled:true,staff:[{...pendingPublic,membershipId:null}]}));
+});
+test('staff POST returns newly committed phone-only staff and later GET stays readable',async()=>{
+ let created=false;
+ const f=staffFixture(()=>({version:created?1:0,enabled:true,staff:created?[nativePendingStaff]:[]}));
+ const initial=await f.handlers.staff(request('/api/merchant-staff')),csrf=(await initial.json()).csrfToken,cookie=initial.headers.getSetCookie().map(v=>v.split(';')[0]).join('; ');
+ created=true;
+ const input={phone:'+905551112233',displayName:'Ada',role:'admin',operationId:operation,expectedVersion:0};
+ const response=await f.handlers.staff(request('/api/merchant-staff',{method:'POST',headers:{origin,'content-type':'application/json',cookie,'idempotency-key':operation,'x-celebix-merchant-staff-csrf':csrf},body:JSON.stringify(input)}));
+ assert.equal(response.status,200);
+ const body=await response.json();
+ assert.deepEqual(Object.keys(body).sort(),['code','state']);
+ assert.equal(body.state.staff[0].staffId,nativePendingStaff.staffId);
+ assert.equal(Object.hasOwn(body.state.staff[0],'membershipId'),false);
+ assert.equal(Object.hasOwn(body.state.staff[0],'principalId'),false);
+ assert.deepEqual(parseStaffState(body.state),body.state);
+ assert.deepEqual(f.calls.at(-1),{schemaVersion:1,action:'staff_create',purpose:'login',hostname:'shop.admin.example.com',sessionCredential:'private-actor',operationId:operation,payload:{phone:input.phone,displayName:'Ada',role:'admin',expectedVersion:0}});
+ const reread=await f.handlers.staff(request('/api/merchant-staff',{headers:{cookie}}));
+ assert.equal(reread.status,200);
+ assert.deepEqual((await reread.json()).state,body.state);
+});
+test('staff projection still fails closed for malformed non-null memberships and unexpected private fields',async()=>{
+ for(const row of [{...nativePendingStaff,membershipId:'not-a-uuid'},{...nativePendingStaff,phoneCiphertext:'PRIVATE-PHONE'},{...nativePendingStaff,sessionCredential:'PRIVATE-SESSION'}]){
+  const f=staffFixture(()=>({version:1,enabled:true,staff:[row]}));
+  const response=await f.handlers.staff(request('/api/merchant-staff'));
+  assert.equal(response.status,503);
+  assert.deepEqual(await response.json(),{code:'unavailable'});
+  assert.equal(response.headers.has('set-cookie'),false);
+ }
 });

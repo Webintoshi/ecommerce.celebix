@@ -110,7 +110,7 @@ export function MerchantStaffConsole({ client: provided, salesClient, cashierAva
     } }
     return <section className={styles.console}>
   <header className={styles.header}><div><h1>Personel</h1><p>Mağaza erişimi için kişisel telefon numarası ve rol tanımlayın.</p></div>{state?.enabled ? <button type="button" className={styles.primary} data-add-staff disabled={busy} onClick={() => open({ mode: 'create', expectedVersion: state.version })}>Personel ekle</button> : !state && !error ? <span className={styles.actionPlaceholder} aria-hidden="true" /> : null}</header>
-  <div className={styles.toolbar}><p>{state ? `${state.staff.filter(row => row.enabled).length} personel erişimi açık` : 'Personel bilgileri yükleniyor…'}</p><button type="button" className={styles.secondary} disabled={busy} onClick={() => void reload()}>Listeyi yenile</button></div>
+  <div className={styles.toolbar}><p>{state ? `${state.staff.filter(row => row.enabled).length} personel erişimi açık` : error ? 'Personel listesi' : 'Personel bilgileri yükleniyor…'}</p><button type="button" className={styles.secondary} disabled={busy} onClick={() => void reload()}>Listeyi yenile</button></div>
   {state && !state.enabled && <p className={styles.note} role="status">Personel yönetimi bu mağazada henüz etkin değil.</p>}
   {error && !edit && <p className={styles.error} role="alert">{error}</p>}{status && <p className={styles.note} role="status">{status}</p>}
   {!state && !error && <div role="status" aria-label="Personel bilgileri yükleniyor…" className={styles.listLoading}><span className={styles.srOnly}>Personel bilgileri yükleniyor…</span>{[0,1,2].map(index=><div key={index} aria-hidden="true"><span/><span/><span/><span/></div>)}</div>}
