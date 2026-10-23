@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Mous
 
 import { formatTry } from "@/lib/format.ts";
 import { ProductPurchasePanel } from "./ProductPurchasePanel";
-import { ProductVariantMediaProvider, useProductVariantMedia } from "./ProductVariantMedia";
+import { ProductVariantMediaProvider, useProductVariantMedia, useProductVariantSelection } from "./ProductVariantMedia";
 import { useCartStatus } from "./CartStatusProvider";
 import styles from "./product-quick-view.module.css";
 import { ALPLER_STOREFRONT_ID } from "../themes/alpler/theme.ts";
@@ -24,8 +24,17 @@ function QuickViewMedia({ product, alpler = false }: Readonly<{ product: PublicP
   return <div className={styles.media} data-alpler-quick-media={alpler || undefined}>{primary ? /* eslint-disable-next-line @next/next/no-img-element */<img src={primary.url} alt={primary.altText || product.title} width={primary.width} height={primary.height} /> : <span>Görsel yakında</span>}</div>;
 }
 
-function StandardProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {
+function QuickViewPrice({ product }: Readonly<{ product: PublicProduct }>) {
   const policy = useCommercePolicy();
+  const [selectedId] = useProductVariantSelection(product);
+  const selected = product.variants.find(({ id }) => id === selectedId);
+  const price = selected ? selected.priceCents : product.priceCents;
+  const compareAt = selected ? selected.compareAtCents : product.compareAtCents;
+  if (policy.hidePrices || product.pricesHidden === true || price === null) return null;
+  return <div className={styles.price} aria-live="polite">{compareAt && compareAt > price ? <del>{formatTry(compareAt)}</del> : null}<strong>{formatTry(price)}</strong></div>;
+}
+
+function StandardProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {
   const { visualTheme } = useCartStatus();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null), dialogRef = useRef<HTMLElement>(null);
@@ -36,12 +45,11 @@ function StandardProductQuickView({ product }: Readonly<{ product: PublicProduct
     if (event.key === "Tab") { const controls = [...(dialogRef.current?.querySelectorAll<HTMLElement>(focusable) ?? [])], first = controls[0], last = controls.at(-1); if (!first || !last) return; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } }
   }
   function backdrop(event: MouseEvent<HTMLDivElement>) { if (event.target === event.currentTarget) close(); }
-  return <><button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={() => setOpen(true)}>Seçenekleri seç</button>{open ? <ProductVariantMediaProvider key={product.id} product={product}><div className={styles.backdrop} onMouseDown={backdrop}><section className={styles.dialog} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="quick-view-title" onKeyDown={keyboard}><button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button><QuickViewMedia product={product} /><div className={styles.content}><p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p><h2 id="quick-view-title">{product.title}</h2>{!policy.hidePrices && product.priceCents !== null ? <div className={styles.price}>{product.compareAtCents ? <del>{formatTry(product.compareAtCents)}</del> : null}<strong>{formatTry(product.priceCents)}</strong></div> : null}<ProductPurchasePanel product={product} available={product.available} showStockQuantity={visualTheme !== "alpler-deniz"} /></div></section></div></ProductVariantMediaProvider> : null}</>;
+  return <><button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={() => setOpen(true)}>Seçenekleri seç</button>{open ? <ProductVariantMediaProvider key={product.id} product={product}><div className={styles.backdrop} onMouseDown={backdrop}><section className={styles.dialog} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="quick-view-title" onKeyDown={keyboard}><button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button><QuickViewMedia product={product} /><div className={styles.content}><p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p><h2 id="quick-view-title">{product.title}</h2><QuickViewPrice product={product} /><ProductPurchasePanel product={product} available={product.available} showStockQuantity={visualTheme !== "alpler-deniz"} /></div></section></div></ProductVariantMediaProvider> : null}</>;
 }
 
 
 function AlplerProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {
-  const policy = useCommercePolicy();
   const { drawerOpen, closeDrawerAndWait, showQuantitySelector = true } = useCartStatus();
   const [open, setOpen] = useState(false);
   const openRef = useRef(false);
@@ -93,7 +101,7 @@ function AlplerProductQuickView({ product }: Readonly<{ product: PublicProduct }
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     return { proceed: sameRoute && sessionRef.current === renderedSession && `${window.location.pathname}${window.location.search}` === sourceRoute && Boolean(triggerRef.current?.isConnected), drawerTrigger: triggerRef.current };
   };
-  return <><button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={launch}>Seçenekleri seç</button>{open ? <ProductVariantMediaProvider key={product.id} product={product}><div className={styles.backdrop} onMouseDown={backdrop}><section className={styles.dialog} data-alpler-quick-view ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={keyboard}><button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button><QuickViewMedia product={product} alpler /><div className={styles.content} data-alpler-quick-content><p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p><h2 id={titleId}>{product.title}</h2>{!policy.hidePrices && product.priceCents !== null ? <div className={styles.price}>{product.compareAtCents ? <del>{formatTry(product.compareAtCents)}</del> : null}<strong>{formatTry(product.priceCents)}</strong></div> : null}<ProductPurchasePanel product={product} available={product.available} showStockQuantity={false} showQuantitySelector={showQuantitySelector} beforePurchaseTransition={beforePurchaseTransition} /></div></section></div></ProductVariantMediaProvider> : null}</>;
+  return <><button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={launch}>Seçenekleri seç</button>{open ? <ProductVariantMediaProvider key={product.id} product={product}><div className={styles.backdrop} onMouseDown={backdrop}><section className={styles.dialog} data-alpler-quick-view ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={keyboard}><button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button><QuickViewMedia product={product} alpler /><div className={styles.content} data-alpler-quick-content><p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p><h2 id={titleId}>{product.title}</h2><QuickViewPrice product={product} /><ProductPurchasePanel product={product} available={product.available} showStockQuantity={false} showQuantitySelector={showQuantitySelector} beforePurchaseTransition={beforePurchaseTransition} /></div></section></div></ProductVariantMediaProvider> : null}</>;
 }
 
 export function ProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {

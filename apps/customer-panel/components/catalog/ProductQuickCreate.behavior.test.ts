@@ -284,6 +284,80 @@ test("adding images retains earlier files and alt text while cancel and total-li
   });
 });
 
+async function dragImage(container: HTMLElement, browser: Window, from: number, to: number) {
+  const source = container.querySelector(`button[aria-label="${from}. görseli seç"]`)?.closest('[draggable="true"]');
+  const target = container.querySelector(`button[aria-label="${to}. görseli seç"]`)?.closest('[draggable="true"]');
+  assert.ok(source && target, "quick product images can be ordered before creation");
+  const dataTransfer = { effectAllowed: "", dropEffect: "", setData() {} };
+  await act(async () => {
+    for (const [element, type] of [[source, "dragstart"], [target, "dragover"], [target, "drop"]] as const) {
+      const event = new browser.Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+      element.dispatchEvent(event as unknown as Event);
+    }
+  });
+}
+
+test("quick creation preserves draft identities, cover and upload order after dragging and accessible moves", async () => {
+  let latest: drafts.ProductDraftSession | undefined;
+  const uploads: { file: File; altText: string }[] = [];
+  let creates = 0;
+  await withQuickCreate({ draftSession: draft(), onDraftSessionChange: (session: drafts.ProductDraftSession) => { latest = session; },
+    api: { createProduct: async () => { creates++; return created; } },
+    mediaClient: { upload: async (_id: string, selection: { file: File; altText: string }) => { uploads.push(selection); return {}; } },
+  }, async (container, browser, rerender) => {
+    const files = ["one", "two", "three"].map(value => new browser.File([value], "same.png", { type: "image/png" }) as unknown as File);
+    await selectImages(container, browser, files);
+    const before = latest!.current.media;
+    assert.equal(new Set(before.map(image => image.localId)).size, 3, "duplicate filenames do not share image identities");
+    for (const [index, value] of ["Ön", "Yan", "Arka"].entries()) await changeInput(container.querySelectorAll<HTMLInputElement>('input[maxlength="500"]')[index]!, browser, value);
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli seç"]')!.click());
+    await dragImage(container, browser, 3, 1);
+    assert.equal(creates, 0);
+    assert.equal(uploads.length, 0);
+    assert.deepEqual(latest!.current.media.map(image => image.file), [files[2], files[0], files[1]]);
+    assert.equal(container.querySelector('.cover img')?.getAttribute("alt"), "Yan", "the selected preview follows its identity");
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="3. görseli öne taşı"]')!.click());
+    assert.deepEqual(latest!.current.media.map(image => image.localId), [before[2]!.localId, before[1]!.localId, before[0]!.localId]);
+    assert.deepEqual(latest!.current.media.map(image => image.altText), ["Arka", "Yan", "Ön"]);
+    assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="1. görseli öne taşı"]')!.disabled, true);
+    assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="3. görseli arkaya taşı"]')!.disabled, true);
+    assert.ok([...container.querySelectorAll<HTMLImageElement>('.thumbnails img')].every(image => image.getAttribute("draggable") === "false"));
+    await rerender({ key: "restored-order", draftSession: latest });
+    assert.equal(container.querySelector('.cover img')?.getAttribute("alt"), "Arka", "restored first image is the cover");
+    await submit(container, browser, "publish");
+    assert.equal(creates, 1);
+    assert.deepEqual(uploads.map(image => image.file), [files[2], files[1], files[0]]);
+    assert.deepEqual(uploads.map(image => image.altText), ["Arka", "Yan", "Ön"]);
+  });
+});
+
+test("quick creation prevents an in-flight image drop during save and recovery", async () => {
+  let latest: drafts.ProductDraftSession | undefined, resolveCreate!: (value: unknown) => void;
+  await withQuickCreate({ draftSession: draft(), onDraftSessionChange: (session: drafts.ProductDraftSession) => { latest = session; },
+    api: { createProduct: () => new Promise(resolve => { resolveCreate = resolve; }) },
+    mediaClient: { upload: async () => { throw new Error("upload_failed"); } },
+  }, async (container, browser) => {
+    await selectImages(container, browser, ["one", "two"].map(value => new browser.File([value], `${value}.png`, { type: "image/png" }) as unknown as File));
+    const source = container.querySelector('button[aria-label="2. görseli seç"]')?.closest('[draggable="true"]');
+    const target = container.querySelector('button[aria-label="1. görseli seç"]')?.closest('[draggable="true"]');
+    assert.ok(source && target);
+    const event = new browser.Event("dragstart", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: { effectAllowed: "", setData() {} } });
+    await act(async () => source.dispatchEvent(event as unknown as Event));
+    const before = latest!.current.media.map(image => image.localId);
+    await submit(container, browser, "publish");
+    await act(async () => target.dispatchEvent(new browser.Event("drop", { bubbles: true, cancelable: true }) as unknown as Event));
+    assert.deepEqual(latest!.current.media.map(image => image.localId), before);
+    assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.matches(":disabled"), true);
+    await act(async () => resolveCreate(created));
+    assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /Ürün kaydı korundu/);
+    assert.equal(container.querySelector('[draggable="true"]'), null);
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.click());
+    assert.deepEqual(latest!.current.media.map(image => image.localId), before);
+  });
+});
+
 test("partial media recovery uploads only the failed file and publishes with the full media count", async () => {
   let creates = 0;
   const uploads: string[] = [];

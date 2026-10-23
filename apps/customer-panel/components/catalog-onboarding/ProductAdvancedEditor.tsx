@@ -3,7 +3,7 @@ import { CommercialFeatureLink } from "@/components/commercial-packages/Commerci
 
 
 import Link from "next/link";
-import { ChevronDown, ImagePlus, Plus, Store, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ImagePlus, Plus, Store, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type {
   CatalogAdvancedCreateIntent,
@@ -72,7 +72,7 @@ type ProductAdvancedEditorProps = Readonly<{
   onDraftSessionChange?(session: ProductDraftSession): void;
 }>;
 
-type EditorMediaSelection = ProductMediaSelection & Readonly<{ preview: string }>;
+type EditorMediaSelection = ProductMediaSelection & Readonly<{ localId: string; preview: string }>;
 
 function text(data: FormData, name: string) { const value = data.get(name); return typeof value === "string" ? value.trim() : ""; }
 function positiveInteger(value: string, fallback?: number) { if (value === "" && fallback !== undefined) return fallback; return /^(?:0|[1-9]\d*)$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : null; }
@@ -162,7 +162,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
-  const [media, setMedia] = useState<readonly EditorMediaSelection[]>((draftSession?.current.media ?? []).map(item => ({...item,localId:item.localId ?? crypto.randomUUID()})));
+  const [media, setMedia] = useState<readonly EditorMediaSelection[]>(() => (draftSession?.current.media ?? []).map(item => ({...item,localId:item.localId ?? crypto.randomUUID()})));
   const [categoryIds, setCategoryIds] = useState<readonly string[]>(draftSession?.current.categoryIds ?? editor?.categoryIds ?? []);
   const [collectionIds, setCollectionIds] = useState<readonly string[]>(draftSession?.current.collectionIds ?? editor?.resourceIds.collections ?? []);
   const [tagIds, setTagIds] = useState<readonly string[]>(draftSession?.current.tagIds ?? editor?.resourceIds.tags ?? []);
@@ -180,7 +180,9 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const [pendingAttributeIds, setPendingAttributeIds] = useState<readonly string[]>([]);
   const [attributeSaving, setAttributeSaving] = useState(false);
   const [pendingBarcodeCount, setPendingBarcodeCount] = useState(0);
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [activeMediaId, setActiveMediaId] = useState<string | undefined>(media[0]?.localId);
+  const activeMediaIndex = Math.max(0, media.findIndex(item => item.localId === activeMediaId));
+  const draggedMediaIdRef = useRef<string | undefined>(undefined);
   const lock = useRef(false);
   const simpleVariantRef = useRef<VariantDraft>(draftSession?.current.standardVariant ?? (kind === "simple" ? variants[0] : undefined) ?? { ...emptyVariant(), sku: deriveProductBaseSku(variants) });
   const pendingVariantSnapshotRef = useRef(new Map<string, VariantDraft>());
@@ -434,6 +436,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     const next = Object.freeze([...media, ...files.map((file) => Object.freeze({ localId:crypto.randomUUID(), file, altText: "", preview: URL.createObjectURL(file) }))]);
     mediaPreviewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
     setMedia(next);
+    if (!media.length) setActiveMediaId(next[0]?.localId);
   }
 
   function changeMediaAlt(index: number, altText: string) {
@@ -452,16 +455,29 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     mediaPreviewUrlsRef.current = next.map(({ preview }) => preview);
     markEditingDirty();
     setMedia(next);
-    setActiveMediaIndex(Math.max(0, Math.min(index, next.length - 1)));
+    setActiveMediaId(next[Math.max(0, Math.min(index, next.length - 1))]?.localId);
+  }
+
+  function moveMedia(sourceId: string, targetId: string) {
+    if (lock.current || recoveryRef.current || sourceId === targetId) return;
+    const sourceIndex = media.findIndex(item => item.localId === sourceId);
+    const targetIndex = media.findIndex(item => item.localId === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const next = [...media];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved!);
+    markEditingDirty();
+    setActiveMediaId(media[activeMediaIndex]?.localId);
+    setMedia(Object.freeze(next));
   }
 
   function setCover(index: number) {
-    if (recoveryRef.current) return;
+    if (lock.current || recoveryRef.current) return;
     const selected = media[index];
     if (!selected || index === 0) return;
     markEditingDirty();
     setMedia(Object.freeze([selected, ...media.filter((_, position) => position !== index)]));
-    setActiveMediaIndex(0);
+    setActiveMediaId(selected.localId);
   }
 
   function updateRecovery(value: ProductCreationRecovery) {
@@ -602,10 +618,32 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
             <div className={createStyles.mediaColumn}>
               <input ref={mediaInputRef} className={createStyles.fileInput} type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="Ürün görsellerini seç" onChange={selectMedia} />
               <button className={createStyles.cover} type="button" onClick={() => mediaInputRef.current?.click()} aria-label={media.length ? "Ürün görseli ekle" : "Ürün görsellerini seç"} disabled={media.length >= 16}>
-                {media[activeMediaIndex] ? <><img src={media[activeMediaIndex].preview} alt={media[activeMediaIndex].altText || `${activeMediaIndex + 1}. ürün görseli`} /><span className={createStyles.coverTag}>{activeMediaIndex === 0 ? "Kapak" : `${activeMediaIndex + 1}. görsel`}</span></> : <span className={createStyles.emptyPhoto}><ImagePlus aria-hidden="true" /><span>Görsel ekle</span></span>}
+                {media[activeMediaIndex] ? <><img src={media[activeMediaIndex].preview} alt={media[activeMediaIndex].altText || `${activeMediaIndex + 1}. ürün görseli`} draggable={false} /><span className={createStyles.coverTag}>{activeMediaIndex === 0 ? "Kapak" : `${activeMediaIndex + 1}. görsel`}</span></> : <span className={createStyles.emptyPhoto}><ImagePlus aria-hidden="true" /><span>Görsel ekle</span></span>}
               </button>
               <div className={createStyles.mediaFoot}><span>{media.length}/16 görsel</span>{media.length ? <button className={createStyles.iconButton} type="button" onClick={() => removeMedia(activeMediaIndex)} aria-label="Seçili görseli kaldır"><Trash2 aria-hidden="true" /></button> : null}</div>
-              {media.length > 1 ? <div className={createStyles.thumbnails} aria-label="Seçili görseller">{media.map((selected, index) => <button key={selected.preview} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeMediaIndex === index} onClick={() => setActiveMediaIndex(index)}><img src={selected.preview} alt="" /></button>)}</div> : null}
+              {media.length > 1 ? <div className={createStyles.thumbnails} aria-label="Seçili görseller">{media.map((selected, index) => <div key={selected.localId} className={createStyles.mediaThumbnail} draggable={!busy && !creationRecovery} title="Sürükleyerek sırala"
+                onDragStart={event => {
+                  if (lock.current || recoveryRef.current) { event.preventDefault(); return; }
+                  draggedMediaIdRef.current = selected.localId;
+                  event.dataTransfer.effectAllowed = "move";
+                  event.dataTransfer.setData("text/plain", selected.localId);
+                }}
+                onDragOver={event => {
+                  if (!draggedMediaIdRef.current || lock.current || recoveryRef.current) return;
+                  event.preventDefault(); event.dataTransfer.dropEffect = "move";
+                }}
+                onDrop={event => {
+                  event.preventDefault();
+                  const sourceId = draggedMediaIdRef.current; draggedMediaIdRef.current = undefined;
+                  if (sourceId) moveMedia(sourceId, selected.localId);
+                }}
+                onDragEnd={() => { draggedMediaIdRef.current = undefined; }}>
+                <button className={createStyles.thumbnailSelect} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeMediaIndex === index} onClick={() => setActiveMediaId(selected.localId)}><img src={selected.preview} alt="" draggable={false} />{index === 0 ? <span className={createStyles.thumbnailCover}>Kapak</span> : null}</button>
+                <div className={createStyles.mediaOrderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
+                  <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" disabled={busy || Boolean(creationRecovery) || index === 0} onClick={() => moveMedia(selected.localId, media[index - 1]!.localId)}><ArrowLeft aria-hidden="true" /></button>
+                  <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" disabled={busy || Boolean(creationRecovery) || index === media.length - 1} onClick={() => moveMedia(selected.localId, media[index + 1]!.localId)}><ArrowRight aria-hidden="true" /></button>
+                </div>
+              </div>)}</div> : null}
               <button className={createStyles.upload} type="button" onClick={() => mediaInputRef.current?.click()} disabled={media.length >= 16}><Plus aria-hidden="true" />Görsel ekle</button>
               <small className={createStyles.mediaHint}>JPG, PNG, WebP · en fazla 5 MB</small>
               {media[activeMediaIndex] ? <details className={createStyles.mediaDetails}><summary>Görsel bilgileri<ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}><label className={createStyles.field}><span>Alt metin</span><input value={media[activeMediaIndex].altText} maxLength={500} onChange={(event) => changeMediaAlt(activeMediaIndex, event.target.value)} /></label>{activeMediaIndex > 0 ? <button className={createStyles.inlineAction} type="button" onClick={() => setCover(activeMediaIndex)}>Kapak yap</button> : null}</div></details> : null}

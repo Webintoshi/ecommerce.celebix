@@ -40,6 +40,7 @@ async function compileProductDetailExperience() {
     if (specifier === "@/lib/public-product-ordering.ts") return { availableProductsFirst };
     if (specifier === "@/lib/storefront-routes.ts") return { categoryPath: (_locale: string, slug: string) => `/kategori/${slug}` };
     if (specifier === "@celebix/storefront-design-ui") return { ProductDetailSummary: component("ProductDetailSummary") };
+    if (specifier === "./SelectedProductDetailSummary") return { SelectedProductDetailSummary: component("ProductDetailSummary") };
     if (specifier === "./ProductCard") return { ProductCard };
     if (specifier === "./ProductApprovedReviews") return { ProductApprovedReviews: component("ProductApprovedReviews") };
     if (specifier === "./ProductGallery") return { ProductGallery: component("ProductGallery") };

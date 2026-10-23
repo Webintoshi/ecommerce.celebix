@@ -460,6 +460,83 @@ test("removing a local product image clears its variant links before creation",a
  });
 });
 
+async function dragImage(container: HTMLElement, browser: Window, from: number, to: number) {
+  const source = container.querySelector(`button[aria-label="${from}. görseli seç"]`)?.closest('[draggable="true"]');
+  const target = container.querySelector(`button[aria-label="${to}. görseli seç"]`)?.closest('[draggable="true"]');
+  assert.ok(source && target, "selected images support dragging before the product is saved");
+  const dataTransfer = { effectAllowed: "", dropEffect: "", setData() {} };
+  await act(async () => {
+    for (const [element, type] of [[source, "dragstart"], [target, "dragover"], [target, "drop"]] as const) {
+      const event = new browser.Event(type, { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
+      element.dispatchEvent(event as unknown as Event);
+    }
+  });
+}
+
+test("advanced creation keeps reordered images, selected preview and variant identities through remount and upload", async () => {
+  const red = { ...newSmall, localId: "draft-red", title: "Kırmızı S", attributes: { renk: "Kırmızı", beden: "S" } };
+  const original = drafts.updateProductDraft(draft(), { kind: "variant", variants: [red] });
+  const uploads: { file: File; altText: string }[] = [], assignments: unknown[] = [];
+  let creates = 0;
+  await withAdvanced({ draftSession: original,
+    api: { createProduct: async () => { creates++; return { ...created, variants: [{ id: "variant-red", attributes: red.attributes }] }; } },
+    mediaClient: { upload: async (_id: string, selection: { file: File; altText: string }) => { uploads.push(selection); return { media: { id: `media-${uploads.length}` } }; } },
+    galleryClient: { save: async (_id: string, input: { assignments: unknown }) => { assignments.push(input.assignments); } },
+  }, async ({ container, browser, latest, remount }) => {
+    const files = ["one", "two", "three"].map(value => new browser.File([value], "same.png", { type: "image/png" }));
+    const chooser = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    await act(async () => { Object.defineProperty(chooser, "files", { configurable: true, value: files }); chooser.dispatchEvent(new browser.Event("change", { bubbles: true }) as unknown as Event); });
+    const selected = latest().current.media.map((image, index) => ({ ...image, altText: ["Ön", "Yan", "Arka"][index]! }));
+    await remount(drafts.updateProductDraft(latest(), { media: selected, variants: [{ ...red, mediaIds: [selected[0]!.localId!, selected[2]!.localId!] }] }));
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli seç"]')!.click());
+    await dragImage(container, browser, 3, 1);
+    assert.equal(creates, 0, "local ordering never creates or uploads the product");
+    assert.deepEqual(latest().current.media.map(image => image.file), [files[2], files[0], files[1]]);
+    assert.equal(container.querySelector('.cover img')?.getAttribute("src"), selected[1]!.preview, "moving another image preserves the selected preview by identity");
+    const move = container.querySelector<HTMLButtonElement>('button[aria-label="3. görseli öne taşı"]');
+    assert.ok(move, "keyboard and touch users can change the same order");
+    await act(async () => move.click());
+    assert.deepEqual(latest().current.media.map(image => image.localId), [selected[2]!.localId, selected[1]!.localId, selected[0]!.localId]);
+    assert.deepEqual(latest().current.media.map(image => image.altText), ["Arka", "Yan", "Ön"]);
+    assert.deepEqual(latest().current.variants[0]!.mediaIds, [selected[0]!.localId, selected[2]!.localId]);
+    assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="1. görseli öne taşı"]')!.disabled, true);
+    assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="3. görseli arkaya taşı"]')!.disabled, true);
+    assert.ok([...container.querySelectorAll<HTMLImageElement>('.thumbnails img')].every(image => image.getAttribute("draggable") === "false"));
+    await remount(latest());
+    assert.equal(container.querySelector('.cover img')?.getAttribute("alt"), "Arka", "first image remains the saved cover after restoring a draft");
+    await submit(container, browser);
+    assert.equal(creates, 1);
+    assert.deepEqual(uploads.map(image => image.file), [files[2], files[1], files[0]]);
+    assert.deepEqual(uploads.map(image => image.altText), ["Arka", "Yan", "Ön"]);
+    assert.deepEqual(assignments, [[{ variantId: "variant-red", mediaIds: ["media-3", "media-1"] }]]);
+  });
+});
+
+test("advanced creation ignores an in-flight image drop during save and locks ordering during recovery", async () => {
+  let resolveCreate!: (value: unknown) => void;
+  await withAdvanced({ api: { createProduct: () => new Promise(resolve => { resolveCreate = resolve; }) }, mediaClient: { upload: async () => { throw new Error("upload_failed"); } } }, async ({ container, browser, latest }) => {
+    const chooser = container.querySelector<HTMLInputElement>('input[type="file"]')!;
+    await act(async () => { Object.defineProperty(chooser, "files", { configurable: true, value: ["one", "two"].map(value => new browser.File([value], `${value}.png`, { type: "image/png" })) }); chooser.dispatchEvent(new browser.Event("change", { bubbles: true }) as unknown as Event); });
+    const source = container.querySelector('button[aria-label="2. görseli seç"]')?.closest('[draggable="true"]');
+    const target = container.querySelector('button[aria-label="1. görseli seç"]')?.closest('[draggable="true"]');
+    assert.ok(source && target);
+    const event = new browser.Event("dragstart", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: { effectAllowed: "", setData() {} } });
+    await act(async () => source.dispatchEvent(event as unknown as Event));
+    const before = latest().current.media.map(image => image.localId);
+    await submit(container, browser);
+    await act(async () => target.dispatchEvent(new browser.Event("drop", { bubbles: true, cancelable: true }) as unknown as Event));
+    assert.deepEqual(latest().current.media.map(image => image.localId), before);
+    assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.matches(":disabled"), true);
+    await act(async () => resolveCreate(created));
+    assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /görsel yüklendi/);
+    assert.equal(container.querySelector('[draggable="true"]'), null);
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.click());
+    assert.deepEqual(latest().current.media.map(image => image.localId), before);
+  });
+});
+
 test("advanced one Save publishes after uploading and accepts keyboard submission", async () => {
  const calls: string[] = [], intents: any[] = [], finished: any[] = [];
  await withAdvanced({api:{createProduct:async(input:any)=>{intents.push(input);calls.push("create");return created;},publishAfterMedia:async()=>{calls.push("publish");return{...created,product:{...created.product,status:"active"}};},getProductEditor:async()=>created},onCreated:(value:any)=>finished.push(value)},async({container,browser})=>{
