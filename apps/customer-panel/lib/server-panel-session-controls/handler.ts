@@ -130,12 +130,13 @@ function canonicalTenantSwitchRequest(request: Request): Readonly<{ origin: stri
   if (request.method !== "POST") return null;
   let url: URL;
   try { url = new URL(request.url); } catch { return null; }
-  const requestedHostname = exactHostname(url.hostname);
+  const requestedHostname = exactHostname(request.headers.get("host"));
   if (
-    url.protocol !== "https:" || url.username || url.password || url.port ||
+    !["http:", "https:"].includes(url.protocol) || url.username || url.password ||
     url.pathname !== "/api/session/switch" || url.search || url.hash || requestedHostname === null
   ) return null;
-  return Object.freeze({ origin: url.origin, hostname: requestedHostname });
+  // TLS terminates at the edge; the request URL can describe the internal listener.
+  return Object.freeze({ origin: `https://${requestedHostname}`, hostname: requestedHostname });
 }
 
 function switchFailure(kind: unknown): Response {

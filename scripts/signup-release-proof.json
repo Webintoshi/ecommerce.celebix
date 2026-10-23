@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "6598a398e8295930fbea203178d1f278100a9d0e16869404d95c45a63cda9cb4",
+  "inputDigest": "d41e2f527f9de7cfe6faa78884278cef83a04b30b3a6f202479c90511f145953",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -249,7 +249,7 @@
     },
     {
       "path": "apps/customer-panel/lib/server-panel-session-controls/handler.ts",
-      "sha256": "ce6ea01a12653073b8a726408e3ae4e1cb15dad02a83d11797425a8f1bd39146"
+      "sha256": "cd1454f9ca059c483b6f4b51fe40ec7f6b55e64e4e5bfcd33f6b7d59975e52e5"
     },
     {
       "path": "apps/customer-panel/lib/server-panel-session-controls/mutation.ts",
