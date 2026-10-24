@@ -38,8 +38,13 @@ const SHA256 = /^sha256:[a-f0-9]{64}$/;
 const GIT_SHA = /^[a-f0-9]{40}$/;
 type AkbankSourceAdmission = Readonly<{sourceDigest: string; gitShas: Readonly<Record<"test" | "live", string>>}>;
 // Root adds exact source/anchor pairs only after independent review. This list is
-// deliberately empty until that review and the first candidate commit exist.
-const REVIEWED_SOURCE_ADMISSIONS: readonly AkbankSourceAdmission[] = Object.freeze([]);
+// records source admission only; an actual bank transaction is a separate acceptance gate.
+const REVIEWED_SOURCE_ADMISSIONS: readonly AkbankSourceAdmission[] = Object.freeze([
+  Object.freeze({
+    sourceDigest: "sha256:151ecf5c6125d37caa612855c2f0e2fed1ba4758926c107566a72aa2c06981c2",
+    gitShas: Object.freeze({test: "f243bed851ca0c831d635f99ce48c13360dc275f", live: "f243bed851ca0c831d635f99ce48c13360dc275f"}),
+  }),
+]);
 
 function sha256(value: string | Uint8Array): string {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;

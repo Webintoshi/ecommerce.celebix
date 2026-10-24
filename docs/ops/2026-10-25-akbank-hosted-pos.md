@@ -40,3 +40,7 @@ Live merchant verification, bank-hosted page acceptance and an actual card/3DS t
 
 - https://www.akbank.com/kurumsal/uye-isyeri-pos/pos-cozumleri/akbank-sanal-pos
 - https://sanalpos.akbank.com/profile/help-documents (official Pay Hosting/inquiry specification)
+
+## Reviewed first source admission
+
+Root admitted the independently reviewed Akbank closure `sha256:151ecf5c6125d37caa612855c2f0e2fed1ba4758926c107566a72aa2c06981c2`, anchored to implementation commit `f243bed851ca0c831d635f99ce48c13360dc275f`. The runtime-independent raw numeric tokenizer was included in that review. PayTR retains its existing identities through reviewed compatible closure `sha256:76ffc126ce45e4401eb63d1af354be3e4a7db5760ce23b504f3326cd3cd320fb`. Deployment enables only the Akbank LIVE build admission; TEST remains disabled. These are source admission facts, not bank acceptance or payment evidence.

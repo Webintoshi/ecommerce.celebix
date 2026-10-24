@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "98e8b237412444bb78e5a04f09113764768e42168ef94d47426b6edb26c9c89c",
+  "inputDigest": "c79773c28a75d4c9abf31b27ddb8fc62d16edc91dbe1629e7ef618f41fc61881",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -269,7 +269,7 @@
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "e69d788c7fffd913ab252fc6e161c093c511e08f6b85b73cde8d2fcecd324893"
+      "sha256": "8ed2caf2b2541d3d4e3df0020d5d0b24e11abbcb110207f7f4adb7e18e6ac5c4"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -913,7 +913,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/akbank-validation-adapter.ts",
-      "sha256": "4af0c6bde1c0c5eafbe97fb4bd735abd88200a25544534a80627c48c647179ec"
+      "sha256": "18ed06b6c4369fc52e535e633cdc88bdf857cbdab816c725bc0e1c0e6b59f0c3"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/default.ts",
@@ -3333,7 +3333,7 @@
     },
     {
       "path": "nixpacks.toml",
-      "sha256": "3b5c2c5d07447f78439dc8adbf772024117c9778466795fcde84a3e91be52bff"
+      "sha256": "e5f48a7b6250607ad0572351ab65f2c46f442fefd6813467a13df74f9676c1a5"
     },
     {
       "path": "package-lock.json",
@@ -3365,15 +3365,11 @@
     },
     {
       "path": "packages/payment-adapters/src/providers/akbank/adapter.ts",
-      "sha256": "78fa1cc35263324024f5fd450c3ff1f301b1346d64edf8ce524347092d0153c9"
+      "sha256": "906a3b9f60211800afaaf831b4836c3b28b228c033cf3b2b07589c5f066ac0fe"
     },
     {
       "path": "packages/payment-adapters/src/providers/akbank/build-binding.ts",
-      "sha256": "26970e039c55bbf1798280b54de68550dd213f935eade51d361aa4fe24f05a8d"
-    },
-    {
-      "path": "packages/payment-adapters/src/providers/akbank/build-metadata.generated.ts",
-      "sha256": "751af5cc546b50458c4180361f509c25b654aad8509e39a380fbb2c7ec8b5269"
+      "sha256": "278ff2651bf65164f6158911518d1ac28967e82e4b0416e249222112a5958624"
     },
     {
       "path": "packages/payment-adapters/src/providers/akbank/config.ts",
@@ -5680,6 +5676,18 @@
       "sha256": "198dfb367de488fe0d8a5c99c73c43afac12c0c55ecb53fdd48796d705b47305"
     },
     {
+      "path": "scripts/generate-akbank-build.mjs",
+      "sha256": "262b05faf0803c9e93f228ca48961d2d053a3b597f84dab5e36b4dab338ec13d"
+    },
+    {
+      "path": "scripts/generate-iyzico-sandbox-build.mjs",
+      "sha256": "ad47fff4085d97a582ffa1d3614976859a676ce44221766532f2fd730cc5a4fa"
+    },
+    {
+      "path": "scripts/generate-paytr-build.mjs",
+      "sha256": "f9731d23bb7e42f1511b5ebc6920e90217bf49d8f666e91494d241c95c65632a"
+    },
+    {
       "path": "scripts/rehearse-signup-release.mjs",
       "sha256": "d13b44be4d7d5ad279a206b74a178b10a1e662ac30f03c56faff1ab98564a2e3"
     },
@@ -5689,11 +5697,11 @@
     },
     {
       "path": "scripts/signup-release-proof.mjs",
-      "sha256": "4828563b358550fdf90d04aa635af065e26f3a846774a660eec5fdee0e499eb2"
+      "sha256": "8aee96febee974b13e40b92256f9c2b25941abc7aea22ad267d24cb51fc581c1"
     },
     {
       "path": "scripts/signup-release-proof.test.mjs",
-      "sha256": "db211f07e062a1cd33d95345fa510ad39d6dbf704847bcd804844fd4bd4a4d63"
+      "sha256": "b3f9558d9e46b9c4f84d44c714ae34c76e2ab03c679a5a2a8f344435f6b3c48d"
     },
     {
       "path": "scripts/tenant-wildcard-certificates.py",
