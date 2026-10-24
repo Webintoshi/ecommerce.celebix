@@ -1214,3 +1214,22 @@ test("variant reorder uncertain commit recovers its independent operation withou
  const result=await repository(new FakePool(write,recovery)).reorderVariants({tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:0,orderedVariantIds:[VARIANT_ID]});
  assert.equal(result.replayed,true);assert.equal(write.calls.filter(c=>c.text.includes("catalog_reorder_variants")).length,1);assert.equal(recovery.calls.some(c=>c.text.includes("catalog_recover_variant_order")),true);assert.equal(recovery.calls.some(c=>c.text.includes("catalog_reorder_variants")),false);
 });
+
+test("getProductDetails preserves native merchant variant order independently of timestamps or UUIDs",async()=>{
+  for(const variants of [
+    [variant({id:SECOND_VARIANT_ID}),variant({createdAt:"2026-07-16T07:59:00.000Z"})],
+    [variant({id:SECOND_VARIANT_ID}),variant()],
+  ]){
+    const client=new FakeClient(text=>text.includes("saas.catalog_get_product_details_v3")?[{outcome:"found",result_payload:{product:product(),variants}}]:[]);
+    const result=await repository(new FakePool(client)).getProductDetails({tenantContext:tenantContext(),now:NOW,productId:PRODUCT_ID});
+    assert.deepEqual(result.variants,variants,"the native order is authoritative after manual sorting");
+    assert.equal(Object.isFrozen(result.variants),true);
+  }
+});
+
+test("merchant-ordered product detail still rejects duplicate, foreign and malformed variants",async()=>{
+  for(const variants of [[variant(),variant()],[variant({id:SECOND_VARIANT_ID,storeId:SECOND_PRODUCT_ID}),variant()],[variant({id:SECOND_VARIANT_ID,productId:SECOND_PRODUCT_ID}),variant()],[variant({id:SECOND_VARIANT_ID,stockQuantity:-1}),variant()]]){
+    const client=new FakeClient(text=>text.includes("saas.catalog_get_product_details_v3")?[{outcome:"found",result_payload:{product:product(),variants}}]:[]);
+    await assert.rejects(repository(new FakePool(client)).getProductDetails({tenantContext:tenantContext(),now:NOW,productId:PRODUCT_ID}),(failure:unknown)=>failure instanceof TypeError||(failure instanceof CatalogRepositoryError&&failure.code==="unavailable"));
+  }
+});

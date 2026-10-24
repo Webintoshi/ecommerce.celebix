@@ -674,13 +674,9 @@ export class PostgresCatalogRepository implements CatalogRepository {
         (!includeArchivedVariants && variant.status !== "active")
       ))
     ) throw unavailable();
-    for (let index = 1; index < variants.length; index += 1) {
-      const previous = variants[index - 1]!;
-      const current = variants[index]!;
-      if (previous.createdAt > current.createdAt || (previous.createdAt === current.createdAt && previous.id >= current.id)) {
-        throw unavailable();
-      }
-    }
+    // The native catalog authority returns merchant-defined display order.
+    // Identity uniqueness remains mandatory; creation chronology is not display order.
+    if (new Set(variants.map((variant) => variant.id)).size !== variants.length) throw unavailable();
     return Object.freeze({ product, variants });
   }
 
