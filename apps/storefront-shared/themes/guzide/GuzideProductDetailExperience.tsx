@@ -9,11 +9,12 @@ import type {
 } from "@celebix/saas-contracts";
 
 import { ProductApprovedReviews } from "../../components/ProductApprovedReviews";
+import { ProductPageReviewForm } from "../../components/ProductPageReviewForm";
 import { ProductCard } from "../../components/ProductCard";
 import { ProductVariantMediaProvider } from "../../components/ProductVariantMedia";
 import { availableProductsFirst } from "@/lib/public-product-ordering.ts";
 import { renderStarterProductDescription } from "@/lib/product-description.ts";
-import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
+import { productPath, categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
 import { GuzideProductGallery } from "./GuzideProductGallery";
 import { GuzideProductPurchase } from "./GuzideProductPurchase";
 import { GuzideProductReturn } from "./GuzideProductReturn";
@@ -81,6 +82,7 @@ export function GuzideProductDetailExperience({ product,initialVariantId, locale
       </section>
     </ProductVariantMediaProvider>
     {options.showApprovedReviews && product.reviews?.length ? <ProductApprovedReviews reviews={product.reviews} /> : null}
+    <ProductPageReviewForm key={product.id} productId={product.id} returnTo={productPath(locale, product.slug)} />
     {options.showRelatedProducts && related.length ? <section className={styles.related} data-product-related aria-labelledby="guzide-related-title"><h2 id="guzide-related-title">Birlikte keşfedin</h2><div className={styles.relatedGrid}>{related.map(item => <ProductCard key={item.id} product={item} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />)}</div></section> : null}
   </div>;
 }

@@ -26,6 +26,7 @@ import {
   PostgresLuckyWheelAdminRepository,
   PostgresOrderBumpAdminRepository,
   PostgresReviewCollectionRepository,
+  PostgresProductPageReviewRepository,
   PostgresMerchantContentRepository,
   PostgresSeoRepository,
   createPostgresGoogleMarketingRepository,
@@ -83,6 +84,7 @@ import { registerServerStoreEngagementRepository } from "../server-store-engagem
 import { registerServerOrderBumpRepository } from "../server-order-bumps/runtime.ts";
 import { registerServerRestockRepository } from "../server-restock/runtime.ts";
 import { registerServerReviewCollectionRepository } from "../server-review-collection/runtime.ts";
+import { registerServerProductPageReviewRepository } from "../server-product-page-reviews/runtime.ts";
 import { registerServerMerchantAdminRepository } from "../server-merchant-admin/runtime.ts";
 import { registerServerMerchantContentRepository } from "../server-merchant-content/runtime.ts";
 import { registerServerSeoRepository } from "../server-seo/runtime.ts";
@@ -1133,6 +1135,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerOrderBumpRepository(access, new PostgresOrderBumpAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
     registerServerRestockRepository(access, new PostgresRestockAdminRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
     registerServerReviewCollectionRepository(access, new PostgresReviewCollectionRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
+    registerServerProductPageReviewRepository(access, new PostgresProductPageReviewRepository({ pool, role: "celebix_saas_app", timeouts: TIMEOUTS }));
     registerServerMerchantAdminRepository(access, createPostCommitInvalidatingRepository(merchantAdminRepository, {
       save: ["catalog", "settings"], archive: ["catalog", "settings"],
     }));

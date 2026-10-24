@@ -4,9 +4,10 @@ import { ProductGallery } from "../../components/ProductGallery";
 import { ProductVariantMediaProvider } from "../../components/ProductVariantMedia";
 import { ProductInformationDisclosures, ProductSizeGuide } from "../../components/ProductInformationDisclosures";
 import { ProductApprovedReviews } from "../../components/ProductApprovedReviews";
+import { ProductPageReviewForm } from "../../components/ProductPageReviewForm";
 import { ProductCard } from "../../components/ProductCard";
 import { availableProductsFirst } from "@/lib/public-product-ordering.ts";
-import { categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
+import { productPath, categoryPath, productIndexPath } from "@/lib/storefront-routes.ts";
 import { LilyumProductPurchase } from "./LilyumProductPurchase";
 import { LilyumIcon } from "./LilyumIcon";
 
@@ -34,6 +35,7 @@ export function LilyumProductDetailExperience({ product,initialVariantId, locale
       </section>
     </ProductVariantMediaProvider>
     {options.showApprovedReviews && product.reviews?.length ? <ProductApprovedReviews reviews={product.reviews} /> : null}
+    <ProductPageReviewForm key={product.id} productId={product.id} returnTo={productPath(locale, product.slug)} />
     {options.showRelatedProducts && related.length ? <section className="lf-product-related" aria-labelledby="lilyum-related-title"><header><span className="lf-eyebrow">BİRLİKTE KEŞFEDİN</span><h2 id="lilyum-related-title">Bir başka güzel seçim</h2><Link href={productIndexPath(locale)}>Tüm çiçekler<LilyumIcon name="arrow" /></Link></header><div className="lf-product-related-grid">{related.map(item => <ProductCard key={item.id} product={item} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />)}</div></section> : null}
   </div>;
 }

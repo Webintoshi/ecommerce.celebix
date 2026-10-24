@@ -4,9 +4,10 @@ import type { PublicPolicyPage, PublicProduct, PublicStarterThemePresentationV2,
 import { ProductVariantMediaProvider } from "../../components/ProductVariantMedia";
 import { ProductCard } from "../../components/ProductCard";
 import { ProductApprovedReviews } from "../../components/ProductApprovedReviews";
+import { ProductPageReviewForm } from "../../components/ProductPageReviewForm";
 import { renderStarterProductDescription } from "@/lib/product-description.ts";
 import { availableProductsFirst } from "@/lib/public-product-ordering.ts";
-import { categoryPath } from "@/lib/storefront-routes.ts";
+import { productPath, categoryPath } from "@/lib/storefront-routes.ts";
 import { SioraProductGallery } from "./SioraProductGallery";
 import { SioraProductPurchase } from "./SioraProductPurchase";
 import { sioraInitialVariant } from "./product-options.ts";
@@ -46,6 +47,7 @@ export function SioraProductDetailExperience({ product, initialVariantId,storefr
       {information.map(({ key, label, content }) => <details key={key}><summary>{label}</summary><div className={styles.detailBody}>{content}</div></details>)}
     </section> : null}
     {options.showApprovedReviews && product.reviews?.length ? <ProductApprovedReviews reviews={product.reviews} /> : null}
+    <ProductPageReviewForm key={product.id} productId={product.id} returnTo={productPath(locale, product.slug)} />
     {options.showRelatedProducts && related.length ? <section className={styles.related} aria-labelledby="siora-related-title" data-product-related><h2 id="siora-related-title">Birlikte keşfedin</h2><div className={styles.relatedGrid}>{related.map((item) => <ProductCard key={item.id} product={item} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />)}</div></section> : null}
   </div>;
 }

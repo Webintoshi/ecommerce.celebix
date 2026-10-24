@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "541f6fd1733006f32820439df1f5ceb6826141bf55ca5d4a67ef78e84bd0aa73",
+  "inputDigest": "4576db492dd268e9debd589b988fa0d71278f52e1937bf98c8976d2cd3abd8ed",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2812,6 +2812,10 @@
       "sha256": "c925326dd808f533794c5c13a0d58879bf276555cf5ef0684f1904eec816db00"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610240274_product_page_reviews.up.sql",
+      "sha256": "be8d96bf73c6b08ad1c84acbd9879dd5b3d2afede0de99a4be0cae47234d16fd"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3801,7 +3805,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "882ba18bda8e67e6d609f3ad8d660bc4099066c395466195243bae491c2ffc0d"
+      "sha256": "e1e85e5d8e7616a417e061aabb6873250c747de39d54f043e09014e9d2c56534"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -3946,6 +3950,10 @@
     {
       "path": "packages/saas-contracts/src/pricing/validation.ts",
       "sha256": "82a30d92341ccba7307baaf55150235b683b19017c8575342150d71794c309ad"
+    },
+    {
+      "path": "packages/saas-contracts/src/product-page-reviews/index.ts",
+      "sha256": "26dd674c3501bcc773c7ec7d767c0e71021ddfd5d74f13579e7a1a4da822b5cf"
     },
     {
       "path": "packages/saas-contracts/src/product-tax/index.ts",
@@ -4669,7 +4677,7 @@
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "9832e94298633740a2cba483575051b4f76eab0bc2d611a78a6990f18416ffa4"
+      "sha256": "9aadc552239fd83a28c1c30902fa0adcee57f6fa3dcc1e8b01753b9f3c673140"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -5018,6 +5026,14 @@
     {
       "path": "packages/saas-data/src/pricing/validation.ts",
       "sha256": "4ffffd60c1edb5e89f837e77018ef83553ac6fda5f9fc30ad83f58edf7448a7e"
+    },
+    {
+      "path": "packages/saas-data/src/product-page-reviews/index.ts",
+      "sha256": "8efbd83918fbcc96243a1f4cc8d91697b72e009cdf7cf9bbc0542a512166221c"
+    },
+    {
+      "path": "packages/saas-data/src/product-page-reviews/repository.ts",
+      "sha256": "ed756fc8ebbb2c78d847b006d0d4d9051746d6cc513024bd23dfcf728dcca620"
     },
     {
       "path": "packages/saas-data/src/product-tax/repository.ts",

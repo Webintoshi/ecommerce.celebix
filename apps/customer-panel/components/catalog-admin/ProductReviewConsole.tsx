@@ -7,6 +7,7 @@ import { Search } from "lucide-react";
 import { PanelEmptyState, PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { CatalogAdminApiError, catalogAdminApi } from "@/lib/catalog-admin-ui/client";
 import { ReviewCollectionConsole } from "./ReviewCollectionConsole";
+import { ProductPageReviewSettingsConsole } from "./ProductPageReviewSettingsConsole";
 import { CatalogWorkspaceLoading } from "../catalog/CatalogWorkspaceLoading";
 import styles from "./catalog-admin-console.module.css";
 import collectionStyles from "./review-collection.module.css";
@@ -53,6 +54,7 @@ export function ProductReviewConsole({ canModerate }: { canModerate: boolean }) 
     <PanelPageHeader title="Yorumlar" />
     <h1 className={styles.srOnly}>Ürün yorumları</h1>
     <section className={`${styles.surface} ${styles.workspace} ${styles.listBody}`} aria-busy={loading}>
+      <ProductPageReviewSettingsConsole canManage={canModerate} />
       {resolved ? <div className={collectionStyles.metrics} aria-label="Yorum özeti"><div className={collectionStyles.metric}><span>Listelenen yorum</span><strong>{items.length}</strong></div><div className={collectionStyles.metric}><span>Yayındaki ortalama</span><strong>{average} <small>/ 5</small></strong></div><div className={collectionStyles.metric}><span>İnceleme bekliyor</span><strong>{items.filter(item => item.status === "pending").length}</strong></div><div className={collectionStyles.metric}><span>Doğrulanmış alışveriş</span><strong>{items.filter(item => item.verifiedPurchase).length}</strong></div></div> : null}
       <div className={collectionStyles.tabs} role="tablist" aria-label="Yorum yönetimi">{([{ key: "reviews", label: "Yorumlar" }, { key: "requests", label: "Yorum davetleri" }, { key: "settings", label: "Davet ayarları" }] as const).map(item => <button key={item.key} id={`review-tab-${item.key}`} role="tab" type="button" aria-controls="review-content" aria-selected={tab === item.key} tabIndex={tab === item.key ? 0 : -1} onClick={() => setTab(item.key)} onKeyDown={event => { const keys = ["reviews", "requests", "settings"] as const; const index = keys.indexOf(tab); const next = event.key === "ArrowRight" ? (index + 1) % 3 : event.key === "ArrowLeft" ? (index + 2) % 3 : event.key === "Home" ? 0 : event.key === "End" ? 2 : -1; if (next >= 0) { event.preventDefault(); setTab(keys[next]!); document.getElementById(`review-tab-${keys[next]}`)?.focus(); } }}>{item.label}</button>)}</div>
       <div id="review-content" role="tabpanel" aria-labelledby={`review-tab-${tab}`}>

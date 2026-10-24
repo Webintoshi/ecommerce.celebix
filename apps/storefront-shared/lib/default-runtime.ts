@@ -89,6 +89,8 @@ import { parseCatalogSearchConfig } from "./catalog-search-config.ts";
 import { PUBLIC_CONTENT_READINESS_SQL, publicContentReadiness } from "./content-readiness.ts";
 import { createPublicGoogleMarketingRuntime, type PublicGoogleMarketingRuntime } from "./google-marketing-runtime.ts";
 import { protectCommerceRuntime, requireOnlineCheckout } from './commerce-policy.ts';
+import { PostgresProductPageReviewRepository } from "@celebix/saas-data";
+import { createProductPageReviewRuntime, type ProductPageReviewRuntime } from "./reviews/product-page-runtime.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
@@ -101,6 +103,7 @@ export type PublicStorefrontRuntime = Readonly<{
   googleMarketing?: PublicGoogleMarketingRuntime;
   restockAlerts?: PostgresPublicRestockRepository;
   reviewCollection?: PostgresReviewCollectionRepository;
+  productPageReviews?: ProductPageReviewRuntime;
   seo?: PublicSeoRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
@@ -383,6 +386,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       content,
       restockAlerts: new PostgresPublicRestockRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       reviewCollection: new PostgresReviewCollectionRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
+      ...(identity && identityConfig ? { productPageReviews: createProductPageReviewRuntime({ repository: new PostgresProductPageReviewRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: identityConfig.hmacKeyring, now: () => new Date() }) } : {}),
       contactWidgets: new PostgresPublicContactWidgetRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       whatsappOrders,
       commercePolicy,

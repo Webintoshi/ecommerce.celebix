@@ -2,9 +2,10 @@ import Link from "next/link";
 import type { PublicPolicyPage, PublicProduct, PublicStarterThemePresentationV2, StarterProductDetailConfigV2 } from "@celebix/saas-contracts";
 
 import { availableProductsFirst } from "@/lib/public-product-ordering.ts";
-import { categoryPath } from "@/lib/storefront-routes.ts";
+import { productPath, categoryPath } from "@/lib/storefront-routes.ts";
 import { ProductCard } from "./ProductCard";
 import { ProductApprovedReviews } from "./ProductApprovedReviews";
+import { ProductPageReviewForm } from "./ProductPageReviewForm";
 import { ProductGallery } from "./ProductGallery";
 import { ProductInformationDisclosures, ProductSizeGuide } from "./ProductInformationDisclosures";
 import { ProductPurchasePanel } from "./ProductPurchasePanel";
@@ -27,6 +28,7 @@ export function ProductDetailExperience({ product, initialVariantId,locale, rela
       </div>
     </section></ProductVariantMediaProvider>
     {options.showApprovedReviews && product.reviews?.length ? <ProductApprovedReviews reviews={product.reviews} /> : null}
+    <ProductPageReviewForm key={product.id} productId={product.id} returnTo={productPath(locale, product.slug)} />
     {options.showRelatedProducts && orderedRelatedProducts.length > 0 ? <section className={`${styles.related} store-container`} data-product-related aria-labelledby="related-products-title"><header><p className={styles.eyebrow}>SİZE ÖZEL SEÇKİ</p><h2 id="related-products-title">Benzer ürünler</h2></header><div className={styles.relatedGrid}>{orderedRelatedProducts.map((item) => <ProductCard key={item.id} product={item} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} />)}</div></section> : null}
   </>;
 }

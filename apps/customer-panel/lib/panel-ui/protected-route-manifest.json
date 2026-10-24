@@ -232,6 +232,7 @@
     "/api/catalog/admin/migrations/woocommerce/[jobId]",
     "/api/catalog/admin/migrations/woocommerce/[jobId]/batch",
     "/api/catalog/admin/migrations/woocommerce/[jobId]/media",
+    "/api/catalog/admin/product-page-reviews/settings",
     "/api/catalog/admin/resources/[kind]",
     "/api/catalog/admin/resources/[kind]/[resourceId]",
     "/api/catalog/admin/resources/[kind]/[resourceId]/archive",
