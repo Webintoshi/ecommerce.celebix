@@ -55,6 +55,7 @@ class CustomDomainOriginRoutesTests(unittest.TestCase):
                 self.assertEqual(https["rule"], http["rule"])
                 self.assertEqual(http["service"], service)
                 self.assertEqual(https["service"], service)
+                self.assertTrue(all(route["service"] == service for route in routers.values()))
                 self.assertEqual(https["middlewares"], base)
                 self.assertEqual(https["tls"], {})
                 self.assertNotIn("tls", http)
@@ -190,9 +191,12 @@ class CustomDomainOriginRoutesTests(unittest.TestCase):
         self.assertEqual(valid.returncode, 0)
         self.assertEqual(json.loads(valid.stdout), self.generate([row()]))
         self.assertEqual(valid.stderr, b"")
+        duplicate_key = (b'[{"id":"secret-input","id":"11111111-1111-4111-8111-111111111111",'
+                         b'"hostname":"ezmeo.com","role":"storefront",'
+                         b'"platform_hostname":"ezmeo.saas-staging.celebix.site"}]')
         cases = [(b"secret-input-invalid-json", []), (b"\xff", []),
-                 (b" " * (1024 * 1024 + 1), []), (b"[]", ["secret-argument"]),
-                 (b'[{"id":"secret-input","id":"duplicate"}]', [])]
+                 (b" " * (1024 * 1024 + 1) + b"[]", []), (b"[]", ["secret-argument"]),
+                 (duplicate_key, [])]
         for payload, arguments in cases:
             with self.subTest(payload_length=len(payload), arguments=arguments):
                 invalid = subprocess.run([sys.executable, "-B", str(SCRIPT), *arguments], input=payload,
