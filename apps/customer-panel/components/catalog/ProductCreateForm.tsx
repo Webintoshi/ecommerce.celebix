@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Box, Layers } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CatalogOnboardingOptions } from "@celebix/saas-contracts";
 
@@ -23,18 +23,28 @@ const ProductAdvancedEditor = dynamic(() => import("@/components/catalog-onboard
   loading: () => <CatalogWorkspaceLoading layout="product" label="Form yükleniyor…" />,
 });
 
-export function ProductCreateForm({ initialMode = "choose", aiAvailable = true }: Readonly<{ initialMode?: "choose" | "quick" | "advanced"; aiAvailable?: boolean }>) {
+type ProductKind = "simple" | "variant";
+function createUrl(mode: "choose" | "quick" | "advanced", kind: ProductKind | null) {
+  return mode === "choose" ? "/products/new" : `/products/new?mode=${mode}${mode === "advanced" && kind ? `&kind=${kind}` : ""}`;
+}
+
+export function ProductCreateForm({ initialMode = "choose", initialProductKind, aiAvailable = true }: Readonly<{ initialMode?: "choose" | "quick" | "advanced"; initialProductKind?: ProductKind; aiAvailable?: boolean }>) {
   const [options, setOptions] = useState<CatalogOnboardingOptions | null>(null);
   const [error, setError] = useState("");
   const [mode, setMode] = useState(initialMode);
+  const [advancedKind, setAdvancedKind] = useState<ProductKind | null>(initialProductKind ?? null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(busy);
   const modeRef = useRef(mode);
+  const kindRef = useRef(advancedKind);
   busyRef.current = busy;
   modeRef.current = mode;
+  kindRef.current = advancedKind;
   const [loadRevision, setLoadRevision] = useState(0);
   const quickChoiceRef = useRef<HTMLButtonElement>(null);
   const advancedChoiceRef = useRef<HTMLButtonElement>(null);
+  const singleChoiceRef = useRef<HTMLButtonElement>(null);
+  const variantChoiceRef = useRef<HTMLButtonElement>(null);
   const lastChoiceRef = useRef<"quick" | "advanced" | null>(initialMode === "choose" ? null : initialMode);
   const [draftSession, setDraftSession] = useState<ProductDraftSession>(() => createEmptyProductDraftSession());
   const sessionRef = useRef(draftSession);
@@ -64,6 +74,10 @@ export function ProductCreateForm({ initialMode = "choose", aiAvailable = true }
   }, [mode]);
 
   useEffect(() => {
+    if (mode === "advanced" && advancedKind === null) (singleChoiceRef.current?.disabled ? variantChoiceRef : singleChoiceRef).current?.focus();
+  }, [mode, advancedKind]);
+
+  useEffect(() => {
     const guard = createDirtyNavigationGuard({
       isDirty: () => productDraftIsDirty(sessionRef.current),
       confirm: () => window.confirm("Kaydedilmemiş ürün değişiklikleriniz var. Sayfadan ayrılmak istiyor musunuz?"),
@@ -84,19 +98,26 @@ export function ProductCreateForm({ initialMode = "choose", aiAvailable = true }
     if (createdQuickProductIdRef.current) { finish(`/products/${createdQuickProductIdRef.current}`); return; }
     if (next !== "choose") lastChoiceRef.current = next;
     setMode(next);
-    const url = next === "choose" ? "/products/new" : `/products/new?mode=${next}`;
-    window.history.pushState({ productCreateMode: next }, "", url);
+    window.history.pushState({ productCreateMode: next, productKind: advancedKind }, "", createUrl(next, advancedKind));
+  }
+
+  function selectProductKind(next: ProductKind | null) {
+    if (busy || (next === "simple" && draftSession.current.kind === "variant") || (next && draftSession.current.creationRecovery && next !== draftSession.current.kind)) return;
+    setAdvancedKind(next);
+    window.history.pushState({ productCreateMode: "advanced", productKind: next }, "", createUrl("advanced", next));
   }
 
   useEffect(() => {
     const restore = () => {
       if (busyRef.current) {
         const activeMode = modeRef.current;
-        window.history.replaceState({ productCreateMode: activeMode }, "", `/products/new?mode=${activeMode}`);
+        window.history.replaceState({ productCreateMode: activeMode, productKind: kindRef.current }, "", createUrl(activeMode, kindRef.current));
         return;
       }
       if (createdQuickProductIdRef.current) { finish(`/products/${createdQuickProductIdRef.current}`); return; }
-      const selected = new URL(window.location.href).searchParams.get("mode");
+      const query = new URL(window.location.href).searchParams;
+      const selected = query.get("mode"), kind = query.get("kind");
+      setAdvancedKind(sessionRef.current.current.creationRecovery && (kind === "simple" || kind === "variant") ? sessionRef.current.current.kind : kind === "variant" ? "variant" : kind === "simple" && sessionRef.current.current.kind !== "variant" ? "simple" : null);
       setMode(selected === "advanced" ? "advanced" : selected === "quick" ? "quick" : "choose");
     };
     window.addEventListener("popstate", restore);
@@ -108,7 +129,7 @@ export function ProductCreateForm({ initialMode = "choose", aiAvailable = true }
       <PanelTopbarBridge title="Yeni ürün oluştur" hideHeading />
       <h1 className={styles.srOnly} id="create-title">Yeni ürün oluştur</h1>
       <div className={styles.navigation}>
-        {mode === "choose" ? <Link className={styles.backLink} href="/products"><ArrowLeft aria-hidden="true" />Ürünlere dön</Link> : <button type="button" className={styles.backLink} disabled={busy} onClick={() => selectMode("choose")}><ArrowLeft aria-hidden="true" />Yöntemlere dön</button>}
+        {mode === "choose" ? <Link className={styles.backLink} href="/products"><ArrowLeft aria-hidden="true" />Ürünlere dön</Link> : <button type="button" className={styles.backLink} disabled={busy} onClick={() => mode === "advanced" && advancedKind !== null ? selectProductKind(null) : selectMode("choose")}><ArrowLeft aria-hidden="true" />{mode === "advanced" && advancedKind !== null ? "Ürün yapısına dön" : "Yöntemlere dön"}</button>}
         {mode !== "choose" ? <span className={styles.draftState}>Kaydedilmedi</span> : null}
       </div>
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Seçenekler yüklenemedi</strong><p>{error}</p><button type="button" onClick={() => setLoadRevision((revision) => revision + 1)}>Tekrar dene</button></div></div> : null}
@@ -123,7 +144,14 @@ export function ProductCreateForm({ initialMode = "choose", aiAvailable = true }
           <span><strong>Detaylı ürün</strong><small>Varyantlar · Gelişmiş ayarlar</small></span>
           <span className={styles.start}>{lastChoiceRef.current === "advanced" && productDraftIsDirty(draftSession) ? "Devam et" : "Başla"}<ArrowRight aria-hidden="true" /></span>
         </button>
-      </div> : mode === "advanced" && options ? <ProductAdvancedEditor aiAvailable={aiAvailable} options={options} draftSession={draftSession} onDraftSessionChange={setDraftSession} onBusyChange={setBusy} onCancel={() => selectMode("choose")} onCreated={(result) => finish(`/products/${result.product.id}`)} /> : mode === "quick" ? <ProductQuickCreateDialog
+      </div> : mode === "advanced" && advancedKind === null ? <section className={styles.kindSection} aria-labelledby="product-kind-title">
+        <h2 id="product-kind-title">Ürün yapısı</h2>
+        <div className={styles.kindChoices} role="group" aria-label="Ürün yapısı">
+          <button ref={singleChoiceRef} type="button" className={styles.kindChoice} disabled={draftSession.current.kind === "variant"} onClick={() => selectProductKind("simple")} aria-label="Tek ürün"><Box aria-hidden="true" /><span><strong>Tek ürün</strong><small>Tek fiyat ve stokla satışa sunun.</small></span><ArrowRight aria-hidden="true" /></button>
+          <button ref={variantChoiceRef} type="button" className={styles.kindChoice} disabled={Boolean(draftSession.current.creationRecovery) && draftSession.current.kind !== "variant"} onClick={() => selectProductKind("variant")} aria-label="Varyantlı ürün"><Layers aria-hidden="true" /><span><strong>Varyantlı ürün</strong><small>Renk, beden veya farklı seçenekler ekleyin.</small></span><ArrowRight aria-hidden="true" /></button>
+        </div>
+        {draftSession.current.creationRecovery ? <p className={styles.kindHint}>Ürün kaydınız korunuyor. Aynı ürünle kalan yüklemeye devam edin.</p> : draftSession.current.kind === "variant" ? <p className={styles.kindHint}>Hazırladığınız varyantlar korunuyor. Varyantlı ürünle devam edin.</p> : null}
+      </section> : mode === "advanced" && options && advancedKind ? <ProductAdvancedEditor initialKind={advancedKind} aiAvailable={aiAvailable} options={options} draftSession={draftSession} onDraftSessionChange={setDraftSession} onBusyChange={setBusy} onCancel={() => selectMode("choose")} onCreated={(result) => finish(`/products/${result.product.id}`)} /> : mode === "quick" ? <ProductQuickCreateDialog
           open
           mode="page"
           options={options}

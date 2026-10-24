@@ -109,7 +109,7 @@
 .builder { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--create-line); }
 .builderActions { display: flex; justify-content: flex-end; gap: 12px; padding-top: 16px; }
 .additionalSettings { margin-top: 24px; }
-.rail { min-width: 0; border-left: 1px solid var(--create-line); padding-left: 24px; }
+.rail { position: sticky; top: calc(var(--panel-topbar-height, 64px) + 16px); align-self: start; min-width: 0; max-height: calc(100dvh - var(--panel-topbar-height, 64px) - 32px); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-gutter: stable; border-left: 1px solid var(--create-line); padding-left: 24px; }
 .railBlock { min-width: 0; padding-bottom: 24px; margin-bottom: 24px; border-bottom: 1px solid var(--create-line); }
 .railBlock:last-child { border: 0; margin-bottom: 0; }
 .railBlock h2 { font-size: 13px; margin-bottom: 16px; }
@@ -169,7 +169,7 @@
 .picker .error { margin: 0; }
 @media (max-width: 1250px) {
   .editorLayout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .rail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; border-left: 0; border-top: 1px solid var(--create-line); padding: 24px 0 0; }
+  .rail { position: static; max-height: none; overflow: visible; scrollbar-gutter: auto; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; border-left: 0; border-top: 1px solid var(--create-line); padding: 24px 0 0; }
   .railBlock { border-bottom: 0; padding: 0; margin: 0; }
 }
 @media (max-width: 760px) {

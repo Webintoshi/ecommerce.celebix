@@ -141,6 +141,47 @@ async function submit(container: HTMLElement, browser: Window) {
 const standard = draft().current.variants[0]!;
 const newSmall = { ...standard, title: "S", sku: "", barcode: "", compareAt: "", cost: "", shippingDesi: "", hsCode: "", continueSellingWhenOutOfStock: false, attributes: { beden: "S" } };
 
+test("variant entry starts with option setup before description and saves the complete product once", async () => {
+  const intents: any[] = [];
+  await withAdvanced({initialKind:"variant",api:{createProduct:async(input:any)=>{intents.push(input);return created;}}}, async ({container,browser,stage}) => {
+    assert.ok(container.querySelector('#create-variant-builder'), "variant setup is open without hunting below the description");
+    assert.equal(container.querySelector('input[aria-label="Satış fiyatı"]'), null, "variant entry never asks for a separate default product price");
+    const sections = [...container.querySelectorAll('section')];
+    assert.ok(sections.indexOf(container.querySelector('#product-commerce')!) < sections.indexOf(container.querySelector('[aria-label="Ürün açıklaması"]')!));
+    assert.equal(container.querySelector<HTMLInputElement>('[name="title"]')!.value, "Pamuk elbise");
+    await stage([newSmall,{...newSmall,title:"M",attributes:{beden:"M"},price:"299,90"}]);
+    await click(container,"Seçilenleri ekle");
+    assert.equal(intents.length,0,"configuring variants does not save an intermediate product");
+    await submit(container,browser);
+    assert.equal(intents.length,1);
+    assert.equal(intents[0].title,"Pamuk elbise");
+    assert.deepEqual(intents[0].variants.map((row:any)=>[row.title,row.priceCents]),[["S",24990],["M",29990]]);
+  });
+});
+
+test("cancelling initial variant setup never silently saves a single default variant",async()=>{
+  let creates=0;
+  await withAdvanced({initialKind:"variant",api:{createProduct:async()=>{creates++;return created;}}},async({container,browser})=>{
+    assert.ok(container.querySelector('#create-variant-builder'));
+    await click(container,"Vazgeç");
+    await submit(container,browser);
+    assert.equal(creates,0);
+    assert.ok(container.querySelector('#create-variant-builder'));
+    assert.equal(container.querySelector<HTMLInputElement>('[name="title"]')!.value,"Pamuk elbise");
+  });
+});
+
+test("an existing simple-product media recovery ignores a variant entry preference and retries the saved product",async()=>{
+  let creates=0,completed=0;
+  const original=draft();
+  const recovery=drafts.updateProductDraft(original,{creationRecovery:{result:created as unknown as drafts.ProductCreationRecovery["result"],publish:true,variants:original.current.variants,state:{uploads:{}}}});
+  await withAdvanced({initialKind:"variant",draftSession:recovery,onCreated:()=>completed++,api:{createProduct:async()=>{creates++;return created;}}},async({container,browser})=>{
+    await submit(container,browser);
+    assert.equal(creates,0);
+    assert.equal(completed,1,"retry must complete the existing simple product rather than demand disabled variant inputs");
+  });
+});
+
 test("advanced optional measurements restore after remount and save without changing stock or pricing", async () => {
   const measurements = { weight: "14,89", weightUnit: "g", width: "2.125", area: "0,5", packageCount: "3" };
   const intents: unknown[] = [];

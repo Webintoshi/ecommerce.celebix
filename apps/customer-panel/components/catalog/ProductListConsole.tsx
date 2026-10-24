@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import {
+  Archive,
   ArrowDownUp,
   CircleCheck,
   Clock3,
@@ -36,10 +37,12 @@ import type {
   CatalogProductListVariantSummary,
   CatalogProductPageSize,
   Product,
+  PermanentDeletionImpact,
 } from "@celebix/saas-contracts";
 import { catalogProductListQueryDigest } from "@celebix/saas-contracts";
 
 import { PanelTopbarBridge } from "@/components/panel/PanelTopbarChrome";
+import { PermanentDeleteDialog } from "@/components/shared/PermanentDeleteDialog";
 import { ProductCategoryRankConsole } from "@/components/catalog/ProductCategoryRankConsole";
 import { catalogOnboardingClient } from "@/lib/catalog-onboarding-ui/client";
 import {
@@ -228,11 +231,12 @@ function ProductThumbnail({ product, featuredImage }: Readonly<{ product: Produc
 export function ProductListConsole({
   canManage = false,
   canArchive = false,
+  canDelete = false,
   canImport = false,
   initialQuery = Object.freeze({ sort: "updated-desc" }),
   initialPageSize = 20,
   initialCursor,
-}: Readonly<{ canManage?: boolean; canArchive?: boolean; canImport?: boolean; initialQuery?: CatalogProductListQuery; initialPageSize?: CatalogProductPageSize; initialCursor?: string }>) {
+}: Readonly<{ canManage?: boolean; canArchive?: boolean; canDelete?: boolean; canImport?: boolean; initialQuery?: CatalogProductListQuery; initialPageSize?: CatalogProductPageSize; initialCursor?: string }>) {
   const [filter, setFilter] = useState<Filter>(initialQuery.status ?? "all");
   const [stockFilter, setStockFilter] = useState<StockFilter>(initialQuery.stock ?? "all");
   const [categoryId, setCategoryId] = useState(initialQuery.categoryId ?? "");
@@ -270,6 +274,12 @@ export function ProductListConsole({
   const rowsStaleRef = useRef(rowsStale);
   rowsStaleRef.current = rowsStale;
   const [archiveCandidate, setArchiveCandidate] = useState<Product>();
+  const [deleteCandidate, setDeleteCandidate] = useState<Product>();
+  const [deletionImpact, setDeletionImpact] = useState<PermanentDeletionImpact>();
+  const [deleteError, setDeleteError] = useState("");
+  const deletionIntentRef = useRef<Readonly<{ productId: string; operationId: string; expectedVersion: number; confirmation: string }> | undefined>(undefined);
+  const deleteTriggerRef = useRef<HTMLButtonElement>(null);
+  const wasDeleteDialogOpen = useRef(false);
   const [bulkArchiveConfirmation, setBulkArchiveConfirmation] = useState(false);
   const [quickOptions, setQuickOptions] = useState<CatalogOnboardingOptions | null>(null);
   const [quickOptionsState, setQuickOptionsState] = useState<"loading" | "ready" | "unavailable">("loading");
@@ -429,6 +439,14 @@ export function ProductListConsole({
     else refreshListButtonRef.current?.focus();
   }, [archiveCandidate]);
 
+  useEffect(() => {
+    if (deleteCandidate !== undefined) { wasDeleteDialogOpen.current = true; return; }
+    if (!wasDeleteDialogOpen.current || busy) return;
+    wasDeleteDialogOpen.current = false;
+    if (deleteTriggerRef.current?.isConnected) deleteTriggerRef.current.focus();
+    else refreshListButtonRef.current?.focus();
+  }, [busy, deleteCandidate]);
+
   const currentQueryDigest = catalogProductListQueryDigest(queryRef.current);
   const sameScope = appliedQueryDigest === currentQueryDigest && appliedPage === JSON.stringify([currentCursor ?? null, pageSize]);
   const visibleRows = sameScope ? rows : Object.freeze([] as ProductRow[]);
@@ -552,6 +570,60 @@ export function ProductListConsole({
 
   function closeArchiveDialog() {
     if (!busy) setArchiveCandidate(undefined);
+  }
+
+  async function openDeleteDialog(product: Product) {
+    if (!canDelete || busy) return;
+    const mutationToken = operationCoordinator.current.beginMutation();
+    if (mutationToken === null) return;
+    setDeleteCandidate(product);
+    setDeletionImpact(undefined);
+    setDeleteError("");
+    setBusy(true);
+    try {
+      const impact = await catalogApi.getProductDeletionImpact(product.id);
+      if (impact.resourceKind !== "product" || impact.resourceId !== product.id) throw new CatalogApiError("unavailable", 503);
+      setDeletionImpact(impact);
+      deletionIntentRef.current = undefined;
+    } catch (failure) {
+      setDeleteError(safeMessage(failure));
+    } finally {
+      operationCoordinator.current.endMutation(mutationToken);
+      setBusy(false);
+    }
+  }
+
+  async function deleteProduct(confirmation: string) {
+    if (!canDelete || !deleteCandidate || !deletionImpact || busy || confirmation !== deletionImpact.confirmationLabel) return;
+    const mutationToken = operationCoordinator.current.beginMutation();
+    if (mutationToken === null) return;
+    const productId = deleteCandidate.id;
+    const prior = deletionIntentRef.current;
+    const operationId = prior?.productId === productId && prior.expectedVersion === deletionImpact.expectedVersion && prior.confirmation === confirmation
+      ? prior.operationId : crypto.randomUUID();
+    const command = Object.freeze({ operationId, expectedVersion: deletionImpact.expectedVersion, confirmation });
+    deletionIntentRef.current = Object.freeze({ productId, ...command });
+    setBusy(true);
+    setDeleteError("");
+    setError("");
+    setBulkOutcome(undefined);
+    try {
+      const result = await catalogApi.deleteProduct(productId, command);
+      if (!result.deleted || result.resourceKind !== "product" || result.resourceId !== productId || result.auditId !== operationId) throw new CatalogApiError("unavailable", 503);
+      setRows((current) => Object.freeze(current.filter((row) => row.product.id !== productId)));
+      setSelected((current) => Object.freeze(current.filter((id) => id !== productId)));
+      setDeleteCandidate(undefined);
+      setDeletionImpact(undefined);
+      deletionIntentRef.current = undefined;
+      const reconciliation = await load({ mutationToken, ...(currentCursor === undefined ? {} : { cursor: currentCursor }) });
+      if (reconciliation !== "applied") setRowsStale(true);
+    } catch (failure) {
+      setDeleteError(safeMessage(failure));
+      if (failure instanceof CatalogApiError && failure.code === "version_conflict") setDeletionImpact(undefined);
+    } finally {
+      operationCoordinator.current.endMutation(mutationToken);
+      setBusy(false);
+    }
   }
 
   function handleArchiveDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -831,7 +903,7 @@ export function ProductListConsole({
                   <td data-label="Stok"><span className={productStockPresentation(variant).className}>{productStockPresentation(variant).label}</span></td>
                   <td data-label="Durum"><span className={`product-status-text status-${product.status}`}>{STATUS_LABELS[product.status]}</span>{product.status === "draft" ? <small>Henüz yayına hazır değil</small> : null}</td>
                   <td data-label="Yayında">{canManage && product.status !== "archived" ? <button className={`publish-switch ${product.status === "active" ? "is-active" : ""}`} type="button" role="switch" aria-checked={product.status === "active"} disabled={busy || loading || loadingMore} onClick={() => void setProductStatus(product, product.status === "active" ? "draft" : "active")} aria-label={`${product.title} yayın durumunu değiştir`}><span /></button> : <span aria-label="Yayın değişikliği kullanılamıyor">—</span>}</td>
-                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link>{product.status !== "archived" ? <Link className="icon-button" href={`/products/barcode-labels?productId=${product.id}`} aria-label={`${product.title} için barkod etiketi hazırla`} title="Barkod etiketi hazırla"><ScanBarcode /></Link> : null}{canManage && product.status !== "archived" ? <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link> : null}{canArchive && product.status !== "archived" ? <button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy || loading || loadingMore} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Trash2 /></button> : null}{canArchive && product.status === "archived" ? <button className="button button-secondary" type="button" disabled={busy || loading || loadingMore} onClick={() => void restore(product)}><RotateCcw aria-hidden="true" />{"Geri Yükle"}</button> : null}</td>
+                  <td className="row-actions" data-label="İşlemler"><Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü görüntüle`} title="Görüntüle"><Eye /></Link>{product.status !== "archived" ? <Link className="icon-button" href={`/products/barcode-labels?productId=${product.id}`} aria-label={`${product.title} için barkod etiketi hazırla`} title="Barkod etiketi hazırla"><ScanBarcode /></Link> : null}{canManage && product.status !== "archived" ? <Link className="icon-button" href={`/products/${product.id}`} aria-label={`${product.title} ürününü düzenle`} title="Düzenle"><Pencil /></Link> : null}{canArchive && product.status !== "archived" ? <button ref={archiveCandidate?.id === product.id ? archiveTriggerRef : undefined} className="icon-button danger" type="button" disabled={busy || loading || loadingMore} onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveCandidate(product); }} aria-label={`${product.title} ürününü arşivle`} title="Arşivle"><Archive /></button> : null}{canDelete ? <button className="icon-button danger" type="button" disabled={busy || loading || loadingMore} onClick={(event) => { deleteTriggerRef.current = event.currentTarget; void openDeleteDialog(product); }} aria-label={`${product.title} ürününü kalıcı sil`} title="Kalıcı sil"><Trash2 /></button> : null}{canArchive && product.status === "archived" ? <button className="button button-secondary" type="button" disabled={busy || loading || loadingMore} onClick={() => void restore(product)}><RotateCcw aria-hidden="true" />{"Geri Yükle"}</button> : null}</td>
                 </tr>
               ))}
             </tbody>
@@ -842,6 +914,17 @@ export function ProductListConsole({
       </div>
 
       <nav className="product-pagination" aria-label="Ürün sayfaları"><button className="button button-secondary" type="button" onClick={goPreviousPage} disabled={cursorHistory.length === 0 || loadingMore || loading || busy || rowsStale}>Önceki</button><button className="button button-secondary" type="button" onClick={goNextPage} disabled={nextCursor === undefined || loadingMore || loading || busy || rowsStale}>{loadingMore ? "Yükleniyor…" : "Sonraki"}</button></nav>
+
+      {deleteCandidate && canDelete ? <PermanentDeleteDialog
+        key={deleteCandidate.id}
+        impact={deletionImpact}
+        resourceLabel="Ürün"
+        busy={busy}
+        error={deleteError}
+        onRetry={() => { void openDeleteDialog(deleteCandidate); }}
+        onCancel={() => { if (!busy) { setDeleteCandidate(undefined); setDeletionImpact(undefined); setDeleteError(""); } }}
+        onConfirm={(confirmation) => { void deleteProduct(confirmation); }}
+      /> : null}
 
       {archiveCandidate && canArchive ? (
         <div className="archive-dialog-layer">

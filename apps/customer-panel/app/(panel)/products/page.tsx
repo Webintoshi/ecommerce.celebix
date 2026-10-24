@@ -22,6 +22,7 @@ export default async function ProductsPage({
       initialCursor={initial.cursor}
       canManage={isCatalogProductOperationAllowed(role, "update")}
       canArchive={isCatalogProductOperationAllowed(role, "archive")}
+      canDelete={isCatalogProductOperationAllowed(role, "remove")}
       canImport={isMerchantActionAllowed(role, "catalog_admin.import")}
     />
   );
