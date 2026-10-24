@@ -485,3 +485,6 @@
   }
 }
 .compact .footer { justify-content: flex-end; }
+
+/* Keep the inline product form compact; full-screen writing retains its own height. */
+.compact:not(.focusMode) .editorContent { min-height: 160px; max-height: 400px; padding: 16px; }

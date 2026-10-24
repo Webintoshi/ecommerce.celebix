@@ -350,11 +350,10 @@ export function ProductQuickCreateDialog({
           <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Ürün adı" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>
           {hasVariantDraft ? <div className={workspace.variantSummary}><strong>{draftSession?.current.variants.length ?? 0} varyant</strong><button type="button" onClick={onAdvanced}>Varyantları düzenle</button></div> : <>
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input ref={priceRef} name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
+          <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
           <ProductTaxFields value={taxChoice} onChange={setTaxChoice} required/>
           <ProductPriceBasis value={priceBasis} onChange={setPriceBasis} price={price} tax={safeTaxChoice(taxChoice)}/>
-          <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
           <div className={workspace.identifiers}><SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} /><BarcodeInput value={barcode} onChange={setBarcode} reservationIdentity={barcodeIdentityRef.current} actionLabel="Oluştur" onBusyChange={setBarcodeBusy} /></div>
-          <ProductMeasurementFields value={measurements} onChange={setMeasurements} showValidation={showMeasurementValidation} />
           </>}
           <label className={styles.wide}>
             <span>Kategori</span>
@@ -363,6 +362,7 @@ export function ProductQuickCreateDialog({
             </select>
             <small id="quick-category-hint" className={styles.fieldHint}>Satışa açmak için gerekli</small>
           </label>
+          {!hasVariantDraft ? <ProductMeasurementFields value={measurements} onChange={setMeasurements} showValidation={showMeasurementValidation} /> : null}
           {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={image.localId}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} draggable={false} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
           {submitting && images.length ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görseller yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}
           </div>

@@ -9,7 +9,7 @@
   min-width: 0;
 }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
-.navigation { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 32px; }
+.navigation { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 0; }
 .backLink { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--catalog-secondary); font: inherit; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; }
 .backLink svg { width: 16px; height: 16px; }
 .backLink:hover { color: var(--catalog-text); }
@@ -40,5 +40,5 @@
 .kindHint { margin: 16px 0 0; }
 @media (max-width: 600px) { .kindChoices { grid-template-columns: minmax(0, 1fr); } .kindChoice { padding: 20px; min-height: 104px; } }
 @media (max-width: 1024px) { .createPage { padding-bottom: calc(76px + env(safe-area-inset-bottom)); } .createChoices { margin: 24px auto; } .createChoice { padding: 20px 24px 32px; } }
-@media (max-width: 600px) { .navigation { margin-bottom: 20px; } .createChoices { grid-template-columns: 1fr; margin: 0; } .createChoice { grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 16px; padding: 24px 0; } .createChoice + .createChoice { border-left: 0; border-top: 1px solid var(--catalog-border); border-radius: 0; } .createChoice img { width: 120px; grid-row: span 2; } .createChoice strong { font-size: 20px; } .createChoice small { line-height: 1.5; } .start { grid-column: 2; } }
+@media (max-width: 600px) { .navigation { margin-bottom: 0; } .createChoices { grid-template-columns: 1fr; margin: 0; } .createChoice { grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 16px; padding: 24px 0; } .createChoice + .createChoice { border-left: 0; border-top: 1px solid var(--catalog-border); border-radius: 0; } .createChoice img { width: 120px; grid-row: span 2; } .createChoice strong { font-size: 20px; } .createChoice small { line-height: 1.5; } .start { grid-column: 2; } }
 @media (prefers-reduced-motion: reduce) { .createChoice img { transition: none; } .createChoice:hover img { transform: none; } }

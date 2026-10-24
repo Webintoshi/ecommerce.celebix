@@ -1,12 +1,15 @@
-.root { display: grid; min-width: 0; gap: 7px; color: #344054; font-size: 12px; font-weight: 720; }
+.root { display: grid; min-width: 0; gap: 8px; color: var(--cp-text-primary); font-size: 13px; font-weight: 500; }
 .control { position: relative; display: block; min-width: 0; }
-.control .input { width: 100%; min-height: 46px; padding-right: 55px; }
-.generate { position: absolute; top: 50%; right: 2px; display: grid; width: 44px; height: 44px; place-items: center; translate: 0 -50%; border: 0; border-radius: 10px; background: transparent; color: #2B2B2B; cursor: pointer; }
-.generate:hover:not(:disabled) { background: #F8F7F5; color: #FE6100; }
-.generate:focus-visible { outline: 2px solid #FE6100; outline-offset: -3px; }
-.generate:disabled { opacity: .42; cursor: not-allowed; }
-.generate svg { width: 20px; height: 20px; }
-.root .error { color: #a32626; font-size: 12px; line-height: 1.4; }
-.labeledControl { display: flex; gap: 8px; align-items: start; }
-.labeledControl .input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; }
-.labeledControl .generate { position: static; display: inline-flex; flex: none; gap: 8px; width: auto; min-height: 44px; height: auto; padding: 0 12px; translate: none; border: 1px solid var(--cp-border, #e7e2dd); background: var(--cp-surface, #fffdfc); font: inherit; font-weight: 600; }
+.control .input { width: 100%; min-height: 44px; padding-right: 55px; }
+.generate { position: absolute; top: 50%; right: 2px; display: grid; width: 44px; height: 44px; place-items: center; translate: 0 -50%; border: 0; border-radius: 8px; background: transparent; color: var(--cp-text-primary); cursor: pointer; }
+.generate:hover:not(:disabled) { background: var(--cp-control-hover); }
+.generate:focus-visible { outline: 1px solid var(--cp-control-focus); outline-offset: -3px; }
+.generate:disabled { opacity: .5; cursor: not-allowed; }
+.generate svg { width: 16px; height: 16px; flex: none; }
+.root .error { color: var(--cp-danger); font-size: 12px; line-height: 1.5; }
+.labeledControl { display: flex; align-items: stretch; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); overflow: hidden; }
+.root .labeledControl .input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border: 0 !important; border-radius: 0; box-shadow: none; background: transparent; }
+.labeledControl:focus-within { outline: 1px solid var(--cp-control-focus); outline-offset: 1px; }
+.labeledControl .input:focus, .labeledControl .input:focus-visible { outline: 0 !important; }
+.labeledControl .generate { position: static; display: inline-flex; flex: none; gap: 8px; width: auto; min-height: 44px; height: auto; padding: 0 12px; translate: none; border: 0; border-left: 1px solid var(--cp-border); border-radius: 0; background: var(--cp-control-background); font: inherit; font-size: 12px; font-weight: 500; }
+.labeledControl .generate:hover:not(:disabled) { background: var(--cp-control-hover); }
