@@ -8,12 +8,12 @@
 
 ## Tasks
 
-- [ ] Add a strict pure route generator and regression tests for storefront/admin, NET/SITE, authority/OTP preservation, malformed/duplicate/reserved input, and unknown-host denial.
-- [ ] Add the read-only snapshot/apply wrapper, serialized against the existing canonical publication lock; failures retain the current proxy file.
-- [ ] Run focused tests, signup source compatibility and fresh NET/SITE HTTPS edge checks.
-- [ ] Install the narrowly scoped host service/timer and initial route file, retaining a concrete rollback.
-- [ ] Verify trusted public HTTPS identity for both Ezmeo addresses and existing merchants, then use the existing domain recheck/activation controls.
-- [ ] Verify public storefront, admin login, unknown-host denial, unchanged app/native pins, and timer no-op stability. Save operational evidence.
+- [x] Add a strict pure route generator and regression tests for storefront/admin, NET/SITE, authority/OTP preservation, malformed/duplicate/reserved input, and unknown-host denial.
+- [x] Add the read-only snapshot/apply wrapper, serialized against the existing canonical publication lock; failures retain the current proxy file.
+- [x] Run focused tests, signup source compatibility and fresh NET/SITE HTTPS edge checks.
+- [x] Install the narrowly scoped host service/timer and initial route file, retaining a concrete rollback.
+- [x] Verify trusted public HTTPS identity for both Ezmeo addresses and existing merchants, then use the existing domain recheck/activation controls.
+- [x] Verify public storefront, admin login, unknown-host denial, unchanged app/native pins, and timer no-op stability. Save operational evidence.
 
 ## Constraints
 
