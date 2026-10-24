@@ -104,6 +104,22 @@ test("scoped worker preserves database fairness order and exact immutable execut
   assert.equal(client.calls[0]?.text, "BEGIN READ ONLY");
 });
 
+test("scoped reconciliation admits exact Akbank identity alongside existing provider environments", async () => {
+  const authorities = ["paytr_iframe", "iyzico_iframe", "akbank_json"].flatMap((providerCode) =>
+    ["test", "live"].map((environment) => ({ providerCode, environment, adapterVersion: 1, evidenceDigest: SCOPE[0].evidenceDigest })));
+  const candidate = { attemptId: ATTEMPT, attemptVersion: 4, attemptStatus: "provider_outcome_unknown",
+    credentialVersion: 2, providerReference: "bank-order-193", ...authorities[5] };
+  const client = new Client((text) => text.includes("reconciliation_candidates_scoped(")
+    ? [{ outcome: "found", result_payload: { candidates: [candidate] } }] : []);
+  const result = await new PostgresStorefrontHostedCheckoutWorkerRepository(options(new Pool([client])))
+    .reconciliationCandidatesScoped({ now: NOW, limit: 25, authorities } as never);
+  assert.equal(result[0]?.providerCode, "akbank_json");
+  assert.equal(client.calls.find(({ text }) => text.includes("reconciliation_candidates_scoped("))?.values[2], JSON.stringify(authorities));
+  const invalid = new PostgresStorefrontHostedCheckoutWorkerRepository(options(new Pool([])));
+  await assert.rejects(() => invalid.reconciliationCandidatesScoped({ now: NOW, limit: 25,
+    authorities: [{ ...SCOPE[0], providerCode: "akbank" }] } as never), /invalid_input/u);
+});
+
 test("scoped worker rejects disabled, superseded and malformed projected authority", async () => {
   const candidate = { attemptId: ATTEMPT, attemptVersion: 4, attemptStatus: "provider_outcome_unknown",
     credentialVersion: 2, providerReference: null, ...SCOPE[0] };

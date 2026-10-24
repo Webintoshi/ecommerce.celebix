@@ -11,7 +11,7 @@ import type { SealedMerchantProviderCredential } from "../provider-execution/cre
 import type { PostgresPoolLike, PostgresTimeoutOptions } from "../postgres/pool.ts";
 import type { StorefrontCredentialCandidate, StorefrontDelivery } from "../storefront-commerce/types.ts";
 
-export type HostedCheckoutProviderCode = "paytr_iframe" | "iyzico_iframe";
+export type HostedCheckoutProviderCode = "paytr_iframe" | "iyzico_iframe" | "akbank_json";
 export type HostedCheckoutSessionStatus = "active" | "provider_ready" | "processing" | "captured" | "failed" | "cancelled" | "expired" | "stock_conflict";
 export type HostedCheckoutIssuedCredential = Readonly<{ keyId: string; digest: string }>;
 export type HostedCheckoutBeginResult = BeginPaymentAttemptResult & Readonly<{
@@ -64,7 +64,7 @@ export type HostedCheckoutAuthority = Readonly<{
   totalMinor: number;
   delivery: StorefrontDelivery;
   items: readonly PublicCartLine[];
-  presentation: "iframe" | "redirect";
+  presentation: "iframe" | "redirect" | "form_post";
   requiredCustomerFields: readonly "identity_number"[];
   customerName: string;
   customerEmail: string;

@@ -3,6 +3,7 @@ import { types as nodeTypes } from "node:util";
 
 import {
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  AKBANK_APPROVED_EXECUTION_AUTHORITIES,
   PAYTR_APPROVED_EXECUTION_AUTHORITIES,
 } from "@celebix/payment-adapters";
 import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
@@ -16,7 +17,7 @@ const WORKER = /^[A-Za-z0-9._-]{1,128}$/;
 const DATABASE = /^[a-z][a-z0-9_]{2,62}$/;
 const DIGEST = /^sha256:[a-f0-9]{64}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
-const PROVIDERS = Object.freeze(["iyzico_iframe", "paytr_iframe"] as const);
+const PROVIDERS = Object.freeze(["iyzico_iframe", "paytr_iframe", "akbank_json"] as const);
 
 type Environment = Readonly<Record<string, string | undefined>>;
 export type MerchantProviderProductionProviderCode = typeof PROVIDERS[number];
@@ -87,12 +88,13 @@ function executionAuthority(value: unknown): Readonly<PaymentProviderExecutionAu
 }
 
 function authorityMap(value: unknown): MerchantProviderExecutionAuthorityMap | null {
-  const selected = record(value, PROVIDERS);
+  const selected = record(value, PROVIDERS) ?? record(value, ["iyzico_iframe", "paytr_iframe"]);
   if (selected === null) return null;
   const iyzico = executionAuthority(selected.iyzico_iframe);
   const paytr = executionAuthority(selected.paytr_iframe);
-  if (iyzico === false || paytr === false) return null;
-  return Object.freeze({ iyzico_iframe: iyzico, paytr_iframe: paytr });
+  const akbank = executionAuthority(selected.akbank_json ?? null);
+  if (iyzico === false || paytr === false || akbank === false) return null;
+  return Object.freeze({ iyzico_iframe: iyzico, paytr_iframe: paytr, akbank_json: akbank });
 }
 
 function identity(value: unknown): Readonly<MerchantProviderValidationIdentity> | null {
@@ -131,12 +133,13 @@ function identityList(value: unknown): readonly Readonly<MerchantProviderValidat
 }
 
 function identityMap(value: unknown): MerchantProviderVerificationIdentityMap | null {
-  const selected = record(value, PROVIDERS);
+  const selected = record(value, PROVIDERS) ?? record(value, ["iyzico_iframe", "paytr_iframe"]);
   if (selected === null) return null;
   const iyzico = identityList(selected.iyzico_iframe);
   const paytr = identityList(selected.paytr_iframe);
-  if (iyzico === null || paytr === null) return null;
-  return Object.freeze({ iyzico_iframe: iyzico, paytr_iframe: paytr });
+  const akbank = identityList(selected.akbank_json ?? Object.freeze([]));
+  if (iyzico === null || paytr === null || akbank === null) return null;
+  return Object.freeze({ iyzico_iframe: iyzico, paytr_iframe: paytr, akbank_json: akbank });
 }
 
 function required(source: Environment, name: string, maximum = 4_096): string {
@@ -198,8 +201,8 @@ function paytrValidation(source: Environment): NonNullable<MerchantProviderProdu
 }
 
 export function createMerchantProviderProductionConfigParser(
-  compiledExecutionAuthorities: MerchantProviderExecutionAuthorityMap,
-  compiledVerificationIdentities: MerchantProviderVerificationIdentityMap,
+  compiledExecutionAuthorities: MerchantProviderExecutionAuthorityMap | Omit<MerchantProviderExecutionAuthorityMap, "akbank_json">,
+  compiledVerificationIdentities: MerchantProviderVerificationIdentityMap | Omit<MerchantProviderVerificationIdentityMap, "akbank_json">,
   dependencies?: Readonly<{
     parseKeyring(source: Environment): MerchantProviderCredentialKeyring;
   }>,
@@ -248,6 +251,7 @@ export function createMerchantProviderProductionConfigParser(
 
 function compiledExecutionAuthorities(): MerchantProviderExecutionAuthorityMap {
   return Object.freeze({
+    akbank_json: AKBANK_APPROVED_EXECUTION_AUTHORITIES.live ?? AKBANK_APPROVED_EXECUTION_AUTHORITIES.test,
     iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY,
     paytr_iframe: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test ?? PAYTR_APPROVED_EXECUTION_AUTHORITIES.live,
   });
@@ -255,6 +259,7 @@ function compiledExecutionAuthorities(): MerchantProviderExecutionAuthorityMap {
 
 function compiledVerificationIdentities(): MerchantProviderVerificationIdentityMap {
   return Object.freeze({
+    akbank_json: Object.freeze([Object.freeze({environment: "test" as const, adapterVersion: 1}), Object.freeze({environment: "live" as const, adapterVersion: 1})]),
     iyzico_iframe: Object.freeze([
       Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
       Object.freeze({ environment: "live" as const, adapterVersion: 1 }),

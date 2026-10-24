@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+import { renderAkbankFormPost } from "@/lib/checkout/akbank-form-post.ts";
 import { resolveDefaultPublicStorefrontRuntime } from "@/lib/default-runtime.ts";
 import { selectTrustedStorefrontHostAuthority } from "@/lib/trusted-host-authority.ts";
 import { hostedPaymentFrameSources } from "@/lib/checkout/paytr-frame-policy.ts";
@@ -21,10 +23,10 @@ function text(status: number, value: string): Response {
   return new Response(value, { status, headers: { ...BASE_HEADERS, "Content-Security-Policy": FALLBACK_CSP, "Content-Type": "text/plain; charset=utf-8" } });
 }
 
-function page(body: string, status = 200, frameSources?: string): Response {
-  const csp = frameSources
+function page(body: string, status = 200, frameSources?: string, formCsp?: string): Response {
+  const csp = formCsp ?? (frameSources
     ? `default-src 'none'; frame-src ${frameSources}; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'; object-src 'none'`
-    : FALLBACK_CSP;
+    : FALLBACK_CSP);
   return new Response(`<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Güvenli ödeme</title><style>html,body{height:100%;margin:0;background:#fff;font-family:system-ui,sans-serif}main{height:100%;display:grid;place-items:center}iframe{width:100%;height:100%;border:0}.status{color:#202124;font-size:15px}</style><main>${body}</main>`, {
     status,
     headers: { ...(frameSources ? PAYMENT_FRAME_HEADERS : BASE_HEADERS), "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp },
@@ -49,6 +51,11 @@ export async function GET(request: Request): Promise<Response> {
     const presentation = await runtime.presentation(input);
     if (presentation.kind === "redirect") {
       return new Response(null, { status: 303, headers: { ...BASE_HEADERS, Location: presentation.url } });
+    }
+    if (presentation.kind === "form_post") {
+      const rendered = renderAkbankFormPost(presentation, randomBytes(24).toString("base64"), authority.hostname);
+      if (rendered === null) return text(503, "Payment unavailable");
+      return page(rendered.body, 200, undefined, rendered.csp);
     }
     if (presentation.kind === "iframe") {
       const origin = new URL(presentation.url).origin;

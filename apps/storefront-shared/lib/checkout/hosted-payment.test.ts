@@ -281,3 +281,20 @@ test("invalid buyer identity and non-allowlisted Iyzico presentations fail close
     assert.equal(initializeCalls, selected.identity === "11111" ? 0 : 1);
   }
 });
+
+test("quick-order hosted bridge keeps its explicit iyzico scope when standard checkout adds Akbank", async () => {
+  let executionCalls = 0;
+  const handler = createQuickOrderHostedPaymentBridgeRoute({
+    selectAuthority: () => ({ kind: "trusted", hostname: HOSTNAME }), now: () => new Date(NOW),
+    fallback: async () => { throw new Error("unexpected_fallback"); },
+    resolveRuntime: async () => ({
+      hostedPayments: {
+        getAuthority: async () => ({ kind: "found", authority: { ...authority(), providerCode: "akbank_json" } }) as never,
+        begin: async () => { throw new Error("must_not_begin"); },
+      },
+      resolveExecution: async () => { executionCalls += 1; return null; },
+    }),
+  });
+  assert.equal((await handler(request())).status, 503);
+  assert.equal(executionCalls, 0);
+});

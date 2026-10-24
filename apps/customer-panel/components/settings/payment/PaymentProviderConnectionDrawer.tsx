@@ -26,6 +26,7 @@ const PAYTR_POLL_DELAYS_MS = Object.freeze([0, 800, 1_600, 2_400, 4_000] as cons
 type PaytrRefreshResult = Readonly<{
   profile: MerchantProviderProfile;
   methodActive: boolean;
+  anotherActiveProviderLabel?: string | null;
 }>;
 
 function wait(milliseconds: number): Promise<void> {
@@ -76,6 +77,8 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
     methods: props.methods,
     providerUnavailable,
   });
+  const akbank = props.descriptor.providerCode === "akbank_json";
+  const providerLabel = akbank ? "Akbank" : "PayTR";
   const canSubmit = connection !== null
     && selectedProfile?.status !== "pending_validation"
     && (selectedProfile === null || connection.canRotate);
@@ -125,7 +128,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
       });
       if (!mountedRef.current) return;
       form.reset();
-      if (props.descriptor.providerCode !== "paytr_iframe") {
+      if (props.descriptor.providerCode !== "paytr_iframe" && !akbank) {
         setMessageTone("success");
         setMessage("Doğrulama bekliyor");
         await props.onSaved(saved.id, selectedEnvironment);
@@ -133,27 +136,30 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
       }
 
       setMessageTone("warning");
-      setMessage("PayTR bağlantısı kontrol ediliyor.");
+      setMessage(`${providerLabel} bağlantısı kontrol ediliyor.`);
       let latest: PaytrRefreshResult | null = null;
       for (const delay of PAYTR_POLL_DELAYS_MS) {
         if (delay > 0) await wait(delay);
         if (!mountedRef.current) return;
         latest = await props.onSaved(saved.id, selectedEnvironment);
-        if (latest === null || latest.profile.status !== "pending_validation") break;
+        if (latest === null || latest.profile.status !== "pending_validation" || (akbank && latest.anotherActiveProviderLabel)) break;
       }
       if (!mountedRef.current) return;
-      if (latest?.profile.status === "active" && latest.methodActive) {
+      if (akbank && latest?.anotherActiveProviderLabel) {
+        setMessageTone("warning");
+        setMessage(`${latest.anotherActiveProviderLabel} etkin olduğu için Akbank ödeme yöntemi etkinleştirilemedi. Önce etkin sağlayıcıyı ödeme ayarlarından devre dışı bırakın.`);
+      } else if (latest?.profile.status === "active" && latest.methodActive) {
         setMessageTone("success");
         setMessage(latest.profile.publicConfig.environment === "test"
-          ? "PayTR test modu etkinleştirildi."
-          : "PayTR canlı ödeme etkinleştirildi.");
+          ? `${providerLabel} test modu etkinleştirildi.`
+          : `${providerLabel} canlı ödeme etkinleştirildi.`);
       } else if (latest?.profile.status === "rotation_required") {
         setMessageTone("error");
-        setMessage("PayTR bilgileri doğrulanamadı. Bilgileri kontrol edip yeniden kaydedin.");
+        setMessage(`${providerLabel} bilgileri doğrulanamadı. Bilgileri kontrol edip yeniden kaydedin.`);
       } else if (latest === null || latest.profile.status === "active") {
         setProviderUnavailable(true);
         setMessageTone("warning");
-        setMessage("PayTR ayarları doğrulandı ancak ödeme yöntemi henüz etkinleşmedi. Sistem daha sonra yeniden kontrol edecek.");
+        setMessage(`${providerLabel} ödeme yöntemi henüz etkinleşmedi. Doğrulama sonucu için daha sonra yeniden kontrol edin.`);
       } else {
         setMessageTone("warning");
         setMessage("Kontrol devam ediyor. Bu pencereyi kapatabilirsiniz.");
@@ -192,7 +198,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
           <div className={styles.dialogTitleIcon}>{props.descriptor.providerCode === "paytr_iframe" ? <ShieldCheck aria-hidden="true" /> : <PlugZap aria-hidden="true" />}</div>
           <div>
             <h2 id="payment-connection-title">{props.descriptor.providerCode === "paytr_iframe" ? "PayTR iFrame kurulumu" : `${props.descriptor.label} bağlantısı`}</h2>
-            <p id="payment-connection-description">{props.descriptor.providerCode === "paytr_iframe" ? "PayTR mağaza bilgilerinizi girin; doğrulama ve etkinleştirme Celebix tarafından tamamlanır." : "Yalnız sağlayıcının doğrulanmış alanlarını doldurun."}</p>
+            <p id="payment-connection-description">{props.descriptor.providerCode === "paytr_iframe" ? "PayTR mağaza bilgilerinizi girin; doğrulama ve etkinleştirme Celebix tarafından tamamlanır." : akbank ? "Akbank bağlantı bilgilerinizi girin; doğrulama ve etkinleştirme Celebix tarafından tamamlanır." : "Yalnız sağlayıcının doğrulanmış alanlarını doldurun."}</p>
           </div>
           <button ref={closeRef} className={styles.iconButton} type="button" onClick={props.onClose} disabled={busy} aria-label="Bağlantı penceresini kapat"><X /></button>
         </header>
@@ -223,6 +229,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
               disabled={busy || !props.canManage}
               onChange={(event) => {
                 setMessage("");
+                setProviderUnavailable(false);
                 setSelectedEnvironment(event.currentTarget.value as PaymentProviderEnvironment);
               }}
             >
@@ -238,6 +245,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
             <strong>Mağaza alan adı bekleniyor</strong>
             <span>Bildirim adresi, doğrulanmış mağaza alan adı bağlandığında oluşturulur.</span>
           </div>}
+          {akbank && connection?.kind === "generic" && connection.anotherActiveProviderLabel ? <p className={styles.providerWarning} role="status">{connection.anotherActiveProviderLabel} etkin. Akbank’ı etkinleştirmek için mevcut sağlayıcıyı ödeme ayarlarından devre dışı bırakın.</p> : null}
           {(connection?.kind === "generic" ? connection.publicFields : props.descriptor.publicFields.map((field) => ({ ...field, initialValue: "" }))).map((field) => (
             <label key={field.key}>{field.label}<input name={field.key} required defaultValue={field.initialValue} maxLength={1_000} disabled={busy || !props.canManage || !canSubmit} /></label>
           ))}

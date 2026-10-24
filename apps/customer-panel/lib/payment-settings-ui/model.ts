@@ -109,7 +109,8 @@ export type PaytrPaymentProviderConnectionView = PaymentProviderConnectionBase &
 
 export type GenericPaymentProviderConnectionView = PaymentProviderConnectionBase & Readonly<{
   kind: "generic";
-  submitLabel: "Bağlantıyı kaydet" | "Bilgileri yenile";
+  submitLabel: "Bağlantıyı kaydet" | "Bilgileri yenile" | "Ayarları Kaydet";
+  anotherActiveProviderLabel: string | null;
   publicFields: readonly Readonly<{ key: string; label: string; initialValue: string }>[];
   credentialFields: readonly Readonly<{
     key: string;
@@ -230,13 +231,29 @@ export function buildPaymentProviderConnectionViewModel(input: Readonly<{
       anotherActiveProviderLabel: anotherActiveProvider?.label ?? null,
     });
   }
+  const akbank = descriptor.providerCode === "akbank_json";
+  const activeAkbankMethod = selectedProfile?.status === "active" && (input.methods ?? []).some((method) => {
+    if (method.kind !== "provider" || method.providerCode !== "akbank_json" || method.profileId !== selectedProfile.id || method.state !== "active") return false;
+    try { return buildProviderCheckoutPreferenceView(method).environment === environment; } catch { return false; }
+  });
+  const anotherActiveProvider = akbank ? (input.methods ?? []).find((method) => method.kind === "provider" && (method.providerCode !== "akbank_json" || method.profileId !== selectedProfile?.id) && method.state === "active") : undefined;
+  const akbankStatus = input.providerUnavailable ? { label: "Akbank'a şu anda ulaşılamıyor", tone: "warning" as const }
+    : anotherActiveProvider ? { label: "Başka bir ödeme sağlayıcısı etkin", tone: "warning" as const }
+    : selectedProfile?.status === "pending_validation" ? { label: "Kontrol ediliyor", tone: "warning" as const }
+    : selectedProfile?.status === "rotation_required" ? { label: "Akbank bilgileri doğrulanamadı", tone: "danger" as const }
+    : selectedProfile?.status === "disabled" ? { label: "Devre dışı", tone: "neutral" as const }
+    : selectedProfile?.status === "revoked" ? { label: "Bilgiler yenilenmeli", tone: "warning" as const }
+    : activeAkbankMethod ? { label: environment === "live" ? "Aktif - Canlı" : "Aktif - Test modu", tone: "success" as const }
+    : selectedProfile?.status === "active" ? { label: "Ödeme yöntemi henüz etkinleşmedi", tone: "warning" as const }
+    : { label: "Kurulmadı", tone: "neutral" as const };
   return Object.freeze({
     ...common,
     kind: "generic" as const,
-    statusLabel: genericProfileStatus.label,
-    statusTone: genericProfileStatus.tone,
+    statusLabel: akbank ? akbankStatus.label : genericProfileStatus.label,
+    statusTone: akbank ? akbankStatus.tone : genericProfileStatus.tone,
+    anotherActiveProviderLabel: anotherActiveProvider?.label ?? null,
     callbackUrl: `https://${storefrontHostname}/api/payments/${descriptor.providerCode}/callback/{işleme-özel-bağlantı}`,
-    submitLabel: canRotate ? "Bilgileri yenile" : "Bağlantıyı kaydet",
+    submitLabel: akbank ? "Ayarları Kaydet" : canRotate ? "Bilgileri yenile" : "Bağlantıyı kaydet",
     publicFields: Object.freeze(descriptor.publicFields.map((field) => Object.freeze({
       key: field.key,
       label: field.label,
@@ -288,6 +305,8 @@ export type PaymentProviderCatalogCard = Readonly<{
     | "Kontrol ediliyor"
     | "Aktif - Test modu"
     | "Aktif - Canlı"
+    | "Akbank bilgileri doğrulanamadı"
+    | "Ödeme yöntemi henüz etkinleşmedi"
     | "PayTR bilgileri doğrulanamadı"
     | "PayTR'a şu anda ulaşılamıyor"
     | "Henüz bağlanmadı"
@@ -418,11 +437,12 @@ function activePaytrMethodProfile(
   profiles: readonly MerchantProviderProfile[],
   methods: readonly MerchantPaymentMethod[],
   descriptor: MerchantProviderDescriptor | undefined,
+  providerCode = "paytr_iframe",
 ): MerchantProviderProfile | undefined {
   for (const method of methods) {
-    if (method.kind !== "provider" || method.providerCode !== "paytr_iframe" || method.state !== "active") continue;
+    if (method.kind !== "provider" || method.providerCode !== providerCode || method.state !== "active") continue;
     const profile = profiles.find((candidate) => candidate.id === method.profileId && candidate.status === "active"
-      && candidate.providerCode === "paytr_iframe" && candidate.capability === "payment_processing");
+      && candidate.providerCode === providerCode && candidate.capability === "payment_processing");
     if (!profile || !descriptor?.environments?.includes(profile.publicConfig.environment as PaymentProviderEnvironment)) continue;
     try {
       if (buildProviderCheckoutPreferenceView(method).environment === profile.publicConfig.environment) return profile;
@@ -439,7 +459,7 @@ function catalogCard(
 ): PaymentProviderCatalogCard {
   const credentialDescriptor = descriptors.find((candidate) => candidate.providerCode === entry.providerCode
     && candidate.capability === "payment_processing" && candidate.executionAuthority === null);
-  if (credentialDescriptor && entry.providerCode === "paytr_iframe") entry = paymentProviderCredentialCatalogEntry(entry);
+  if (credentialDescriptor && (entry.providerCode === "paytr_iframe" || entry.providerCode === "akbank_json")) entry = paymentProviderCredentialCatalogEntry(entry);
   const ready = entry.readiness === "production_ready" || entry.readiness === "sandbox_ready";
   const executableDescriptor = ready
     ? descriptors.find((candidate) =>
@@ -454,8 +474,9 @@ function catalogCard(
   const configurableDescriptor = executableDescriptor ?? verificationDescriptor;
   const configurable = configurableDescriptor !== undefined;
   const executable = executableDescriptor !== undefined;
-  const activeMethodProfile = entry.providerCode === "paytr_iframe"
-    ? activePaytrMethodProfile(profiles, methods, configurableDescriptor) : undefined;
+  const selfService = entry.providerCode === "paytr_iframe" || entry.providerCode === "akbank_json";
+  const activeMethodProfile = selfService
+    ? activePaytrMethodProfile(profiles, methods, configurableDescriptor, entry.providerCode) : undefined;
   const connectionProfile = activeMethodProfile ?? (configurableDescriptor?.environments === undefined
     ? null
     : selectPaymentProviderConnectionProfile(
@@ -465,7 +486,7 @@ function catalogCard(
       ));
   const activeProfile = connectionProfile?.status === "active";
   const paytr = entry.providerCode === "paytr_iframe";
-  const activeMethod = (paytr || executable) && methods.some((candidate) => {
+  const activeMethod = (selfService || executable) && methods.some((candidate) => {
     if (
       candidate.kind !== "provider"
       || candidate.providerCode !== entry.providerCode
@@ -505,7 +526,16 @@ function catalogCard(
         || paytrLifecycleLabel === "PayTR'a şu anda ulaşılamıyor"
         ? "warning"
         : "neutral";
-  const lifecycleLabel = paytr && configurable ? paytrLifecycleLabel : !configurable
+  const akbankLifecycleLabel = connectionProfile?.status === "pending_validation" ? "Kontrol ediliyor" as const
+    : connectionProfile?.status === "rotation_required" ? "Akbank bilgileri doğrulanamadı" as const
+    : connectionProfile?.status === "disabled" ? "Devre dışı" as const
+    : activeProfile && activeMethod ? connectionEnvironment === "live" ? "Aktif - Canlı" as const : "Aktif - Test modu" as const
+    : activeProfile ? "Ödeme yöntemi henüz etkinleşmedi" as const : "Kurulmadı" as const;
+  const selfServiceLifecycleLabel = paytr ? paytrLifecycleLabel : akbankLifecycleLabel;
+  const selfServiceTone: PaymentSettingsTone = paytr ? paytrTone
+    : activeProfile && activeMethod ? "success" : connectionProfile?.status === "rotation_required" ? "danger"
+    : activeProfile || connectionProfile?.status === "pending_validation" ? "warning" : "neutral";
+  const lifecycleLabel = selfService && configurable ? selfServiceLifecycleLabel : !configurable
     ? entry.readiness === "maintenance" ? "Bakımda" as const : "Hazırlanıyor" as const
     : activeMethod ? "Aktif" as const
     : executable && activeProfile ? "Bağlı — aktivasyon bekliyor" as const
@@ -527,15 +557,15 @@ function catalogCard(
     interactionMode: entry.interactionMode,
     interactionLabel: INTERACTION_LABELS[entry.interactionMode],
     readiness: entry.readiness,
-    readinessLabel: paytr && configurable ? paytrLifecycleLabel : READINESS_LABELS[entry.readiness],
-    readinessTone: paytr && configurable ? paytrTone : READINESS_TONES[entry.readiness],
+    readinessLabel: selfService && configurable ? selfServiceLifecycleLabel : READINESS_LABELS[entry.readiness],
+    readinessTone: selfService && configurable ? selfServiceTone : READINESS_TONES[entry.readiness],
     environments: Object.freeze([...entry.environments]),
     environmentLabel: environmentLabel(entry.environments),
     configurable,
     executable,
-    connectable: configurable && !(paytr && connectionProfile?.status === "pending_validation"
+    connectable: configurable && !(selfService && connectionProfile?.status === "pending_validation"
       && configurableDescriptor?.environments?.length === 1),
-    actionLabel: paytr && configurable
+    actionLabel: selfService && configurable
       ? connectionProfile?.status === "pending_validation" ? "Kontrol ediliyor"
         : connectionProfile?.status === "active" ? "Yapılandırıldı"
         : connectionProfile?.status === "rotation_required" ? "Bilgileri düzelt"

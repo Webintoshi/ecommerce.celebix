@@ -136,3 +136,17 @@ test("non-provider, unknown-provider and corrupt persisted preferences fail clos
     maxInstallment: 0,
   }), /provider_checkout_preferences_invalid/);
 });
+
+test("Akbank preferences retain the bank label and only supported language and single-payment choices", () => {
+  const selected = method({ providerCode: "akbank_json", label: "Akbank", config: {
+    environment: "live", locale: "en", threeDSecure: "provider_managed", installmentMode: "single_payment", maxInstallment: 0,
+  } });
+  assert.equal(buildProviderCheckoutPreferenceView(selected).providerLabel, "Akbank");
+  assert.match(buildProviderCheckoutPreferenceSummary(selected).label, /English · Tek çekim/);
+  for (const locale of ["tr", "en"] as const) assert.equal(buildProviderCheckoutPreferenceCommand(selected, {
+    locale, installmentMode: "single_payment", maxInstallment: 0,
+  }).config.locale, locale);
+  for (const installmentMode of ["all", "limited"] as const) assert.throws(() => buildProviderCheckoutPreferenceCommand(selected, {
+    locale: "tr", installmentMode, maxInstallment: 6,
+  }), /provider_checkout_preferences_invalid/);
+});

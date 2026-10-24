@@ -366,3 +366,70 @@ test("production validation-only worker never falls through to either execution 
   await runtime.close();
   assert.equal(closed, 1);
 });
+
+test("Akbank production composition opens encrypted credentials, authenticates inquiry, and uses its atomic native finalizer in both lanes", async () => {
+  const {createHmac} = await import("node:crypto");
+  const credential = { merchantSafeId: "1".repeat(32), terminalSafeId: "2".repeat(32), secretKey: "synthetic-owner-composition-only" };
+  for (const environment of ["test", "live"] as const) for (const signed of [true, false]) {
+    const selected = config();
+    const plaintext = new TextEncoder().encode(JSON.stringify(credential));
+    const sealedCredentials = sealMerchantProviderCredential({ plaintext, profileId: PROFILE, storeId: STORE,
+      providerCode: "akbank_json", capability: "payment_processing", credentialVersion: 1, keyring: selected.keyring });
+    plaintext.fill(0);
+    const observed: Array<{providerCode: unknown; environment: unknown}> = [];
+    const client = new Client((text, values) => {
+      if (text.includes("payment_provider_keyed_lifecycle_preflight")) return [preflightRow()];
+      if (text.includes("merchant_provider_profile_claim_verification")) {
+        observed.push({providerCode: values[1], environment: values[3]});
+        return values[1] === "akbank_json" && values[3] === environment ? [{outcome: "claimed", result_payload: {
+          profileId: PROFILE, storeId: STORE, providerCode: "akbank_json", capability: "payment_processing",
+          publicConfig: {environment}, validationIdentity: {environment, adapterVersion: 1}, sealedCredentials,
+          credentialVersion: 1, profileVersion: 2, leaseId: LEASE, leaseOwner: "owner.payments.1",
+          leaseExpiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
+        }}] : [{outcome: "empty", result_payload: null}];
+      }
+      if (text.includes("akbank_merchant_self_service_mark_verification")) return [{outcome: signed ? "validated" : "unavailable", result_payload: {
+        id: PROFILE, providerCode: "akbank_json", capability: "payment_processing", publicConfig: {environment},
+        maskedAccountReference: "Akbank hesabı", status: signed ? "active" : "pending_validation",
+        credentialVersion: 1, version: 3, lastValidatedAt: signed ? NOW.toISOString() : null,
+        createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(),
+      }}];
+      return [];
+    });
+    let bankCalls = 0,closed = 0;
+    let bankFailure: unknown;
+    const runtime = await initializeMerchantProviderProductionRuntime(selected, Object.freeze({
+      createPool: () => ({connect: async () => client, async end() {closed += 1;}}),
+      async fetch(request: Request) {
+        bankCalls += 1;
+        try {
+        assert.equal(request.url, environment === "live" ? "https://api.akbank.com/api/v1/payment/virtualpos/transaction/process" : "https://apipre.akbank.com/api/v1/payment/virtualpos/transaction/process");
+        assert.equal(request.method, "POST");
+        const raw = await request.text(),body = JSON.parse(raw);
+        assert.equal(body.txnCode, "1010", "credential verification must never submit sale or hosting");
+        assert.deepEqual(body.terminal, {merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId});
+        assert.equal(body.order.orderId, LEASE);
+        assert.equal(request.headers.get("auth-hash"),createHmac("sha512",credential.secretKey).update(raw).digest("base64"));
+        assert.doesNotMatch(raw,/secretKey|creditCard|cvv|amount/);
+        // Synthetic authenticated not-found fixture; no bank or merchant account is contacted.
+        const response = JSON.stringify({txnCode: "1010",responseCode: "VPS-1007",terminal: body.terminal,txnDetailList: []});
+        return new Response(response,{status: 200,headers: {"content-type": "application/json",...(signed ? {"auth-hash": createHmac("sha512",credential.secretKey).update(response).digest("base64")} : {})}});
+        } catch(error) { bankFailure=error; throw error; }
+      },
+      uuid: () => LEASE,now: () => new Date(NOW),audit() {},
+    }));
+    let result: unknown;
+    try { result=await runtime.runOnce(); } catch(error) { throw bankFailure ?? new Error(JSON.stringify({environment,signed,bankCalls,final:client.calls.find(({text})=>text.includes("akbank_merchant_self_service_mark_verification"))?.values.slice(10)}),{cause:error}); }
+    if(bankFailure) throw bankFailure;
+    assert.deepEqual(result,{kind: signed ? "profile_validated" : "profile_unavailable"});
+    assert.equal(bankCalls,1);
+    assert.deepEqual(observed.at(-1),{providerCode: "akbank_json", environment});
+    const finalized = client.calls.find(({text})=>text.includes("akbank_merchant_self_service_mark_verification"));
+    assert.ok(finalized);
+    assert.deepEqual(finalized.values.slice(0,5),[PROFILE,"akbank_json","payment_processing",environment,1]);
+    assert.deepEqual(finalized.values.slice(8),[1,2,signed ? "validated" : "unavailable",signed ? "validated" : "validation_unavailable"]);
+    assert.equal(client.calls.some(({text})=>text.includes("saas.merchant_provider_profile_mark_verification(")),false);
+    assert.equal(client.calls.some(({text})=>text.includes("merchant_provider_claim(")||text.includes("merchant_provider_finalize(")),false);
+    await runtime.close();assert.equal(closed,1);
+  }
+});

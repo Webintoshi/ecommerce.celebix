@@ -9,6 +9,7 @@ import {gatherInputs,checkReceipt,writeReceipt} from './signup-release-proof.mjs
 const required=[
  'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront','scripts/signup-build-inputs/Dockerfile.storefront',
  '.github/workflows/signup-release-guard.yml','scripts/signup-release-proof.mjs','scripts/signup-release-proof.test.mjs','scripts/rehearse-signup-release.mjs',
+ 'scripts/generate-paytr-build.mjs','scripts/generate-iyzico-sandbox-build.mjs','scripts/generate-akbank-build.mjs',
  'scripts/verify-signup-edge.mjs','scripts/verify-signup-edge.test.mjs',
  'scripts/verify-tenant-wildcard-readiness.mjs','scripts/verify-tenant-wildcard-readiness.test.mjs',
  'scripts/tenant-wildcard-routes.mjs','scripts/tenant-wildcard-routes.test.mjs',
@@ -57,9 +58,9 @@ test('the writer requires successful exact named PostgreSQL16 suites before prod
  for(const invalid of [[],runs().slice(0,1),[runs()[0],runs()[0]],runs().map(x=>({...x,exitCode:1})),runs().map(x=>({...x,postgresMajor:15})),runs().map(x=>({...x,unknown:true}))])assert.throws(()=>writeReceipt(root,invalid,gatherInputs(root)),/signup_release_proof_invalid_runs/);
  writeReceipt(root,runs(),gatherInputs(root));assert.doesNotThrow(()=>checkReceipt(root));
 });
-test('only the two mutable payment metadata outputs and known build artifacts are excluded',t=>{
+test('only the three mutable payment metadata outputs and known build artifacts are excluded',t=>{
  const root=fixture(t);writeReceipt(root,runs(),gatherInputs(root));
- for(const source of ['packages/payment-adapters/src/providers/paytr/build-metadata.generated.ts','packages/payment-adapters/src/providers/iyzico/build-metadata.generated.ts','apps/owner/.next/server/generated.js','apps/owner/.onboarding-worker/runtime.cjs','packages/saas-data/node_modules/example/index.js','apps/owner/lib/ordinary.test.ts'])put(root,source);
+ for(const source of ['packages/payment-adapters/src/providers/paytr/build-metadata.generated.ts','packages/payment-adapters/src/providers/iyzico/build-metadata.generated.ts','packages/payment-adapters/src/providers/akbank/build-metadata.generated.ts','apps/owner/.next/server/generated.js','apps/owner/.onboarding-worker/runtime.cjs','packages/saas-data/node_modules/example/index.js','apps/owner/lib/ordinary.test.ts'])put(root,source);
  assert.doesNotThrow(()=>checkReceipt(root));put(root,'packages/saas-data/src/other.generated.ts');assert.throws(()=>checkReceipt(root),/signup_release_proof_stale/);
 });
 test('symlinked covered source or receipt cannot bypass the inventory',t=>{
@@ -146,4 +147,17 @@ test('the build-stage COPY restores reviewed Dockerfile bytes after platform ARG
  assert.equal(readFileSync(path.join(context,'Dockerfile.storefront'),'utf8'),mutated);
  put(build,'packages/saas-data/src/postgres/repository.ts','untested database source');
  assert.throws(()=>checkReceipt(build),/signup_release_proof_stale/);
+});
+
+
+test('Akbank source and each official payment generator remain covered while generated admission may change',t=>{
+ const generators=['scripts/generate-paytr-build.mjs','scripts/generate-iyzico-sandbox-build.mjs','scripts/generate-akbank-build.mjs'];
+ for(const source of ['packages/payment-adapters/src/providers/akbank/adapter.ts',...generators]){
+  const root=fixture(t);for(const generator of generators)put(root,generator,'original generator');put(root,source,'original protected source');
+  writeReceipt(root,runs(),gatherInputs(root));
+  put(root,'packages/payment-adapters/src/providers/akbank/build-metadata.generated.ts','build generated source admission');
+  assert.doesNotThrow(()=>checkReceipt(root));
+  put(root,source,'changed protected source');
+  assert.throws(()=>checkReceipt(root),/signup_release_proof_stale/,source);
+ }
 });

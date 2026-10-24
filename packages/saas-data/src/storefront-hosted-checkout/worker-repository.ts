@@ -12,7 +12,7 @@ export type StorefrontHostedCheckoutReconciliationCandidate = Readonly<{
 }>;
 
 export type StorefrontHostedCheckoutReconciliationAuthority = Readonly<{
-  providerCode: "paytr_iframe" | "iyzico_iframe";
+  providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json";
   environment: "test" | "live";
   adapterVersion: number;
   evidenceDigest: string;
@@ -113,7 +113,7 @@ function input(value: unknown): Readonly<{ now: Date; limit: number }> {
 function executionAuthorities(value: unknown): readonly StorefrontHostedCheckoutReconciliationAuthority[] {
   try {
     if (!Array.isArray(value) || nodeTypes.isProxy(value) || Object.getPrototypeOf(value) !== Array.prototype
-      || value.length < 1 || value.length > 4) failure("invalid_input");
+      || value.length < 1 || value.length > 6) failure("invalid_input");
     const descriptors = Object.getOwnPropertyDescriptors(value);
     if (Reflect.ownKeys(descriptors).length !== value.length + 1) failure("invalid_input");
     const unique = new Set<string>();
@@ -121,7 +121,7 @@ function executionAuthorities(value: unknown): readonly StorefrontHostedCheckout
       const descriptor = descriptors[String(index)];
       if (!descriptor?.enumerable || !("value" in descriptor)) failure("invalid_input");
       const item = exact(descriptor.value, ["providerCode", "environment", "adapterVersion", "evidenceDigest"]);
-      if ((item.providerCode !== "paytr_iframe" && item.providerCode !== "iyzico_iframe")
+      if ((item.providerCode !== "paytr_iframe" && item.providerCode !== "iyzico_iframe" && item.providerCode !== "akbank_json")
         || (item.environment !== "test" && item.environment !== "live")
         || !Number.isSafeInteger(item.adapterVersion) || (item.adapterVersion as number) < 1
         || (item.adapterVersion as number) > 2_147_483_647

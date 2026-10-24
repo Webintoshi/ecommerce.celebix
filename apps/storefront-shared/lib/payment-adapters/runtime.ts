@@ -33,6 +33,8 @@ import {
   type ExactHostedPaymentCallback,
 } from "./callback-authority.ts";
 
+import { validateAkbankFormPost, type AkbankFormPostPresentation } from "../checkout/akbank-form-post.ts";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const CODE = /^[a-z][a-z0-9_]{0,63}$/;
@@ -71,6 +73,7 @@ type OpenedCredential = Readonly<{
 }>;
 
 export type HostedPaymentPresentation =
+  | AkbankFormPostPresentation
   | Readonly<{ kind: "redirect"; url: string }>
   | Readonly<{ kind: "iframe"; url: string; token: string }>
   | Readonly<{ kind: "processing" }>
@@ -619,6 +622,7 @@ function exactBrowserUrl(
     if (rule.kind === "exact_url") {
       return !parsed.search && parsed.toString() === value && value === rule.url ? value : null;
     }
+    if (rule.kind === "provider_form_post") return null;
     if (
       typeof token !== "string"
       || token.length < rule.token.minimum
@@ -655,6 +659,7 @@ function parseInitialization(
   environment: "test" | "live",
   value: HostedPaymentInitialization,
   language: "tr" | "en",
+  context: Readonly<{ hostname: string; callbackUrl: string; attemptId: string; amountMinor: number; currency: string; credential: object }>,
 ): Readonly<{
   status: "awaiting_customer" | "submitted" | "failed";
   providerReference: string | null;
@@ -662,6 +667,20 @@ function parseInitialization(
   presentation: HostedPaymentPresentation;
 }> | null {
   if (!plainRecord(value)) return null;
+  if (value.kind === "form_post" && adapter.packet.providerCode === "akbank_json"
+    && exactKeys(value, ["kind", "url", "fields", "providerReference"])
+    && value.providerReference === context.attemptId) {
+    const presentation = validateAkbankFormPost({ kind: value.kind, url: value.url, fields: value.fields }, environment, context.hostname);
+    const credential = context.credential as Readonly<Record<string, unknown>>;
+    if (presentation === null || presentation.fields.orderId !== context.attemptId
+      || presentation.fields.merchantSafeId !== credential.merchantSafeId
+      || presentation.fields.terminalSafeId !== credential.terminalSafeId
+      || presentation.fields.amount !== `${Math.floor(context.amountMinor / 100)}.${String(context.amountMinor % 100).padStart(2, "0")}`
+      || context.currency !== "TRY" || presentation.fields.lang !== language.toUpperCase()
+      || presentation.fields.okUrl !== context.callbackUrl || presentation.fields.failUrl !== context.callbackUrl) return null;
+    return Object.freeze({ status: "awaiting_customer", providerReference: value.providerReference,
+      safeCode: "form_post_ready", presentation });
+  }
   if (
     value.kind === "redirect"
     && exactKeys(value, ["kind", "url", "providerReference"])
@@ -1005,6 +1024,8 @@ async function initialize(
         begun.environment,
         result,
         selectedAdapter.methodConfig.locale,
+        Object.freeze({ hostname, callbackUrl: `https://${hostname}/api/payments/${begun.providerCode}/callback/${binding}`,
+          attemptId: begun.attemptId, amountMinor: input.amountMinor, currency: input.currency, credential: opened.credential }),
       );
       if (parsed === null) {
         const unknown = phase(

@@ -2,6 +2,8 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
+import { validateAkbankFormPost } from "./akbank-form-post.ts";
+
 import { normalizePromotionCode } from "@celebix/saas-contracts";
 
 import {
@@ -213,10 +215,12 @@ function delivery(request: HostedCheckoutStartRequest) {
 }
 
 function exactPresentation(
-  providerCode: "paytr_iframe" | "iyzico_iframe",
+  providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json",
   environment: "test" | "live",
   value: HostedPaymentPresentation,
-): Extract<HostedPaymentPresentation, { kind: "iframe" | "redirect" }> | null {
+  hostname: string,
+): Extract<HostedPaymentPresentation, { kind: "iframe" | "redirect" | "form_post" }> | null {
+  if (providerCode === "akbank_json") return validateAkbankFormPost(value, environment, hostname);
   if (value.kind !== "iframe" && value.kind !== "redirect") return null;
   let parsed: URL;
   try { parsed = new URL(value.url); } catch { return null; }
@@ -241,12 +245,13 @@ function openedPersistedPresentation(
   dependencies: Dependencies,
   state: Awaited<ReturnType<StorefrontHostedCheckoutRepository["presentation"]>>,
   selectedNow: Date,
+  hostname: string,
   expected?: Readonly<{
     sessionId: string;
-    providerCode: "paytr_iframe" | "iyzico_iframe";
+    providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json";
     environment: "test" | "live";
   }>,
-): Extract<HostedPaymentPresentation, { kind: "iframe" | "redirect" }> | null {
+): Extract<HostedPaymentPresentation, { kind: "iframe" | "redirect" | "form_post" }> | null {
   if (!state.sealedPresentation || !state.presentationDigest || !state.presentationKeyId
     || state.sealedPresentation.keyId !== state.presentationKeyId
     || (expected !== undefined && (state.sessionId !== expected.sessionId || state.providerCode !== expected.providerCode))) return null;
@@ -268,7 +273,7 @@ function openedPersistedPresentation(
   if (Object.keys(record).length !== 5 || record.version !== 1 || record.sessionId !== state.sessionId
     || record.providerCode !== state.providerCode || (record.environment !== "test" && record.environment !== "live")
     || (expected !== undefined && record.environment !== expected.environment)) return null;
-  return exactPresentation(state.providerCode, record.environment, record.presentation as HostedPaymentPresentation);
+  return exactPresentation(state.providerCode, record.environment, record.presentation as HostedPaymentPresentation, hostname);
 }
 
 function scopedAttemptsV2(input: Readonly<{
@@ -538,12 +543,12 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         ]);
       } catch { audit(dependencies, "browser_credential_reconstruction_failed"); return unavailable(); }
       if (providerPresentation.kind === "processing") {
-        if (authority.providerCode === "paytr_iframe") {
+        if (authority.providerCode === "paytr_iframe" || authority.providerCode === "akbank_json") {
           if (beginOutcome !== "replayed") {
             audit(dependencies, "provider_initialization_unknown");
             return unavailable();
           }
-          let recovered: Extract<HostedPaymentPresentation, { kind: "iframe" | "redirect" }> | null = null;
+          let recovered: Extract<HostedPaymentPresentation, { kind: "iframe" | "redirect" | "form_post" }> | null = null;
           try {
             const recoveryNow = now(dependencies);
             const state = await dependencies.repository.presentation({
@@ -551,7 +556,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
               now: recoveryNow,
               candidates: Object.freeze([{ keyId: persistedPaymentSession.keyId, digest: persistedPaymentSession.digest }]),
             });
-            recovered = openedPersistedPresentation(dependencies, state, recoveryNow, Object.freeze({
+            recovered = openedPersistedPresentation(dependencies, state, recoveryNow, input.hostname, Object.freeze({
               sessionId,
               providerCode: authority.providerCode,
               environment: authority.environment,
@@ -565,8 +570,10 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         }
         return Object.freeze({ destination: "/checkout/payment" as const, state: "processing" as const, setCookies: browserCookies });
       }
-      const presentation = exactPresentation(authority.providerCode, authority.environment, providerPresentation);
-      if (presentation === null) { audit(dependencies, "presentation_invalid"); return unavailable(); }
+      const presentation = exactPresentation(authority.providerCode, authority.environment, providerPresentation, input.hostname);
+      if (presentation === null || (presentation.kind === "form_post"
+        && (presentation.fields.orderId !== input.request.operationId
+          || presentation.fields.amount !== `${Math.floor(authority.totalMinor / 100)}.${String(authority.totalMinor % 100).padStart(2, "0")}`))) { audit(dependencies, "presentation_invalid"); return unavailable(); }
       const serialized = JSON.stringify(Object.freeze({
         version: 1, sessionId, providerCode: authority.providerCode,
         environment: authority.environment, presentation,
@@ -605,7 +612,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       // still holds a valid hosted cookie from a previous purchase.
       const resumed = await resumeFromSource(dependencies, input, selectedNow);
       if (resumed) return resumed.presentation
-        ? openedPersistedPresentation(dependencies, resumed.presentation, selectedNow) ?? unavailable()
+        ? openedPersistedPresentation(dependencies, resumed.presentation, selectedNow, input.hostname) ?? unavailable()
         : unavailable();
       if (credential.kind === "present") {
         try {
@@ -613,7 +620,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
             hostname: input.hostname, now: selectedNow,
             candidates: hostedCandidates(input.cookieHeader, dependencies.commerceKeyring),
           });
-          return openedPersistedPresentation(dependencies, state, selectedNow) ?? unavailable();
+          return openedPersistedPresentation(dependencies, state, selectedNow, input.hostname) ?? unavailable();
         } catch (error) { if (!recoverableLookup(error)) throw error; }
       }
       return unavailable();

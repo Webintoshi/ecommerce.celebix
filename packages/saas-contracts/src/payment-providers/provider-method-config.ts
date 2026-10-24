@@ -3,6 +3,7 @@ import type { PaymentProviderEnvironment } from "./types.ts";
 export const EXECUTABLE_HOSTED_PAYMENT_PROVIDERS = Object.freeze([
   "paytr_iframe",
   "iyzico_iframe",
+  "akbank_json",
 ] as const);
 
 export type ExecutableHostedPaymentProvider =
@@ -91,6 +92,7 @@ export function parseProviderPaymentMethodConfig(
     (environment !== "test" && environment !== "live")
     || !PROVIDER_PAYMENT_METHOD_LOCALES.includes(locale as ProviderPaymentMethodLocale)
     || (providerCode === "paytr_iframe" && locale !== "tr")
+    || (providerCode === "akbank_json" && (installmentMode !== "single_payment" || maxInstallment !== 0))
     || selected.threeDSecure !== "provider_managed"
     || !PROVIDER_INSTALLMENT_MODES.includes(installmentMode as ProviderInstallmentMode)
     || !PROVIDER_MAX_INSTALLMENTS.includes(maxInstallment as ProviderMaxInstallment)
@@ -115,7 +117,7 @@ export function defaultProviderPaymentMethodConfig(
     environment,
     locale: "tr",
     threeDSecure: "provider_managed",
-    installmentMode: "all",
+    installmentMode: providerCode === "akbank_json" ? "single_payment" : "all",
     maxInstallment: 0,
   });
 }

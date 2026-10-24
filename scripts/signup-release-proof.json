@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "4576db492dd268e9debd589b988fa0d71278f52e1937bf98c8976d2cd3abd8ed",
+  "inputDigest": "98e8b237412444bb78e5a04f09113764768e42168ef94d47426b6edb26c9c89c",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -912,6 +912,10 @@
       "sha256": "4175487c2fc6e09514f00b80100e0a422f9a51d0140fb350ae3e34dc770d4b32"
     },
     {
+      "path": "apps/owner/lib/merchant-provider-execution/akbank-validation-adapter.ts",
+      "sha256": "4af0c6bde1c0c5eafbe97fb4bd735abd88200a25544534a80627c48c647179ec"
+    },
+    {
       "path": "apps/owner/lib/merchant-provider-execution/default.ts",
       "sha256": "65af82bfb88ffd192133a9fd1be47946b8c06db296b2cce8581fa1d0709a843d"
     },
@@ -925,7 +929,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production-config.ts",
-      "sha256": "d66f477e9b3a7d3d99831bc267a085252afd66da96b40f847f08d78861cd74a5"
+      "sha256": "56fdf8a025b56826142dac32b068bdfef56c902a897adee2c5955ccbaedead9b"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production.ts",
@@ -933,7 +937,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/registry.ts",
-      "sha256": "211aed6707a168d450b8065544632991945c1b7db5594fae1243ca6576427032"
+      "sha256": "81c8d9c21e0193615df043902d63f66739be644ff55ec933fe32738457994335"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/types.ts",
@@ -2816,6 +2820,14 @@
       "sha256": "be8d96bf73c6b08ad1c84acbd9879dd5b3d2afede0de99a4be0cae47234d16fd"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610250275_akbank_hosted_pos.up.sql",
+      "sha256": "bc3f97f4b6ba3e0e74647d97160b8e35e6978f67eda230171694077b419a8292"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
+      "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3329,19 +3341,19 @@
     },
     {
       "path": "package.json",
-      "sha256": "2bdbfb44163686f867eb92e286557562544d0c299bec3412ff427bdac49b9f8c"
+      "sha256": "e6858688a718ea6f6acb86bb14ffd6500e7ba86a14ffd1c7997358094b1265f7"
     },
     {
       "path": "packages/payment-adapters/package.json",
-      "sha256": "5c86abadf684e79adc39dabd2c1671a504fff54c367c0fef11ac49676e65bb57"
+      "sha256": "25c2d23e9da5a11deea04cdd1858d58048fe32cf18f7059441eb52ec6914ec43"
     },
     {
       "path": "packages/payment-adapters/src/contracts.ts",
-      "sha256": "37e099cb0f8c9cb368748b7e73129adf048e65f886e5c8eb71a9e9cc49c32a8d"
+      "sha256": "8bc844978436a091dd176a56964cce623f3cd3b21c9a2d4354d8aad2895aaf2d"
     },
     {
       "path": "packages/payment-adapters/src/index.ts",
-      "sha256": "8380da4a706de1dc5c4a3fc2b21926dc26cae547044a86b873056a040b0ef74d"
+      "sha256": "0a7199eb6247eb408282572906971ea783deb9b288b0fa364487f20a34aa4d5f"
     },
     {
       "path": "packages/payment-adapters/src/packets/plugin-inventory.ts",
@@ -3350,6 +3362,26 @@
     {
       "path": "packages/payment-adapters/src/packets/source-types.ts",
       "sha256": "8e2679606c9c051da7f1537e8046f3ffbc3c27b78f6972faeca2293dcc10536c"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/adapter.ts",
+      "sha256": "78fa1cc35263324024f5fd450c3ff1f301b1346d64edf8ce524347092d0153c9"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/build-binding.ts",
+      "sha256": "26970e039c55bbf1798280b54de68550dd213f935eade51d361aa4fe24f05a8d"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/build-metadata.generated.ts",
+      "sha256": "751af5cc546b50458c4180361f509c25b654aad8509e39a380fbb2c7ec8b5269"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/config.ts",
+      "sha256": "16f7abfb90f9674e671be3310461d4b8be39e25764fc78e971efacaa2b0ce52f"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/packet.ts",
+      "sha256": "b8b23c9dd1c3e4b4691a03dcad002941814c113052230f2d1ae4914ee273bda4"
     },
     {
       "path": "packages/payment-adapters/src/providers/iyzico/adapter.ts",
@@ -3373,7 +3405,7 @@
     },
     {
       "path": "packages/payment-adapters/src/providers/paytr/build-binding.ts",
-      "sha256": "312cf3c0958e4b96b6b22479d52644f40b8f2f86054cbaaad2133658f5e2e815"
+      "sha256": "9c1eb8cf344ddd0c9752e466244884d2e127c330c3ae882a17dbce7a18c52883"
     },
     {
       "path": "packages/payment-adapters/src/providers/paytr/config.ts",
@@ -3385,15 +3417,15 @@
     },
     {
       "path": "packages/payment-adapters/src/registry.ts",
-      "sha256": "ee233d96b2f0f20dd99927610703fb8a621a3cf0a2ad9cbf2516bda5c24dbf6f"
+      "sha256": "8526b117a176d218fdedfc4b7a00396aa735a1196f828c5c019c43e85e4a8e50"
     },
     {
       "path": "packages/payment-adapters/src/transport.ts",
-      "sha256": "01e11f5edf16d6d52da6bd70602e10e29540f33c118668b50b0640795331b71f"
+      "sha256": "a34d612e5294014fea78843b2193658be4c071fbd5f9ab74ce32f202dfed956d"
     },
     {
       "path": "packages/payment-adapters/src/validation.ts",
-      "sha256": "ceba45fd7b83365c37b61a1eba23be5aa59c3186c1cf209f5a529f2528765dc7"
+      "sha256": "53e5721a9d5e9629b348fdabaf2b167e501cac6afb513945d42c10c0a4c48ba5"
     },
     {
       "path": "packages/payment-adapters/tsconfig.json",
@@ -3917,7 +3949,7 @@
     },
     {
       "path": "packages/saas-contracts/src/payment-providers/provider-method-config.ts",
-      "sha256": "9e7bc300f831e6d6121bee5f9b818cc732723caab408d966a1b57058dd79c2d3"
+      "sha256": "7865186b410bef514e0c24cd2d2580fe0f352a722b8c464e729640938921393c"
     },
     {
       "path": "packages/saas-contracts/src/payment-providers/types.ts",
@@ -4093,7 +4125,7 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/commerce.ts",
-      "sha256": "1a0d6edd033e2c643c0d5fc4af8023b572a2b42039a5415831ea4ebcbde34935"
+      "sha256": "c6707efbb9edf858c52c1b6100131bb4618f3ef1ec075c51cf374993c4d113b8"
     },
     {
       "path": "packages/saas-contracts/src/storefront/index.ts",
@@ -5081,7 +5113,7 @@
     },
     {
       "path": "packages/saas-data/src/provider-execution/errors.ts",
-      "sha256": "3d2ede135e654dcb825a4923d9eaba26a3da164b73b61329928f473347937708"
+      "sha256": "49e9ab20eb4d7f89fb10e7246c5799e65a64899f2438c038688d696eaabced12"
     },
     {
       "path": "packages/saas-data/src/provider-execution/index.ts",
@@ -5101,7 +5133,7 @@
     },
     {
       "path": "packages/saas-data/src/provider-execution/workflow-repository.ts",
-      "sha256": "24747abc072c29e99ec47d00c34bb6c9c9d9507cdac8ce8107807ee1400f2cf0"
+      "sha256": "96f257554b4b1611578274fdc24be6cc4278eca242c6a252056953809525a00e"
     },
     {
       "path": "packages/saas-data/src/quick-orders/canonical.ts",
@@ -5337,15 +5369,15 @@
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/types.ts",
-      "sha256": "40da3de326b7906520aab3dbd888f90b6b57599321a7d4180d0890728401d745"
+      "sha256": "34220a8590aed6f60a3a9725fa97f46e7091432680a556d487a559e3726641b7"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/validation.ts",
-      "sha256": "56d2c5a0cd922a89cca50333362e554454859cb476d865a774e0b8f7859e275a"
+      "sha256": "81862fdd11ad527162a060d0155d01312307fe97bae5f851b758e13650b02141"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/worker-repository.ts",
-      "sha256": "18474ccd7c6c031b450feb33994d54f04545f2ec819a622cc71a88440b6fa5fa"
+      "sha256": "e6d3ff2af1d0aafc4fe69cd054bf5c4ddfe240a2c26b269a51232a7f8646c762"
     },
     {
       "path": "packages/saas-data/src/storefront-identity/index.ts",

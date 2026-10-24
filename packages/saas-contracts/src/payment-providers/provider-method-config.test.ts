@@ -114,3 +114,14 @@ test("preferences do not accept arrays, proxies, symbols or inherited data", () 
   Object.assign(inherited, valid());
   assertInvalid(() => parseProviderPaymentMethodConfig("iyzico_iframe", inherited));
 });
+
+test("Akbank permits only reviewed single-payment preferences in either environment", () => {
+  for (const environment of ["test", "live"] as const) {
+    const config = defaultProviderPaymentMethodConfig("akbank_json", environment);
+    assert.equal(config.installmentMode, "single_payment");
+    assert.equal(config.maxInstallment, 0);
+    assert.deepEqual(parseProviderPaymentMethodConfig("akbank_json", {...config,locale:"en"}), {...config,locale:"en"});
+    assertInvalid(() => parseProviderPaymentMethodConfig("akbank_json", {...config,installmentMode:"all"}));
+    assertInvalid(() => parseProviderPaymentMethodConfig("akbank_json", {...config,installmentMode:"limited",maxInstallment:3}));
+  }
+});

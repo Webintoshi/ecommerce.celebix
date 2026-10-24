@@ -65,11 +65,11 @@ test("default hosted composition exposes exact PayTR and configurable Iyzico des
   const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
   const registry = createDefaultCustomerPanelPaymentProviderRegistry(hosted);
 
-  assert.equal(hosted.size, 2);
+  assert.equal(hosted.size, 3);
   assert.equal(hosted.packet("paytr_iframe")?.adapterVersion, 1);
   assert.equal(hosted.packet("iyzico_iframe")?.adapterVersion, 1);
-  assert.equal(registry.size, 2);
-  assert.deepEqual(registry.codes("payment_processing"), ["iyzico_iframe", "paytr_iframe"]);
+  assert.equal(registry.size, 3);
+  assert.deepEqual(registry.codes("payment_processing"), ["akbank_json", "iyzico_iframe", "paytr_iframe"]);
   const entry = registry.get("paytr_iframe", "payment_processing");
   assert.ok(entry);
   assert.equal(entry.adapterVersion, 1);
@@ -171,7 +171,7 @@ test("default assembly never discovers providers or credentials from environment
     const registry = createDefaultCustomerPanelPaymentProviderRegistry(
       createDefaultHostedPaymentAdapterRegistry(transport()),
     );
-    assert.equal(registry.size, 2);
+    assert.equal(registry.size, 3);
     assert.doesNotMatch(JSON.stringify(registry.get("paytr_iframe", "payment_processing")), /environment-secret/);
   } finally {
     if (original === undefined) delete process.env.PAYTR_MERCHANT_KEY;
@@ -281,4 +281,25 @@ test("customer panel promotes only the exact future Iyzico binding to test execu
   assert.equal(iyzico.profileSaveMode, "execution_authority");
   assert.throws(() => iyzico.parsePublicConfig({ environment: "live" }), /customer_panel_payment_adapter_invalid/);
   assert.equal(registry.get("paytr_iframe", "payment_processing")?.executionAuthority, null);
+});
+
+test("Akbank setup seals every bank identifier and exposes only safe environment metadata", () => {
+  const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
+  const registry = customerPanelPaymentDefaults.createDefaultCustomerPanelCredentialProviderRegistry(hosted);
+  const entry = registry.get("akbank_json", "payment_processing")!;
+  assert.ok(entry);
+  assert.equal(entry.profileSaveMode, "verification");
+  assert.equal(entry.executionAuthority, null);
+  assert.deepEqual(entry.publicFields, []);
+  assert.deepEqual(entry.credentialFields.map(field => field.key), ["merchantSafeId", "terminalSafeId", "secretKey"]);
+  for (const environment of ["test", "live"] as const) {
+    const config = entry.parsePublicConfig({environment});
+    const secret = {merchantSafeId:"1".repeat(32),terminalSafeId:"2".repeat(32),secretKey:"fixture-only-secret"};
+    const bytes = entry.parseCredential(secret, config);
+    assert.deepEqual(JSON.parse(new TextDecoder().decode(bytes)),secret);
+    assert.equal(entry.maskAccountReference(config).includes(secret.merchantSafeId),false);
+    bytes.fill(0);
+    assert.throws(() => entry.parseCredential({...secret,cardNumber:"not-admitted"},config));
+    assert.throws(() => entry.parsePublicConfig({...config,secretKey:"not-public"}));
+  }
 });

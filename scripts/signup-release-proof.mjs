@@ -8,10 +8,12 @@ export const REQUIRED_SUITE_IDS=Object.freeze(['current-signup.native','starter-
 export const EXCLUDED_GENERATED_FILES=Object.freeze([
  'packages/payment-adapters/src/providers/paytr/build-metadata.generated.ts',
  'packages/payment-adapters/src/providers/iyzico/build-metadata.generated.ts',
+ 'packages/payment-adapters/src/providers/akbank/build-metadata.generated.ts',
 ]);
 export const REQUIRED_INPUT_PATHS=Object.freeze([
  'AGENTS.md','package.json','package-lock.json','tsconfig.base.json','nixpacks.toml','Dockerfile.storefront','scripts/signup-build-inputs/Dockerfile.storefront',
  '.github/workflows/signup-release-guard.yml','scripts/signup-release-proof.mjs','scripts/signup-release-proof.test.mjs','scripts/rehearse-signup-release.mjs',
+ 'scripts/generate-paytr-build.mjs','scripts/generate-iyzico-sandbox-build.mjs','scripts/generate-akbank-build.mjs',
  'scripts/verify-signup-edge.mjs','scripts/verify-signup-edge.test.mjs',
  'scripts/verify-tenant-wildcard-readiness.mjs','scripts/verify-tenant-wildcard-readiness.test.mjs',
  'scripts/tenant-wildcard-routes.mjs','scripts/tenant-wildcard-routes.test.mjs',

@@ -222,10 +222,29 @@ function duplicateJsonKeys(text: string): boolean {
   }
 }
 
-function validateBody(bytes: Uint8Array, contentType: string): void {
+function validRawForm(text: string): boolean {
+  const names = new Set<string>();
+  try {
+    for (const pair of text.split("&")) {
+      const equals = pair.indexOf("=");
+      if (equals < 1 || /%(?![0-9a-fA-F]{2})/.test(pair)) return false;
+      const name = decodeURIComponent(pair.slice(0, equals).replaceAll("+", " "));
+      const value = decodeURIComponent(pair.slice(equals + 1).replaceAll("+", " "));
+      if (!name || CONTROL.test(name) || CONTROL.test(value) || names.has(name)) return false;
+      names.add(name);
+    }
+    return names.size > 0;
+  } catch { return false; }
+}
+
+function validateBody(bytes: Uint8Array, contentType: string, providerCode: string): void {
   const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   if (!Buffer.from(text, "utf8").equals(bytes)) throw new TypeError("hosted_payment_callback_invalid");
   if (contentType === "application/x-www-form-urlencoded") {
+    if (providerCode === "akbank_json") {
+      if (!validRawForm(text)) throw new TypeError("hosted_payment_callback_invalid");
+      return;
+    }
     const entries = [...new URLSearchParams(text).entries()];
     if (
       entries.length < 1
@@ -254,8 +273,8 @@ function exactHeaders(
   for (const [name, value] of entries) {
     if (name === "origin") {
       if (
-        providerCode !== IYZICO_IFRAME_PACKET.providerCode
-        || !IYZICO_CUSTOMER_RETURN_ORIGINS.includes(value)
+        !((providerCode === IYZICO_IFRAME_PACKET.providerCode && IYZICO_CUSTOMER_RETURN_ORIGINS.includes(value))
+          || (providerCode === "akbank_json" && ["https://virtualpospaymentgatewaypre.akbank.com", "https://virtualpospaymentgateway.akbank.com"].includes(value)))
       ) return null;
       continue;
     }
@@ -269,6 +288,7 @@ function exactHeaders(
     if (PROVIDER_CALLBACK_HEADERS.includes(name)) output[name] = value;
   }
   const contentType = output["content-type"];
+  if (providerCode === "akbank_json" && !FORM_CONTENT_TYPES.includes(contentType ?? "")) return null;
   if (contentType === undefined) return null;
   if (FORM_CONTENT_TYPES.includes(contentType)) {
     output["content-type"] = "application/x-www-form-urlencoded";
@@ -330,7 +350,7 @@ async function readValidatedCallback(
     body = await boundedBody(request.body);
     const declared = headers["content-length"];
     if (declared !== undefined && Number(declared) !== body.byteLength) return null;
-    validateBody(body, headers["content-type"]!);
+    validateBody(body, headers["content-type"]!, providerCode);
     const selected = Object.freeze({
       providerCode,
       callbackBindingDigest,

@@ -277,6 +277,55 @@ test("PayTR verification uses the atomic merchant activation boundary without cl
   ), false);
 });
 
+test("Akbank verification invokes its atomic finalizer without accepting client execution authority", async () => {
+  const projected = { ...verificationProfile(), providerCode: "akbank_json", maskedAccountReference: "Akbank hesabı" };
+  const client = new Client((text) => text.includes("akbank_merchant_self_service_mark_verification")
+    ? [{ outcome: "validated", result_payload: projected }] : []);
+  const result = await repository(new Pool([client])).markProfileVerification({
+    profileId: PROFILE, providerCode: "akbank_json", capability: "payment_processing",
+    validationIdentity: { environment: "live", adapterVersion: 1 }, credentialVersion: 2,
+    profileVersion: 3, leaseId: LEASE, leaseOwner: "worker.fixture", now: NOW,
+    outcome: "validated", outcomeCode: "validated",
+  });
+  assert.equal(result.providerCode, "akbank_json");
+  assert.deepEqual(call(client, "akbank_merchant_self_service_mark_verification").values,
+    [PROFILE, "akbank_json", "payment_processing", "live", 1, "worker.fixture", NOW, LEASE, 2, 3, "validated", "validated"]);
+  assert.equal(client.calls.some(({ text }) => text.includes("saas.merchant_provider_profile_mark_verification(")), false);
+});
+
+test("Akbank active-provider conflict stays explicit and rolls back verification", async () => {
+  const client = new Client((text) => text.includes("akbank_merchant_self_service_mark_verification")
+    ? [{ outcome: "provider_already_active", result_payload: null }] : []);
+  await assert.rejects(() => repository(new Pool([client])).markProfileVerification({
+    profileId: PROFILE, providerCode: "akbank_json", capability: "payment_processing",
+    validationIdentity: { environment: "live", adapterVersion: 1 }, credentialVersion: 2,
+    profileVersion: 3, leaseId: LEASE, leaseOwner: "worker.fixture", now: NOW,
+    outcome: "validated", outcomeCode: "validated",
+  }), { code: "provider_already_active" });
+  assert.equal(client.calls.at(-1)?.text, "ROLLBACK");
+});
+
+test("Akbank unknown verification commit replays its exact atomic finalizer", async () => {
+  const projected = { ...verificationProfile(), providerCode: "akbank_json", maskedAccountReference: "Akbank hesabı" };
+  const writer = new Client((text) => {
+    if (text.includes("akbank_merchant_self_service_mark_verification")) return [{ outcome: "validated", result_payload: projected }];
+    if (text === "COMMIT") throw new Error("ambiguous");
+    return [];
+  });
+  const recovery = new Client((text) => text.includes("akbank_merchant_self_service_mark_verification")
+    ? [{ outcome: "operation_replayed", result_payload: projected }] : []);
+  const result = await repository(new Pool([writer, recovery])).markProfileVerification({
+    profileId: PROFILE, providerCode: "akbank_json", capability: "payment_processing",
+    validationIdentity: { environment: "live", adapterVersion: 1 }, credentialVersion: 2,
+    profileVersion: 3, leaseId: LEASE, leaseOwner: "worker.fixture", now: NOW,
+    outcome: "validated", outcomeCode: "validated",
+  });
+  assert.deepEqual(result, projected);
+  assert.deepEqual(call(writer, "akbank_merchant_self_service_mark_verification").values,
+    call(recovery, "akbank_merchant_self_service_mark_verification").values);
+  assert.deepEqual(writer.releases, [true]);
+});
+
 test("profile verification unavailability releases the lease while preserving pending validation", async () => {
   const client = new Client((text) => text.includes("merchant_provider_profile_mark_verification")
     ? [{ outcome: "unavailable", result_payload: verificationProfile("pending_validation") }]

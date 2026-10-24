@@ -5,6 +5,8 @@ import {
   type PaymentProviderReadiness,
 } from "@celebix/saas-contracts";
 
+import { AKBANK_HOSTED_FORM_FIELD_NAMES } from "./contracts.ts";
+
 import type {
   PaymentAdapterCapabilities,
   PaymentAdapterCredentialField,
@@ -22,6 +24,10 @@ const FIELD_KEY = /^[a-z][A-Za-z0-9]{0,63}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const CARD_INPUT_SEMANTIC = /(?:cardnumber|fullcardnumber|primaryaccountnumber|securitycode|cvv|cvc|pan|expiry|expiration|exp(?:date|month|year)?|track[123]|magneticstripe|magstripe)/;
 const EXECUTABLE_ENDPOINTS = Object.freeze({
+  akbank_json: Object.freeze({
+    test: Object.freeze(["https://apipre.akbank.com/api/v1/payment/virtualpos/transaction/process"]),
+    live: Object.freeze(["https://api.akbank.com/api/v1/payment/virtualpos/transaction/process"]),
+  }),
   paytr_iframe: Object.freeze({
     test: Object.freeze([
       "https://www.paytr.com/odeme/api/get-token",
@@ -46,6 +52,10 @@ const EXECUTABLE_ENDPOINTS = Object.freeze({
   }),
 });
 const EXECUTABLE_PRESENTATIONS = Object.freeze({
+  akbank_json: Object.freeze({
+    test: Object.freeze({kind: "provider_form_post" as const, url: "https://virtualpospaymentgatewaypre.akbank.com/payhosting", fieldNames: AKBANK_HOSTED_FORM_FIELD_NAMES}),
+    live: Object.freeze({kind: "provider_form_post" as const, url: "https://virtualpospaymentgateway.akbank.com/payhosting", fieldNames: AKBANK_HOSTED_FORM_FIELD_NAMES}),
+  }),
   paytr_iframe: Object.freeze({
     test: Object.freeze({
       kind: "provider_token_url" as const,
@@ -96,6 +106,7 @@ const EXECUTABLE_PRESENTATIONS = Object.freeze({
   }),
 });
 const EXECUTABLE_CALLBACK_RESPONSES = Object.freeze({
+  akbank_json: "customer_return" as const,
   paytr_iframe: "provider_ack" as const,
   iyzico_iframe: "customer_return" as const,
 });
@@ -332,6 +343,15 @@ function presentation(
     providerCode as keyof typeof EXECUTABLE_PRESENTATIONS
   ];
   if (!allowed) invalid();
+  if (allowed.test.kind === "provider_form_post" && allowed.live.kind === "provider_form_post") {
+    const form = (value: unknown, rule: Extract<PaymentAdapterPresentationRule, {kind: "provider_form_post"}>): PaymentAdapterPresentationRule => {
+      const selected = dataObject(value, ["kind", "url", "fieldNames"]);
+      const names = denseArray(selected.fieldNames, 29, 29).map(fieldKey);
+      if (selected.kind !== rule.kind || canonicalHttpsUrl(selected.url) !== rule.url || names.some((name, index) => name !== rule.fieldNames[index])) invalid();
+      return Object.freeze({kind: "provider_form_post", url: rule.url, fieldNames: Object.freeze(names)});
+    };
+    return Object.freeze({test: form(parsed.test, allowed.test), live: form(parsed.live, allowed.live)});
+  }
   if (
     allowed.test.kind === "provider_query_token_url" &&
     allowed.live.kind === "provider_query_token_url"

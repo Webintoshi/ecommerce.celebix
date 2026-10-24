@@ -268,3 +268,23 @@ test("reads the same bounded callback authority from the fixed PayTR path and ex
     }), null);
   }
 });
+
+test("Akbank alone accepts exact bank Origin and valid raw percent encodings without changing signed bytes", async () => {
+  const providerCode = "akbank_json";
+  const target = `https://${HOSTNAME}/api/payments/${providerCode}/callback/${BINDING}`;
+  const body = "hashParams=orderId%2bamount&orderId=ORDER%2d100&amount=1.00&responseMessage=Good%20day";
+  for (const origin of ["https://virtualpospaymentgatewaypre.akbank.com", "https://virtualpospaymentgateway.akbank.com"]) {
+    const selected = await readExactHostedPaymentCallback({ request: request(target, { body, headers: { origin } }), providerCode, binding: BINDING, trustedHostname: HOSTNAME });
+    assert.ok(selected);
+    assert.equal(Buffer.from(selected.body).toString("utf8"), body);
+    assert.equal(selected.headers.origin, undefined);
+    selected.body.fill(0);
+  }
+  for (const origin of ["https://virtualpospaymentgatewaypre.akbank.com/", "https://virtualpospaymentgatewaypre.akbank.com.evil.example", "https://api.akbank.com", "null"]) {
+    assert.equal(await readExactHostedPaymentCallback({ request: request(target, { body, headers: { origin } }), providerCode, binding: BINDING, trustedHostname: HOSTNAME }), null);
+  }
+  for (const invalid of ["amount=1&%61mount=2", "amount=%", "amount=%GG", "amount=%ff", "amount=1&&status=ok", "amount=1&missing", "=value", "amount=1&amount=1"]) {
+    assert.equal(await readExactHostedPaymentCallback({ request: request(target, { body: invalid }), providerCode, binding: BINDING, trustedHostname: HOSTNAME }), null, invalid);
+  }
+  assert.equal(await readExactHostedPaymentCallback({ request: request(CALLBACK_URL, { body }), providerCode: PROVIDER, binding: BINDING, trustedHostname: HOSTNAME }), null);
+});

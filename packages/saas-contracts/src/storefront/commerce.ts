@@ -91,8 +91,8 @@ export type PublicHostedCardPaymentMethod = Readonly<{
   id: string;
   label: string;
   instructions: string;
-  providerCode: "paytr_iframe" | "iyzico_iframe";
-  presentation: "iframe" | "redirect";
+  providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json";
+  presentation: "iframe" | "redirect" | "form_post";
   requiredCustomerFields: readonly "identity_number"[];
 }>;
 
@@ -562,15 +562,17 @@ function paymentMethod(value: unknown): PublicPaymentMethod {
       || Object.hasOwn(parsed, "accountHolder")
       || Object.hasOwn(parsed, "iban")
     ) invalid();
-    const providerCode = parsed.providerCode === "paytr_iframe" || parsed.providerCode === "iyzico_iframe"
+    const providerCode = parsed.providerCode === "paytr_iframe" || parsed.providerCode === "iyzico_iframe" || parsed.providerCode === "akbank_json"
       ? parsed.providerCode
       : invalid();
-    const presentation = parsed.presentation === "iframe" || parsed.presentation === "redirect"
+    const presentation = parsed.presentation === "iframe" || parsed.presentation === "redirect" || parsed.presentation === "form_post"
       ? parsed.presentation
       : invalid();
     const requiredCustomerFields = Object.freeze(denseArray(parsed.requiredCustomerFields, 0, 1).map<"identity_number">((field) => (
       field === "identity_number" ? field : invalid()
     )));
+    if (providerCode === "akbank_json" && (presentation !== "form_post" || requiredCustomerFields.length !== 0)) invalid();
+    if (providerCode !== "akbank_json" && presentation === "form_post") invalid();
     return Object.freeze({
       kind: "hosted_card",
       id: text(parsed.id, 36, 36, UUID),

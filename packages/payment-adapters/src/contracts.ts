@@ -3,6 +3,16 @@ import type {
   ProviderPaymentMethodConfig,
 } from "@celebix/saas-contracts";
 
+// Published Akbank 3D Pay Hosting MAC order; never sort or add card inputs.
+export const AKBANK_HOSTED_FORM_FIELD_NAMES = Object.freeze([
+  "paymentModel", "txnCode", "merchantSafeId", "terminalSafeId", "orderId", "lang",
+  "amount", "ccbRewardAmount", "pcbRewardAmount", "xcbRewardAmount", "currencyCode",
+  "installCount", "okUrl", "failUrl", "emailAddress", "mobilePhone", "homePhone",
+  "workPhone", "subMerchantId", "randomNumber", "requestDateTime", "b2bIdentityNumber",
+  "merchantData", "merchantBranchNo", "mobileEci", "walletProgramData", "mobileAssignedId",
+  "mobileDeviceType", "hash",
+] as const);
+
 export type PaymentAdapterField = Readonly<{
   key: string;
   label: string;
@@ -29,6 +39,7 @@ export type PaymentAdapterCapabilities = Readonly<{
 }>;
 
 export type PaymentAdapterPresentationRule =
+  | Readonly<{ kind: "provider_form_post"; url: string; fieldNames: readonly string[] }>
   | Readonly<{
       kind: "exact_url";
       url: string;
@@ -77,6 +88,7 @@ export type PaymentAdapterPacket = Readonly<{
 }>;
 
 export type HostedPaymentInitialization =
+  | Readonly<{ kind: "form_post"; url: string; fields: Readonly<Record<string, string>>; providerReference: string | null }>
   | Readonly<{ kind: "redirect"; url: string; providerReference: string | null }>
   | Readonly<{ kind: "iframe"; url: string; token: string; providerReference: string | null }>
   | Readonly<{ kind: "pending"; providerReference: string | null }>

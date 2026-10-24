@@ -103,3 +103,18 @@ test("script is bounded to batch 25, a 60 second lease window and count-only out
   assert.doesNotMatch(source, /sealedCredentials|credentialDigest|merchant_key|merchant_salt/iu);
   assert.match(source, /resolveDefaultStandardCheckoutReconciliationRuntime/u);
 });
+
+test("Akbank candidates reconcile only within the exact compiled provider and environment scope", async () => {
+  const authority = { ...AUTHORITY, providerCode: "akbank_json" };
+  let queried = 0;
+  const result = await runStandardCheckoutReconciliation({
+    sessions: { expireCreated: async () => 0, reconciliationCandidatesScoped: async () => [{
+      attemptId: ATTEMPT, attemptVersion: 4, attemptStatus: "provider_outcome_unknown", credentialVersion: 2, providerReference: ATTEMPT, ...authority,
+    }] }, attempts: { markUnknown: async () => { throw new Error("unused"); } },
+    runtime: { reconcile: async () => { queried += 1; return { kind: "processing" }; } },
+    executionAuthorities: [authority], now: () => new Date(NOW), randomUUID: () => IDS[0],
+  });
+  assert.equal(result.status, "completed");
+  assert.equal(result.processing, 1);
+  assert.equal(queried, 1);
+});

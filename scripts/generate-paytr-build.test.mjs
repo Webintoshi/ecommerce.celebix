@@ -122,7 +122,7 @@ test("reviewed PayTR source keeps registered execution authority across unrelate
   const { createPaytrAdapterSourceManifest, createPaytrCandidateBuildMetadata, PAYTR_ADAPTER_SOURCE_PATHS } = await import("../packages/payment-adapters/src/providers/paytr/build-binding.ts");
   const sources = await Promise.all(PAYTR_ADAPTER_SOURCE_PATHS.map(async (path) => ({ path, bytes: new Uint8Array(await readFile(join(REPOSITORY_ROOT, "packages/payment-adapters", path))) })));
   const sourceManifest = createPaytrAdapterSourceManifest(sources);
-  assert.equal(sourceManifest.sourceDigest, "sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b");
+  assert.equal(sourceManifest.sourceDigest, "sha256:76ffc126ce45e4401eb63d1af354be3e4a7db5760ce23b504f3326cd3cd320fb");
   const registered = {
     test: "sha256:b332fb0e51c6a4e340366507a8eace2aaed42482fb062f085c50576aff931c8f",
     live: "sha256:14bbcbf73e0fbc41c3e4749b4dff59ce5a98df238e82becb2ddc503dea9abf2c",
