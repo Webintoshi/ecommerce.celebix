@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { STORE_ADMIN_SESSION_MAX_AGE_MS } from "@celebix/saas-contracts";
 import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 import { CUSTOMER_PANEL_STAGING_AUTH_ENVIRONMENT_FIELDS, parseCustomerPanelStagingAuthConfig, resolveCustomerPanelStagingAuthMode, type CustomerPanelStagingAuthConfig } from "../panel-auth-authority/config.ts";
 import { createCrossHostHandoffAutoPostResponse } from "../cross-host-handoff-auto-post.ts";
@@ -21,15 +22,19 @@ export function resolveAdminLoginIngress(source:Record<string,string|undefined>,
  return createAdminIngressVerifier({secret:new Uint8Array(Buffer.from(key,"hex")),centralOrigin:options.centralOrigin,clock:options.clock});
 }
 export function createAdminSecurityCompletionTransfer(options:Readonly<{
+ sessionPolicy?:'store_whatsapp';
  clock:()=>Date;
  randomBytes:(size:number)=>Uint8Array;
  repository:{
   issuePreparedHandoff(input:{currentCredential:string;operationId:string;destinationStoreId:string;destinationHostname:string;now:Date;candidateCredential:string;handoffId:string}):Promise<unknown>;
   recoverIssuedHandoff(input:{operationId:string;credential:string;destinationHostname:string;now:Date}):Promise<unknown>;
  };
-}>){return async(completion:unknown,_request:Request):Promise<Response>=>{
+}>){
+ const maximumSessionMs=options.sessionPolicy==='store_whatsapp'?STORE_ADMIN_SESSION_MAX_AGE_MS:8*60*60_000;
+ return async(completion:unknown,_request:Request):Promise<Response>=>{
  const row=exact(completion,["sessionCredential","sessionIssuedAt","sessionExpiresAt","destinationStoreId","destinationOrigin","handoffCredential","handoffId","handoffOperationId"]),now=options.clock();
- // Validate the existing eight-hour session authority without emitting its cookie.
+ // Legacy MFA retains its eight-hour authority; WhatsApp opts in at factory creation.
+ if(Date.parse(String(row.sessionExpiresAt))>Date.parse(String(row.sessionIssuedAt))+maximumSessionMs)invalid();
  serializePersistentPanelSessionCookie({credential:String(row.sessionCredential),issuedAt:String(row.sessionIssuedAt),expiresAt:String(row.sessionExpiresAt),now});
  if(typeof row.destinationStoreId!=="string"||!UUID.test(row.destinationStoreId))invalid();
  const destinationOrigin=parseExactAdminHttpsOrigin(row.destinationOrigin).origin,destinationHostname=new URL(destinationOrigin).hostname;

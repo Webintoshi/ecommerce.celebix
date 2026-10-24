@@ -1,3 +1,4 @@
+import { STORE_ADMIN_SESSION_MAX_AGE_MS } from "@celebix/saas-contracts";
 import { assertPanelSessionPersistenceApproval } from "../panel-session-persistence/activation.ts";
 import {
   PanelSessionCredentialError,
@@ -10,7 +11,6 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{1
 const MAXIMUM_TIMEOUT_MS = 60_000;
 const MAXIMUM_CLOCK_SKEW_MS = 30_000;
 const HANDOFF_MS = 2 * 60_000;
-const SESSION_MS = 8 * 60 * 60_000;
 
 type QueryResult = { rows: Record<string, unknown>[]; rowCount: number | null };
 type Client = { query(text: string, values?: readonly unknown[]): Promise<QueryResult>; release(destroy?: boolean | Error): void };
@@ -168,7 +168,7 @@ function sessionAuthority(value: unknown): PersistedPanelSession {
   if (
     typeof row.version !== "number" || !Number.isSafeInteger(row.version) || row.version < 1
     || Date.parse(issuedAt) > Date.parse(rotatedAt) || Date.parse(rotatedAt) >= Date.parse(expiresAt)
-    || Date.parse(expiresAt) > Date.parse(issuedAt) + SESSION_MS
+    || Date.parse(expiresAt) > Date.parse(issuedAt) + STORE_ADMIN_SESSION_MAX_AGE_MS
   ) throw new Error("invalid");
   return Object.freeze({
     sessionId: uuid(row.sessionId),
@@ -405,7 +405,7 @@ export function createPostgresCrossHostSessionHandoffRepository(
           sessionId: createUuid(dependencies.randomBytes),
           familyId: createUuid(dependencies.randomBytes),
           issuedAt: redeemedAt.toISOString(),
-          expiresAt: new Date(redeemedAt.getTime() + SESSION_MS).toISOString(),
+          expiresAt: new Date(redeemedAt.getTime() + STORE_ADMIN_SESSION_MAX_AGE_MS).toISOString(),
         });
       } catch { return audit(dependencies, "redeem", safeFailure("unavailable")) as RedemptionResult; }
       const executed = await redeemTransaction(dependencies, proof, destinationHostname, session, recovery);
@@ -430,7 +430,7 @@ export function createPostgresCrossHostSessionHandoffRepository(
           issuedAt: timestamp(input.recovery.issuedAt),
           expiresAt: timestamp(input.recovery.expiresAt),
         });
-        if (Date.parse(recovery.expiresAt) <= Date.parse(recovery.issuedAt) || Date.parse(recovery.expiresAt) > Date.parse(recovery.issuedAt) + SESSION_MS) throw new Error("invalid");
+        if (Date.parse(recovery.expiresAt) <= Date.parse(recovery.issuedAt) || Date.parse(recovery.expiresAt) > Date.parse(recovery.issuedAt) + STORE_ADMIN_SESSION_MAX_AGE_MS) throw new Error("invalid");
       } catch (error) {
         return audit(dependencies, "recover_redemption", safeFailure(error instanceof PanelSessionCredentialError ? "unauthenticated" : "durable_authority_invalid")) as RedemptionResult;
       }

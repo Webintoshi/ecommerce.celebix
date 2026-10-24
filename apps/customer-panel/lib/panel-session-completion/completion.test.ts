@@ -202,6 +202,23 @@ test("returning login installs the already-issued session without invoking hando
   assert.equal(current.recoverCalls, 0);
 });
 
+test("new and day-twenty-nine returning sessions retain the original thirty-day boundary", async () => {
+  for (const [issuedAt, expiresAt, maxAge] of [
+    [NOW.toISOString(), new Date(NOW.getTime() + 2_592_000_000).toISOString(), 2_592_000],
+    [new Date(NOW.getTime() - 2_505_600_000).toISOString(), new Date(NOW.getTime() + 86_400_000).toISOString(), 86_400],
+  ] as const) {
+    for (const mode of ["direct", "redemption"] as const) {
+      const current = fixture(mode === "direct"
+        ? { transportResult: sessionReady({ sessionIssuedAt: issuedAt, sessionExpiresAt: expiresAt }) }
+        : { redeemResult: Object.freeze({ kind: "session_issued", credential: CREDENTIAL, session: session({ issuedAt, expiresAt }) }) });
+      const response = await current.handler(callback());
+      assert.equal(response.status, 303);
+      assert.equal(response.headers.getSetCookie()[0],
+        `__Host-celebix_panel=${CREDENTIAL}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`);
+    }
+  }
+});
+
 test("destination-bound returning login crosses to the store host without installing a central session cookie", async () => {
   const current = fixture({ transportResult: sessionReady(), crossHostTransfer: true });
   const response = await current.handler(callback());
@@ -254,7 +271,7 @@ test("every redemption denial or malformed success projection fails closed witho
     Object.freeze({ kind: "session_issued", credential: CREDENTIAL, session: { ...session() } }),
     Object.freeze({ kind: "session_issued", credential: CREDENTIAL, session: session({ activeStoreId: undefined }) }),
     Object.freeze({ kind: "session_issued", credential: CREDENTIAL, session: session({ rotatedAt: new Date(NOW.getTime() + 28_800_000).toISOString() }) }),
-    Object.freeze({ kind: "session_issued", credential: CREDENTIAL, session: session({ expiresAt: new Date(NOW.getTime() + 28_800_001).toISOString() }) }),
+    Object.freeze({ kind: "session_issued", credential: CREDENTIAL, session: session({ expiresAt: new Date(NOW.getTime() + 2_592_000_001).toISOString() }) }),
     Object.freeze({ kind: "session_issued", credential: CREDENTIAL, session: session({ expiresAt: NOW.toISOString() }) }),
   ];
   for (const redeemResult of results) {

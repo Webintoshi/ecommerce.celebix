@@ -732,3 +732,4 @@ export type {OrderEditIntent,OrderEditLineIntent,OrderEditLine,OrderEditFinance,
 
 export {parseCatalogVariantOrder,parseCatalogVariantOrderIntent} from "./catalog/variant-order.ts";
 export type {CatalogVariantOrder,CatalogVariantOrderIntent} from "./catalog/variant-order.ts";
+export {STORE_ADMIN_SESSION_MAX_AGE_SECONDS,STORE_ADMIN_SESSION_MAX_AGE_MS} from "./store-admin-session-policy.ts";

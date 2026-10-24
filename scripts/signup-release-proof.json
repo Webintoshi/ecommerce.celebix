@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "b81438435e8cccec83a67b0a28586c3e4cddbb546848d591167d46b778bdd005",
+  "inputDigest": "43e2349e76b94fc163f9dedc1624cd92e8cd37eb96e798b415dbc18c5aa885e0",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -105,7 +105,7 @@
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/runtime.ts",
-      "sha256": "0450549abc47b9ffdc744915ce6565bff1190d9346ba6c4d0be8c3163c0daace"
+      "sha256": "d0e93d9f0b659461bf1cafe9eba520529523fd6162341ea69bf67c34271f7ce9"
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/transport.ts",
@@ -121,11 +121,11 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-http.ts",
-      "sha256": "61199bbeb09f3468981e38ee647e152ec8bf14d6fe8740ebc1176d71265edca7"
+      "sha256": "3536dde4283fb95036fd0524f38e6d777ff79a276e1977263b0761c1f70350ff"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-session-handoff/postgres-repository.ts",
-      "sha256": "634fc60a34271261184a7a1b2973cc3b96c9b8c31e6cd14ce5a0e8e36404dcf3"
+      "sha256": "b5e9ee3623f0b9969593d063fc7a5ded606ddf76ec9aa5039ed9a2f252b1da5a"
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/handler.ts",
@@ -193,11 +193,11 @@
     },
     {
       "path": "apps/customer-panel/lib/panel-session-completion/completion.ts",
-      "sha256": "d177729d3da0acda142317a29b89e55d09302b38ba5529e970c54125223ee299"
+      "sha256": "e789a74979c5e3e71ca1f1c5de34a6c850bfc4ae207365150dcdde8fef6f7151"
     },
     {
       "path": "apps/customer-panel/lib/panel-session-completion/cookie.ts",
-      "sha256": "0f3127f3c97f587f337b91c138b1e80a0524d475fa1c9931e33254cee4b4d083"
+      "sha256": "1d2ebe44759a16cc36d7988b81e29742f10666f914b85c1092b6b0500e0e9cd4"
     },
     {
       "path": "apps/customer-panel/lib/panel-session-completion/transport.ts",
@@ -213,7 +213,7 @@
     },
     {
       "path": "apps/customer-panel/lib/panel-session-handoff/postgres-handoff-redeemer.ts",
-      "sha256": "236126cdef1d8d5eb5cd7373888b42fecaa57af7b238af1bcc252634dac71594"
+      "sha256": "6e4965931b65fc43027aae64b01b711b4c52f4774c39510e16fafed3bb580ba9"
     },
     {
       "path": "apps/customer-panel/lib/panel-session-persistence/activation.ts",
@@ -225,7 +225,7 @@
     },
     {
       "path": "apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.ts",
-      "sha256": "3fa5e72623c7982934575826b50d2c9cddb33fa04c427c153642c05f06cf7a26"
+      "sha256": "ef21faa32f561f12affb83172feb60cb72333c4792edbe803c3b94c63b7ee40e"
     },
     {
       "path": "apps/customer-panel/lib/platform-invitations/handlers.ts",
@@ -265,7 +265,7 @@
     },
     {
       "path": "apps/customer-panel/lib/session.ts",
-      "sha256": "ef4ba151cd3872200ddc0ed3378c9868ce0338b4bd518eed1e6c60b0d14b187d"
+      "sha256": "cac6660daec9a9c271104a29e318695c5d16114f8a8dad0f955dbdde275f3b2c"
     },
     {
       "path": "apps/customer-panel/package.json",
@@ -949,7 +949,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/completion.ts",
-      "sha256": "da3fcb932a0b0cc2ea9e4fcafc30e3ed1009f67f756765ad394428d56a048e2c"
+      "sha256": "219e23d570a78bdd42495931a6311600e898b24da47a19c6ad6feae2be526ff5"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/config.ts",
@@ -977,7 +977,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/service.ts",
-      "sha256": "1c339c26c4fba46e2f67edc67697430578d786ea3b805c89dcbee27f5099a99f"
+      "sha256": "0678cd0682b2bfce682598363163896033be05a757c94f155ba115bb6bd7755c"
     },
     {
       "path": "apps/owner/lib/native-marketing/config.ts",
@@ -2804,6 +2804,10 @@
       "sha256": "8fa58bb4f98fc8e43161e1758a92fd0306d29797de037509a32783d21490b056"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610240272_panel_session_30_days.up.sql",
+      "sha256": "d7007cbfb253893ed62ed5469aa0a867436c85cb8e6280dbd5dc34e913b55bf0"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3793,7 +3797,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "793fff9f4c9843323c39cab78cdd05ac3fa0d8eee3aad33a3681199c109b148b"
+      "sha256": "882ba18bda8e67e6d609f3ad8d660bc4099066c395466195243bae491c2ffc0d"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -4018,6 +4022,10 @@
     {
       "path": "packages/saas-contracts/src/shipping/validation.ts",
       "sha256": "70b6287642bdbc92880d7ecb3995cad4975b717fdacafceb23d16268fa72735b"
+    },
+    {
+      "path": "packages/saas-contracts/src/store-admin-session-policy.ts",
+      "sha256": "f89de22756ae506942089419f7ae2b95ffbfd683e070d1abde5537e9569a17ad"
     },
     {
       "path": "packages/saas-contracts/src/store-engagement/index.ts",

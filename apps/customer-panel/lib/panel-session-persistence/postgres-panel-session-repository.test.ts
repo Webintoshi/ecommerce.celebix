@@ -353,6 +353,47 @@ test("rotates with a new credential and preserves database-returned absolute exp
   }
 });
 
+test("resolves thirty-day store sessions while rejecting authority beyond thirty days", async () => {
+  for (const [lifetime, expectedKind] of [[2_592_000_000, "resolved"], [2_592_000_001, "durable_authority_invalid"]] as const) {
+    const authority = resolvedAuthority();
+    authority.session.expiresAt = new Date(NOW.getTime() + lifetime).toISOString();
+    const h = harness((text, values) => text.includes("issue_panel_session")
+      ? { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }
+      : { rows: [{ outcome: "resolved", authority }], rowCount: 1 });
+    const credential = await codecCredential(h);
+    const result = await h.repository.resolveSession({ credential, requestId: "request_thirty_days", now: NOW });
+    assert.equal(result.kind, expectedKind);
+    if (result.kind === "resolved") assert.equal(result.session.expiresAt, authority.session.expiresAt);
+  }
+});
+
+test("day-twenty-nine rotation retains the original issue time and last day", async () => {
+  const originalIssue = new Date(NOW.getTime() - 2_505_600_000).toISOString();
+  const originalExpiry = new Date(NOW.getTime() + 86_400_000).toISOString();
+  const h = harness((text, values) => {
+    if (text.includes("issue_panel_session")) return { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 };
+    const authority = sessionAuthority(values.slice(2));
+    authority.session.issuedAt = originalIssue;
+    authority.session.rotatedAt = NOW.toISOString();
+    authority.session.expiresAt = originalExpiry;
+    return { rows: [{ outcome: "rotated", authority }], rowCount: 1 };
+  });
+  const currentCredential = await codecCredential(h);
+  const result = await h.repository.rotateSession({ currentCredential, operationId: OPERATION_ID, requestedStoreId: STORE_ID, now: NOW });
+  assert.equal(result.kind, "rotated");
+  if (result.kind === "rotated") {
+    assert.equal(result.session.issuedAt, originalIssue);
+    assert.equal(result.session.expiresAt, originalExpiry);
+  }
+});
+
+test("the generic persistent issuer retains its legacy eight-hour expiry", async () => {
+  const h = harness((_text, values) => ({ rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 }));
+  const result = await h.repository.issueSession({ operationId: OPERATION_ID, principalId: PRINCIPAL_ID, activeStoreId: STORE_ID, now: NOW });
+  assert.equal(result.kind, "issued");
+  if (result.kind === "issued") assert.equal(result.session.expiresAt, new Date(NOW.getTime() + 28_800_000).toISOString());
+});
+
 test("revokes one session and its family through fixed operations", async () => {
   const h = harness((text, values) => {
     if (text.includes("issue_panel_session")) return { rows: [{ outcome: "issued", authority: sessionAuthority(values) }], rowCount: 1 };

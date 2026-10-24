@@ -97,6 +97,30 @@ test("redeems a destination-bound POST and installs only the host session cookie
   assert.doesNotMatch(response.headers.get("location") ?? "", /v1\./);
 });
 
+test("destination handoff preserves thirty-day authority and remaining time on day twenty-nine", async () => {
+  for (const [issuedAt, expiresAt, maxAge] of [
+    [NOW.toISOString(), new Date(NOW.getTime() + 2_592_000_000).toISOString(), 2_592_000],
+    [new Date(NOW.getTime() - 2_505_600_000).toISOString(), new Date(NOW.getTime() + 86_400_000).toISOString(), 86_400],
+  ] as const) {
+    const current = fixture({ redemption: Object.freeze({ kind: "redeemed", sessionCredential: SESSION,
+      session: Object.freeze({ ...session(), issuedAt, expiresAt }) }) });
+    const response = await current.handler(request());
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.getSetCookie()[0],
+      `__Host-celebix_panel=${SESSION}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${maxAge}`);
+  }
+});
+
+test("destination handoff rejects expired and over-thirty-day authority without a cookie", async () => {
+  for (const expiresAt of [NOW.toISOString(), new Date(NOW.getTime() + 2_592_000_001).toISOString()]) {
+    const current = fixture({ redemption: Object.freeze({ kind: "redeemed", sessionCredential: SESSION,
+      session: Object.freeze({ ...session(), expiresAt }) }) });
+    const response = await current.handler(request());
+    assert.equal(response.status, 409);
+    assert.equal(response.headers.has("set-cookie"), false);
+  }
+});
+
 test("redeems signup handoffs posted by the exact configured owner on NET and SITE", async () => {
   for (const suffix of ["site", "net"]) {
     const hostname = `new-store.admin.saas-staging.celebix.${suffix}`;

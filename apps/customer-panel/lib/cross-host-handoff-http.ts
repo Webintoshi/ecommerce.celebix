@@ -1,3 +1,4 @@
+import { STORE_ADMIN_SESSION_MAX_AGE_MS } from "@celebix/saas-contracts";
 import {
   normalizeAdminRequestHostname,
   parseCanonicalAdminOriginFromPanelOrigin,
@@ -9,7 +10,6 @@ import { serializePersistentPanelSessionCookie } from "./panel-session-completio
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
-const MAXIMUM_SESSION_MS = 8 * 60 * 60_000;
 
 function json(code: string, status: 400 | 409 | 503): Response {
   return Response.json({ code }, { status, headers: {
@@ -102,7 +102,7 @@ function sessionResult(value: unknown, trustedNow: Date) {
   if (
     Date.parse(issuedAt) > trustedNow.getTime() || Date.parse(issuedAt) > Date.parse(rotatedAt) ||
     Date.parse(rotatedAt) >= Date.parse(expiresAt) || Date.parse(expiresAt) <= trustedNow.getTime() ||
-    Date.parse(expiresAt) > Date.parse(issuedAt) + MAXIMUM_SESSION_MS
+    Date.parse(expiresAt) > Date.parse(issuedAt) + STORE_ADMIN_SESSION_MAX_AGE_MS
   ) throw new Error("invalid");
   return { sessionCredential: credential(result.sessionCredential), issuedAt, expiresAt };
 }

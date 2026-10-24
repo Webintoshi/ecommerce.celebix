@@ -1,7 +1,12 @@
-import type { SaaSContractError, StoreMembership } from "@celebix/saas-contracts";
+import {
+  STORE_ADMIN_SESSION_MAX_AGE_MS,
+  STORE_ADMIN_SESSION_MAX_AGE_SECONDS,
+  type SaaSContractError,
+  type StoreMembership,
+} from "@celebix/saas-contracts";
 
-const PANEL_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
-const PANEL_SESSION_MAX_AGE_MS = PANEL_SESSION_MAX_AGE_SECONDS * 1000;
+const LEGACY_PANEL_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60;
+const LEGACY_PANEL_SESSION_MAX_AGE_MS = LEGACY_PANEL_SESSION_MAX_AGE_SECONDS * 1000;
 const PANEL_SESSION_CLOCK_SKEW_MS = 30_000;
 const PANEL_SESSION_ID_PATTERN = /^[A-Za-z0-9_-]{32,128}$/;
 const AUTHORITY_ID_PATTERN = /^[A-Za-z0-9._:@/-]{1,512}$/;
@@ -49,7 +54,7 @@ export function getPanelSessionCookieOptions(policy: PanelSessionCookiePolicy) {
     secure: policy.kind === "production",
     sameSite: "lax" as const,
     path: "/" as const,
-    maxAge: PANEL_SESSION_MAX_AGE_SECONDS,
+    maxAge: LEGACY_PANEL_SESSION_MAX_AGE_SECONDS,
   };
 }
 
@@ -62,9 +67,23 @@ function serializePanelSessionCookie(
   return `${getPanelSessionCookieName(policy)}=${value}; HttpOnly${secure}; SameSite=Lax; Path=/; Max-Age=${maxAge}`;
 }
 
-export function buildPanelSessionSetCookie(sessionId: string, policy: PanelSessionCookiePolicy) {
+export function buildPanelSessionSetCookie(
+  sessionId: string,
+  policy: PanelSessionCookiePolicy,
+  timing?: { issuedAt: string; expiresAt: string; now: Date },
+) {
   if (!PANEL_SESSION_ID_PATTERN.test(sessionId)) throw new Error("panel_session_id_invalid");
-  return serializePanelSessionCookie(sessionId, policy, PANEL_SESSION_MAX_AGE_SECONDS);
+  if (!timing) return serializePanelSessionCookie(sessionId, policy, LEGACY_PANEL_SESSION_MAX_AGE_SECONDS);
+  const issuedAt = canonicalTimestamp(timing.issuedAt);
+  const expiresAt = canonicalTimestamp(timing.expiresAt);
+  const now = timing.now instanceof Date ? timing.now.getTime() : Number.NaN;
+  if (issuedAt === null || expiresAt === null || !Number.isFinite(now) || issuedAt > now ||
+      expiresAt <= now || expiresAt <= issuedAt || expiresAt > issuedAt + STORE_ADMIN_SESSION_MAX_AGE_MS) {
+    throw new Error("panel_session_cookie_expiry_invalid");
+  }
+  const maxAge = Math.floor((expiresAt - now) / 1000);
+  if (maxAge < 1 || maxAge > STORE_ADMIN_SESSION_MAX_AGE_SECONDS) throw new Error("panel_session_cookie_expiry_invalid");
+  return serializePanelSessionCookie(sessionId, policy, maxAge);
 }
 
 export function isValidPanelSessionId(value: string) {
@@ -169,7 +188,7 @@ function isValidSession(session: PanelSession, now: Date) {
     rotatedAt < expiresAt &&
     expiresAt > now.getTime() &&
     expiresAt > createdAt &&
-    expiresAt <= createdAt + PANEL_SESSION_MAX_AGE_MS
+    expiresAt <= createdAt + STORE_ADMIN_SESSION_MAX_AGE_MS
   );
 }
 
@@ -250,7 +269,7 @@ export function createPanelSession(input: {
     ...(input.activeStoreId ? { activeStoreId: input.activeStoreId } : {}),
     createdAt: now.toISOString(),
     rotatedAt: now.toISOString(),
-    expiresAt: new Date(now.getTime() + PANEL_SESSION_MAX_AGE_MS).toISOString(),
+    expiresAt: new Date(now.getTime() + LEGACY_PANEL_SESSION_MAX_AGE_MS).toISOString(),
   });
 }
 
@@ -268,13 +287,12 @@ export async function rotatePanelSessionForStore(input: {
     return { ok: false as const, error: { schemaVersion: 1, code: "unauthenticated", retryable: false } as SaaSContractError };
   }
 
-  const absoluteExpiry = Date.parse(input.session.createdAt) + PANEL_SESSION_MAX_AGE_MS;
   const next: PanelSession = {
     ...toSafePanelSession(input.session),
     id: createOpaqueSessionId(),
     activeStoreId: selection.selection.storeId,
     rotatedAt: now.toISOString(),
-    expiresAt: new Date(Math.min(absoluteExpiry, now.getTime() + PANEL_SESSION_MAX_AGE_MS)).toISOString(),
+    expiresAt: input.session.expiresAt,
   };
   await input.store.rotate(input.session.id, next);
   return { ok: true as const, session: next, selection: selection.selection };

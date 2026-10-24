@@ -126,6 +126,19 @@ test("redemption replay returns the identical deterministic credential and exact
   if (first.kind === "session_replayed") assert.equal(first.credential, SESSION_CREDENTIAL);
 });
 
+test("accepts thirty-day handoff session authority and rejects an overlong lifetime", async () => {
+  for (const [lifetime, expectedKind] of [[2_592_000_000, "session_issued"], [2_592_000_001, "durable_authority_invalid"]] as const) {
+    const authority = sessionAuthority();
+    authority.session.expiresAt = new Date(NOW.getTime() + lifetime).toISOString();
+    const h = harness(text => text.includes("recover_panel_session_handoff_redemption")
+      ? preflight()
+      : { rows: [{ outcome: "session_issued", authority }], rowCount: 1 });
+    const result = await h.redeemer.redeemHandoff({ credential: HANDOFF });
+    assert.equal(result.kind, expectedKind);
+    if (result.kind === "session_issued") assert.equal(result.session.expiresAt, authority.session.expiresAt);
+  }
+});
+
 test("unknown redemption COMMIT preserves the session credential, evicts the writer, and never rolls back", async () => {
   const h = harness((text) => text.includes("recover_panel_session_handoff_redemption")
     ? preflight()

@@ -1,3 +1,4 @@
+import { STORE_ADMIN_SESSION_MAX_AGE_MS } from "@celebix/saas-contracts";
 import {
   PanelSessionCredentialError,
   createPanelSessionCredentialCodec,
@@ -11,7 +12,6 @@ import {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
-const MAXIMUM_SESSION_MS = 8 * 60 * 60_000;
 const MAXIMUM_TIMEOUT_MS = 60_000;
 
 interface QueryResult {
@@ -137,7 +137,7 @@ function sessionAuthority(value: unknown): PersistedHandoffPanelSession {
   const issued = Date.parse(issuedAt);
   const rotated = Date.parse(rotatedAt);
   const expires = Date.parse(expiresAt);
-  if (issued > rotated || rotated >= expires || expires > issued + MAXIMUM_SESSION_MS) throw new Error("invalid");
+  if (issued > rotated || rotated >= expires || expires > issued + STORE_ADMIN_SESSION_MAX_AGE_MS) throw new Error("invalid");
   return Object.freeze({
     sessionId: uuid(row.sessionId),
     familyId: uuid(row.familyId),

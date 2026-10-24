@@ -1,5 +1,6 @@
 import {createHmac} from 'node:crypto';
 import {isIP} from 'node:net';
+import {STORE_ADMIN_SESSION_MAX_AGE_MS} from '@celebix/saas-contracts';
 import type {MerchantWhatsAppCommand,MerchantWhatsAppResult} from '../../../../packages/saas-contracts/src/merchant-whatsapp/types.ts';
 import type {AdminWhatsAppOtpDelivery} from '../../../../packages/saas-data/src/admin-login-security/delivery.ts';
 import type {createMerchantWhatsAppCodec,MerchantPhonePending} from './codec.ts';
@@ -47,7 +48,7 @@ export function createOwnerMerchantWhatsAppService(options:Readonly<{
   const op=uuid(row.completedOperationId),escrow=codec.openCompletion(str(row.completionCiphertext,32768),p,op),s=row.session as Row;
   if(!escrow||!s||uuid(s.sessionId)!==escrow.sessionId||uuid(s.familyId)!==escrow.familyId||uuid(row.principalId)!==uuid(s.principalId))unavailable();
   const issued=iso(s.issuedAt),expires=iso(s.expiresAt),now=options.clock().getTime();
-  if(Date.parse(issued)>now||Date.parse(expires)<=now||Date.parse(expires)>Date.parse(issued)+8*3600000)unavailable();
+  if(Date.parse(issued)>now||Date.parse(expires)<=now||Date.parse(expires)>Date.parse(issued)+STORE_ADMIN_SESSION_MAX_AGE_MS)unavailable();
   const origin=str(row.destinationOrigin,512),url=new URL(origin);
   if(url.protocol!=='https:'||url.origin!==origin||url.port||url.username||url.password||(input.purpose!=='signup'&&url.hostname!==p.destinationHostname&&!(input.purpose==='login'&&options.centralLoginHostnames?.has(p.destinationHostname))))unavailable();
   return result(input.purpose==='bind_phone'?'phone_bound':'complete',{completion:{sessionCredential:escrow.sessionCredential,sessionId:escrow.sessionId,sessionIssuedAt:issued,sessionExpiresAt:expires,destinationStoreId:uuid(s.activeStoreId),destinationOrigin:origin,purpose:input.purpose}});
