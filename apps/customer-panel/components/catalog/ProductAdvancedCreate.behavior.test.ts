@@ -1,3 +1,4 @@
+import { installCatalogSortRects, beginCatalogMouseDrag, dropCatalogMouseDrag, dragCatalogItem } from "./catalog-sort-test-utils.ts";
 import { compile as compileTaxFields } from "../../lib/mira-final-test-support.ts";
 import * as productTax from "../../lib/catalog-ui/product-tax.ts";
 import assert from "node:assert/strict";
@@ -42,6 +43,7 @@ async function compile(url: URL, imports: Record<string, unknown>) {
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
     if (name.includes("CommercialFeatureLink")) return {CommercialFeatureLink:({capability}:any)=>createElement("a",{href:`/upgrade?feature=${capability}`},"İndirimli paketi incele")};
+    if (name === "@/components/catalog/CatalogSortArea") return compileTaxFields("components/catalog/CatalogSortArea.tsx");
     if (name === "@/components/catalog/ProductTaxFields") return compileTaxFields("components/catalog/ProductTaxFields.tsx");
     if (name === "@/lib/catalog-ui/product-tax") return productTax;
     if (name === "react") return React;
@@ -69,7 +71,7 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
   let blobIndex = 0;
   browserUrl.createObjectURL = () => `blob:advanced-${++blobIndex}`;
   browserUrl.revokeObjectURL = () => {};
-  for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLButtonElement: browser.HTMLButtonElement, Event: browser.Event, MouseEvent: browser.MouseEvent, KeyboardEvent: browser.KeyboardEvent, FormData: browser.FormData, File: browser.File, URL: browserUrl, IS_REACT_ACT_ENVIRONMENT: true })) {
+  for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, Element: browser.Element, Node: browser.Node, Document: browser.Document, MutationObserver: browser.MutationObserver, ResizeObserver: browser.ResizeObserver, getComputedStyle: browser.getComputedStyle.bind(browser), requestAnimationFrame: browser.requestAnimationFrame.bind(browser), cancelAnimationFrame: browser.cancelAnimationFrame.bind(browser), HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLButtonElement: browser.HTMLButtonElement, Event: browser.Event, MouseEvent: browser.MouseEvent, KeyboardEvent: browser.KeyboardEvent, FormData: browser.FormData, File: browser.File, URL: browserUrl, IS_REACT_ACT_ENVIRONMENT: true })) {
     globals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
   }
@@ -225,7 +227,7 @@ test("color takes priority over size and changing the product SKU preserves a ma
 });
 
 test("a remounted variant draft restores its standard backup and reselecting combinations preserves edited identities", async () => {
-  const small = { ...newSmall, sku: "SIORA-S", barcode: "9800000000007", price: "275,00", stockQuantity: "3", cost: "175,00" };
+  const small = { ...newSmall, localId: "restored-small", sku: "SIORA-S", barcode: "9800000000007", price: "275,00", stockQuantity: "3", cost: "175,00" };
   const session = drafts.updateProductDraft(draft(), { kind: "variant", variants: [small], standardVariant: standard });
   await withAdvanced({ draftSession: session }, async ({ container, latest, stage, remount }) => {
     await click(container, "Varyant ekle");
@@ -461,17 +463,13 @@ test("removing a local product image clears its variant links before creation",a
 });
 
 async function dragImage(container: HTMLElement, browser: Window, from: number, to: number) {
-  const source = container.querySelector(`button[aria-label="${from}. görseli seç"]`)?.closest('[draggable="true"]');
-  const target = container.querySelector(`button[aria-label="${to}. görseli seç"]`)?.closest('[draggable="true"]');
-  assert.ok(source && target, "selected images support dragging before the product is saved");
-  const dataTransfer = { effectAllowed: "", dropEffect: "", setData() {} };
-  await act(async () => {
-    for (const [element, type] of [[source, "dragstart"], [target, "dragover"], [target, "drop"]] as const) {
-      const event = new browser.Event(type, { bubbles: true, cancelable: true });
-      Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
-      element.dispatchEvent(event as unknown as Event);
-    }
-  });
+  const source = container.querySelector(`button[aria-label="${from}. görseli seç"]`)?.closest('[data-sort-id]');
+  const target = container.querySelector(`button[aria-label="${to}. görseli seç"]`)?.closest('[data-sort-id]');
+  assert.ok(source && target, "images use real sortable sensors");
+  const restore = installCatalogSortRects(browser, container);
+  try { await dragCatalogItem(browser, container, source.getAttribute("data-sort-id")!, target.getAttribute("data-sort-id")!); }
+  finally { restore(); }
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
 }
 
 test("advanced creation keeps reordered images, selected preview and variant identities through remount and upload", async () => {
@@ -518,20 +516,19 @@ test("advanced creation ignores an in-flight image drop during save and locks or
   await withAdvanced({ api: { createProduct: () => new Promise(resolve => { resolveCreate = resolve; }) }, mediaClient: { upload: async () => { throw new Error("upload_failed"); } } }, async ({ container, browser, latest }) => {
     const chooser = container.querySelector<HTMLInputElement>('input[type="file"]')!;
     await act(async () => { Object.defineProperty(chooser, "files", { configurable: true, value: ["one", "two"].map(value => new browser.File([value], `${value}.png`, { type: "image/png" })) }); chooser.dispatchEvent(new browser.Event("change", { bubbles: true }) as unknown as Event); });
-    const source = container.querySelector('button[aria-label="2. görseli seç"]')?.closest('[draggable="true"]');
-    const target = container.querySelector('button[aria-label="1. görseli seç"]')?.closest('[draggable="true"]');
+    const source = container.querySelector('button[aria-label="2. görseli seç"]')?.closest('[data-sort-id]');
+    const target = container.querySelector('button[aria-label="1. görseli seç"]')?.closest('[data-sort-id]');
     assert.ok(source && target);
-    const event = new browser.Event("dragstart", { bubbles: true, cancelable: true });
-    Object.defineProperty(event, "dataTransfer", { value: { effectAllowed: "", setData() {} } });
-    await act(async () => source.dispatchEvent(event as unknown as Event));
+    installCatalogSortRects(browser, container);
+    await beginCatalogMouseDrag(browser, container, source.getAttribute("data-sort-id")!);
     const before = latest().current.media.map(image => image.localId);
     await submit(container, browser);
-    await act(async () => target.dispatchEvent(new browser.Event("drop", { bubbles: true, cancelable: true }) as unknown as Event));
+    await dropCatalogMouseDrag(browser, container, target.getAttribute("data-sort-id")!);
     assert.deepEqual(latest().current.media.map(image => image.localId), before);
     assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.matches(":disabled"), true);
     await act(async () => resolveCreate(created));
     assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /görsel yüklendi/);
-    assert.equal(container.querySelector('[draggable="true"]'), null);
+    assert.ok([...container.querySelectorAll<HTMLButtonElement>('button[aria-roledescription="Sıralanabilir öğe"]')].every(button => button.matches(":disabled")));
     await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.click());
     assert.deepEqual(latest().current.media.map(image => image.localId), before);
   });
@@ -555,4 +552,26 @@ test('package locked product AI offers upgrade without opening generation while 
   assert.ok(container.querySelector('input[name="seoTitle"]'));
   assert.ok(container.querySelector('textarea[name="seoDescription"]'));
  });
+});
+
+
+test("creation variant drag keeps stable identities, prices and image links after remount", async () => {
+  const rows = ["M", "S", "L"].map((title, index) => ({ ...newSmall, title, price: `${index + 1}00,00`, stockQuantity: String(index + 2), sku: `SIORA-${title}`, barcode: `869123456789${index}`, attributes: { beden: title }, mediaIds: [`image-${title}`] }));
+  const original = drafts.updateProductDraft(draft(), { kind: "variant", variants: rows });
+  const intents: any[] = [];
+  await withAdvanced({ draftSession: original, api: { createProduct: async (intent: any) => { intents.push(intent); return created; } } }, async ({container, browser, latest, remount}) => {
+    const ids = [...container.querySelectorAll('[data-sort-id]')].map(node => node.getAttribute('data-sort-id')!);
+    assert.equal(new Set(ids).size, 3, "each draft variant has a stable unique identity");
+    const before = rows.map((row,index)=>({...row,localId:ids[index]}));
+    const restore = installCatalogSortRects(browser, container, "list");
+    try { await dragCatalogItem(browser, container, before[2]!.localId!, before[0]!.localId!); } finally { restore(); }
+    assert.deepEqual(latest().current.variants, [before[2], before[0], before[1]], "entire variant records move together");
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
+    await remount(latest());
+    assert.deepEqual([...container.querySelectorAll('[data-sort-id]')].map(node => node.getAttribute('data-sort-id')), [before[2]!.localId, before[0]!.localId, before[1]!.localId]);
+    // Gallery completion is tested separately; remove non-uploaded fixture links before saving.
+    await remount(drafts.updateProductDraft(latest(), { variants: latest().current.variants.map(row => ({...row, mediaIds:undefined})) }));
+    await submit(container, browser);
+    assert.deepEqual(intents[0].variants.map((row:any)=>[row.title,row.priceCents,row.stockQuantity]), [["L",30000,4],["M",10000,2],["S",20000,3]]);
+  });
 });

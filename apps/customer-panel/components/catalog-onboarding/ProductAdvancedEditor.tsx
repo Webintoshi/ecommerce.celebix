@@ -3,8 +3,9 @@ import { CommercialFeatureLink } from "@/components/commercial-packages/Commerci
 
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ChevronDown, ImagePlus, Plus, Store, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { CatalogSortArea, CatalogSortItem } from "@/components/catalog/CatalogSortArea";
+import { ArrowLeft, ArrowRight, GripVertical, ChevronDown, ImagePlus, Plus, Store, Trash2 } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type {
   CatalogAdvancedCreateIntent,
   CatalogOnboardingOptions,
@@ -83,6 +84,7 @@ function money(cents?: number) { return cents === undefined ? "" : `${Math.floor
 function initialVariants(editor?: CatalogProductEditorProjection): readonly VariantDraft[] {
   if (!editor) return [emptyVariant()];
   return Object.freeze(editor.variants.map(({ variant, continueSellingWhenOutOfStock, shippingDesiMilli, hsCode }) => Object.freeze({
+    localId: variant.id,
     title: variant.title,
     sku: variant.sku ?? "",
     barcode: variant.barcode ?? "",
@@ -96,6 +98,15 @@ function initialVariants(editor?: CatalogProductEditorProjection): readonly Vari
     attributes: variant.attributes,
     ...(variant.measurements === undefined ? {} : { measurements: measurementsToDraft(variant.measurements) }),
   })));
+}
+
+function identifyVariants(variants: readonly VariantDraft[], initialPrefix?: string): readonly VariantDraft[] {
+  const used = new Set<string>();
+  return Object.freeze(variants.map((variant, index) => {
+    const localId = variant.localId && !used.has(variant.localId) ? variant.localId : initialPrefix ? `${initialPrefix}-variant-${index}` : crypto.randomUUID();
+    used.add(localId);
+    return localId === variant.localId ? variant : Object.freeze({ ...variant, localId });
+  }));
 }
 
 function initialChannelIds(options: CatalogOnboardingOptions, editor?: CatalogProductEditorProjection): readonly string[] {
@@ -145,7 +156,8 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
   const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
   const [taxChoice,setTaxChoice]=useState(draftSession?.current.taxChoice??'');
-  const [variants, setVariants] = useState<readonly VariantDraft[]>(() => draftSession?.current.variants ?? initialVariants(editor));
+  const variantDraftPrefix = useId();
+  const [variants, setVariants] = useState<readonly VariantDraft[]>(() => { const initial = draftSession?.current.variants ?? initialVariants(editor); return kind === "variant" ? identifyVariants(initial, variantDraftPrefix) : initial; });
   const [selectedVariantAttributeIds, setSelectedVariantAttributeIds] = useState<readonly string[]>(draftSession?.current.resourceAttributeIds ?? editor?.resourceIds.attributes ?? []);
   const [authoringAttributeChoices, setAuthoringAttributeChoices] = useState<readonly CatalogAttributeChoice[]>([]);
   const needsAuthoringAttributes = !captureProductAuthoringDraft && variants.some(variant => Object.keys(variant.attributes).length > 0);
@@ -182,7 +194,6 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const [pendingBarcodeCount, setPendingBarcodeCount] = useState(0);
   const [activeMediaId, setActiveMediaId] = useState<string | undefined>(media[0]?.localId);
   const activeMediaIndex = Math.max(0, media.findIndex(item => item.localId === activeMediaId));
-  const draggedMediaIdRef = useRef<string | undefined>(undefined);
   const lock = useRef(false);
   const simpleVariantRef = useRef<VariantDraft>(draftSession?.current.standardVariant ?? (kind === "simple" ? variants[0] : undefined) ?? { ...emptyVariant(), sku: deriveProductBaseSku(variants) });
   const pendingVariantSnapshotRef = useRef(new Map<string, VariantDraft>());
@@ -334,13 +345,13 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   }
 
   function changeCreateVariants(next: readonly VariantDraft[]) {
-    if (recoveryRef.current) return;
+    if (lock.current || recoveryRef.current || variantBuilderOpen) return;
     markEditingDirty();
     if (!next.length) {
       setKind("simple");
       setVariants([simpleVariantRef.current]);
       setSelectedVariantAttributeIds([]);
-    } else setVariants(next);
+    } else setVariants(kind === "variant" ? identifyVariants(next) : next);
   }
 
   function openVariantBuilder() {
@@ -367,7 +378,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   function changePendingVariants(next: readonly VariantDraft[]) {
     const previousKeys = new Set(pendingVariants.map((variant) => variantAttributeKey(variant.attributes)));
     for (const variant of pendingVariants) pendingVariantSnapshotRef.current.set(variantAttributeKey(variant.attributes), variant);
-    setPendingVariants(Object.freeze(next.map((variant) => {
+    setPendingVariants(identifyVariants(next.map((variant) => {
       const key = variantAttributeKey(variant.attributes);
       return !previousKeys.has(key) ? pendingVariantSnapshotRef.current.get(key) ?? variant : variant;
     })));
@@ -621,29 +632,15 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
                 {media[activeMediaIndex] ? <><img src={media[activeMediaIndex].preview} alt={media[activeMediaIndex].altText || `${activeMediaIndex + 1}. ürün görseli`} draggable={false} /><span className={createStyles.coverTag}>{activeMediaIndex === 0 ? "Kapak" : `${activeMediaIndex + 1}. görsel`}</span></> : <span className={createStyles.emptyPhoto}><ImagePlus aria-hidden="true" /><span>Görsel ekle</span></span>}
               </button>
               <div className={createStyles.mediaFoot}><span>{media.length}/16 görsel</span>{media.length ? <button className={createStyles.iconButton} type="button" onClick={() => removeMedia(activeMediaIndex)} aria-label="Seçili görseli kaldır"><Trash2 aria-hidden="true" /></button> : null}</div>
-              {media.length > 1 ? <div className={createStyles.thumbnails} aria-label="Seçili görseller">{media.map((selected, index) => <div key={selected.localId} className={createStyles.mediaThumbnail} draggable={!busy && !creationRecovery} title="Sürükleyerek sırala"
-                onDragStart={event => {
-                  if (lock.current || recoveryRef.current) { event.preventDefault(); return; }
-                  draggedMediaIdRef.current = selected.localId;
-                  event.dataTransfer.effectAllowed = "move";
-                  event.dataTransfer.setData("text/plain", selected.localId);
-                }}
-                onDragOver={event => {
-                  if (!draggedMediaIdRef.current || lock.current || recoveryRef.current) return;
-                  event.preventDefault(); event.dataTransfer.dropEffect = "move";
-                }}
-                onDrop={event => {
-                  event.preventDefault();
-                  const sourceId = draggedMediaIdRef.current; draggedMediaIdRef.current = undefined;
-                  if (sourceId) moveMedia(sourceId, selected.localId);
-                }}
-                onDragEnd={() => { draggedMediaIdRef.current = undefined; }}>
-                <button className={createStyles.thumbnailSelect} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeMediaIndex === index} onClick={() => setActiveMediaId(selected.localId)}><img src={selected.preview} alt="" draggable={false} />{index === 0 ? <span className={createStyles.thumbnailCover}>Kapak</span> : null}</button>
+              {media.length > 1 ? <CatalogSortArea ids={media.map(item => item.localId)} onMove={moveMedia} disabled={busy || Boolean(creationRecovery)} layout="grid" label="Görsel sırası" getLabel={id => `${media.findIndex(item => item.localId === id) + 1}. görsel`}><div className={createStyles.thumbnails} aria-label="Seçili görseller">{media.map((selected, index) => <CatalogSortItem id={selected.localId} key={selected.localId} className={createStyles.mediaThumbnail}>{drag => <>
+                <button {...drag.pointerProps} className={createStyles.thumbnailSelect} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeMediaIndex === index} onClick={() => setActiveMediaId(selected.localId)}><img src={selected.preview} alt="" draggable={false} />{index === 0 ? <span className={createStyles.thumbnailCover}>Kapak</span> : null}</button>
                 <div className={createStyles.mediaOrderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
+                  <button {...drag.handleProps} title="Sürükleyerek sırala"><GripVertical aria-hidden="true" /></button>
                   <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" disabled={busy || Boolean(creationRecovery) || index === 0} onClick={() => moveMedia(selected.localId, media[index - 1]!.localId)}><ArrowLeft aria-hidden="true" /></button>
                   <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" disabled={busy || Boolean(creationRecovery) || index === media.length - 1} onClick={() => moveMedia(selected.localId, media[index + 1]!.localId)}><ArrowRight aria-hidden="true" /></button>
                 </div>
-              </div>)}</div> : null}
+
+              </>}</CatalogSortItem>)}</div></CatalogSortArea> : null}
               <button className={createStyles.upload} type="button" onClick={() => mediaInputRef.current?.click()} disabled={media.length >= 16}><Plus aria-hidden="true" />Görsel ekle</button>
               <small className={createStyles.mediaHint}>JPG, PNG, WebP · en fazla 5 MB</small>
               {media[activeMediaIndex] ? <details className={createStyles.mediaDetails}><summary>Görsel bilgileri<ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}><label className={createStyles.field}><span>Alt metin</span><input value={media[activeMediaIndex].altText} maxLength={500} onChange={(event) => changeMediaAlt(activeMediaIndex, event.target.value)} /></label>{activeMediaIndex > 0 ? <button className={createStyles.inlineAction} type="button" onClick={() => setCover(activeMediaIndex)}>Kapak yap</button> : null}</div></details> : null}
@@ -660,7 +657,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
           <section id={kind === "variant" ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
             <div className={createStyles.sectionHeader}><h2 id="create-variants-title">Varyantlar{kind === "variant" ? <span className={createStyles.count}>{variants.length}</span> : null}</h2><button ref={variantAddRef} type="button" className={createStyles.inlineAction} disabled={createBlocked || variantBuilderOpen} onClick={openVariantBuilder} aria-expanded={variantBuilderOpen} aria-controls="create-variant-builder"><Plus aria-hidden="true" />Varyant ekle</button></div>
             {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantGalleryEditor media={media.map(item=>({id:item.localId!,url:item.preview,altText:item.altText}))} variants={galleryTargets} assignments={variants.flatMap((variant,index)=>variant.mediaIds === undefined?[]:[{variantId:galleryTargets[index]!.id,mediaIds:variant.mediaIds}])} onAssignmentsChange={changeDraftGalleries} canManage={!createBlocked && !creationRecovery}>
-              {({thumbnail})=><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
+              {({thumbnail})=><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createBlocked || Boolean(creationRecovery) || variantBuilderOpen} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
               </ProductVariantGalleryEditor></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
             {variantBuilderOpen ? <div ref={variantBuilderRef} id="create-variant-builder" className={createStyles.builder} tabIndex={-1} role="group" aria-label="Varyant seçimi" onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented && !attributeSavingRef.current) { event.preventDefault(); closeVariantBuilder(); } }}>
               <AttributeVariantPicker presentation="create" baseSku={kind === "simple" ? variants[0]?.sku : simpleVariantRef.current.sku} value={pendingVariants} onChange={changePendingVariants} onAttributeIdsChange={setPendingAttributeIds} initialPrice={kind === "simple" ? variants[0]?.price : simpleVariantRef.current.price} initialStock={kind === "simple" ? variants[0]?.stockQuantity : simpleVariantRef.current.stockQuantity} disabled={busy} onBusyChange={trackAttributeBusy} />

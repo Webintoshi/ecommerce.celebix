@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "d1a07066c07cdae194b923cc63f99b0845a7f614b0b32f418a285affb8bd4d0b",
+  "inputDigest": "5b8bf9b86ddea8638f9eebbdcb64d618a0b3733eb9329927c8f0b28d803a3d1c",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -269,7 +269,7 @@
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "6f4f6b865a0a768f35a8f3f68c62b60ca88cb673e7c0049f61f9bd954f924a66"
+      "sha256": "e69d788c7fffd913ab252fc6e161c093c511e08f6b85b73cde8d2fcecd324893"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -2800,6 +2800,10 @@
       "sha256": "20e6845956233d7ef94142cf8cf4a22a25d0081df8d7dabff2754ab8bbf8433e"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610240271_catalog_variant_order.up.sql",
+      "sha256": "8fa58bb4f98fc8e43161e1758a92fd0306d29797de037509a32783d21490b056"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3309,7 +3313,7 @@
     },
     {
       "path": "package-lock.json",
-      "sha256": "8abb73ebb2ea6d12035ca37acfa8683dedf40672c9f0d3751ddf89d9461e3734"
+      "sha256": "b5ca8769a7e0bb74034cb8c167b0622f878ea3a8aef608487d935211820421fa"
     },
     {
       "path": "package.json",
@@ -3657,7 +3661,7 @@
     },
     {
       "path": "packages/saas-contracts/src/catalog/index.ts",
-      "sha256": "62350874da8ad0c2d086d58111741e08016cd57e91a9bfde75d4bea03c3a6c67"
+      "sha256": "2f66fb354ed697d6c244d26ad1e8667fd23f32563bff60d214add307a6b25dff"
     },
     {
       "path": "packages/saas-contracts/src/catalog/types.ts",
@@ -3666,6 +3670,10 @@
     {
       "path": "packages/saas-contracts/src/catalog/validation.ts",
       "sha256": "fbdb84a6d2ffa17b4250476d1bde1bee70a45dfae956d70388a4522d6ca8b228"
+    },
+    {
+      "path": "packages/saas-contracts/src/catalog/variant-order.ts",
+      "sha256": "a2170216f92c0d7a1a9b80cf1539881295a0894761e5859c4314b5a059e29084"
     },
     {
       "path": "packages/saas-contracts/src/commercial-packages/catalog.ts",
@@ -3785,7 +3793,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "6ad6f3708b06cb440b53b2ecb0f7a377238e99b351808b0b7d8c9af1c00b0d91"
+      "sha256": "793fff9f4c9843323c39cab78cdd05ac3fa0d8eee3aad33a3681199c109b148b"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -4401,19 +4409,19 @@
     },
     {
       "path": "packages/saas-data/src/catalog/errors.ts",
-      "sha256": "cd526902fc9bf532dc7cf3b8a31c94aef34dcbda889c933c02314d2535aeb67e"
+      "sha256": "2b2164bd29f53c41df06ae5bae95fcb4698e10743119d502b154e4386a595369"
     },
     {
       "path": "packages/saas-data/src/catalog/index.ts",
-      "sha256": "065c0e9a9e87781aaa1c07a71cbafe1d6e1450d74ad8e70230a96c1bf5642ff3"
+      "sha256": "d41a7efe0417bf3e9ba91655346d32c9d08a4b2c051a4fc231b7c883290b3b43"
     },
     {
       "path": "packages/saas-data/src/catalog/repository.ts",
-      "sha256": "534a7106e72d7e4d3090471a08ae3ce48185260f5f2a3d5c96c42f1e5f2d6fa4"
+      "sha256": "856982ce885aaf454301ff7b83e6ef4281e78af1c1cf446a9cef2e0d455e0e2d"
     },
     {
       "path": "packages/saas-data/src/catalog/types.ts",
-      "sha256": "188226f7366f10c8cea05d4397af795fb91fd992ed4851e6530c5e7a197e327a"
+      "sha256": "59c958c3beb440f6c646f8c6ea05b84655153f7dd1e5934be5aecd60d639708c"
     },
     {
       "path": "packages/saas-data/src/catalog/validation.ts",

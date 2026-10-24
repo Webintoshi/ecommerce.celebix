@@ -1,3 +1,4 @@
+import { installCatalogSortRects, beginCatalogMouseDrag, dropCatalogMouseDrag, dragCatalogItem, catalogSortKey } from "./catalog-sort-test-utils.ts";
 import { compile as compileTaxFields } from "../../lib/mira-final-test-support.ts";
 import * as productTax from "../../lib/catalog-ui/product-tax.ts";
 import assert from "node:assert/strict";
@@ -40,6 +41,7 @@ async function compile(sourceUrl: URL, imports: Record<string, unknown>) {
   } }).outputText;
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "@/components/catalog/CatalogSortArea") return compileTaxFields("components/catalog/CatalogSortArea.tsx");
     if (name === "@/components/catalog/ProductTaxFields") return compileTaxFields("components/catalog/ProductTaxFields.tsx");
     if (name === "@/lib/catalog-ui/product-tax") return productTax;
     if (name === "react") return React;
@@ -63,7 +65,7 @@ async function withQuickCreate(
   browserUrl.createObjectURL = () => "blob:quick-product-test";
   browserUrl.revokeObjectURL = () => {};
   for (const [key, value] of Object.entries({
-    window: browser, document: browser.document, navigator: browser.navigator,
+    window: browser, document: browser.document, navigator: browser.navigator, Element: browser.Element, Node: browser.Node, Document: browser.Document, MutationObserver: browser.MutationObserver, ResizeObserver: browser.ResizeObserver, getComputedStyle: browser.getComputedStyle.bind(browser), requestAnimationFrame: browser.requestAnimationFrame.bind(browser), cancelAnimationFrame: browser.cancelAnimationFrame.bind(browser),
     HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement,
     HTMLButtonElement: browser.HTMLButtonElement, Event: browser.Event,
     MouseEvent: browser.MouseEvent, KeyboardEvent: browser.KeyboardEvent,
@@ -285,17 +287,13 @@ test("adding images retains earlier files and alt text while cancel and total-li
 });
 
 async function dragImage(container: HTMLElement, browser: Window, from: number, to: number) {
-  const source = container.querySelector(`button[aria-label="${from}. görseli seç"]`)?.closest('[draggable="true"]');
-  const target = container.querySelector(`button[aria-label="${to}. görseli seç"]`)?.closest('[draggable="true"]');
-  assert.ok(source && target, "quick product images can be ordered before creation");
-  const dataTransfer = { effectAllowed: "", dropEffect: "", setData() {} };
-  await act(async () => {
-    for (const [element, type] of [[source, "dragstart"], [target, "dragover"], [target, "drop"]] as const) {
-      const event = new browser.Event(type, { bubbles: true, cancelable: true });
-      Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
-      element.dispatchEvent(event as unknown as Event);
-    }
-  });
+  const source = container.querySelector(`button[aria-label="${from}. görseli seç"]`)?.closest('[data-sort-id]');
+  const target = container.querySelector(`button[aria-label="${to}. görseli seç"]`)?.closest('[data-sort-id]');
+  assert.ok(source && target, "images use real sortable sensors");
+  const restore = installCatalogSortRects(browser, container);
+  try { await dragCatalogItem(browser, container, source.getAttribute("data-sort-id")!, target.getAttribute("data-sort-id")!); }
+  finally { restore(); }
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 60)); });
 }
 
 test("quick creation preserves draft identities, cover and upload order after dragging and accessible moves", async () => {
@@ -339,20 +337,19 @@ test("quick creation prevents an in-flight image drop during save and recovery",
     mediaClient: { upload: async () => { throw new Error("upload_failed"); } },
   }, async (container, browser) => {
     await selectImages(container, browser, ["one", "two"].map(value => new browser.File([value], `${value}.png`, { type: "image/png" }) as unknown as File));
-    const source = container.querySelector('button[aria-label="2. görseli seç"]')?.closest('[draggable="true"]');
-    const target = container.querySelector('button[aria-label="1. görseli seç"]')?.closest('[draggable="true"]');
+    const source = container.querySelector('button[aria-label="2. görseli seç"]')?.closest('[data-sort-id]');
+    const target = container.querySelector('button[aria-label="1. görseli seç"]')?.closest('[data-sort-id]');
     assert.ok(source && target);
-    const event = new browser.Event("dragstart", { bubbles: true, cancelable: true });
-    Object.defineProperty(event, "dataTransfer", { value: { effectAllowed: "", setData() {} } });
-    await act(async () => source.dispatchEvent(event as unknown as Event));
+    installCatalogSortRects(browser, container);
+    await beginCatalogMouseDrag(browser, container, source.getAttribute("data-sort-id")!);
     const before = latest!.current.media.map(image => image.localId);
     await submit(container, browser, "publish");
-    await act(async () => target.dispatchEvent(new browser.Event("drop", { bubbles: true, cancelable: true }) as unknown as Event));
+    await dropCatalogMouseDrag(browser, container, target.getAttribute("data-sort-id")!);
     assert.deepEqual(latest!.current.media.map(image => image.localId), before);
     assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.matches(":disabled"), true);
     await act(async () => resolveCreate(created));
     assert.match(container.querySelector('[role="alert"]')?.textContent ?? "", /Ürün kaydı korundu/);
-    assert.equal(container.querySelector('[draggable="true"]'), null);
+    assert.ok([...container.querySelectorAll<HTMLButtonElement>('button[aria-roledescription="Sıralanabilir öğe"]')].every(button => button.matches(":disabled")));
     await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="2. görseli öne taşı"]')!.click());
     assert.deepEqual(latest!.current.media.map(image => image.localId), before);
   });
@@ -452,4 +449,27 @@ test("page mode does not trap Tab and barcode reservation blocks saving and deta
     assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, false);
     assert.equal(handoff.disabled, false);
   }, () => new Promise<string>((resolve) => { resolveBarcode = resolve; }));
+});
+
+
+test("dialog Escape cancels keyboard image sorting without closing or discarding the draft",async()=>{
+ let closes=0,latest:drafts.ProductDraftSession|undefined;
+ await withQuickCreate({mode:"dialog",draftSession:draft(),onClose:()=>{closes++;},onDraftSessionChange:(session:drafts.ProductDraftSession)=>{latest=session;}},async(container,browser)=>{
+  const files=["first","second"].map(name=>new browser.File([name],`${name}.png`,{type:"image/png"})as unknown as File);
+  await selectImages(container,browser,files);
+  const before=latest!.current.media.map(image=>image.localId);
+  const restore=installCatalogSortRects(browser,container);
+  try{
+   const handle=container.querySelector<HTMLButtonElement>('button[aria-roledescription="Sıralanabilir öğe"]')!;assert.ok(handle);handle.focus();
+   await catalogSortKey(browser,"Space",handle);assert.ok(container.querySelector('[data-sort-dragging="true"]'),"keyboard sensor is active");
+   await catalogSortKey(browser,"ArrowRight",handle);
+   await catalogSortKey(browser,"Escape",handle);
+   assert.equal(closes,0,"Escape first cancels only the active sorting gesture");
+   assert.equal(container.querySelector('[data-sort-dragging="true"]'),null);
+   assert.deepEqual(latest!.current.media.map(image=>image.localId),before);assert.equal(latest!.current.title,"Pamuk elbise");
+   assert.deepEqual(latest!.current.media.map(image=>image.file),files);
+   const title=container.querySelector<HTMLInputElement>('input[name="title"]')!;title.focus();await catalogSortKey(browser,"Escape",title);
+   assert.equal(closes,1,"ordinary dialog Escape still closes");
+  }finally{restore();}
+ });
 });

@@ -4,12 +4,12 @@ import { CommercialFeatureLink } from "@/components/commercial-packages/Commerci
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import type { ContentAuthoringRequest, ContentAuthoringFieldOriginsInput, CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, ProductVariant } from "@celebix/saas-contracts";
+import type { ContentAuthoringRequest, ContentAuthoringFieldOriginsInput, CatalogOnboardingOptions, CatalogProductEditorProjection, PermanentDeletionImpact, ProductVariant, CatalogVariantOrder } from "@celebix/saas-contracts";
 import type {ProductTaxChoice,ProductTaxRead,ProductTaxVariantRead} from '@celebix/saas-contracts';
 import {ProductTaxFields,ProductPriceBasis} from './ProductTaxFields';
 import {taxChoice as choiceForTax,taxLabel,safeTaxChoice,effectiveTaxForChoice,type PriceEntryBasis} from '@/lib/catalog-ui/product-tax';
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
-import { Archive, ArrowLeft, Eye, Image as ImageIcon, MoreHorizontal, Pencil, Plus, RotateCcw, ScanBarcode, Trash2 } from "lucide-react";
+import { Archive, ArrowLeft, GripVertical, Eye, Image as ImageIcon, MoreHorizontal, Pencil, Plus, RotateCcw, ScanBarcode, Trash2 } from "lucide-react";
 
 import {
   CatalogApiError,
@@ -44,6 +44,7 @@ import { usePanelTopbarChrome } from "@/components/panel/PanelTopbarChrome";
 import catalogStyles from "./catalog-operations.module.css";
 import { CatalogWorkspaceLoading } from "./CatalogWorkspaceLoading";
 import styles from "./product-detail-workspace.module.css";
+import {CatalogSortArea,CatalogSortItem} from "@/components/catalog/CatalogSortArea";
 
 function value(data: FormData, key: string) {
   const candidate = data.get(key);
@@ -117,6 +118,10 @@ function ProductDetailConsoleWorkspace({
   const variantContentRevision = useRef(0);
   const generalFormRef = useRef<HTMLFormElement>(null);
   const [detail, setDetail] = useState<ProductDetailResult>();
+  const [variantOrder,setVariantOrder]=useState<CatalogVariantOrder>();
+  const [variantOrderError,setVariantOrderError]=useState("");
+  const variantOrderReadGenerationRef=useRef(0);
+  const variantOrderIntentRef=useRef<Readonly<{operationId:string;expectedVersion:number;orderedVariantIds:readonly string[]}>|undefined>(undefined);
   const [taxRead,setTaxRead]=useState<ProductTaxRead>(),[productTaxChoice,setProductTaxChoice]=useState(''),[taxLoadError,setTaxLoadError]=useState(false);
   const taxDirty=useRef(false);
   const [onboarding, setOnboarding] = useState<Readonly<{ options: CatalogOnboardingOptions; editor: CatalogProductEditorProjection }>>();
@@ -228,6 +233,67 @@ function ProductDetailConsoleWorkspace({
   }, [productId]);
 
   useEffect(() => { void load(); }, [load]);
+  const applyVariantOrder=useCallback((orderedIds:readonly string[])=>{
+    setDetail(current=>{
+      if(!current)return current;
+      const byId=new Map(current.variants.map(variant=>[variant.id,variant]));
+      const ordered=orderedIds.flatMap(id=>{const row=byId.get(id);return row?[row]:[];});
+      const selected=new Set(orderedIds);
+      return {...current,variants:[...ordered,...current.variants.filter(variant=>!selected.has(variant.id))]};
+    });
+  },[]);
+  const loadVariantOrder=useCallback(async(refreshMembership=false)=>{
+    const generation=++variantOrderReadGenerationRef.current;
+    setVariantOrder(undefined);variantOrderIntentRef.current=undefined;
+    try {
+      if(refreshMembership){
+        const canonical=await catalogApi.getProduct(productId);
+        if(generation!==variantOrderReadGenerationRef.current)return;
+        setDetail(current=>current?{...current,variants:canonical.variants.map(row=>current.variants.find(existing=>existing.id===row.id)??row)}:canonical);
+      }
+      const order=await catalogApi.getVariantOrder(productId);
+      if(generation!==variantOrderReadGenerationRef.current)return;
+      setVariantOrder(order);applyVariantOrder(order.orderedVariantIds);return true;
+    }catch {
+      if(generation!==variantOrderReadGenerationRef.current)return;
+      setVariantOrder(undefined);setVariantOrderError("Varyant sırası alınamadı.");return false;
+    }
+  },[productId,applyVariantOrder]);
+  const variantMembership=detail?.variants.filter(variant=>variant.status!=="archived").map(variant=>variant.id).sort().join(",");
+  useEffect(()=>{
+    if(!canManage||!detail||detail.product.status==="archived")return;
+    void loadVariantOrder();
+  },[canManage,productId,variantMembership,loadVariantOrder]);
+  async function saveVariantOrder(intent:NonNullable<typeof variantOrderIntentRef.current>){
+    await mutation("variant-order",async()=>{
+      ++variantOrderReadGenerationRef.current;
+      setVariantOrderError("");
+      try {
+        const result=await catalogApi.reorderVariants(productId,intent);
+        variantOrderIntentRef.current=undefined;setVariantOrder(result);applyVariantOrder(result.orderedVariantIds);
+        if(result.replayed)await loadVariantOrder();
+      }catch(failure){
+        const code=failure instanceof CatalogApiError?failure.code:"unavailable";
+        if(code==="version_conflict"||code==="order_membership_changed"){
+          variantOrderIntentRef.current=undefined;
+          // Refresh membership without replacing existing row objects or their edit buffers.
+          setVariantOrder(undefined);
+          const loaded=await loadVariantOrder(true);
+          if(loaded!==undefined)setVariantOrderError(loaded?"Varyantlar değişti. Güncel sıra yüklendi; tekrar sıralayabilirsiniz.":"Güncel varyant sırası alınamadı. Yeniden yükleyebilirsiniz.");
+        }else if(code==="unavailable")setVariantOrderError("Sıralamanın kaydı doğrulanamadı. Aynı işlemi güvenle tekrar deneyebilirsiniz.");
+        else {variantOrderIntentRef.current=undefined;await loadVariantOrder();setVariantOrderError(safeMessage(failure));}
+      }
+    });
+  }
+  function moveVariant(source:string,target:string){
+    if(!canManage||!detail||detail.product.status==="archived"||!variantOrder||mutationLockedRef.current||salesSavingRef.current||variantOrderIntentRef.current||merchandisingState!=="ready")return;
+    const ids=detail.variants.filter(variant=>variant.status!=="archived").map(variant=>variant.id);
+    const from=ids.indexOf(source),to=ids.indexOf(target);if(from<0||to<0||from===to)return;
+    const next=[...ids];const [moved]=next.splice(from,1);next.splice(to,0,moved);
+    const intent=Object.freeze({operationId:crypto.randomUUID(),expectedVersion:variantOrder.version,orderedVariantIds:Object.freeze(next)});
+    variantOrderIntentRef.current=intent;applyVariantOrder(next);void saveVariantOrder(intent);
+  }
+
   const loadTax=useCallback(async()=>{try{const next=await catalogApi.getProductTax(productId);setTaxRead(next);if(!taxDirty.current)setProductTaxChoice(choiceForTax(next.tax));setTaxLoadError(false);}catch{setTaxLoadError(true);}},[productId]);
   useEffect(()=>{void loadTax();},[loadTax]);
 
@@ -528,7 +594,7 @@ function ProductDetailConsoleWorkspace({
       setError("Bir üründe en fazla 100 varyant olabilir."); return;
     }
     setShowMeasurementValidation(true);
-    const parsed = buildVariantBatchPayload(attributeVariants.map(row=>({...row,productTax:taxRead?.tax??null})));
+    const parsed = buildVariantBatchPayload(attributeVariants.map(({localId:_localId,mediaIds:_mediaIds,...row})=>({...row,productTax:taxRead?.tax??null})));
     if (!parsed.ok) { setError(parsed.message); return; }
     await mutation("new-attribute-variants", async () => {
       await catalogApi.createVariantBatch(productId, parsed.value);
@@ -799,11 +865,13 @@ function ProductDetailConsoleWorkspace({
               <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (!canDiscardDetailChanges("variant-batch")) return; setCreatingAttributeVariants(false); setAttributeVariants([]); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready" || !attributeVariants.length}>{busy === "new-attribute-variants" ? "Kaydediliyor…" : String(attributeVariants.length) + " varyantı oluştur"}</button></div>
             </form> : null}
 
+            {variantOrderError&&canManage&&!archived?<div className={styles.variantOrderFeedback} role="status"><span>{variantOrderError}</span><button type="button" className="button button-secondary" disabled={busy!==""} onClick={()=>{const pending=variantOrderIntentRef.current;if(pending)void saveVariantOrder(pending);else void loadVariantOrder(true).then(ok=>{if(ok)setVariantOrderError("");});}}>{variantOrderIntentRef.current?"Sıralamayı tekrar kaydet":"Sırayı yeniden yükle"}</button></div>:null}
+            {busy==="variant-order"?<p className={styles.variantOrderFeedback} role="status">Varyant sırası kaydediliyor…</p>:null}
             <ProductVariantGalleryEditor productId={productId} media={(activeMedia ?? []).filter(item => item.publicUrl).map(item => ({id:item.id,url:item.publicUrl!,altText:item.altText,variantId:item.variantId}))} variants={variants} canManage={canManage && !archived}>
-            {({thumbnail}) => <div className={styles.variantRows} role="list" aria-label="Aktif varyantlar">
+            {({thumbnail}) => <CatalogSortArea ids={variants.filter(variant=>variant.status!=="archived").map(variant=>variant.id)} onMove={moveVariant} disabled={!canManage||archived||busy!==""||salesSaving||merchandisingState!=="ready"||!variantOrder||Boolean(variantOrderIntentRef.current)} layout="list" label="Varyant sırası" getLabel={id=>variants.find(variant=>variant.id===id)?.title??id}><div className={styles.variantRows} aria-label="Aktif varyantlar">
               {variants.length === 0 ? <div className="empty-variants"><strong>Aktif varyant yok</strong><p>Ürünü satışa hazırlamak için bir varyant ekleyin.</p></div> : variants.map((variant) => (
-                <article className={styles.variantRow} role="listitem" key={variant.id}>
-                  <div className={styles.variantIdentity}>{thumbnail(variant.id)}<div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
+                <CatalogSortItem id={variant.id} as="article" className={styles.variantRow} key={variant.id}>{drag=><>
+                  <div className={styles.variantIdentity}>{canManage&&!archived?<button {...drag.handleProps} className={styles.variantSortHandle}><GripVertical aria-hidden="true" /></button>:null}{thumbnail(variant.id)}<div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
                   {editingVariant === variant.id && canManage && !archived ? (
                     <form ref={editedVariantFormRef} className="catalog-form inset-form" onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
                       <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields taxAvailable={Boolean(taxRead?.variants.some(item=>item.variantId===variant.id))} tax={taxRead?.variants.find(item=>item.variantId===variant.id)} productTax={taxRead?.tax??null} showMeasurementValidation={showMeasurementValidation} variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
@@ -827,9 +895,9 @@ function ProductDetailConsoleWorkspace({
                     </>
                   )}
                   {pricingVariantId === variant.id && canReadPricing && !archived ? <VariantPricingPolicyControl variantId={variant.id} variantVersion={variant.version} fixedPriceCents={variant.priceCents} measurements={variant.measurements} canManage={canManagePricing} onSaved={() => void load()} onClose={() => setPricingVariantId(undefined)} /> : null}
-                </article>
+                </>}</CatalogSortItem>
               ))}
-            </div>}
+            </div></CatalogSortArea>}
             </ProductVariantGalleryEditor>
           </section>
           {merchandisingState === "ready" && onboarding ? (

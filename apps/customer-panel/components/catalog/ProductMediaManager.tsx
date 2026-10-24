@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
-import { Archive, ArrowLeft, ArrowRight, Image as ImageIcon, ImagePlus, Pencil, RotateCcw, Trash2 } from "lucide-react";
+import { Archive, ArrowLeft, ArrowRight, GripVertical, Image as ImageIcon, ImagePlus, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
+import { CatalogSortArea, CatalogSortItem } from "./CatalogSortArea";
 import styles from "./product-media-manager.module.css";
 
 function safeMessage(error: unknown) {
@@ -40,14 +41,13 @@ function ProductMediaManagerWorkspace({
   const [loading, setLoading] = useState(true);
   const [resolved, setResolved] = useState(false);
   const [busy, setBusy] = useState("");
+  const busyRef = useRef("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<readonly File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [archiveTarget, setArchiveTarget] = useState<ProductMediaLifecycle>();
-  const [dragOverId, setDragOverId] = useState<string>();
-  const draggedIdRef = useRef<string | undefined>(undefined);
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
   const archiveTriggerRef = useRef<HTMLButtonElement>(null);
@@ -92,8 +92,17 @@ function ProductMediaManagerWorkspace({
   }, [archiveTarget]);
 
   function closeArchiveDialog() {
-    if (busy === "") setArchiveTarget(undefined);
+    if (busyRef.current === "") setArchiveTarget(undefined);
   }
+
+  function beginMutation(operation: string) {
+    if (busyRef.current || loading) return false;
+    busyRef.current = operation;
+    setBusy(operation); setError(""); setNotice("");
+    return true;
+  }
+
+  function finishMutation() { busyRef.current = ""; setBusy(""); }
 
   function handleArchiveDialogKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
@@ -121,7 +130,7 @@ function ProductMediaManagerWorkspace({
   }
 
   function selectFiles(event: ChangeEvent<HTMLInputElement>) {
-    if (!canManage) return;
+    if (!canManage || loading || busyRef.current) return;
     const files = Array.from(event.currentTarget.files ?? []);
     setError("");
     setUploadProgress(0);
@@ -147,6 +156,7 @@ function ProductMediaManagerWorkspace({
   }
 
   function clearSelectedFiles() {
+    if (busyRef.current) return;
     setSelectedFiles([]);
     setPreviewUrl("");
     setUploadProgress(0);
@@ -156,12 +166,13 @@ function ProductMediaManagerWorkspace({
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canManage) return;
+    if (!canManage || loading || busyRef.current) return;
     if (selectedFiles.length === 0) { setError("Yüklenecek görselleri seçin."); return; }
     const formElement = event.currentTarget;
     const form = new FormData(formElement), altText = selectedFiles.length === 1 ? form.get("altText") : "";
     if (typeof altText !== "string" || altText.trim() !== altText || altText.length > 500) { setError("Alt metin en fazla 500 karakter olmalı ve başında veya sonunda boşluk bulunmamalı."); return; }
-    setBusy("upload"); setError(""); setNotice(""); setUploadProgress(0);
+    if (!beginMutation("upload")) return;
+    setUploadProgress(0);
     let uploaded = 0;
     try {
       for (const file of selectedFiles) {
@@ -184,7 +195,7 @@ function ProductMediaManagerWorkspace({
       setUploadProgress(0);
       setError(`${uploaded} görsel yüklendi. ${uploaded + 1}. görsel yüklenemedi: ${safeMessage(failure)} Galeriyi kontrol edip yüklenmeyen görseli yeniden seçin.${remaining.length ? ` Kalan ${remaining.length} görsel seçili.` : ""}`);
     }
-    finally { setBusy(""); }
+    finally { finishMutation(); }
   }
 
   async function updateAlt(event: FormEvent<HTMLFormElement>, item: ProductMediaLifecycle) {
@@ -192,7 +203,7 @@ function ProductMediaManagerWorkspace({
     if (!canManage) return;
     const altText = new FormData(event.currentTarget).get("altText");
     if (typeof altText !== "string") return;
-    setBusy(`alt-${item.id}`); setError(""); setNotice("");
+    if (!beginMutation(`alt-${item.id}`)) return;
     try {
       const result = await productMediaApi.updateAlt(productId, item.id, { expectedVersion: item.version, altText });
       setMedia((current) => Object.freeze(current.map((candidate) => candidate.id === item.id ? result.media : candidate)));
@@ -200,45 +211,27 @@ function ProductMediaManagerWorkspace({
       if (altTriggerRef.current?.isConnected) altTriggerRef.current.focus();
       setNotice("Alt metin güncellendi.");
     } catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
-    finally { setBusy(""); }
+    finally { finishMutation(); }
   }
 
   async function reorder(ids: string[]) {
-    setBusy("reorder"); setError(""); setNotice("");
+    if (!canManage || tab !== "active" || archiveTarget || ids.length !== activeMedia.length || new Set(ids).size !== ids.length || ids.some(id => !activeMedia.some(item => item.id === id)) || ids.every((id, index) => activeMedia[index]?.id === id)) return;
+    if (!beginMutation("reorder")) return;
     try { setMedia(await productMediaApi.reorder(productId, ids)); setNotice("Görsel sırası güncellendi."); }
     catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
-    finally { setBusy(""); }
+    finally { finishMutation(); }
   }
 
   async function move(index: number, direction: -1 | 1) {
-    if (!canManage) return;
+    if (!canManage || loading || busyRef.current || tab !== "active") return;
     const next = index + direction;
     if (next < 0 || next >= activeMedia.length) return;
     const ids = activeMedia.map((item) => item.id); [ids[index], ids[next]] = [ids[next]!, ids[index]!];
     await reorder(ids);
   }
 
-  function handleDragStart(event: DragEvent<HTMLDivElement>, itemId: string) {
-    if (!canManage || busy !== "" || tab !== "active") { event.preventDefault(); return; }
-    draggedIdRef.current = itemId;
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", itemId);
-  }
-
-  function handleDragOver(event: DragEvent<HTMLDivElement>, itemId: string) {
-    if (!draggedIdRef.current || draggedIdRef.current === itemId) return;
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    setDragOverId(itemId);
-  }
-
-  function handleDragEnd() { draggedIdRef.current = undefined; setDragOverId(undefined); }
-
-  function handleDrop(event: DragEvent<HTMLDivElement>, targetId: string) {
-    event.preventDefault();
-    const sourceId = draggedIdRef.current;
-    handleDragEnd();
-    if (!sourceId || sourceId === targetId || !canManage || busy !== "") return;
+  function dropMedia(sourceId: string, targetId: string) {
+    if (sourceId === targetId || !canManage || loading || busyRef.current || tab !== "active") return;
     const ids = activeMedia.map((item) => item.id);
     const sourceIndex = ids.indexOf(sourceId);
     const targetIndex = ids.indexOf(targetId);
@@ -250,7 +243,7 @@ function ProductMediaManagerWorkspace({
 
   async function archive() {
     if (archiveTarget === undefined || !canArchive) return;
-    setBusy(`archive-${archiveTarget.id}`); setError(""); setNotice("");
+    if (!beginMutation(`archive-${archiveTarget.id}`)) return;
     try {
       const result = await productMediaApi.archive(productId, archiveTarget.id, archiveTarget.version);
       setMedia((current) => Object.freeze(current.map((item) => item.id === archiveTarget.id ? result.media : item)));
@@ -262,29 +255,29 @@ function ProductMediaManagerWorkspace({
         setArchiveTarget(undefined);
       }
     }
-    finally { setBusy(""); }
+    finally { finishMutation(); }
   }
 
   async function restore(item: ProductMediaLifecycle) {
     if (!canArchive || item.status !== "archived") return;
-    setBusy(`restore-${item.id}`); setError(""); setNotice("");
+    if (!beginMutation(`restore-${item.id}`)) return;
     try {
       const result = await productMediaApi.restore(productId, item.id, item.version);
       setMedia((current) => Object.freeze(current.map((candidate) => candidate.id === item.id ? result.media : candidate)));
       setNotice("Görsel geri yüklendi ve mağazada yeniden yayınlandı.");
     } catch (failure) { setError(safeMessage(failure)); if (failure instanceof ProductMediaApiError && failure.code === "version_conflict") await load(); }
-    finally { setBusy(""); }
+    finally { finishMutation(); }
   }
 
   async function cleanup(item: ProductMediaLifecycle) {
     if (!canArchive || item.cleanupState !== "eligible") return;
-    setBusy(`cleanup-${item.id}`); setError(""); setNotice("");
+    if (!beginMutation(`cleanup-${item.id}`)) return;
     try {
       const result = await productMediaApi.cleanup(productId, item.id, item.version);
       setMedia((current) => Object.freeze(current.map((candidate) => candidate.id === item.id ? result.media : candidate)));
       setNotice("Saklama süresi dolan görsel güvenli biçimde kalıcı olarak temizlendi.");
     } catch (failure) { setError(safeMessage(failure)); await load(); }
-    finally { setBusy(""); }
+    finally { finishMutation(); }
   }
 
   const visibleMedia = tab === "active" ? activeMedia : archivedMedia;
@@ -317,12 +310,18 @@ function ProductMediaManagerWorkspace({
       ) : tab === "active" && visibleMedia.length === 0 && !canManage ? (
         <div className={styles.empty}><ImageIcon aria-hidden="true" /><strong>Henüz görsel yok</strong><span>Görsel eklemek için ürün düzenleme yetkisi gerekir.</span></div>
       ) : (
+        <CatalogSortArea ids={visibleMedia.map(item => item.id)} onMove={dropMedia} layout="grid" label="Görsel sırası"
+          getLabel={id => visibleMedia.find(item => item.id === id)?.altText || `Görsel ${visibleMedia.findIndex(item => item.id === id) + 1}`}
+          disabled={!canManage || loading || tab !== "active" || busy !== "" || Boolean(archiveTarget)}>
         <div className={styles.grid}>
           {visibleMedia.map((item, index) => (
-            <article className={styles.card} key={item.id}>
-              <div className={`${styles.thumbnail} ${dragOverId === item.id ? styles.dragOver : ""}`} draggable={canManage && !loading && tab === "active" && busy === ""} onDragStart={(event) => handleDragStart(event, item.id)} onDragOver={(event) => handleDragOver(event, item.id)} onDrop={(event) => handleDrop(event, item.id)} onDragEnd={handleDragEnd} title={canManage && tab === "active" ? "Sürükleyerek sırala" : undefined}>
-                {item.publicUrl ? <img src={item.publicUrl} alt={item.altText || `Ürün görseli ${index + 1}`} loading="lazy" /> : <span className={styles.purgedImage} aria-label="Görsel kalıcı olarak temizlendi"><ImageIcon aria-hidden="true" /></span>}
+            <CatalogSortItem as="article" className={styles.card} id={item.id} key={item.id}>{drag => <>
+              <div className={styles.thumbnail}>
+                <button {...drag.pointerProps} type="button" tabIndex={-1} className={styles.imageButton} aria-label={`${index + 1}. ürün görseli`}>
+                  {item.publicUrl ? <img src={item.publicUrl} alt={item.altText || `Ürün görseli ${index + 1}`} loading="lazy" draggable={false} /> : <span className={styles.purgedImage} aria-label="Görsel kalıcı olarak temizlendi"><ImageIcon aria-hidden="true" /></span>}
+                </button>
                 {tab === "active" && index === 0 ? <span className={styles.coverBadge}>Kapak</span> : <span className={styles.positionBadge}>{String(index + 1).padStart(2, "0")}</span>}
+                {canManage && tab === "active" ? <button {...drag.handleProps} className={styles.dragHandle} title="Sürükleyerek sırala"><GripVertical aria-hidden="true" /></button> : null}
                 {canManage && tab === "active" ? <div className={styles.orderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
                   <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" onClick={() => void move(index, -1)} disabled={loading || busy !== "" || index === 0}><ArrowLeft aria-hidden="true" /></button>
                   <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" onClick={() => void move(index, 1)} disabled={loading || busy !== "" || index === visibleMedia.length - 1}><ArrowRight aria-hidden="true" /></button>
@@ -338,7 +337,7 @@ function ProductMediaManagerWorkspace({
               </form> : <p className={styles.altText} title={item.altText || undefined}>{item.altText || "Alt metin eklenmemiş"}</p>}
               {tab === "archived" ? <p className={styles.retention}>{item.cleanupState === "retained" ? `${item.retentionExpiresAt ? new Date(item.retentionExpiresAt).toLocaleString("tr-TR") : "Belirtilen tarihe"} kadar saklanır.` : item.cleanupState === "eligible" ? "Kalıcı temizliğe hazır." : item.cleanupState === "cleanup_pending" ? "Temizlik doğrulanıyor." : "Kalıcı olarak temizlendi."}</p> : null}
               {canArchive && tab === "archived" ? <div className={styles.archiveActions}>{item.cleanupState === "retained" ? <button type="button" className={styles.quietButton} onClick={() => void restore(item)} disabled={loading || busy !== ""}><RotateCcw aria-hidden="true" /> {busy === `restore-${item.id}` ? "Geri yükleniyor…" : "Geri yükle"}</button> : null}{item.cleanupState === "eligible" ? <button type="button" className={styles.dangerButton} onClick={() => void cleanup(item)} disabled={loading || busy !== ""}><Trash2 aria-hidden="true" /> {busy === `cleanup-${item.id}` ? "Temizleniyor…" : "Kalıcı temizle"}</button> : null}</div> : null}
-            </article>
+            </>}</CatalogSortItem>
           ))}
           {canManage && tab === "active" ? <form ref={mediaUploadCardRef} className={styles.uploadForm} data-expanded={selectedFiles.length ? "true" : "false"} onSubmit={upload} tabIndex={-1}>
             <input ref={fileInputRef} className={styles.fileInput} type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="Ürün görsellerini seç" tabIndex={-1} onChange={selectFiles} disabled={loading || busy !== "" || activeMedia.length >= 16} />
@@ -354,6 +353,7 @@ function ProductMediaManagerWorkspace({
             </div> : null}
           </form> : null}
         </div>
+        </CatalogSortArea>
       )}
 
       {archiveTarget && canArchive ? (

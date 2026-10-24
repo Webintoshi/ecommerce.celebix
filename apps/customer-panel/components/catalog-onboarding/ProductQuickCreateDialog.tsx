@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, ImagePlus, Package, X } from "lucide-react";
+import { CatalogSortArea, CatalogSortItem } from "@/components/catalog/CatalogSortArea";
+import { ArrowLeft, ArrowRight, GripVertical, ImagePlus, Package, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -97,7 +98,6 @@ export function ProductQuickCreateDialog({
   const [activeImageId, setActiveImageId] = useState<string | undefined>(images[0]?.localId);
   const activeImageIndex = Math.max(0, images.findIndex(image => image.localId === activeImageId));
   const activeImage = images[activeImageIndex];
-  const draggedImageIdRef = useRef<string | undefined>(undefined);
   const [progress, setProgress] = useState(0);
   const [recovery, setRecovery] = useState<Recovery>();
   const [createdProductId, setCreatedProductId] = useState<string>();
@@ -163,6 +163,7 @@ export function ProductQuickCreateDialog({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (mode === "page") return;
     if (event.key === "Escape") {
+      if (dialogRef.current?.querySelector('[data-sort-dragging="true"]')) return;
       event.preventDefault();
       requestClose();
       return;
@@ -335,29 +336,15 @@ export function ProductQuickCreateDialog({
             <button type="button" className={workspace.mediaButton} onClick={() => imageInputRef.current?.click()}><ImagePlus aria-hidden="true" />Görsel ekle</button>
             <input ref={imageInputRef} type="file" tabIndex={-1} className={workspace.srOnly} multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} aria-label="Ürün görselleri seç" />
             <small>JPG, PNG, WebP · 5 MB · en fazla 16</small>
-            {images.length > 1 ? <div className={workspace.thumbnails} aria-label="Seçili görseller">{images.map((image, index) => <div key={image.localId} className={workspace.mediaThumbnail} draggable={!submitting && !createdProductId && options !== null} title="Sürükleyerek sırala"
-              onDragStart={event => {
-                if (submittingRef.current || createdProductIdRef.current || options === null) { event.preventDefault(); return; }
-                draggedImageIdRef.current = image.localId;
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData("text/plain", image.localId);
-              }}
-              onDragOver={event => {
-                if (!draggedImageIdRef.current || submittingRef.current || createdProductIdRef.current || options === null) return;
-                event.preventDefault(); event.dataTransfer.dropEffect = "move";
-              }}
-              onDrop={event => {
-                event.preventDefault();
-                const sourceId = draggedImageIdRef.current; draggedImageIdRef.current = undefined;
-                if (sourceId) moveImage(sourceId, image.localId);
-              }}
-              onDragEnd={() => { draggedImageIdRef.current = undefined; }}>
-              <button className={workspace.thumbnailSelect} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeImageIndex === index} onClick={() => setActiveImageId(image.localId)}><img src={image.preview} alt="" draggable={false} />{index === 0 ? <span className={workspace.thumbnailCover}>Kapak</span> : null}</button>
+            {images.length > 1 ? <CatalogSortArea ids={images.map(item => item.localId)} onMove={moveImage} disabled={submitting || Boolean(createdProductId) || options === null} layout="grid" label="Görsel sırası" getLabel={id => `${images.findIndex(item => item.localId === id) + 1}. görsel`}><div className={workspace.thumbnails} aria-label="Seçili görseller">{images.map((image, index) => <CatalogSortItem id={image.localId} key={image.localId} className={workspace.mediaThumbnail}>{drag => <>
+                <button {...drag.pointerProps} className={workspace.thumbnailSelect} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeImageIndex === index} onClick={() => setActiveImageId(image.localId)}><img src={image.preview} alt="" draggable={false} />{index === 0 ? <span className={workspace.thumbnailCover}>Kapak</span> : null}</button>
               <div className={workspace.mediaOrderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
+                  <button {...drag.handleProps} title="Sürükleyerek sırala"><GripVertical aria-hidden="true" /></button>
                 <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" disabled={submitting || Boolean(createdProductId) || index === 0} onClick={() => moveImage(image.localId, images[index - 1]!.localId)}><ArrowLeft aria-hidden="true" /></button>
                 <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" disabled={submitting || Boolean(createdProductId) || index === images.length - 1} onClick={() => moveImage(image.localId, images[index + 1]!.localId)}><ArrowRight aria-hidden="true" /></button>
               </div>
-            </div>)}</div> : null}
+
+              </>}</CatalogSortItem>)}</div></CatalogSortArea> : null}
           </div>
           <div className={workspace.fields}>
           <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Ürün adı" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>

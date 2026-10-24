@@ -1193,3 +1193,24 @@ test('failed origin save rolls back once; uncertain commit is recovered without 
  await assert.rejects(repository(new FakePool(uncertain,recovery)).updateProduct(input));
  assert.deepEqual(uncertain.releases,[true]);assert.equal(recovery.calls.some(call=>call.text.includes('catalog_update_product_with_origins')),false);
 });
+
+
+test("variant order stores only the ordered identities with canonical authority and separate commit recovery",async()=>{
+ const snapshot={productId:PRODUCT_ID,version:1,orderedVariantIds:[SECOND_VARIANT_ID,VARIANT_ID],replayed:false};
+ const client=new FakeClient(text=>text.includes("saas.catalog_reorder_variants")?[{outcome:"reordered",result_payload:snapshot}]:[]);
+ const result=await repository(new FakePool(client)).reorderVariants({tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:0,orderedVariantIds:snapshot.orderedVariantIds});
+ assert.deepEqual(result,snapshot);const call=client.calls.find(c=>c.text.includes("catalog_reorder_variants"))!;
+ assert.deepEqual(call.values.slice(0,8),[STORE_ID,PRINCIPAL_ID,MEMBERSHIP_ID,PLAN_ID,"free_starter",1,10,NOW]);
+ assert.deepEqual(call.values.slice(-3),[PRODUCT_ID,0,snapshot.orderedVariantIds]);assert.equal(call.text.includes("update_variant"),false);
+ const calls=client.calls.length;
+ await assert.rejects(repository(new FakePool(client)).reorderVariants({tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:0,orderedVariantIds:[VARIANT_ID,VARIANT_ID]}),{code:"invalid_input"});assert.equal(client.calls.length,calls);
+});
+
+
+test("variant reorder uncertain commit recovers its independent operation without repeating the write",async()=>{
+ const value={productId:PRODUCT_ID,version:1,orderedVariantIds:[VARIANT_ID],replayed:false};
+ const write=new FakeClient(text=>{if(text==="COMMIT")throw Error("response lost");return text.includes("catalog_reorder_variants")?[{outcome:"reordered",result_payload:value}]:[];});
+ const recovery=new FakeClient(text=>text.includes("catalog_recover_variant_order")?[{outcome:"operation_replayed",result_payload:{...value,replayed:true}}]:[]);
+ const result=await repository(new FakePool(write,recovery)).reorderVariants({tenantContext:tenantContext(),now:NOW,operationId:OPERATION_ID,productId:PRODUCT_ID,expectedVersion:0,orderedVariantIds:[VARIANT_ID]});
+ assert.equal(result.replayed,true);assert.equal(write.calls.filter(c=>c.text.includes("catalog_reorder_variants")).length,1);assert.equal(recovery.calls.some(c=>c.text.includes("catalog_recover_variant_order")),true);assert.equal(recovery.calls.some(c=>c.text.includes("catalog_reorder_variants")),false);
+});

@@ -17,7 +17,7 @@
 .thumbnailSelect { position: relative; display: block; width: 100%; height: 64px; padding: 0; border: 0; border-radius: 5px 5px 0 0; overflow: hidden; background: var(--catalog-surface); }
 .thumbnailSelect[aria-pressed="true"] { outline: 2px solid var(--catalog-text); outline-offset: -2px; }
 .thumbnailCover { position: absolute; bottom: 4px; left: 4px; padding: 2px 4px; border-radius: 3px; background: var(--catalog-surface); color: var(--catalog-text); font-size: 10px; }
-.mediaOrderControls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.mediaOrderControls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .mediaOrderControls button { display: grid; place-items: center; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--cp-text-secondary, #736b63); }
 .mediaOrderControls button:hover:not(:disabled) { background: var(--catalog-canvas); }
 .mediaOrderControls button:disabled { opacity: .5; }
@@ -57,3 +57,7 @@
 }
 
 .workspace .optionsStatus { min-height: 20px; }
+
+.sortHandle { display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; min-height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--create-muted, #6f6b66); cursor: grab; }
+.sortHandle:active { cursor: grabbing; }
+.sortHandle svg { width: 18px; height: 18px; }

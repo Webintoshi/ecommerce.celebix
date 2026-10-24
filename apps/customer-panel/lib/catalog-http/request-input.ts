@@ -1,7 +1,7 @@
 import "server-only";
 
 import {
-  parseProductTaxChoice,
+  parseProductTaxChoice, parseCatalogVariantOrderIntent, type CatalogVariantOrderIntent,
   parseContentAuthoringFieldOrigins,
   type ContentAuthoringFieldOriginsInput,
   parseCatalogProductListQuery,
@@ -27,6 +27,7 @@ const SYNTHETIC_STORE_ID = "33333333-3333-4333-8333-333333333333";
 const SYNTHETIC_TIME = "2026-01-01T00:00:00.000Z";
 
 export type CatalogMutationKind =
+  | "reorder_variants"
   | "create_product"
   | "update_product"
   | "archive_product"
@@ -40,6 +41,7 @@ export type CatalogMutationKind =
   | "bulk_product";
 
 export type CatalogMutationBodies = Readonly<{
+  reorder_variants: CatalogVariantOrderIntent;
   create_product: Readonly<{ product: CatalogProductFields; initialVariant: CatalogVariantFields }>;
   update_product: Readonly<{ expectedVersion: number; product: CatalogProductFields; contentOrigins?: ContentAuthoringFieldOriginsInput }>;
   archive_product: Readonly<{ expectedVersion: number }>;
@@ -136,6 +138,7 @@ function version(value: unknown): number | null {
 }
 
 function mutationBody<K extends CatalogMutationKind>(value: unknown, kind: K): CatalogMutationBodies[K] | null {
+  if(kind === "reorder_variants"){try{return parseCatalogVariantOrderIntent(value) as CatalogMutationBodies[K];}catch{return null;}}
   if (kind === "bulk_product") {
     try { return parseCatalogBulkProductIntent(value) as CatalogMutationBodies[K]; }
     catch { return null; }

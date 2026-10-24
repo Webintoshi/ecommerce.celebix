@@ -242,3 +242,10 @@
 @media (prefers-reduced-motion: reduce) {
 .root .smallAction { transition: none; }
 }
+
+.variantSortHandle { display:inline-flex; flex:0 0 44px; width:44px; height:44px; align-items:center; justify-content:center; border:0; border-radius:8px; background:transparent; color:#746b62; }
+.variantSortHandle svg { width:18px; height:18px; }
+.variantSortHandle:hover:not(:disabled) { background:#f0ebe6; color:#2b2b2b; }
+.variantSortHandle:focus-visible { outline:2px solid #ff7100; outline-offset:2px; }
+.variantSortHandle:disabled { opacity:.4; }
+.variantOrderFeedback { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:8px 0; font-size:12px; color:#746b62; }

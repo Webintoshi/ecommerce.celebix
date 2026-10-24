@@ -13,6 +13,7 @@ export const CATALOG_ERROR_CODES = Object.freeze([
   "variant_combination_conflict",
   "variant_limit_reached",
   "version_conflict",
+  "order_membership_changed",
   "dynamic_pricing_not_ready",
   "dynamic_price_unavailable",
   "removal_not_eligible",
