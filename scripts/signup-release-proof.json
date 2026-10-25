@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "9a2eec2d5092fa665e7b2945ddd69ca70e17825fd6715892d1e5f0c35c00e5e2",
+  "inputDigest": "0dbd0504ffb5c84bc2c843254a50ae3c20ca606aabe48e09075b5ca67e08df89",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2824,6 +2824,14 @@
       "sha256": "bc3f97f4b6ba3e0e74647d97160b8e35e6978f67eda230171694077b419a8292"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610250276_order_edit_address.up.sql",
+      "sha256": "6a35b791a9d2970fdc14dbc1f1848deabec836078a48a7e103fdfeae982afc52"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610250277_order_delete_quotes.up.sql",
+      "sha256": "5270ba5a8698d022040ef5d80ed7bf24d6af78ddf32511153399c37c78ea5d73"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -2854,6 +2862,14 @@
     {
       "path": "apps/owner/scripts/sql/saas/email-marketing-connections.up.sql",
       "sha256": "9ca7571f3cb877b13c4bb0e9516687772afa6650bd67c74076ab5e97255b8fbf"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/order-delete-quotes277-manifest.json",
+      "sha256": "d9962d8e4929ae106907ffebe9ad519f03a38d24cba5e2c97d05153916bc3146"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/order-edit-address276-manifest.json",
+      "sha256": "1bab8c276aecd0aa56be5cffbce63075235846c9667cb2ca0b5d487be6a749ce"
     },
     {
       "path": "apps/owner/scripts/sql/saas/phase-admin-login-security-manifest.json",
@@ -4121,7 +4137,7 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/commerce.ts",
-      "sha256": "c6707efbb9edf858c52c1b6100131bb4618f3ef1ec075c51cf374993c4d113b8"
+      "sha256": "b3efd4de2ecaa3939df3036bba9c7f13b2f7778caa7c5de781dce0204a7137cd"
     },
     {
       "path": "packages/saas-contracts/src/storefront/index.ts",
@@ -5609,7 +5625,7 @@
     },
     {
       "path": "packages/shipping-adapters/src/providers/basit-kargo/validation.ts",
-      "sha256": "2d357a35b2d22c67f4a8c8603489931b25f7d1e8be7652c56eac24c406f2c8f8"
+      "sha256": "53eb8664c2d6f607e2302fc50da45dec5050c0965365ba155c0d3b1e9e30f243"
     },
     {
       "path": "packages/shipping-adapters/src/registry.ts",

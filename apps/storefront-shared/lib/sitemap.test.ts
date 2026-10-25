@@ -4,7 +4,7 @@ import { renderSitemapIndex, renderSitemapPage } from "./sitemap.ts";
 
 const time = "2026-09-29T12:00:00.000Z";
 test("sitemap index and URL entries use the tenant origin and actual configured frequency", () => {
-  assert.match(renderSitemapIndex("https://shop.example.test/", [{ kind: "products", page: 0 }, { kind: "content", page: 0 }]), /https:\/\/shop\.example\.test\/sitemaps\/content\/0/);
+  assert.match(renderSitemapIndex("https://shop.example.test/", [{ kind: "products", page: 0 }, { kind: "content", page: 0 }]), /https:\/\/shop\.example\.test\/sitemap-content-0\.xml/);
   const xml = renderSitemapPage("https://shop.example.test/", [{ path: "/pages/about?lang=en-US", updatedAt: time, changeFrequency: "monthly" }, { path: "/urun/ring", updatedAt: time, changeFrequency: "monthly" }]);
   assert.match(xml, /about\?lang=en-US/);
   assert.equal((xml.match(/<changefreq>monthly<\/changefreq>/g) ?? []).length, 2);

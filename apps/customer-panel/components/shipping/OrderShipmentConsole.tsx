@@ -152,7 +152,9 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
       setSelectedOptionId(next.options[0]?.id ?? "");
       if (next.options.length === 0) setMessage("Uygun kargo teklifi bulunamadı. Ölçüleri kontrol edip yeniden deneyin.");
     } catch (error) {
-      if (!signal.aborted && latestScope.current === scope) setMessage(safeMessage(error));
+      if (!signal.aborted && latestScope.current === scope) setMessage(error instanceof ShippingFulfillmentApiError && error.code === "quote_not_ready"
+        ? "Kargo teklifi alınamadı. Biraz sonra yeniden deneyin."
+        : safeMessage(error));
     } finally { finish(signal); }
   }
 

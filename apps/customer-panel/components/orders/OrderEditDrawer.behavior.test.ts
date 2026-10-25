@@ -41,6 +41,7 @@ test('lost save locks the draft and retries the identical durable operation with
         await input(window, field(host, 'reason'), 'Düzeltme');
         await submit(host, window);
         assert.equal(field(host, 'reason').disabled, true);
+        assert.match(host.textContent, /Kayıt sonucu doğrulanamadı\. Aynı kaydı doğrulayarak devam edin\./);
         assert.match(host.textContent, /Kaydı doğrula/);
         assert.equal(journal.rows.size, 1);
         await submit(host, window);
@@ -84,6 +85,21 @@ test('pending reload recovers the same expected version even when current worksp
     clientModule.persistPendingEdit(journal, 'panel.example.test', ID, pending);
     let saved: any, previews = 0;
     await mounted(Drawer(), { orderId: ID, storage: journal, client: client({ workspace: async () => ({ ...workspace, version: 2, canEdit: false, blockReason: 'shipment_exists' }), preview: async () => { previews++; return preview; }, apply: async (_id: string, body: any) => { saved = body; return result; } }), onClose: () => { }, onSaved: () => { } }, async (host, window) => { assert.equal(field(host, 'reason').value, 'Korunan kayıt'); assert.equal(field(host, 'reason').disabled, true); await submit(host, window); assert.equal(saved.intent.expectedVersion, 1); assert.equal(saved.operationId, OP); assert.equal(previews, 0); }, setup);
+});
+test('failed workspace read preserves the recovery warning and original pending edit', async () => {
+    const journal = storage(), pending = { schemaVersion: 1, orderId: ID, operationId: OP, previewFingerprint: preview.fingerprint, intent: { expectedVersion: 1, customerName: 'Ada', customerEmail: null, customerPhone: null, shippingAddress: null, billingAddress: null, shippingCents: 0, discountCents: 0, reason: 'Korunan kayıt', lines: [{ lineId: LINE, productId: null, variantId: null, quantity: 2, unitPriceCents: 1000, discountCents: 0 }] } };
+    clientModule.persistPendingEdit(journal, 'panel.example.test', ID, pending);
+    let saved: any, previews = 0;
+    await mounted(Drawer(), { orderId: ID, storage: journal, client: client({ workspace: async () => { throw new clientModule.OrderEditUiError('unavailable', 503); }, preview: async () => { previews++; return preview; }, apply: async (_id: string, body: any) => { saved = body; return result; } }), onClose: () => { }, onSaved: () => { } }, async (host, window) => {
+        assert.match(host.textContent, /Kayıt sonucu doğrulanamadı\. Aynı kaydı doğrulayarak devam edin\./);
+        assert.equal(field(host, 'reason').value, 'Korunan kayıt');
+        assert.equal(field(host, `quantity-${LINE}`).value, '2');
+        assert.equal(field(host, 'reason').disabled, true);
+        assert.equal(journal.rows.size, 1);
+        await submit(host, window);
+        assert.deepEqual(saved, { intent: pending.intent, operationId: OP, previewFingerprint: pending.previewFingerprint });
+        assert.equal(previews, 0);
+    }, setup);
 });
 test('variant replacement uses a fresh line ID, server variant and price while restricted prices stay disabled', async () => {
     let saved: any;
@@ -157,8 +173,18 @@ test('existing settlement discount cannot exceed the new total and blocks save l
 });
 test('failed initial workspace read offers a manual retry without creating a write', async () => {
     let reads = 0, writes = 0;
-    await mounted(Drawer(), { orderId: ID, storage: storage(), client: client({ workspace: async () => { if (++reads === 1)
-                throw new clientModule.OrderEditUiError('unavailable', 503); return workspace; }, apply: async () => { writes++; return result; } }), onClose: () => { }, onSaved: () => { } }, async (host) => { assert.equal(host.querySelector('form[data-order-edit]'), null); await click(host, 'Yeniden dene'); assert.equal(field(host, 'customerName').value, 'Ada'); assert.equal(reads, 2); assert.equal(writes, 0); }, setup);
+    const journal = storage();
+    await mounted(Drawer(), { orderId: ID, storage: journal, client: client({ workspace: async () => { if (++reads === 1)
+                throw new clientModule.OrderEditUiError('unavailable', 503); return workspace; }, apply: async () => { writes++; return result; } }), onClose: () => { }, onSaved: () => { } }, async (host) => {
+        assert.equal(host.querySelector('form[data-order-edit]'), null);
+        assert.match(host.textContent, /Sipariş bilgileri yüklenemedi\. Yeniden deneyin\./);
+        assert.doesNotMatch(host.textContent, /Kayıt sonucu doğrulanamadı/);
+        assert.equal(journal.rows.size, 0);
+        await click(host, 'Yeniden dene');
+        assert.equal(field(host, 'customerName').value, 'Ada');
+        assert.equal(reads, 2);
+        assert.equal(writes, 0);
+    }, setup);
 });
 test('fresh contact read preserves edited fields and product buffers while untouched contacts follow current profile', async () => {
     let reads = 0, saved: any;

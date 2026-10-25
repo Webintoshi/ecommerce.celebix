@@ -20,6 +20,11 @@ Post-deployment health is HTTP 200 with `status=ok`, expected custom hostname an
 
 The pre/post hooks were preserved. Deployment output reports `modular_homepage_migration=already_applied` and `order_address_migration=already_applied`; no new migration or backfill was applied. The release build generated the authorized exact-candidate metadata: PayTR TEST `sha256:f3e9696f260060e3fdf8e8938626ecf691dca9b76a894c5a333ec2605d2be0b4` and LIVE `sha256:295f7798d067686e799a49f32f8fa9f9ebabee520675f0bcde734ac7cc1e5093`. Existing modes remained `approved_test_sandbox` / `approved_live`; payment behavior, PayTR/Iyzico manifests and approval machinery have no diff from the previously running source. Iyzico production authority was not added. No payment, refund or provider call was made.
 
+**Later operational change (2026-10-25):** the historical order-address posthook
+was retired from both shared panels because its data-based replay could replace
+the modern reader. Do not re-add it from this historical rollout record. See
+[the verified retirement](../ops/2026-10-25-order-edit-address.md#completed-live-acceptance-and-retired-legacy-hook).
+
 Application source is unchanged after the previously tested `1dbfb7f553ce1415eb2b6190106e3e68f804f073`: every commit from `1dbfb7f5` through deployed `1541f873` changes only `docs/qa/**`. The retained full evidence therefore remains bound to application source `1dbfb7f5`: 1414 pass, 0 fail, 1 existing opt-in skip; Panel typecheck, strict fixture typecheck and production build pass. Per instruction, the full suite/build was not repeated for document/image-only commits.
 
 ### Authenticated package results

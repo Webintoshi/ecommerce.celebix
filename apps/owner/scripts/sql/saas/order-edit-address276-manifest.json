@@ -1,0 +1,31 @@
+{
+  "phase": "order-edit-address276",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "fixturePredecessorRoutineCount": 2034,
+  "fixtureInstalledRoutineCount": 2034,
+  "reviewedPredecessorRoutineCount": 2060,
+  "reviewedInstalledRoutineCount": 2060,
+  "reviewedPredecessorCatalogSha256": "f694c45a1284abdeae38e9d085b88e883de4c8327e00a382eade4222a6b10ba3",
+  "reviewedInstalledCatalogSha256": "49818ebae58044d34b86f66ecc74d566faca13b6095a5a994fd7d3abdd0025d7",
+  "changedRoutine": {
+    "signature": "saas.orders_edit_workspace(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+    "beforeSha256": "4c455d3dfa206da0b3ddbb6abb799a21436595eeacc797c58fcc7f457d8248dd",
+    "afterSha256": "101a8c2436b00783f4b308db6300fd293569c758bc6874164922063092739d6e",
+    "owner": "celebix_saas_owner",
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+    "config": ["search_path=pg_catalog, saas"],
+    "definer": true,
+    "volatility": "s"
+  },
+  "unchangedCanonicalReader": {
+    "signature": "saas.orders_detail_projection(uuid,uuid)",
+    "sha256": "d9c3322f5412395ad335d3d36073979e253b12f2a7430588d1538df519f5d6bf",
+    "owner": "celebix_saas_owner",
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+    "config": ["search_path=pg_catalog, saas"],
+    "definer": false,
+    "volatility": "s"
+  }
+}
