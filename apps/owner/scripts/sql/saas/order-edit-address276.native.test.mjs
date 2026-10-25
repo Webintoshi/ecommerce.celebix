@@ -70,15 +70,15 @@ try{
     assert.deepEqual(catalog(),beforeCatalog);
     assert.equal(sql("SELECT to_regclass('saas.order_edit_address276_function_backup')IS NULL"),'t');
    });
-   sql(read(up));
-   check('installation changes only the workspace body while preserving every existing routine and privilege',()=>{
+   check('hash-join installation checks only the saved routine and preserves all existing routine authority',()=>{
+    sql('SET enable_nestloop=off;'+read(up));
     const after=catalog(),changed=Object.keys(after).filter(key=>after[key].sha256!==beforeCatalog[key]?.sha256);
     assert.deepEqual(changed,[signature]);
     assert.equal(Object.keys(after).length,manifest.fixtureInstalledRoutineCount);
     assert.equal(after[signature].sha256,afterSha256);
     for(const key of Object.keys(beforeCatalog))assert.deepEqual({...after[key],sha256:beforeCatalog[key].sha256},beforeCatalog[key],key);
     assert.deepEqual(business(),beforeBusiness);
-    sql(read(assertions));
+    sql('SET enable_nestloop=off;'+read(assertions));
     assert.throws(()=>sql(read(up)),/ORDER_EDIT_ADDRESS276_ALREADY_INSTALLED/);
    });
   }
@@ -110,20 +110,20 @@ try{
    assert.throws(()=>parseOrderEditIntent(intent),/order_edit_contract_invalid/);
    assert.equal(rpc('orders_edit_preview',`${lit(O)},${json(intent)}`).outcome,'invalid_input');
    for(const role of ['celebix_saas_app','celebix_saas_identity','celebix_saas_workflow','celebix_saas_host_resolver','celebix_saas_support_runtime'])assert.throws(()=>sql(`SET ROLE ${role};SELECT *FROM saas.order_edit_address276_function_backup`),/permission denied/);
-   sql(read(assertions));
+   sql('SET enable_nestloop=off;'+read(assertions));
   });
   check('rollback refuses changed installed authority and restores the exact reader and all original metadata',()=>{
    assert.throws(()=>sql(read(down)),/ORDER_EDIT_ADDRESS276_DOWN_OPT_IN_REQUIRED/);
    const definition=sql(`SELECT pg_get_functiondef(${lit(signature)}::regprocedure)`),drift=definition.replace('BEGIN\n','BEGIN /* installed address276 drift */\n');
    owned(drift);assert.throws(()=>sql("SET celebix.allow_native276_down='on';"+read(down)),/ORDER_EDIT_ADDRESS276_DOWN_DRIFT/);owned(definition);
    owned(`GRANT EXECUTE ON FUNCTION ${signature} TO celebix_saas_workflow`);assert.throws(()=>sql("SET celebix.allow_native276_down='on';"+read(down)),/ORDER_EDIT_ADDRESS276_DOWN_DRIFT/);owned(`REVOKE EXECUTE ON FUNCTION ${signature} FROM celebix_saas_workflow`);
-   sql("SET celebix.allow_native276_down='on';"+read(down));
+   sql("SET enable_nestloop=off;SET celebix.allow_native276_down='on';"+read(down));
    assert.deepEqual(catalog(),beforeCatalog);
    assert.deepEqual(workspace(O),legacy);
    assert.throws(()=>parseOrderEditWorkspace(workspace(O)),/order_edit_contract_invalid/);
    assert.deepEqual(business(),beforeBusiness);
    assert.equal(sql("SELECT to_regclass('saas.order_edit_address276_function_backup')IS NULL"),'t');
-   sql(read(up));sql(read(assertions));
+   sql('SET enable_nestloop=off;'+read(up));sql('SET enable_nestloop=off;'+read(assertions));
    assert.equal(parseOrderEditWorkspace(workspace(O)).shippingAddress.recipientName,'Fixture Customer');
   });
   console.log(`Native order edit address276: ${checks} checks passed; ${Object.keys(beforeCatalog).length} predecessor routines checked`);

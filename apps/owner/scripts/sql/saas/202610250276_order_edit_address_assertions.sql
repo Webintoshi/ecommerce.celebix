@@ -11,12 +11,12 @@ DO $assertions$ DECLARE saved record;BEGIN
   OR saved.config IS DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[] OR NOT saved.security_definer OR saved.volatility<>'s'
  THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_BACKUP_DRIFT';END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=saved.function_oid AND p.oid=to_regprocedure(saved.signature)
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=saved.after_definition_sha
+  AND encode(sha256(convert_to(pg_get_functiondef(saved.function_oid),'UTF8')),'hex')=saved.after_definition_sha
   AND p.proowner=saved.owner_oid AND p.proacl IS NOT DISTINCT FROM saved.acl
   AND p.proconfig IS NOT DISTINCT FROM saved.config AND p.prosecdef=saved.security_definer AND p.provolatile=saved.volatility)
  THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_INSTALLED_FUNCTION_INVALID';END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=to_regprocedure('saas.orders_detail_projection(uuid,uuid)')
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='d9c3322f5412395ad335d3d36073979e253b12f2a7430588d1538df519f5d6bf'
+  AND encode(sha256(convert_to(pg_get_functiondef('saas.orders_detail_projection(uuid,uuid)'::regprocedure),'UTF8')),'hex')='d9c3322f5412395ad335d3d36073979e253b12f2a7430588d1538df519f5d6bf'
   AND p.proowner='celebix_saas_owner'::regrole AND p.proacl::text='{celebix_saas_owner=X/celebix_saas_owner}'
   AND p.proconfig=ARRAY['search_path=pg_catalog, saas']::text[] AND NOT p.prosecdef AND p.provolatile='s')
  THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_CANONICAL_READER_DRIFT';END IF;

@@ -17,13 +17,13 @@ DO $down$ DECLARE saved record;BEGIN
   OR saved.config IS DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[] OR NOT saved.security_definer OR saved.volatility<>'s'
  THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_BACKUP_DRIFT';END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=saved.function_oid AND p.oid=to_regprocedure(saved.signature)
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=saved.after_definition_sha
+  AND encode(sha256(convert_to(pg_get_functiondef(saved.function_oid),'UTF8')),'hex')=saved.after_definition_sha
   AND p.proowner=saved.owner_oid AND p.proacl IS NOT DISTINCT FROM saved.acl
   AND p.proconfig IS NOT DISTINCT FROM saved.config AND p.prosecdef=saved.security_definer AND p.provolatile=saved.volatility)
  THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_DOWN_DRIFT';END IF;
  EXECUTE saved.definition;
  IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=saved.function_oid
-  AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=saved.before_definition_sha
+  AND encode(sha256(convert_to(pg_get_functiondef(saved.function_oid),'UTF8')),'hex')=saved.before_definition_sha
   AND p.proowner=saved.owner_oid AND p.proacl IS NOT DISTINCT FROM saved.acl
   AND p.proconfig IS NOT DISTINCT FROM saved.config AND p.prosecdef=saved.security_definer AND p.provolatile=saved.volatility)
  THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_RESTORE_INVALID';END IF;

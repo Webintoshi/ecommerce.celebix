@@ -23,14 +23,14 @@ DO $privacy$ DECLARE role_name text;BEGIN
  END LOOP;
 END $privacy$;
 DO $patch$
-DECLARE reviewed record;proc record;definition text;old text:=$old$'shippingAddress',o.shipping_address$old$;
+DECLARE reviewed record;proc record;saved record;definition text;old text:=$old$'shippingAddress',o.shipping_address$old$;
  replacement text:=$new$'shippingAddress',CASE WHEN o.source='in_store' THEN o.shipping_address ELSE saas.orders_detail_projection(p_store_id,p_order_id)->'shippingAddress' END$new$;
 BEGIN
  FOR reviewed IN SELECT *FROM(VALUES
   ('saas.orders_edit_workspace(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)','4c455d3dfa206da0b3ddbb6abb799a21436595eeacc797c58fcc7f457d8248dd','{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}',true),
   ('saas.orders_detail_projection(uuid,uuid)','d9c3322f5412395ad335d3d36073979e253b12f2a7430588d1538df519f5d6bf','{celebix_saas_owner=X/celebix_saas_owner}',false)
  )evidence(signature,sha256,acl,definer)LOOP
-  SELECT p.*,pg_get_functiondef(p.oid)definition INTO proc FROM pg_proc p WHERE p.oid=to_regprocedure(reviewed.signature);
+  SELECT p.*,pg_get_functiondef(to_regprocedure(reviewed.signature))definition INTO proc FROM pg_proc p WHERE p.oid=to_regprocedure(reviewed.signature);
   IF proc.definition IS NULL OR encode(sha256(convert_to(proc.definition,'UTF8')),'hex')IS DISTINCT FROM reviewed.sha256
    OR proc.proowner IS DISTINCT FROM 'celebix_saas_owner'::regrole OR proc.proacl::text IS DISTINCT FROM reviewed.acl
    OR proc.proconfig IS DISTINCT FROM ARRAY['search_path=pg_catalog, saas']::text[]
@@ -40,11 +40,13 @@ BEGIN
    INSERT INTO saas.order_edit_address276_function_backup VALUES(reviewed.signature,proc.oid,proc.definition,reviewed.sha256,'101a8c2436b00783f4b308db6300fd293569c758bc6874164922063092739d6e',proc.proowner,proc.proacl,proc.proconfig,proc.prosecdef,proc.provolatile);
   END IF;
  END LOOP;
- SELECT saved.definition INTO STRICT definition FROM saas.order_edit_address276_function_backup saved;
+ SELECT *INTO STRICT saved FROM saas.order_edit_address276_function_backup;
+ definition:=saved.definition;
  IF(length(definition)-length(replace(definition,old,'')))/length(old)<>1 THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_PATCH_DRIFT';END IF;
  EXECUTE replace(definition,old,replacement);
- IF NOT EXISTS(SELECT 1 FROM pg_proc p JOIN saas.order_edit_address276_function_backup saved ON saved.function_oid=p.oid
-  WHERE encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')=saved.after_definition_sha
+ -- A fixed, validated OID keeps function rendering independent of pg_proc scan order.
+ IF NOT EXISTS(SELECT 1 FROM pg_proc p WHERE p.oid=saved.function_oid
+  AND encode(sha256(convert_to(pg_get_functiondef(saved.function_oid),'UTF8')),'hex')=saved.after_definition_sha
    AND p.proowner=saved.owner_oid AND p.proacl IS NOT DISTINCT FROM saved.acl
    AND p.proconfig IS NOT DISTINCT FROM saved.config AND p.prosecdef=saved.security_definer AND p.provolatile=saved.volatility)
  THEN RAISE EXCEPTION 'ORDER_EDIT_ADDRESS276_INSTALLED_FUNCTION_INVALID';END IF;
