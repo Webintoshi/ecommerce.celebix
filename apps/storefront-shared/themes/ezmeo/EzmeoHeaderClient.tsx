@@ -24,12 +24,14 @@ type Props = Readonly<{
   style?: "overlay" | "solid";
 }>;
 
-function HeaderIcon({ name }: Readonly<{ name: "menu" | "close" | "arrow" | "chevron" | "bag" }>) {
+function HeaderIcon({ name }: Readonly<{ name: "menu" | "close" | "arrow" | "chevron" | "bag" | "home" | "grid" }>) {
   return <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     {name === "menu" ? <path d="M4 8h16M4 16h16" />
       : name === "close" ? <path d="m6 6 12 12M6 18 18 6" />
         : name === "arrow" ? <path d="M4 12h15m-5-5 5 5-5 5" />
           : name === "chevron" ? <path d="m9 5 7 7-7 7" />
+            : name === "home" ? <><path d="m3 10 9-7 9 7v10H3Z" /><path d="M9 20v-7h6v7" /></>
+            : name === "grid" ? <><rect x="4" y="4" width="6" height="6" rx="1.5" /><rect x="14" y="4" width="6" height="6" rx="1.5" /><rect x="4" y="14" width="6" height="6" rx="1.5" /><rect x="14" y="14" width="6" height="6" rx="1.5" /></>
             : <><path d="M5 7.5h14l1 13H4Z" /><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2" /></>}
   </svg>;
 }
@@ -52,6 +54,8 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
   const current = trail.at(-1);
   const items = current?.children ?? navigation;
   const count = hydrated ? cart?.itemCount ?? 0 : 0;
+  const showBottomNav = !/^\/(?:urun|products)\/[^/]+\/?$|^\/(?:checkout|odeme|account|cart|search)(?:\/|$)/u.test(pathname);
+  const catalogRoute = /^\/(?:urunler|products|kategori|categories|collections|koleksiyon)(?:\/|$)/u.test(pathname);
   const overlaysBanner = style === "overlay" && pathname === "/";
 
   useEffect(() => {
@@ -153,5 +157,11 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
         </>}
       </div>
     </dialog>
+    {showBottomNav ? <nav className="ez-bottom-nav" data-ezmeo-header aria-label="Alt gezinme" hidden={panel !== null || drawerOpen}>
+      <Link href="/" aria-current={pathname === "/" ? "page" : undefined}><HeaderIcon name="home" /><span>Ana sayfa</span></Link>
+      <button type="button" aria-label="Kategorileri aç" aria-controls={dialogId} aria-haspopup="dialog" aria-expanded={panel === "menu"} aria-current={catalogRoute ? "page" : undefined} onClick={event => open("menu", event.currentTarget)}><HeaderIcon name="grid" /><span>Keşfet</span></button>
+      <Link href="/favorites" prefetch={false} aria-current={pathname === "/favorites" ? "page" : undefined}><StoreIcon name="heart" /><span>Favoriler</span></Link>
+      <button type="button" aria-label={count > 0 ? `Sepet, ${count} ürün` : "Sepet"} aria-haspopup="dialog" aria-expanded={drawerOpen} onClick={event => openDrawer(event.currentTarget)}><HeaderIcon name="bag" /><span>Sepet</span>{count > 0 ? <small aria-hidden="true">{count > 99 ? "99+" : count}</small> : null}</button>
+    </nav> : null}
   </>;
 }

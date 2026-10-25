@@ -7,7 +7,7 @@ const directories = [
   "lib", "lib/account", "lib/cart", "lib/cart-identity", "lib/checkout", "lib/payment-adapters", "lib/engagement", "lib/order-bumps", "lib/lucky-wheel",
   "lib/customer-engagement", "lib/restock", "lib/reviews", "lib/cart-capture", "lib/analytics", "lib/promotions", "components", "components/account",
 ];
-browserTests.push("components/EzmeoHeader.test.ts");
+browserTests.push("components/EzmeoHeader.test.ts", "components/StorefrontBannerInteraction.test.ts");
 browserTests.push("components/StoreEngagement.test.ts");
 browserTests.push("components/LuckyWheel.test.ts", "components/LuckyWheelLauncher.test.ts");
 browserTests.push("components/GoogleMarketingConsent.test.ts");

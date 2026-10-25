@@ -70,3 +70,12 @@ Produces ezmeoThemeFor(Pick<PublicStorefront,'id'>) returning 'ezmeo-deniz' for 
 
 - Integrated already-live baseline 8f6a4212; payment/catalog/review updates retained. Independent read-only review identified overlay semantics; fixed home overlay/non-home solid behavior and scroll opacity with a regression test (RED→GREEN).
 - Post-merge focused serial suite: 31/31 pass. Updated only stale test dependency stubs for already-live selected-summary/review-form imports. Production review/payment behavior unchanged.
+
+
+## Mobile correction after merchant review
+
+The merchant reported square source photographs inside tall card frames, absent banner pagination below the image, and insufficient mobile app feel. Native published and draft settings both still selected `portrait`; live DOM confirmed 280.8 × 374.4 px frames. A bounded Ezmeo-only compare-and-swap changed only the two image ratio paths to `square`, preserving all other draft/published content. Live verification measured 280.8 × 280.8 px before the code release.
+
+This revision adds a compact mobile product rail, thinner 64 px header, a four-action mobile dock using existing menu/cart providers and actual home/favorites routes, and line pagination below banners. Product, cart, checkout, account and search routes retain their own controls. Dock hides during navigation/search dialogs and the cart. Contact/cookie launchers clear its safe area. Touch banner navigation is optional, enabled only for Ezmeo, keeps vertical scrolling and suppresses accidental link activation after swiping. Existing single/stacked banners and other merchants retain previous behavior.
+
+Validation: 37 focused component/navigation/banner tests passed sequentially with a 384 MiB Node heap. Read-only review found a contact-selector mismatch, corrected before publication. No local development server or production build was started. Remote builds and deployment acceptance remain sequential. Full storefront suite was not run.

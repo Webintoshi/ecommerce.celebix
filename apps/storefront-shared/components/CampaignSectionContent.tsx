@@ -18,7 +18,7 @@ function assertNever(value: never): never {
   throw new TypeError(`campaign_section_unreachable:${String(value)}`);
 }
 
-export function CampaignSectionContent<Product extends CampaignCardProduct = PublicProduct>({ section, presentation, productRows, locale, renderProductRow, prefetch, previewMode, priority = false }: Readonly<{
+export function CampaignSectionContent<Product extends CampaignCardProduct = PublicProduct>({ section, presentation, productRows, locale, renderProductRow, prefetch, previewMode, priority = false, bannerSwipeNavigation = false }: Readonly<{
   section: PublicStarterHomeSection;
   presentation: CampaignPresentation;
   productRows: readonly Readonly<{ key: string; items: readonly Product[] }>[];
@@ -26,6 +26,7 @@ export function CampaignSectionContent<Product extends CampaignCardProduct = Pub
   prefetch?: boolean;
   previewMode?: "desktop" | "mobile";
   priority?: boolean;
+  bannerSwipeNavigation?: boolean;
   renderProductRow: (input: Readonly<{ section: ProductRow; products: readonly Product[]; presentation: CampaignPresentation; locale: string }>) => ReactNode;
 }>) {
   const present = (content: ReactNode) => {
@@ -41,7 +42,7 @@ export function CampaignSectionContent<Product extends CampaignCardProduct = Pub
         ...(slide.hotspot ? [`/products/${slide.hotspot.productSlug}`] : []),
       ]);
       const destinationHrefs = Object.fromEntries(paths.map((path) => [path, localizeStorefrontPath(path, locale)]));
-      return present(section.slides.some((slide) => slide.enabled && (slide.desktopImage || section.presentation === "overlay")) ? <StorefrontBanner section={section} previewMode={previewMode} priority={priority} destinationHrefs={destinationHrefs} /> : null);
+      return present(section.slides.some((slide) => slide.enabled && (slide.desktopImage || section.presentation === "overlay")) ? <StorefrontBanner swipeNavigation={bannerSwipeNavigation} section={section} previewMode={previewMode} priority={priority} destinationHrefs={destinationHrefs} /> : null);
     }
     case "category_grid": return present(section.items.length ? <CampaignCategories section={section} locale={locale} prefetch={prefetch} /> : null);
     case "product_row": {

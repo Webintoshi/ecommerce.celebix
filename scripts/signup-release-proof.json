@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "c79773c28a75d4c9abf31b27ddb8fc62d16edc91dbe1629e7ef618f41fc61881",
+  "inputDigest": "9a2eec2d5092fa665e7b2945ddd69ca70e17825fd6715892d1e5f0c35c00e5e2",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -5649,7 +5649,7 @@
     },
     {
       "path": "packages/storefront-design-ui/src/StorefrontBanner.tsx",
-      "sha256": "149b6b05261757e97a1eacf7f16c34dc963c2efd2380251a70134c169a8b8996"
+      "sha256": "9c2326cf6c427f30803df293bae7f2dfe2ea6d670365c1be988734b2e0d6e2f7"
     },
     {
       "path": "packages/storefront-design-ui/src/StorefrontDesignRenderer.tsx",

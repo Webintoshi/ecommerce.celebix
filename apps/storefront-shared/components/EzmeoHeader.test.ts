@@ -5,12 +5,12 @@ import { componentLoader, withProductBrowser } from "./product-variant-media-tes
 
 type Browser = Parameters<Parameters<typeof withProductBrowser>[0]>[0];
 
-async function withHeader(run: (browser: Browser & { pushes: string[]; triggers: HTMLElement[] }) => Promise<void>, options: { pathname?: string; style?: "solid" | "overlay" } = {}) {
+async function withHeader(run: (browser: Browser & { pushes: string[]; triggers: HTMLElement[] }) => Promise<void>, options: { pathname?: string; style?: "solid" | "overlay"; drawerOpen?: boolean } = {}) {
   const pushes: string[] = [], triggers: HTMLElement[] = [];
   const load = componentLoader({
     "next/navigation": { useRouter: () => ({ push: (href: string) => pushes.push(href) }), usePathname: () => options.pathname ?? "/urunler" },
-    "next/link": { __esModule: true, default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => React.createElement("a", props, children) },
-    "../../components/CartStatusProvider": { useCartStatus: () => ({ cart: { itemCount: 4 }, drawerOpen: false, openDrawer: (trigger: HTMLElement) => triggers.push(trigger) }) },
+    "next/link": { __esModule: true, default: ({ children, prefetch: _prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => React.createElement("a", props, children) },
+    "../../components/CartStatusProvider": { useCartStatus: () => ({ cart: { itemCount: 4 }, drawerOpen: options.drawerOpen ?? false, openDrawer: (trigger: HTMLElement) => triggers.push(trigger) }) },
     "../../components/use-hydrated": { useHydrated: () => true },
     "../siora/useCatalogScrollRestoration": { useCatalogScrollRestoration: () => undefined },
     "./CommercePolicyProvider": { useCommercePolicy: () => ({ hidePrices: false }) },
@@ -89,4 +89,25 @@ test("Ezmeo cart opens the existing provider and Escape dismisses navigation wit
     assert.equal(document.activeElement, container.querySelector(".ez-menu-trigger"));
     assert.equal(document.body.style.overflow, "");
   });
+});
+
+
+test("Ezmeo mobile navigation uses real destinations and the shared menu/cart without covering purchase flows", async () => {
+  await withHeader(async ({ container, click, triggers }) => {
+    const nav = container.querySelector<HTMLElement>(".ez-bottom-nav");
+    assert.ok(nav);
+    assert.equal(nav.querySelector('a[href="/"]')?.getAttribute("aria-current"), "page");
+    assert.ok(nav.querySelector('a[href="/favorites"]'));
+    await click('.ez-bottom-nav button[aria-label="Kategorileri aç"]');
+    assert.ok(container.querySelector<HTMLDialogElement>("dialog")?.open);
+    assert.equal(container.querySelector<HTMLElement>(".ez-bottom-nav")?.hidden, true);
+    await click('[data-ezmeo-panel-close]');
+    assert.equal(container.querySelector<HTMLElement>(".ez-bottom-nav")?.hidden, false);
+    await click('.ez-bottom-nav button[aria-label="Sepet, 4 ürün"]');
+    assert.equal(triggers[0], container.querySelector('.ez-bottom-nav button[aria-label="Sepet, 4 ürün"]'));
+  }, { pathname: "/" });
+  for (const pathname of ["/urun/eksi-tarhana", "/products/example", "/checkout", "/odeme", "/account/login", "/cart", "/search"]) {
+    await withHeader(async ({ container }) => assert.equal(container.querySelector(".ez-bottom-nav"), null, pathname), { pathname });
+  }
+  await withHeader(async ({ container }) => assert.equal(container.querySelector<HTMLElement>(".ez-bottom-nav")?.hidden, true), { drawerOpen: true });
 });

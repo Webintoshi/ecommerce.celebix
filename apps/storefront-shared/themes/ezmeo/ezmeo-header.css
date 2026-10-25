@@ -459,6 +459,8 @@
   [data-ezmeo-header] .ez-search-trigger > span { display: none; }
 }
 
+[data-ezmeo-header].ez-bottom-nav { display: none; }
+
 @media (max-width: 760px) {
   [data-ezmeo-header] .ez-header-row,
   [data-ezmeo-header][data-header-layout="logo_menu_actions"] .ez-header-row,
@@ -467,13 +469,13 @@
     grid-template-areas: "menu wordmark tools";
     gap: 6px;
     width: calc(100% - 24px);
-    min-height: 72px;
+    min-height: 64px;
     padding-block: 7px;
   }
   [data-ezmeo-header] .ez-menu-trigger { display: inline-flex; justify-self: start; }
   [data-ezmeo-header] .ez-desktop-nav { display: none; }
   [data-ezmeo-header] .ez-wordmark { max-width: 140px; justify-self: center; }
-  [data-ezmeo-header] .ez-wordmark img { max-height: 46px; }
+  [data-ezmeo-header] .ez-wordmark img { max-height: 40px; }
   [data-ezmeo-header] .ez-header-tools { gap: 0; }
   [data-ezmeo-header] .ez-search-trigger { padding-inline: 9px; }
   [data-ezmeo-header].ez-header-dialog,
@@ -496,4 +498,58 @@
 
 @media (prefers-reduced-motion: reduce) {
   [data-ezmeo-header] :is(a, button) { transition: none; }
+}
+
+/* A single, stable thumb zone. Product purchase and checkout keep their own controls. */
+@media (max-width: 760px) {
+  [data-ezmeo-header].ez-bottom-nav:not([hidden]) {
+    position: fixed;
+    z-index: 54;
+    inset: auto 0 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0;
+    padding: 6px 12px calc(6px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--ez-header-line);
+    background: var(--ez-header-paper);
+  }
+  [data-ezmeo-header].ez-bottom-nav > :is(a, button) {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 0;
+    min-height: 50px;
+    border: 0;
+    background: transparent;
+    color: color-mix(in srgb, var(--ez-header-ink) 65%, var(--ez-header-paper));
+    font: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  [data-ezmeo-header].ez-bottom-nav > [aria-current="page"] { color: var(--ez-header-brand); }
+  [data-ezmeo-header].ez-bottom-nav > [aria-current="page"] svg { stroke-width: 2; }
+  [data-ezmeo-header].ez-bottom-nav small {
+    position: absolute;
+    top: -1px;
+    left: calc(50% + 5px);
+    display: grid;
+    place-items: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    border-radius: 10px;
+    background: var(--ez-header-brand);
+    color: var(--ez-header-paper);
+    font-size: 9px;
+    font-weight: 600;
+  }
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"]:has(.ez-bottom-nav) { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
+  body:has(.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-bottom-nav:not([hidden])) :is(.google-consent-preferences, .google-consent-banner) { bottom: calc(74px + env(safe-area-inset-bottom)); }
+  body:has(.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-bottom-nav:not([hidden])) [data-contact-widget] { --contact-mobile-offset: 62px !important; }
 }

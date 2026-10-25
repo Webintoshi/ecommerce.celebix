@@ -45,7 +45,7 @@
   text-transform: none;
 }
 
-/* Keep both admin card alignments, image ratios and section widths intact. */
+/* Card alignment and image ratio continue to follow the published admin settings. */
 .starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card {
   align-content: start;
   gap: 14px;
@@ -563,3 +563,43 @@
     transition: none;
   }
 }
+
+/* Thin, tappable pagination beneath the image, outside the artwork. */
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .celebix-store-banner .celebix-store-hero-dots {
+  position: static;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  margin: 0;
+  padding-inline: 20px;
+  transform: none;
+}
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .celebix-store-banner .celebix-store-hero-dots button {
+  position: relative;
+  width: 44px;
+  height: 36px;
+  border-radius: 0;
+  background: transparent;
+}
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .celebix-store-banner .celebix-store-hero-dots button::after {
+  content: "";
+  position: absolute;
+  inset: calc(50% - 1px) 0 auto;
+  height: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--store-text) 18%, var(--store-background));
+  transition: background-color .16s ease;
+}
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .celebix-store-banner .celebix-store-hero-dots button[aria-current="true"]::after { background: var(--ezmeo-primary); }
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .celebix-store-banner[data-layout="slider"] .celebix-store-hero-arrow { top: calc((100% - 36px) / 2); }
+@media (max-width: 760px) {
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .celebix-store-banner .celebix-store-hero-arrow { display: none; }
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-campaign-product-row] .product-grid { gap: 12px; scrollbar-width: none; }
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-campaign-product-row] .product-grid::-webkit-scrollbar { display: none; }
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-campaign-product-row] .product-card { flex-basis: calc((100% - 24px) / 2.12); }
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card h3 { font-size: 13px; line-height: 1.4; }
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card-cart { min-height: 44px; padding-inline: 8px; font-size: 11px; }
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .celebix-store-banner[data-swipe-navigation="true"] .celebix-store-banner-track { touch-action: pan-y pinch-zoom; }
