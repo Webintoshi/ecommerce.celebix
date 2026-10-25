@@ -79,3 +79,8 @@ The merchant reported square source photographs inside tall card frames, absent 
 This revision adds a compact mobile product rail, thinner 64 px header, a four-action mobile dock using existing menu/cart providers and actual home/favorites routes, and line pagination below banners. Product, cart, checkout, account and search routes retain their own controls. Dock hides during navigation/search dialogs and the cart. Contact/cookie launchers clear its safe area. Touch banner navigation is optional, enabled only for Ezmeo, keeps vertical scrolling and suppresses accidental link activation after swiping. Existing single/stacked banners and other merchants retain previous behavior.
 
 Validation: 37 focused component/navigation/banner tests passed sequentially with a 384 MiB Node heap. Read-only review found a contact-selector mismatch, corrected before publication. No local development server or production build was started. Remote builds and deployment acceptance remain sequential. Full storefront suite was not run.
+
+
+## Modern minimalism refinement
+
+Merchant explicitly requested continuing in modern minimalism. Scope stays inside Ezmeo CSS: calmer section typography in the published font family, no product image border, lighter favorite control, soft option buttons without outlined boxes, mobile product heading/actions on one row, and borderless/shadowless testimonial surfaces. Merchant text, images, section composition and settings remain untouched. The decorative system testimonial eyebrow is hidden for this tenant. Existing square setting, banner pagination, opt-in swipe and mobile dock are retained. No new dependencies, images, JavaScript behavior or database writes are needed.
