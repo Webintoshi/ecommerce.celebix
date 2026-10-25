@@ -119,7 +119,7 @@ export function OrderEditDrawer({ orderId, onClose, onSaved, client = orderEditU
         void client.workspace(orderId, controller.signal).then(value => { if (current !== scope.current)
             return; setWorkspace(value); initialContacts.current = { customerName: value.customerName ?? '', customerEmail: value.customerEmail ?? '', customerPhone: value.customerPhone ?? '' }; const next = restored ? draftFrom(restored.intent, value.lines) : workspaceDraft(value); setDraft(next); baseline.current = JSON.stringify(next); }).catch(failure => { if (current !== scope.current || controller.signal.aborted)
             return; if (restored)
-            setDraft(draftFrom(restored.intent)); setError(errorMessage(failure)); }).finally(() => { if (current === scope.current) {
+            setDraft(draftFrom(restored.intent)); setError(!restored && failure instanceof OrderEditUiError && failure.code === 'unavailable' ? 'Sipariş bilgileri yüklenemedi. Yeniden deneyin.' : errorMessage(failure)); }).finally(() => { if (current === scope.current) {
             setLoading(false);
             setPending(restored);
             pendingRef.current = restored;
