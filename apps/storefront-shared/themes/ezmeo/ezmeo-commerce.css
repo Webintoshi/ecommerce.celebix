@@ -1,0 +1,565 @@
+/* Ezmeo uses published brand tokens; composition, imagery and availability remain admin-owned. */
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] {
+  --ezmeo-primary: var(--store-primary, var(--accent));
+  --ezmeo-line: color-mix(in srgb, var(--store-text, var(--ink)) 12%, var(--store-background, var(--paper)));
+  --ezmeo-soft: color-mix(in srgb, var(--ezmeo-primary) 4%, var(--store-background, var(--paper)));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Explicit published typography wins over the legacy serif preset. */
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(h1, h2, h3, h4, h5, h6, legend, .footer-grid strong, .retail-footer-brand strong) {
+  font-family: var(--store-heading-font, var(--store-body-font, ui-sans-serif, system-ui, sans-serif));
+  font-weight: var(--store-heading-weight, 700);
+  letter-spacing: -.025em;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] main {
+  min-width: 0;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-campaign-home] {
+  --jewelry-gold: var(--ezmeo-primary);
+  --jewelry-ink: var(--store-text, var(--ink));
+  --jewelry-muted: var(--muted);
+  background: var(--store-background, var(--paper));
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is([data-campaign-section-heading] h2, .section-heading h2, [data-product-related] h2) {
+  font-size: clamp(calc(var(--store-heading-size, 40px) * .7), 3vw, var(--store-heading-size, 40px));
+  line-height: 1.15;
+  text-wrap: balance;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-campaign-section-heading] {
+  align-items: center;
+  gap: 16px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-campaign-section-heading] > a {
+  flex-shrink: 0;
+  border-bottom-color: var(--ezmeo-line);
+  color: var(--ezmeo-primary);
+  font-size: calc(var(--store-body-size, 16px) * .8);
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* Keep both admin card alignments, image ratios and section widths intact. */
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card {
+  align-content: start;
+  gap: 14px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card.card-compact {
+  gap: 10px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-image-shell {
+  border: 1px solid color-mix(in srgb, var(--ezmeo-line) 55%, transparent);
+  background: var(--store-background, var(--paper));
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card-copy {
+  gap: 8px;
+  padding-inline: 2px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card h3 {
+  min-height: 2.8em;
+  font-size: calc(var(--store-body-size, 16px) * .92);
+  font-weight: var(--store-heading-weight, 600);
+  line-height: 1.45;
+  letter-spacing: -.015em;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card-brand {
+  color: var(--muted);
+  font-size: calc(var(--store-body-size, 16px) * .64);
+  font-weight: 600;
+  letter-spacing: .06em;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .price-row {
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  font-size: calc(var(--store-body-size, 16px) * .95);
+  font-variant-numeric: tabular-nums;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .price-row strong {
+  color: var(--ezmeo-primary);
+  font-weight: 700;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .price-row del {
+  color: var(--muted);
+  font-size: .8em;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card-badge {
+  top: 10px;
+  left: 10px;
+  min-height: 27px;
+  padding-inline: 9px;
+  background: var(--store-text, var(--ink));
+  color: var(--store-background, var(--paper));
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: .015em;
+  text-transform: none;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card-badge.is-sale {
+  background: var(--ezmeo-primary);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .favorite-button {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-color: var(--ezmeo-line);
+  color: var(--store-text, var(--ink));
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .favorite-button[aria-pressed="true"] {
+  border-color: var(--ezmeo-primary);
+  background: var(--ezmeo-primary);
+  color: var(--store-background, var(--paper));
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.store-button, .product-card-cart) {
+  min-height: 48px;
+  border: 1px solid var(--ezmeo-primary);
+  background: var(--ezmeo-primary);
+  color: var(--store-background, var(--paper));
+  padding-inline: 16px;
+  font-size: calc(var(--store-body-size, 16px) * .8);
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.store-button-secondary, .product-card-cart.is-options) {
+  border-color: color-mix(in srgb, var(--ezmeo-primary) 28%, var(--store-background, var(--paper)));
+  background: transparent;
+  color: var(--ezmeo-primary);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(main, .store-footer) :is(a, button, input, select, summary):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ezmeo-primary) 65%, var(--store-background, var(--paper)));
+  outline-offset: 3px;
+}
+
+/* Catalog controls remain the existing search, filters and infinite list. */
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .explorer-toolbar {
+  gap: 20px;
+  border-color: var(--ezmeo-line);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.explorer-search, .explorer-order) {
+  gap: 8px;
+  font-size: calc(var(--store-body-size, 16px) * .74);
+  letter-spacing: 0;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.explorer-search input, .explorer-order select) {
+  border: 1px solid var(--ezmeo-line);
+  border-radius: 8px;
+  background: var(--store-background, var(--paper));
+  padding-inline: 12px;
+  font-size: calc(var(--store-body-size, 16px) * .84);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .explorer-order select {
+  padding-right: 30px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .explorer-order::after {
+  right: 14px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .explorer-filters button[aria-pressed="true"] {
+  border-color: var(--ezmeo-primary);
+  color: var(--ezmeo-primary);
+}
+
+/* Product hierarchy: the admin heading font and size scale govern every title. */
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-detail-experience] {
+  gap: clamp(24px, 4vw, 64px);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] {
+  gap: 18px;
+  padding-block: 8px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] h1 {
+  max-width: 26ch;
+  /* The shared summary currently declares Arial !important. */
+  font-family: var(--store-heading-font, var(--store-body-font, ui-sans-serif, system-ui, sans-serif)) !important;
+  font-size: clamp(calc(var(--store-heading-size, 40px) * .65), 2.2vw, calc(var(--store-heading-size, 40px) * .8));
+  font-weight: var(--store-heading-weight, 700);
+  line-height: 1.28;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-wrap: pretty;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] > div:has(> h1) {
+  gap: 10px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] > div:has(> h1) > a {
+  justify-self: start;
+  color: var(--ezmeo-primary);
+  font-size: calc(var(--store-body-size, 16px) * .75);
+  letter-spacing: .04em;
+  text-underline-offset: 4px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] > div:has(> h1) > p {
+  color: var(--muted);
+  font-size: calc(var(--store-body-size, 16px) * .74);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] > div:not(:has(h1)) > strong {
+  color: var(--ezmeo-primary);
+  font-size: calc(var(--store-heading-size, 40px) * .68);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-panel {
+  gap: 16px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-panel legend {
+  padding-block: 4px 12px;
+  font-size: calc(var(--store-body-size, 16px) * .87);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants label {
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-content: center;
+  gap: 5px 9px;
+  min-width: 0;
+  min-height: 88px;
+  padding: 12px;
+  border-color: var(--ezmeo-line);
+  border-radius: 9px;
+  background: transparent;
+  transition: border-color .16s ease, background-color .16s ease;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants input {
+  grid-row: 1 / span 2;
+  align-self: start;
+  width: 17px;
+  height: 17px;
+  margin: 2px 0 0;
+  accent-color: var(--ezmeo-primary);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants label > span {
+  min-width: 0;
+  gap: 4px;
+  overflow-wrap: anywhere;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants label > strong {
+  grid-column: 2;
+  color: var(--ezmeo-primary);
+  font-size: calc(var(--store-body-size, 16px) * .77);
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants b {
+  font-size: calc(var(--store-body-size, 16px) * .83);
+  line-height: 1.3;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants small {
+  font-size: calc(var(--store-body-size, 16px) * .66);
+  line-height: 1.4;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants label:has(input:checked) {
+  border-color: var(--ezmeo-primary);
+  background: var(--ezmeo-soft);
+  box-shadow: none;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants label:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--ezmeo-primary) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-action-row {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  border-color: var(--ezmeo-line);
+  padding-top: 16px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-quantity {
+  justify-self: start;
+  grid-template-columns: 44px 40px 44px;
+  border-color: var(--ezmeo-line);
+  border-radius: 8px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-quantity output {
+  border-color: var(--ezmeo-line);
+  font-variant-numeric: tabular-nums;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-actions {
+  gap: 10px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-actions .store-button {
+  min-height: 52px;
+  padding-inline: 12px;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] details {
+  border-color: var(--ezmeo-line);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] details summary {
+  min-height: 60px;
+  font-size: calc(var(--store-body-size, 16px) * .9);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.product-description-rich-text, [data-product-purchase-column] details) {
+  font-size: calc(var(--store-body-size, 16px) * .9);
+  line-height: 1.8;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .cart-line-copy > a {
+  font-family: var(--store-heading-font, var(--store-body-font));
+  font-size: calc(var(--store-body-size, 16px) * .94);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .cart-summary {
+  border-color: var(--ezmeo-line);
+  background: var(--ezmeo-soft);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.cart-summary h2, .store-empty h2) {
+  font-size: calc(var(--store-heading-size, 40px) * .65);
+  line-height: 1.3;
+}
+
+/* Honor the published light/dark footer choice and all configured footer content. */
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer[data-footer-tone="light"] {
+  --retail-footer-fg: var(--store-text, var(--ink));
+  --retail-footer-muted: var(--muted);
+  --retail-footer-line: var(--ezmeo-line);
+  background: var(--ezmeo-soft);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer[data-footer-tone="dark"] {
+  --retail-footer-fg: var(--store-background, var(--paper));
+  --retail-footer-muted: color-mix(in srgb, var(--store-background, var(--paper)) 78%, var(--store-primary));
+  --retail-footer-line: color-mix(in srgb, var(--store-background, var(--paper)) 20%, transparent);
+  background: var(--store-primary, var(--dark));
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer-newsletter-band {
+  --retail-footer-fg: var(--store-background, var(--paper));
+  --retail-footer-muted: color-mix(in srgb, var(--store-background, var(--paper)) 85%, transparent);
+  background: var(--store-primary, var(--dark));
+  color: var(--store-background, var(--paper));
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer-newsletter-inner h2 {
+  font-size: clamp(calc(var(--store-heading-size, 40px) * .65), 2.5vw, calc(var(--store-heading-size, 40px) * .85));
+  line-height: 1.2;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer-newsletter-inner > div > p {
+  color: color-mix(in srgb, var(--store-background, var(--paper)) 85%, transparent);
+  font-size: calc(var(--store-body-size, 16px) * .88);
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer-brand strong {
+  font-size: calc(var(--store-heading-size, 40px) * .7);
+  line-height: 1.25;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer-grid :is(a, p),
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer-mobile :is(summary, a) {
+  font-size: calc(var(--store-body-size, 16px) * .82);
+  line-height: 1.65;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer-grid nav > span {
+  font-size: calc(var(--store-body-size, 16px) * .8);
+  font-weight: 650;
+  letter-spacing: .025em;
+  text-transform: none;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-newsletter-consent input {
+  accent-color: var(--retail-footer-fg, var(--store-primary, var(--accent)));
+}
+
+/* The drawer is portaled outside the storefront; its marker and published style are explicit. */
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] {
+  --ink: var(--store-text);
+  --paper: var(--store-background);
+  --white: var(--store-background);
+  --muted: color-mix(in srgb, var(--store-text) 68%, var(--store-background));
+  --line: color-mix(in srgb, var(--store-text) 12%, var(--store-background));
+  --media-surface: color-mix(in srgb, var(--store-primary) 4%, var(--store-background));
+  font-family: var(--store-body-font, ui-sans-serif, system-ui, sans-serif);
+  color: var(--store-text);
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-dialog {
+  width: min(480px, 100%);
+  border-radius: 0;
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] :is(h2, h3) {
+  font-family: var(--store-heading-font, var(--store-body-font));
+  font-weight: var(--store-heading-weight, 700);
+  letter-spacing: -.025em;
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-header h2 {
+  font-size: calc(var(--store-heading-size, 40px) * .55);
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-line-copy > a {
+  font-size: calc(var(--store-body-size, 16px) * .86);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-media img {
+  object-fit: contain;
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-footer {
+  box-shadow: none;
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .store-button {
+  border-color: var(--store-primary);
+  background: var(--store-primary);
+  color: var(--store-background);
+  font-size: calc(var(--store-body-size, 16px) * .84);
+  font-weight: 650;
+  letter-spacing: 0;
+}
+
+.side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] :is(a, button):focus-visible {
+  outline: 2px solid var(--store-primary);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card:hover .product-image-shell img {
+    transform: scale(1.018);
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.store-button, .product-card-cart):not(:disabled):not(.is-disabled):hover,
+  .side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .store-button:not(:disabled):not(.is-disabled):hover {
+    border-color: color-mix(in srgb, var(--store-primary) 88%, var(--store-text));
+    background: color-mix(in srgb, var(--store-primary) 88%, var(--store-text));
+    color: var(--store-background, var(--paper));
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.store-button-secondary, .product-card-cart.is-options):not(:disabled):hover {
+    border-color: var(--ezmeo-primary);
+    background: var(--ezmeo-soft);
+    color: var(--ezmeo-primary);
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants label:not(.is-disabled):hover {
+    border-color: color-mix(in srgb, var(--ezmeo-primary) 60%, var(--store-background, var(--paper)));
+  }
+}
+
+@media (max-width: 700px) {
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] :is([data-campaign-section-heading] h2, .section-heading h2, [data-product-related] h2) {
+    font-size: clamp(calc(var(--store-heading-size, 40px) * .6), 6.5vw, calc(var(--store-heading-size, 40px) * .75));
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card h3 {
+    font-size: calc(var(--store-body-size, 16px) * .84);
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .price-row {
+    font-size: calc(var(--store-body-size, 16px) * .88);
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .product-card-cart {
+    min-height: 44px;
+    padding-inline: 8px;
+    font-size: calc(var(--store-body-size, 16px) * .73);
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] {
+    gap: 16px;
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] h1 {
+    max-width: none;
+    font-size: clamp(calc(var(--store-heading-size, 40px) * .55), 6vw, calc(var(--store-heading-size, 40px) * .65));
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-product-purchase-column] details summary {
+    padding-inline: 0;
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-variants label {
+    padding: 10px;
+  }
+
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] .purchase-actions .store-button {
+    font-size: calc(var(--store-body-size, 16px) * .77);
+  }
+
+  .side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-line {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+
+  .side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-line-total {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] :is(.product-card *, .store-button, .purchase-variants label),
+  .side-cart-backdrop[data-storefront-theme="ezmeo-deniz"] .side-cart-dialog {
+    animation: none;
+    transition: none;
+  }
+}

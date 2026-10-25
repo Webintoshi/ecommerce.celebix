@@ -13,6 +13,8 @@ import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
 import { hizliThemeFor } from "../themes/hizli-kutu/theme.ts";
 import { HizliHeader } from "../themes/hizli-kutu/HizliHeader";
+import { ezmeoThemeFor } from "../themes/ezmeo/theme.ts";
+import { EzmeoHeader } from "../themes/ezmeo/EzmeoHeader";
 import { productIndexPath } from "@/lib/storefront-routes.ts";
 
 export function Header({
@@ -22,6 +24,7 @@ export function Header({
   storefront: PublicStorefront;
   design: PublicStorefrontDesign;
 }) {
+  if (ezmeoThemeFor(storefront)) return <EzmeoHeader storefront={storefront} design={design} />;
   if (hizliThemeFor(storefront)) return <HizliHeader storefront={storefront} design={design} />;
   if (lilyumThemeFor(storefront)) return <LilyumHeader storefront={storefront} design={design} />;
   if (alplerThemeFor(storefront)) return <AlplerHeader storefront={storefront} design={design} />;
