@@ -45,3 +45,18 @@ Production verification uses read-only order dependencies and the panel's
 deletion-impact preview. A real customer order must not be permanently deleted
 as a test. Record the actual application receipt separately from this source
 note.
+
+## Applied verification
+
+Applied at 2026-10-25T20:00Z from checkpoint `670a97b3a`, after a validated
+private full `saas` archive. The live catalogue contains 2,060 routines with
+metadata digest
+`4cd1cd710e73ec8c162ed7826222e02563b07ac9430a4087c9b41253d7938ab4`.
+All six application configurations/runtimes, payment authorities and the
+existing order/quote/finance fingerprints remained unchanged by application.
+
+The original order's refreshed live deletion preview successfully counted its
+two quote sessions. Confirmation remained empty and unchecked; no live order
+deletion was submitted. Root independently passed all 12 focused native checks,
+the eight current-signup checks and nine historical-tariff checks. The official
+generated signup proof was committed with the migration sources.
