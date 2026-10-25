@@ -5,7 +5,7 @@
 .table td:first-child{min-width:176px;max-width:240px}
 .table td:last-child{min-width:208px}
 .rowActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex-wrap:nowrap}
-.paymentButton,.moreButton{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;min-width:44px;border:1px solid transparent;border-radius:var(--cp-control-radius);padding:8px 12px;font-size:13px;font-weight:500;line-height:1.5;white-space:nowrap;cursor:pointer;text-decoration:none}
+.paymentButton,.moreButton{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;min-width:44px;border:1px solid transparent;border-radius:var(--cp-control-radius);padding:8px 12px;font-size:13px;font-weight:var(--cp-font-weight-control);line-height:1.5;white-space:nowrap;cursor:pointer;text-decoration:none}
 .paymentButton{background:color-mix(in srgb,var(--cp-success) 10%,var(--cp-surface));border-color:color-mix(in srgb,var(--cp-success) 12%,var(--cp-border));color:var(--cp-text-primary)}
 .paymentButton:hover:not(:disabled){background:color-mix(in srgb,var(--cp-success) 16%,var(--cp-surface))}
 .moreButton{background:var(--cp-control-background);color:var(--cp-text-primary)}
@@ -16,30 +16,30 @@
 .rowMenu{position:fixed;inset:auto;margin:0;width:min(264px,calc(100vw - 32px));max-height:min(320px,calc(100dvh - 32px));overflow-y:auto;overscroll-behavior:contain;padding:8px;border:1px solid var(--cp-border);border-radius:12px;background:var(--cp-surface);color:var(--cp-text-primary);box-shadow:0 8px 24px color-mix(in srgb,var(--cp-graphite) 12%,transparent)}
 .rowMenu:not(:popover-open){display:none}
 .rowMenu:popover-open{display:grid;gap:4px}
-.rowMenu :is(button,a){display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:var(--cp-text-primary);font-size:13px;font-weight:400;line-height:1.5;text-align:left;white-space:normal;overflow-wrap:anywhere;text-decoration:none;cursor:pointer}
+.rowMenu :is(button,a){display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:8px 12px;border:0;border-radius:8px;background:transparent;color:var(--cp-text-primary);font-size:13px;font-weight:var(--cp-font-weight-control);line-height:1.5;text-align:left;white-space:normal;overflow-wrap:anywhere;text-decoration:none;cursor:pointer}
 .rowMenu :is(button,a):hover:not(:disabled){background:var(--cp-soft)}
 .rowMenu button:disabled{opacity:.5;cursor:default}
 .rowMenu svg{width:16px;height:16px;flex-shrink:0;color:var(--cp-text-secondary)}
 .customer{display:flex;align-items:start;justify-content:space-between;gap:20px;min-width:0;padding:0 0 20px;border-bottom:1px solid var(--cp-border)}
 .customerIdentity{display:grid;align-content:start;gap:4px;min-width:0}
-.customerIdentity strong{font-size:16px;font-weight:600;line-height:1.5;color:var(--cp-text-primary);overflow-wrap:anywhere}
+.customerIdentity strong{font-size:16px;font-weight:var(--cp-font-weight-heading);line-height:1.5;color:var(--cp-text-primary);overflow-wrap:anywhere}
 .customerIdentity :is(span,small){font-size:12px;line-height:1.5;color:var(--cp-text-secondary);overflow-wrap:anywhere}
 .customerDebt{display:grid;gap:4px;margin:0;min-width:0;text-align:right;flex-shrink:0}
 .customerDebt :is(span,dt){font-size:12px;line-height:1.5;color:var(--cp-text-secondary)}
-.customerDebt :is(strong,dd){margin:0;font-size:24px;font-weight:600;line-height:1.25;font-variant-numeric:tabular-nums;letter-spacing:-.025em;color:var(--cp-text-primary);overflow-wrap:anywhere}
+.customerDebt :is(strong,dd){margin:0;font-size:24px;font-weight:var(--cp-font-weight-value);line-height:1.25;font-variant-numeric:tabular-nums;letter-spacing:-.025em;color:var(--cp-text-primary);overflow-wrap:anywhere}
 .collectionForm{display:grid;min-width:0}
 .collectionBody{min-width:0;gap:20px}
 .amountFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:16px;min-width:0}
 .amountFields>label:only-child{grid-column:1/-1}
-.amountFields input{font-size:20px;line-height:1.4;min-height:48px;font-weight:500;font-variant-numeric:tabular-nums}
-.amountFields small{font-size:12px;font-weight:400;line-height:1.5;color:var(--cp-text-secondary)}
+.amountFields input{font-size:20px;line-height:1.4;min-height:48px;font-weight:var(--cp-font-weight-body);font-variant-numeric:tabular-nums}
+.amountFields small{font-size:12px;font-weight:var(--cp-font-weight-helper);line-height:1.5;color:var(--cp-text-secondary)}
 .details{min-width:0;padding:0;border-block:1px solid var(--cp-border)}
-.detailsSummary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;list-style:none;font-size:13px;font-weight:500;line-height:1.5;color:var(--cp-text-primary);cursor:pointer}
+.detailsSummary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;list-style:none;font-size:13px;font-weight:var(--cp-font-weight-control);line-height:1.5;color:var(--cp-text-primary);cursor:pointer}
 .detailsSummary::-webkit-details-marker{display:none}
 .detailsSummary svg{width:16px;height:16px;flex-shrink:0;color:var(--cp-text-secondary)}
 .details[open]>.detailsSummary svg{transform:rotate(180deg)}
 .detailsFields{display:grid;gap:16px;min-width:0;padding:4px 0 16px}
-.scopeHint,.formFootnote{margin:0;font-size:12px;font-weight:400;line-height:1.6;color:var(--cp-text-secondary)}
+.scopeHint,.formFootnote{margin:0;font-size:12px;font-weight:var(--cp-font-weight-helper);line-height:1.6;color:var(--cp-text-secondary)}
 .methodField{min-width:0;max-width:100%}
 .collectionFooter{display:flex;align-items:center;justify-content:flex-end;gap:12px;min-width:0}
 .collectionFooter button{max-width:100%;white-space:normal}
@@ -62,5 +62,5 @@
 .allocationList{display:grid;gap:0;min-width:0;margin:0;padding:0;border:0;border-radius:0;background:transparent}
 .allocationList>div{display:flex;align-items:start;justify-content:space-between;gap:16px;padding:8px 0;border:0;border-bottom:1px solid var(--cp-border);font-size:13px;line-height:1.5}
 .allocationList>div:last-child{border-bottom:0}
-.allocationList dt{min-width:0;font-size:12px;font-weight:400;color:var(--cp-text-secondary);overflow-wrap:anywhere}
-.allocationList dd{margin:0;flex-shrink:0;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--cp-text-primary)}
+.allocationList dt{min-width:0;font-size:12px;font-weight:var(--cp-font-weight-body);color:var(--cp-text-secondary);overflow-wrap:anywhere}
+.allocationList dd{margin:0;flex-shrink:0;font-size:13px;font-weight:var(--cp-font-weight-value);font-variant-numeric:tabular-nums;color:var(--cp-text-primary)}

@@ -34,6 +34,7 @@
   font: inherit;
   font-size: 13px;
   cursor: pointer;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .toolbarButton {
@@ -97,6 +98,7 @@
   font-size: 14px;
   line-height: 1.75;
   overflow-wrap: anywhere;
+  font-weight: 400;
 }
 
 .editorContent:focus-visible {
@@ -139,9 +141,9 @@
   border-bottom: 1px solid var(--cp-border, var(--border));
   background: var(--cp-canvas, var(--canvas));
 }
-.linkPanel > label { font-size: 13px; font-weight: 500; }
+.linkPanel > label { font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .linkControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
-.linkControls input { flex: 1 1 240px; min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--cp-border, var(--border)); border-radius: 8px; background: var(--cp-surface, var(--surface)); padding: 0 12px; color: inherit; font: inherit; font-size: 14px; }
+.linkControls input { flex: 1 1 240px; min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--cp-border, var(--border)); border-radius: 8px; background: var(--cp-surface, var(--surface)); padding: 0 12px; color: inherit; font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .linkControls button,
 .tableTools button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; border-color: var(--cp-border, var(--border)); }
 .linkPanel > p { margin: 0; color: var(--danger); font-size: 13px; }
@@ -160,4 +162,12 @@
   .linkPanel { padding: 12px; }
   .linkControls input { flex-basis: 100%; }
   .tableTools { padding: 8px; }
+}
+
+.editorContent td {
+  font-weight: 400;
+}
+
+.editorContent strong, .editorContent b {
+  font-weight: bolder;
 }

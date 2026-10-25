@@ -8,17 +8,17 @@
 .rowActions button{max-width:100%}
 .identity{display:flex;align-items:start;justify-content:space-between;gap:20px;min-width:0;padding-bottom:20px;border-bottom:1px solid var(--cp-border)}
 .identity>div{display:grid;gap:4px;min-width:0}
-.identity strong{font-size:16px;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.identity strong{font-size:16px;font-weight:var(--cp-font-weight-heading);line-height:1.5;overflow-wrap:anywhere}
 .identity span{font-size:12px;line-height:1.6;color:var(--cp-text-secondary);overflow-wrap:anywhere}
 .identity dl{display:grid;gap:4px;margin:0;text-align:right;flex-shrink:0;max-width:100%}
 .identity dt{font-size:12px;line-height:1.5;color:var(--cp-text-secondary)}
-.identity dd{margin:0;font-size:24px;line-height:1.25;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.025em;overflow-wrap:anywhere}
+.identity dd{margin:0;font-size:24px;line-height:1.25;font-weight:var(--cp-font-weight-body);font-variant-numeric:tabular-nums;letter-spacing:-.025em;overflow-wrap:anywhere}
 .paymentForm{display:grid;min-width:0}
 .paymentBody{gap:20px}
 .paymentFields{gap:16px}
-.paymentFields>label:first-child input{min-height:48px;font-size:20px;font-weight:500;font-variant-numeric:tabular-nums}
+.paymentFields>label:first-child input{min-height:48px;font-size:20px;font-weight:var(--cp-font-weight-body);font-variant-numeric:tabular-nums}
 .paymentFields>label:nth-child(2) select{min-height:48px}
-.help{margin:0;color:var(--cp-text-secondary);font-size:12px;line-height:1.6}
+.help{margin:0;color:var(--cp-text-secondary);font-size:12px;line-height:1.6;font-weight:var(--cp-font-weight-helper)}
 .effects{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding:16px;border:0;border-radius:8px;background:var(--cp-surface)}
 .effects>div{padding:0;gap:8px;min-width:0;border:0}
 .effects>div+div{border:0}

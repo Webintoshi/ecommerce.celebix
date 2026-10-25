@@ -9,6 +9,7 @@
 .brand img { width: auto; height: 24px; max-width: 120px; object-fit: contain; }
 .connection strong, .connection span, .connection small, .details dd { overflow-wrap: anywhere; }
 .connection small, .hint, .disclosure { font-size: 13px; color: var(--cp-text-secondary, #706b65); line-height: 1.5; margin: 0; }
+.hint { font-weight: var(--cp-font-weight-helper); }
 .status { display: inline-flex; padding: 5px 10px; border-radius: 999px; background: var(--cp-surface-muted, #f3f1ed); font-size: 13px; }
 .status[data-status="connected"] { background: #e3f0e9; color: #126347; }
 .status[data-status="draining"], .status[data-status="error"], .status[data-status="needs_reconnect"] { background: #fff0e3; color: #8b470b; }
@@ -20,8 +21,10 @@
 .sync small { flex-basis: 100%; }
 .dialog { width: min(680px, calc(100vw - 32px)); }
 .form { display: grid; gap: 16px; }
-.field { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
-.field input, .field select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--cp-border, #dedad5); border-radius: 10px; color: var(--cp-text-primary, #292928); background: var(--cp-surface, #fff); font: inherit; font-weight: 400; }
+.field { display: grid; gap: 8px; font-size: 14px; font-weight: var(--cp-font-weight-control); }
+.field input, .field select { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--cp-border, #dedad5); border-radius: 10px; color: var(--cp-text-primary, #292928); background: var(--cp-surface, #fff); font: inherit; }
+.field input { font-weight: var(--cp-font-weight-body); }
+.field select { font-weight: var(--cp-font-weight-control); }
 .field input:focus-visible, .field select:focus-visible, .workspace a:focus-visible, .workspace button:focus-visible { outline: 2px solid var(--cp-control-focus, #f76b15); outline-offset: 3px; }
 .field input:disabled, .field select:disabled { opacity: .65; }
 .details { display: grid; grid-template-columns: minmax(120px, .9fr) minmax(0, 1.1fr); gap: 10px 16px; margin: 0; font-size: 14px; line-height: 1.5; }

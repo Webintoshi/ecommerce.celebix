@@ -1,11 +1,11 @@
 .panel { min-width: 0; border-block: 1px solid var(--cp-border); color: var(--cp-text-primary); }
-.panel > summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 56px; cursor: pointer; font-size: 13px; font-weight: 600; }
-.panel > summary small { color: var(--cp-text-secondary); font-size: 12px; font-weight: 450; }
+.panel > summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 56px; cursor: pointer; font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.panel > summary small { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .panel > section { padding-bottom: 20px; }
 .panel section > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; }
-.panel h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.panel h2 { margin: 0; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .panel button, .panel input { min-height: 44px; }
-.panel button { border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 16px; font: inherit; font-size: 13px; font-weight: 600; color: var(--cp-text-primary); cursor: pointer; }
+.panel button { border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 16px; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); color: var(--cp-text-primary); cursor: pointer; }
 .panel :is(button, input, summary):focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 3px; }
 .panel button:disabled { cursor: default; opacity: .5; }
 .disabled { padding: 16px 0; border-top: 1px solid var(--cp-border); font-size: 13px; }
@@ -16,11 +16,11 @@
 .summary > div:first-child { display: grid; gap: 8px; }
 .summary small { color: var(--cp-text-secondary); font-size: 12px; }
 .profile { display: grid; gap: 8px; min-width: 0; }
-.profile span { font-size: 13px; font-weight: 600; color: var(--cp-text-primary); }
+.profile span { font-size: 13px; font-weight: var(--cp-font-weight-control); color: var(--cp-text-primary); }
 .profile strong { font-size: 13px; overflow-wrap: anywhere; }
 .form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.form label { display: grid; gap: 8px; font-size: 13px; font-weight: 500; }
-.form input { width: 100%; min-width: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); font: inherit; }
+.form label { display: grid; gap: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.form input { width: 100%; min-width: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-weight: var(--cp-font-weight-body); }
 .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
 .actions .primary { background: var(--cp-soft); }
 .actions .danger { color: var(--cp-danger); }

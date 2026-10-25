@@ -4,32 +4,32 @@
 .summary { min-width: 0; padding-bottom: 24px; border-bottom: 1px solid var(--cp-border); }
 .summaryHeader { display: flex; justify-content: flex-end; margin-bottom: 16px; }
 .range { display: flex; gap: 4px; padding: 4px; border-radius: var(--cp-control-radius); background: var(--cp-control-background); }
-.range button { min-height: 44px; border: 0; border-radius: var(--cp-control-radius); padding: 8px 12px; background: transparent; color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; }
+.range button { min-height: 44px; border: 0; border-radius: var(--cp-control-radius); padding: 8px 12px; background: transparent; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .range button[aria-pressed="true"] { background: var(--cp-surface); color: var(--cp-text-primary); }
 .kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); min-width: 0; }
 .kpis article { display: grid; min-width: 0; align-content: start; gap: 8px; padding: 0 20px; border-left: 1px solid var(--cp-border); }
 .kpis article:first-child { padding-left: 0; border-left: 0; }
 .kpis article:last-child { padding-right: 0; }
 .kpis span, .kpis small { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
-.kpis span { min-height: 36px; font-size: 13px; font-weight: 500; }
-.kpis strong { font-size: 28px; font-weight: 650; line-height: 1.25; letter-spacing: -.02em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.kpis span { min-height: 36px; font-size: 13px; font-weight: var(--cp-font-weight-helper); }
+.kpis strong { font-size: 28px; font-weight: var(--cp-font-weight-value); line-height: 1.25; letter-spacing: -.02em; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .kpis .money { font-size: 24px; }
-.kpis .moneyLine { display: flex; flex-wrap: wrap; gap: 0 4px; min-height: 0; color: inherit; font: inherit; }
-.kpis .moneyLine > span { min-height: 0; color: inherit; font: inherit; }
-.kpis .moneyLine .currency { align-self: baseline; white-space: nowrap; font-size: 12px; font-weight: 500; }
+.kpis .moneyLine { display: flex; flex-wrap: wrap; gap: 0 4px; min-height: 0; color: inherit; font: inherit; font-weight: var(--cp-font-weight-value); }
+.kpis .moneyLine > span { min-height: 0; color: inherit; font: inherit; font-weight: var(--cp-font-weight-value); }
+.kpis .moneyLine .currency { align-self: baseline; white-space: nowrap; font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .toolbar { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 12px; padding-top: 8px; }
 .toolbar > :is(a, button) { flex: none; }
 .search { display: flex; flex: 1 1 240px; min-width: 0; align-items: center; gap: 8px; padding-left: 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); }
 .search > svg { flex: none; color: var(--cp-text-secondary); }
 .search:focus-within { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
-.search input { flex: 1; min-width: 0; min-height: 44px; width: 100%; border: 0; outline: 0; background: transparent; color: var(--cp-text-primary); padding: 8px 0; font-size: 14px; font-weight: 400; }
+.search input { flex: 1; min-width: 0; min-height: 44px; width: 100%; border: 0; outline: 0; background: transparent; color: var(--cp-text-primary); padding: 8px 0; font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .search input:focus-visible { outline: 0; }
 .search input::placeholder { color: var(--cp-text-secondary); }
 .search button { flex: none; }
 .filterCount { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; border-radius: 4px; background: var(--cp-surface); font-size: 12px; }
 .statusBar { display: flex; min-width: 0; justify-content: space-between; align-items: center; gap: 12px; }
 .statusTabs { display: flex; min-width: 0; gap: 4px; }
-.statusTabs button { min-height: 44px; min-width: 64px; border: 0; border-radius: var(--cp-control-radius); padding: 8px 12px; background: transparent; color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; }
+.statusTabs button { min-height: 44px; min-width: 64px; border: 0; border-radius: var(--cp-control-radius); padding: 8px 12px; background: transparent; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .statusTabs button[aria-pressed="true"] { background: var(--cp-control-background); color: var(--cp-text-primary); }
 .statusTabs button:hover { background: var(--cp-control-background); }
 .count { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
@@ -41,7 +41,7 @@
 .desktopTable { width: 100%; min-width: 0; overflow-x: auto; }
 .desktopTable table { width: 100%; min-width: 880px; border-collapse: collapse; font-size: 13px; text-align: left; }
 .desktopTable :is(th, td) { border-bottom: 1px solid var(--cp-border); padding: 16px 12px; }
-.desktopTable th { padding-block: 12px; color: var(--cp-text-secondary); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.desktopTable th { padding-block: 12px; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-control); white-space: nowrap; }
 .desktopTable tr > :first-child { padding-left: 0; }
 .desktopTable tr > :last-child { padding-right: 0; }
 .desktopTable tbody tr:hover { background: var(--cp-surface); }
@@ -51,15 +51,15 @@
 .identity { display: flex; min-width: 0; align-items: flex-start; gap: 12px; }
 .benefitIcon { display: grid; flex: 0 0 44px; width: 44px; height: 44px; place-items: center; border-radius: var(--cp-control-radius); background: var(--cp-control-background); color: var(--cp-art-outline); }
 .identity > div { display: grid; min-width: 0; gap: 4px; }
-.name { display: inline-flex; align-items: center; min-height: 24px; color: var(--cp-text-primary); font-size: 14px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.name { display: inline-flex; align-items: center; min-height: 24px; color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-control); line-height: 1.5; overflow-wrap: anywhere; }
 .name:hover { text-decoration: underline; text-underline-offset: 4px; }
 .identity p { margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
 .identity small { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
 .usage, .financial { font-variant-numeric: tabular-nums; }
-.usage { font-weight: 600; }
+.usage { font-weight: var(--cp-font-weight-value); }
 .financial { overflow-wrap: anywhere; }
 .financial > :is(span, small) { display: block; line-height: 1.5; }
-.financial > span { font-weight: 500; }
+.financial > span { font-weight: var(--cp-font-weight-value); }
 .financial > small { margin-top: 4px; color: var(--cp-text-secondary); font-size: 12px; }
 .dates { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .rowActions { display: flex; flex: none; align-items: center; justify-content: flex-end; gap: 4px; }
@@ -76,7 +76,7 @@
 .loading > div > span:first-child { height: 44px; }
 .filterModal { max-width: 640px; }
 .filterFields { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.filterFields label { display: grid; min-width: 0; align-content: start; gap: 8px; color: var(--cp-text-primary); font-size: 14px; font-weight: 500; }
+.filterFields label { display: grid; min-width: 0; align-content: start; gap: 8px; color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-control); }
 .filterFields :is(input, select) { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); padding: 8px 12px; background: var(--cp-surface); color: var(--cp-text-primary); }
 .filterFields :is(input, select):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .filterFields :is(input, select)[aria-invalid="true"] { border-color: var(--cp-danger); }
@@ -115,12 +115,12 @@
   .cardHeader { display: flex; min-width: 0; justify-content: space-between; align-items: flex-start; gap: 8px; }
   .cardHeader .identity { flex: 1; gap: 8px; }
   .cardHeader .benefitIcon { display: none; }
-  .cardMeta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
-  .cardMeta > span:last-child { color: var(--cp-text-secondary); font-size: 12px; }
+  .cardMeta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-weight: var(--cp-font-weight-helper); }
+  .cardMeta > span:last-child { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
   .mobileCards dl { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
   .mobileCards dl > div { display: grid; min-width: 0; gap: 4px; }
   .mobileCards dt { color: var(--cp-text-secondary); font-size: 12px; }
-  .mobileCards dd { margin: 0; font-size: 14px; font-weight: 500; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .mobileCards dd { margin: 0; font-size: 14px; font-weight: var(--cp-font-weight-value); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .appliedFilters { flex-wrap: wrap; padding: 8px 12px; gap: 4px; }
   .loading > div { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .filterFields { grid-template-columns: minmax(0, 1fr); gap: 16px; }

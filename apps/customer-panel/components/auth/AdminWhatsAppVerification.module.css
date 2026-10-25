@@ -10,13 +10,13 @@
 .task p { margin: 0; color: var(--cp-text-secondary); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .form { display: grid; gap: 16px; }
 .form label { display: grid; gap: 8px; color: var(--cp-text-primary); font-size: 14px; }
-.form label > input:not([type="checkbox"]) { width: 100%; min-width: 0; min-height: var(--cp-control-height); padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; }
+.form label > input:not([type="checkbox"]) { width: 100%; min-width: 0; min-height: var(--cp-control-height); padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-weight: var(--cp-font-weight-body); }
 .form label > input:focus-visible, .checkbox input:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .form label > input[aria-invalid="true"] { border-color: var(--cp-danger); }
 .form .code { font-size: 20px; letter-spacing: .16em; font-variant-numeric: tabular-nums; }
 .task .checkbox { display: flex; min-height: 44px; align-items: center; gap: 12px; color: var(--cp-text-secondary); font-size: 13px; }
 .checkbox input { flex: none; width: 20px; height: 20px; accent-color: var(--cp-graphite); }
-.task .hint { font-size: 12px; }
+.task .hint { font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .task .error { color: var(--cp-danger); }
 .codes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; padding: 12px; margin: 0; list-style: none; background: var(--cp-soft); border-radius: 8px; }
 .codes li { min-width: 0; overflow-wrap: anywhere; color: var(--cp-text-primary); font-size: 13px; }

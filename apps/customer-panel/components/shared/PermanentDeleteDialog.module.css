@@ -10,14 +10,14 @@
 .effects ul { display: grid; gap: 8px; margin: 0; padding-left: 20px; color: #475467; }
 .form { display: grid; gap: 16px; }
 .error { margin: 16px 0 0; color: #b42318; line-height: 1.5; }
-.field { display: grid; gap: 7px; font-weight: 700; }
-.field small { color: #667085; font-weight: 500; }
-.field input { min-height: 44px; border: 1px solid #d0d5dd; border-radius: 10px; padding: 0 12px; background: white; color: #201c19; font: inherit; }
+.field { display: grid; gap: 7px; font-weight: var(--cp-font-weight-control); }
+.field small { color: #667085; font-weight: var(--cp-font-weight-helper); }
+.field input { min-height: 44px; border: 1px solid #d0d5dd; border-radius: 10px; padding: 0 12px; background: white; color: #201c19; font: inherit; font-weight: var(--cp-font-weight-body); }
 .field input:focus { outline: 2px solid #fe6100; outline-offset: 2px; }
 .acknowledge { display: flex; gap: 10px; align-items: flex-start; color: #475467; line-height: 1.45; }
 .acknowledge input { margin-top: 3px; accent-color: #b42318; }
 .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
-.cancel, .delete { min-height: 42px; border-radius: 10px; padding: 0 16px; font: inherit; font-weight: 800; cursor: pointer; }
+.cancel, .delete { min-height: 42px; border-radius: 10px; padding: 0 16px; font: inherit; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .cancel { border: 1px solid #d0d5dd; background: white; color: #344054; }
 .delete { border: 1px solid #b42318; background: #b42318; color: white; }
 .cancel:disabled, .delete:disabled { cursor: not-allowed; opacity: .55; }

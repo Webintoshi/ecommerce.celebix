@@ -9,12 +9,12 @@
   padding: 24px 0 32px;
   border-bottom: 1px solid var(--settings-border, var(--border));
 }
-.add label { display: block; font-size: 14px; font-weight: 600; }
+.add label { display: block; font-size: 14px; font-weight: var(--cp-font-weight-control); }
 .add p { margin: 8px 0 0; color: var(--settings-muted, var(--muted)); font-size: 12px; line-height: 1.6; }
 .addControls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
-.addControls input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; padding: 8px 12px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; }
+.addControls input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; padding: 8px 12px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-body); }
 .page :is(input, button, summary, a):focus-visible { outline: 2px solid var(--settings-action, var(--text)); outline-offset: 3px; }
-.add button, .actions button, .replacement button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; padding: 8px 16px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; font-weight: 550; cursor: pointer; }
+.add button, .actions button, .replacement button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; padding: 8px 16px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .add button { border-color: var(--settings-action, var(--text)); background: var(--settings-action, var(--text)); color: var(--settings-inverse, var(--surface)); }
 .add button:hover { background: var(--settings-action-hover, var(--text)); }
 .actions button:hover, .replacement button:hover { background: var(--settings-canvas, var(--canvas)); }
@@ -22,29 +22,29 @@
 .preview { grid-column: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .preview span { display: grid; min-width: 0; gap: 4px; font-size: 13px; overflow-wrap: anywhere; }
 .preview small { color: var(--settings-muted, var(--muted)); font-size: 12px; }
-.preview b, .endpoints b, .fallbacks b { font-size: 11px; font-weight: 500; color: var(--settings-muted, var(--muted)); }
+.preview b, .endpoints b, .fallbacks b { font-size: 11px; font-weight: var(--cp-font-weight-helper); color: var(--settings-muted, var(--muted)); }
 .add .replacementChoice { grid-column: 2; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
 .replacementChoice input { flex: 0 0 auto; width: 20px; height: 20px; margin: 0; accent-color: var(--settings-action, var(--text)); }
 .replacementChoice span { display: grid; gap: 4px; }
-.replacementChoice b { font-size: 13px; font-weight: 550; }
+.replacementChoice b { font-size: 13px; font-weight: var(--cp-font-weight-heading); }
 .replacementChoice small { color: var(--settings-muted, var(--muted)); font-size: 12px; line-height: 1.6; }
-.add .aliasNote { grid-column: 2; margin: 0; }
+.add .aliasNote { grid-column: 2; margin: 0; font-weight: var(--cp-font-weight-helper); }
 
 .error { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 16px 0; color: var(--settings-danger, var(--danger)); font-size: 13px; line-height: 1.6; }
-.error button { flex: 0 0 auto; min-height: 44px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: 600; cursor: pointer; }
+.error button { flex: 0 0 auto; min-height: 44px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .list { display: grid; min-width: 0; }
 .replacement { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--settings-border, var(--border)); }
 .replacement > div { display: flex; min-width: 0; align-items: center; gap: 12px; }
 .replacement > div > svg { flex: 0 0 auto; color: var(--settings-muted, var(--muted)); }
 .replacement span { display: grid; gap: 4px; }
-.replacement strong { font-size: 14px; font-weight: 600; }
+.replacement strong { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .replacement small { color: var(--settings-muted, var(--muted)); font-size: 12px; }
 .replacement button { flex: 0 0 auto; }
 .bundle { min-width: 0; padding: 32px 0; border-bottom: 1px solid var(--settings-border, var(--border)); }
 .bundleHeader { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 12px; }
 .domainIcon { display: grid; width: 44px; height: 44px; place-items: center; color: var(--settings-muted, var(--muted)); }
 .hostname { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 12px; }
-.hostname strong { font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.hostname strong { font-size: 15px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .hostname span { font-size: 11px; color: var(--settings-muted, var(--muted)); }
 .status { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--settings-muted, var(--muted)); font-size: 12px; }
 .status i { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--settings-muted, var(--muted)); }
@@ -55,7 +55,7 @@
 .endpoints section { min-width: 0; }
 .endpoints section > div { display: grid; min-width: 0; gap: 8px; }
 .endpoints small { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--settings-muted, var(--muted)); font-size: 12px; }
-.endpoints a { display: inline-flex; min-width: 0; align-items: center; gap: 8px; color: inherit; font-size: 13px; font-weight: 550; text-decoration: none; overflow-wrap: anywhere; }
+.endpoints a { display: inline-flex; min-width: 0; align-items: center; gap: 8px; color: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); text-decoration: none; overflow-wrap: anywhere; }
 .endpoints a:hover { text-decoration: underline; }
 .endpoints a svg { flex: 0 0 auto; }
 .endpoints p { margin: 8px 0 0; color: var(--settings-muted, var(--muted)); font-size: 12px; line-height: 1.6; }
@@ -69,13 +69,13 @@
 .ready { display: flex; align-items: center; gap: 8px; margin: 20px 0 0 56px; color: var(--settings-muted, var(--muted)); font-size: 12px; }
 .ready svg { color: var(--settings-success, var(--success)); }
 .dnsDetails { margin: 24px 0 0 56px; }
-.dnsDetails summary, .fallbacks summary { width: fit-content; min-height: 44px; display: flex; align-items: center; gap: 12px; color: inherit; font-size: 13px; font-weight: 550; cursor: pointer; list-style: none; }
+.dnsDetails summary, .fallbacks summary { width: fit-content; min-height: 44px; display: flex; align-items: center; gap: 12px; color: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; list-style: none; }
 .dnsDetails summary::-webkit-details-marker, .fallbacks summary::-webkit-details-marker { display: none; }
 .dnsDetails summary::after, .fallbacks summary::after { content: "+"; color: var(--settings-muted, var(--muted)); font-size: 18px; }
 .dnsDetails[open] summary::after, .fallbacks[open] summary::after { content: "−"; }
 .dnsList { display: grid; min-width: 0; }
 .dnsRow { display: grid; min-width: 0; grid-template-columns: 64px minmax(0, .7fr) minmax(0, 1.3fr) 44px; align-items: center; gap: 16px; border-bottom: 1px solid var(--settings-border, var(--border)); padding: 12px 0; }
-.dnsRow strong { color: var(--settings-muted, var(--muted)); font-size: 12px; font-weight: 550; }
+.dnsRow strong { color: var(--settings-muted, var(--muted)); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .dnsRow span { display: grid; min-width: 0; gap: 4px; }
 .dnsRow small { color: var(--settings-muted, var(--muted)); font-size: 11px; }
 .dnsRow code { color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
@@ -100,6 +100,7 @@
   .addControls { grid-template-columns: minmax(0, 1fr); }
   .addControls input { font-size: 16px; }
   .preview, .add .replacementChoice, .add .aliasNote { grid-column: auto; }
+.add .aliasNote { font-weight: var(--cp-font-weight-helper); }
   .preview, .endpoints { grid-template-columns: minmax(0, 1fr); }
   .endpoints, .progress, .ready, .dnsDetails, .actions { margin-left: 0; }
   .replacement { align-items: stretch; flex-direction: column; gap: 16px; }

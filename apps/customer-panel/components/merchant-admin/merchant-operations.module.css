@@ -1,11 +1,13 @@
 .workspace { min-width: 0; color: var(--cp-text-primary); background: var(--cp-canvas); }
 .workspace > section[data-panel-layout] { gap: 16px; }
 .workspace :is(button, input, select, textarea, summary, a):focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 3px; }
-.workspace :is(input:not([type=checkbox]), select, textarea) { min-width: 0; max-width: 100%; border-color: var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); font-size: 14px; font-weight: 450; }
+.workspace :is(input:not([type=checkbox]), select, textarea) { min-width: 0; max-width: 100%; border-color: var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); font-size: 14px; }
+.workspace input:not([type=checkbox]), .workspace textarea { font-weight: var(--cp-font-weight-body); }
+.workspace select { font-weight: var(--cp-font-weight-control); }
 .workspace :is(button, input:not([type=checkbox]), select, summary) { min-height: 44px; }
-.workspace button { font-size: 13px; font-weight: 600; }
+.workspace button { font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .workspace input[type=checkbox] { accent-color: var(--cp-brand); }
-.workspace h2 { color: var(--cp-text-primary); font-weight: 600; }
+.workspace h2 { color: var(--cp-text-primary); font-weight: var(--cp-font-weight-heading); }
 .workspace [data-merchant-workspace] { min-width: 0; border: 0; background: transparent; }
 .workspace [data-merchant-toolbar] { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--cp-border); }
 .workspace [data-merchant-toolbar] > label:first-child { min-width: 200px; flex: 1; }
@@ -14,9 +16,9 @@
 .metric { display: grid; position: relative; min-width: 0; gap: 8px; border: 0; border-right: 1px solid var(--cp-border); background: transparent; padding: 8px 24px; color: var(--cp-text-primary); text-align: left; cursor: pointer; }
 .metric:first-child { padding-left: 0; }
 .metric:last-child { border-right: 0; }
-.metric span { color: var(--cp-text-secondary); font-size: 12px; font-weight: 450; }
-.metric strong { font-size: 26px; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; }
-.metric small { color: var(--cp-text-secondary); font-size: 12px; font-weight: 450; }
+.metric span { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
+.metric strong { font-size: 26px; font-weight: var(--cp-font-weight-value); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.metric small { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .metric[aria-pressed=true]::after { position: absolute; bottom: -16px; left: 24px; right: 24px; height: 2px; background: var(--cp-brand); content: ''; }
 .metric:first-child::after { left: 0; }
 .metric:hover { background: var(--cp-soft); }
@@ -30,10 +32,10 @@
 .providerNotice svg { flex-shrink: 0; width: 18px; height: 18px; margin-top: 2px; }
 .providerNotice p { margin: 0; }
 .providerNotice details { min-width: 0; }
-.providerNotice summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: 500; }
+.providerNotice summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 .providerNotice details p { max-width: 720px; padding-bottom: 12px; line-height: 1.6; }
 .workspace [data-merchant-desktop] table { min-width: 680px; table-layout: fixed; }
-.workspace [data-merchant-desktop] th { border-bottom: 1px solid var(--cp-border); padding: 12px 8px; font-size: 12px; color: var(--cp-text-secondary); font-weight: 500; }
+.workspace [data-merchant-desktop] th { border-bottom: 1px solid var(--cp-border); padding: 12px 8px; font-size: 12px; color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-control); }
 .workspace [data-merchant-desktop] td { border-bottom: 1px solid var(--cp-border); padding: 16px 8px; vertical-align: top; font-size: 13px; }
 .workspace [data-merchant-desktop] th:first-child { width: 22%; }
 .workspace [data-merchant-desktop] th:nth-child(2) { width: 16%; }
@@ -46,7 +48,7 @@
 .workspace [data-merchant-pages] th:nth-child(3) { width: 32%; }
 .workspace [data-merchant-pages] th:last-child { width: 18%; }
 .workspace [data-merchant-desktop] :is(time, small, dt, dd) { white-space: normal; color: var(--cp-text-secondary); font-size: 12px; }
-.workspace [data-merchant-desktop] strong { font-weight: 600; }
+.workspace [data-merchant-desktop] strong { font-weight: var(--cp-font-weight-heading); }
 .workspace [data-merchant-mobile] article { border-color: var(--cp-border); }
 .workspace [data-merchant-mobile] article h2 { overflow-wrap: anywhere; font-size: 15px; }
 .workspace [data-merchant-mobile] :is(dt, dd, small) { font-size: 12px; }
@@ -55,7 +57,7 @@
 .workspace [data-record-actions] button { background: transparent; border-color: var(--cp-border); }
 .workspace [data-record-actions] svg { width: 17px; height: 17px; }
 .workspace [data-provider-workflow] { margin-top: 12px; padding-top: 12px; border-color: var(--cp-border); }
-.workspace [data-provider-workflow] > div { color: var(--cp-text-secondary); font-weight: 500; }
+.workspace [data-provider-workflow] > div { color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-body); }
 .workspace [data-provider-workflow] small { font-size: 12px; }
 .workspace [data-provider-workflow] button { border-color: var(--cp-border); background: transparent; color: var(--cp-text-primary); }
 .history { border-top: 1px solid var(--cp-border); padding: 8px 0; color: var(--cp-text-secondary); font-size: 13px; }
@@ -71,7 +73,7 @@
 .form section { min-width: 0; border-top: 1px solid var(--cp-border); padding-top: 20px; }
 .form h2 { margin: 0 0 16px; font-size: 14px; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.fields label { display: grid; min-width: 0; gap: 8px; color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; }
+.fields label { display: grid; min-width: 0; gap: 8px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .fields :is(input:not([type=checkbox]), textarea, select) { width: 100%; border: 1px solid var(--cp-border); border-radius: 8px; padding: 12px; }
 .fields textarea { min-height: 160px; resize: vertical; line-height: 1.6; }
 .wide { grid-column: 1 / -1; }
@@ -86,7 +88,7 @@
 .preview > h2 { margin: 0; font-size: 14px; }
 .previewBody { min-width: 0; border: 1px solid var(--cp-border); border-radius: 12px; padding: 20px; background: var(--cp-surface); overflow-wrap: anywhere; }
 .previewBody svg { width: 40px; height: 40px; color: var(--cp-text-secondary); }
-.previewBody h3 { margin: 12px 0 8px; font-size: 16px; color: var(--cp-text-primary); font-weight: 600; }
+.previewBody h3 { margin: 12px 0 8px; font-size: 16px; color: var(--cp-text-primary); font-weight: var(--cp-font-weight-heading); }
 .previewBody p { margin: 8px 0 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
 .previewBody small { display: block; margin-top: 12px; color: var(--cp-text-secondary); font-size: 12px; }
 .previewSummary { display: grid; gap: 12px; margin: 16px 0 0; padding-top: 16px; border-top: 1px solid var(--cp-border); }
@@ -103,7 +105,7 @@
 .channelHead { display: flex; align-items: center; gap: 12px; }
 .channelHead svg { width: 24px; height: 24px; color: var(--cp-text-secondary); }
 .channelHead h2 { margin: 0; font-size: 15px; }
-.channel > strong { font-size: 30px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.channel > strong { font-size: 30px; font-weight: var(--cp-font-weight-value); font-variant-numeric: tabular-nums; }
 .channel span { color: var(--cp-text-secondary); font-size: 12px; }
 .channel > a { display: flex; justify-content: space-between; align-items: center; min-height: 44px; font-size: 13px; color: var(--cp-text-primary); }
 .channel > a svg { width: 17px; height: 17px; }

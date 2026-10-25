@@ -13,11 +13,11 @@
 .panel :is(a, button, summary, [tabindex]):focus-visible { outline: 2px solid var(--analytics-brand); outline-offset: 2px; }
 .heading { display: flex; min-width: 0; align-items: flex-start; justify-content: space-between; gap: 8px 12px; }
 .heading > div { min-width: 0; }
-.heading h2 { margin: 0; color: var(--analytics-ink); font-size: 15px; font-weight: 650; line-height: 1.35; letter-spacing: -0.02em; }
-.subtitle { margin: 4px 0 0; color: var(--analytics-muted); font-size: 12px; line-height: 1.5; }
-.unit { flex: 0 0 auto; padding-top: 4px; color: var(--analytics-muted); font-size: 11px; font-weight: 400; }
+.heading h2 { margin: 0; color: var(--analytics-ink); font-size: 15px; font-weight: var(--cp-font-weight-heading); line-height: 1.35; letter-spacing: -0.02em; }
+.subtitle { margin: 4px 0 0; color: var(--analytics-muted); font-size: 12px; line-height: 1.5; font-weight: var(--cp-font-weight-helper); }
+.unit { flex: 0 0 auto; padding-top: 4px; color: var(--analytics-muted); font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .chartBody { display: grid; min-width: 0; grid-template-columns: 80px minmax(0, 1fr); margin-top: 12px; }
-.yAxis { position: relative; height: 232px; color: var(--analytics-muted); font-size: 11px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.yAxis { position: relative; height: 232px; color: var(--analytics-muted); font-size: 11px; line-height: 1.2; font-variant-numeric: tabular-nums; font-weight: var(--cp-font-weight-helper); }
 .yAxis span { position: absolute; right: 8px; max-width: calc(100% - 8px); text-align: right; overflow-wrap: anywhere; transform: translateY(-50%); }
 .plotColumn { min-width: 0; }
 .plot { position: relative; min-width: 0; height: 232px; border-radius: 4px; }
@@ -29,36 +29,36 @@
 .endpoint, .activePoint { fill: var(--analytics-brand); stroke: var(--analytics-surface); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .priorPoint { fill: var(--analytics-comparison); stroke: var(--analytics-surface); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .cursor { stroke: var(--analytics-comparison); stroke-width: 1; stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
-.axis { position: relative; display: block; min-width: 0; min-height: 24px; color: var(--analytics-muted); font-size: 11px; line-height: 1.4; font-variant-numeric: tabular-nums; }
+.axis { position: relative; display: block; min-width: 0; min-height: 24px; color: var(--analytics-muted); font-size: 11px; line-height: 1.4; font-variant-numeric: tabular-nums; font-weight: var(--cp-font-weight-helper); }
 .axis span { position: absolute; top: 0; min-width: 0; max-width: calc(25% - 8px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .axis span:last-child { text-align: right; }
-.legend { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; color: var(--analytics-muted); font-size: 11px; line-height: 1.4; }
+.legend { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px 16px; margin-top: 16px; color: var(--analytics-muted); font-size: 11px; line-height: 1.4; font-weight: var(--cp-font-weight-helper); }
 .legendCurrent, .legendPrior { display: inline-flex; align-items: center; gap: 4px; }
 .legendCurrent::before, .legendPrior::before { width: 16px; flex: 0 0 16px; border-top: 2px solid var(--analytics-brand); content: ""; }
 .legendPrior::before { border-top: 1.5px dashed var(--analytics-comparison); }
 .tooltip { position: absolute; z-index: 2; top: 8px; width: 200px; max-width: calc(100% - 16px); border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 12px; color: var(--analytics-ink); box-shadow: 0 4px 16px color-mix(in srgb, var(--analytics-ink) 12%, transparent); pointer-events: none; }
-.tooltip > div { display: flex; min-width: 0; justify-content: space-between; gap: 8px; font-size: 11px; line-height: 1.4; }
+.tooltip > div { display: flex; min-width: 0; justify-content: space-between; gap: 8px; font-size: 11px; line-height: 1.4; font-weight: var(--cp-font-weight-helper); }
 .tooltip > div + div { margin-top: 12px; }
 .tooltipLabel { position: relative; min-width: 0; padding-left: 12px; }
 .tooltipLabel i { position: absolute; top: 6px; left: 0; width: 8px; border-top: 2px solid var(--analytics-brand); }
 .tooltipCurrent { border-top-color: var(--analytics-brand); }
 .tooltipLabel .tooltipPrior { border-top: 1.5px dashed var(--analytics-comparison); }
 .tooltipValue { min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
-.tooltipValue strong { font-weight: 600; overflow-wrap: anywhere; }
-.tooltip small { display: block; margin-top: 4px; color: var(--analytics-muted); font-size: 10px; font-weight: 400; }
+.tooltipValue strong { font-weight: var(--cp-font-weight-value); overflow-wrap: anywhere; }
+.tooltip small { display: block; margin-top: 4px; color: var(--analytics-muted); font-size: 10px; font-weight: var(--cp-font-weight-helper); }
 .dataDisclosure { min-width: 0; margin: 4px -20px 0; border-top: 1px solid var(--analytics-line); padding: 0 20px; }
-.dataDisclosure summary { display: flex; width: 100%; min-width: 0; min-height: 44px; align-items: center; gap: 12px; color: var(--analytics-muted); font-size: 11px; font-weight: 400; list-style: none; cursor: pointer; }
-.footerTotal { min-width: 0; margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.footerTotal strong { color: var(--analytics-ink); font-weight: 500; }
+.dataDisclosure summary { display: flex; width: 100%; min-width: 0; min-height: 44px; align-items: center; gap: 12px; color: var(--analytics-muted); font-size: 11px; font-weight: var(--cp-font-weight-control); list-style: none; cursor: pointer; }
+.footerTotal { min-width: 0; margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; font-weight: var(--cp-font-weight-helper); }
+.footerTotal strong { color: var(--analytics-ink); font-weight: var(--cp-font-weight-value); }
 .dataDisclosure summary::-webkit-details-marker { display: none; }
 .dataDisclosure summary::after { width: 8px; height: 8px; flex: 0 0 8px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; content: ""; transform: rotate(45deg); }
 .dataDisclosure[open] summary::after { transform: rotate(225deg); }
 .dataTableWrap { min-width: 0; max-width: 100%; max-height: 320px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .dataDisclosure table { width: 100%; min-width: 360px; border-collapse: collapse; color: var(--analytics-ink); font-size: 13px; font-variant-numeric: tabular-nums; }
-.dataDisclosure th, .dataDisclosure td { height: 44px; border-top: 1px solid var(--analytics-line); padding: 12px 8px; text-align: left; font-weight: 400; line-height: 1.5; }
-.dataDisclosure thead th { position: sticky; top: 0; z-index: 1; background: var(--analytics-soft); color: var(--analytics-muted); font-size: 12px; font-weight: 500; }
+.dataDisclosure th, .dataDisclosure td { height: 44px; border-top: 1px solid var(--analytics-line); padding: 12px 8px; text-align: left; font-weight: var(--cp-font-weight-body); line-height: 1.5; }
+.dataDisclosure thead th { position: sticky; top: 0; z-index: 1; background: var(--analytics-soft); color: var(--analytics-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .dataDisclosure td:last-child { text-align: right; }
-.dataDisclosure caption { padding: 12px 8px; color: var(--analytics-muted); font-size: 12px; text-align: left; }
+.dataDisclosure caption { padding: 12px 8px; color: var(--analytics-muted); font-size: 12px; text-align: left; font-weight: var(--cp-font-weight-helper); }
 .empty { display: flex; min-width: 0; min-height: 300px; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 24px; text-align: center; }
 .emptyIllustration { width: 104px; height: 80px; }
 .illustrationBack { fill: var(--cp-art-soft, var(--analytics-soft)); }
@@ -66,10 +66,10 @@
 .illustrationLine { fill: none; stroke: var(--cp-art-muted, var(--analytics-muted)); }
 .illustrationAccent { fill: none; stroke: var(--analytics-brand); }
 .emptyIllustration > .illustrationAccent:last-child { fill: var(--analytics-brand); stroke: none; }
-.empty strong { color: var(--analytics-ink); font-size: 16px; font-weight: 600; }
-.emptyTotal { color: var(--analytics-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.empty strong { color: var(--analytics-ink); font-size: 16px; font-weight: var(--cp-font-weight-value); }
+.emptyTotal { color: var(--analytics-muted); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: var(--cp-font-weight-helper); }
 .emptyAction { margin-top: 8px; }
-.emptyAction :is(a, button) { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.emptyAction :is(a, button) { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer; }
 .emptyAction :is(a, button):hover { background: var(--analytics-soft); }
 @media (max-width: 640px) {
   .panel { padding: 16px 16px 0; }

@@ -1,10 +1,10 @@
 .picker { min-width: 0; color: var(--cp-text-primary); }
 .grid { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--cp-border); }
-.card { display: grid; min-width: 0; min-height: 136px; grid-template-columns: 104px minmax(0, 1fr) 20px; align-items: center; gap: 16px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 12px; color: var(--cp-text-primary); font: inherit; text-align: left; cursor: pointer; transition: background-color .16s ease; }
+.card { display: grid; min-width: 0; min-height: 136px; grid-template-columns: 104px minmax(0, 1fr) 20px; align-items: center; gap: 16px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 12px; color: var(--cp-text-primary); font: inherit; text-align: left; cursor: pointer; transition: background-color .16s ease; font-weight: var(--cp-font-weight-control); }
 .card .art { width: 104px; }
 .copy { display: grid; min-width: 0; gap: 8px; }
-.title { font-size: 16px; font-weight: 650; line-height: 1.4; overflow-wrap: anywhere; }
-.help { color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
+.title { font-size: 16px; font-weight: var(--cp-font-weight-control); line-height: 1.4; overflow-wrap: anywhere; }
+.help { color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; font-weight: var(--cp-font-weight-helper); }
 .arrow { color: var(--cp-text-secondary); }
 .card:hover { background: var(--cp-soft); }
 .card:hover .arrow { color: var(--cp-brand); }

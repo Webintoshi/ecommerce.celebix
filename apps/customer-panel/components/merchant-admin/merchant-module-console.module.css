@@ -58,7 +58,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.82rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .button svg,
@@ -150,7 +150,7 @@
 
 .adminIdentity { display: grid; gap: .25rem; overflow-wrap: anywhere; }
 .adminIdentity small { color: #69635e; }
-.adminRoleHelp { margin-top: 1rem; }
+.adminRoleHelp { margin-top: 1rem; font-weight: var(--cp-font-weight-helper); }
 .adminRoleHelp > summary { cursor: pointer; width: fit-content; color: #69635e; font-size: .875rem; }
 .adminRoleHelp > summary:focus-visible { outline: 2px solid #fe6100; outline-offset: 4px; }
 .roleGuide {
@@ -180,7 +180,7 @@
 .roleGuideIntro span {
   color: #667085;
   font-size: 0.7rem;
-  font-weight: 850;
+  font-weight: var(--cp-font-weight-helper);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -223,7 +223,7 @@
 .roleCard header span {
   color: #2B2B2B;
   font-size: 0.95rem;
-  font-weight: 850;
+  font-weight: var(--cp-font-weight-heading);
 }
 
 .roleCard header strong {
@@ -253,7 +253,7 @@
 .roleCard h3 {
   color: #2B2B2B;
   font-size: 0.68rem;
-  font-weight: 850;
+  font-weight: var(--cp-font-weight-heading);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -271,7 +271,7 @@
 .roleCard small {
   border-top: 1px dashed #E7E2DD;
   padding-top: 0.7rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-helper);
 }
 
 .singletonWorkspace {
@@ -291,7 +291,7 @@
 .singletonIntro h2,
 .singletonIntro p,
 .singletonIntro small { margin: 0; }
-.singletonIntro span { color: #667085; font-size: 0.7rem; font-weight: 800; letter-spacing: 0; text-transform: uppercase; }
+.singletonIntro span { color: #667085; font-size: 0.7rem; font-weight: var(--cp-font-weight-helper); letter-spacing: 0; text-transform: uppercase; }
 .singletonIntro h2 { margin-top: 0.25rem; color: #2B2B2B; font-size: 1rem; }
 .singletonIntro p { margin-top: 0.35rem; color: #6b7280; font-size: 0.78rem; line-height: 1.5; }
 .singletonIntro small { color: #7b8494; font-size: 0.72rem; white-space: nowrap; }
@@ -331,6 +331,14 @@
   font: inherit;
 }
 
+.search input, .form input, .form textarea {
+  font-weight: var(--cp-font-weight-body);
+}
+
+.filter select, .form select {
+  font-weight: var(--cp-font-weight-control);
+}
+
 .search input { padding-left: 2.8rem; }
 
 .filter {
@@ -340,7 +348,7 @@
   gap: 0.65rem;
   color: #596273;
   font-size: 0.78rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .filter select { flex: 1; }
@@ -375,7 +383,7 @@
 }
 
 .configSummary dt { color: #7b8494; }
-.configSummary dd { overflow-wrap: anywhere; color: #2B2B2B; font-weight: 650; }
+.configSummary dd { overflow-wrap: anywhere; color: #2B2B2B; font-weight: var(--cp-font-weight-value); }
 .muted { color: #7b8494; font-size: 0.74rem; }
 
 .workflowSummary {
@@ -393,7 +401,7 @@
   gap: 0.45rem;
   color: #92400e;
   font-size: 0.74rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-heading);
 }
 
 .workflowSummary > div svg {
@@ -425,7 +433,7 @@
   cursor: pointer;
   font: inherit;
   font-size: 0.75rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .workflowCancel {
@@ -457,7 +465,7 @@
 .providerHistory > header span,
 .providerHistory > header h2,
 .providerHistory > header strong { margin: 0; }
-.providerHistory > header span { color: #667085; font-size: 0.68rem; font-weight: 800; text-transform: uppercase; }
+.providerHistory > header span { color: #667085; font-size: 0.68rem; font-weight: var(--cp-font-weight-helper); text-transform: uppercase; }
 .providerHistory > header h2 { margin-top: 0.2rem; color: #2B2B2B; font-size: 1rem; }
 .providerHistory > header > strong { color: #2B2B2B; font-size: 1.25rem; }
 .providerHistory > p { margin: 0.9rem 0 0; color: #6b7280; font-size: 0.78rem; }
@@ -491,7 +499,7 @@
   align-items: center;
   gap: 0.55rem;
   cursor: pointer;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .audit summary svg { width: 18px; color: #fe6100; }
@@ -544,7 +552,7 @@
 
 .editor > header span,
 .editor > header h2 { margin: 0; }
-.editor > header span { color: #7b8494; font-size: 0.72rem; font-weight: 750; text-transform: uppercase; }
+.editor > header span { color: #7b8494; font-size: 0.72rem; font-weight: var(--cp-font-weight-helper); text-transform: uppercase; }
 .editor > header h2 { margin-top: 0.25rem; color: #2B2B2B; font-size: 1.15rem; }
 
 .form {
@@ -559,7 +567,7 @@
   gap: 0.4rem;
   color: #4b5563;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .form textarea { min-height: 128px; resize: vertical; }

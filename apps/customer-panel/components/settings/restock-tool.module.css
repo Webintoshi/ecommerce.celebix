@@ -1,4 +1,4 @@
-.help { margin: 12px 0 0; font-size: 12px; line-height: 1.6; color: var(--cp-text-secondary); }
+.help { margin: 12px 0 0; font-size: 12px; line-height: 1.6; color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-helper); }
 .flow { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--cp-border); }
 .flow span { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cp-text-secondary); min-height: 44px; }
 .preview { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }
@@ -20,16 +20,16 @@
 .alert > button { width: 100%; overflow-wrap: anywhere; }
 .operations { margin-top: 32px; border-top: 1px solid var(--cp-border); padding-top: 24px; }
 .operations header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
-.operations h3 { margin: 0; font-size: 16px; font-weight: 600; }
-.operations h4 { margin: 24px 0 0; font-size: 14px; font-weight: 600; }
+.operations h3 { margin: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
+.operations h4 { margin: 24px 0 0; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .counts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 16px; margin: 0; padding-bottom: 24px; border-bottom: 1px solid var(--cp-border); }
 .counts > div { min-width: 0; }
 .counts dt { font-size: 12px; line-height: 1.5; color: var(--cp-text-secondary); }
-.counts dd { margin: 8px 0 0; font-size: 28px; font-weight: 600; line-height: 1.25; }
+.counts dd { margin: 8px 0 0; font-size: 28px; font-weight: var(--cp-font-weight-value); line-height: 1.25; }
 .recent { list-style: none; padding: 0; margin: 16px 0 0; }
 .recent li { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; font-size: 13px; padding: 16px 0; border-top: 1px solid var(--cp-border); }
 .recent li > div { min-width: 0; }
-.recent strong { display: block; font-weight: 500; line-height: 1.5; overflow-wrap: anywhere; }
+.recent strong { display: block; font-weight: var(--cp-font-weight-heading); line-height: 1.5; overflow-wrap: anywhere; }
 .recent li > div > span, .recent small, .recent time { display: block; color: var(--cp-text-secondary); margin-top: 4px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .recent .result { text-align: right; flex: 0 0 35%; }
 .recent .result > span { color: var(--cp-text-primary); margin-top: 0; }
@@ -43,3 +43,5 @@
 .artAccent { stroke: var(--cp-brand); fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
 @media (max-width: 1180px) { .artwork { width: 144px; } }
 @media (max-width: 760px) { .artwork { width: 160px; height: 128px; } .counts { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; } .flow { gap: 4px 16px; margin-top: 20px; padding-top: 16px; } .operations { margin-top: 24px; padding-top: 20px; } .recent li { flex-wrap: wrap; gap: 8px; } .recent .result { text-align: left; flex-basis: 100%; } .alert input[type=email] { font-size: 16px; } }
+.preview { font-weight: 400; }
+.preview .alert label, .preview .alert input[type=email] { font-weight: 400; }

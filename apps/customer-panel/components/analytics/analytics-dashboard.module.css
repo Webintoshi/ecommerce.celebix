@@ -30,7 +30,7 @@
   padding-left: .25rem;
   color: #667085;
   font-size: .72rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .periods {
@@ -55,7 +55,7 @@
   cursor: pointer;
   font: inherit;
   font-size: .75rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
   letter-spacing: 0;
   white-space: nowrap;
 }
@@ -123,7 +123,7 @@
 .metrics > article span,
 .metrics > article strong,
 .metrics > article small { letter-spacing: 0; }
-.metrics > article span { color: #667085; font-size: .72rem; font-weight: 700; }
+.metrics > article span { color: #667085; font-size: .72rem; font-weight: var(--cp-font-weight-helper); }
 .metrics > article strong { margin-top: .2rem; color: #1D2939; font-size: 1.25rem; line-height: 1.2; }
 .metrics > article small { margin-top: .2rem; color: #8A94A6; font-size: .68rem; line-height: 1.35; }
 
@@ -170,9 +170,9 @@
 .panelHeader > div { min-width: 0; }
 .panelHeader h2,
 .panelHeader p { margin: 0; letter-spacing: 0; }
-.panelHeader h2 { color: #1D2939; font-size: .9rem; font-weight: 850; line-height: 1.3; }
+.panelHeader h2 { color: #1D2939; font-size: .9rem; font-weight: var(--cp-font-weight-heading); line-height: 1.3; }
 .panelHeader p { margin-top: .15rem; color: #667085; font-size: .72rem; }
-.panelHeader > strong { color: #1D2939; font-size: .95rem; font-weight: 850; white-space: nowrap; }
+.panelHeader > strong { color: #1D2939; font-size: .95rem; font-weight: var(--cp-font-weight-value); white-space: nowrap; }
 
 .chartViewport {
   min-width: 0;
@@ -217,7 +217,7 @@
   padding: .5rem 1rem;
   color: #8A94A6;
   font-size: .65rem;
-  font-weight: 800;
+  font-weight: var(--cp-font-weight-control);
   text-transform: uppercase;
 }
 
@@ -247,14 +247,14 @@
   background: #FFF1E8;
   color: #C64900;
   font-size: .7rem;
-  font-weight: 850;
+  font-weight: var(--cp-font-weight-value);
 }
 
 .products strong {
   min-width: 0;
   color: #253044;
   font-size: .78rem;
-  font-weight: 800;
+  font-weight: var(--cp-font-weight-value);
   overflow-wrap: anywhere;
 }
 
@@ -266,7 +266,7 @@
   text-align: right;
 }
 
-.productRevenue { color: #253044; font-weight: 800; }
+.productRevenue { color: #253044; font-weight: var(--cp-font-weight-value); }
 .empty { color: #667085; font-size: .78rem; }
 .productsPanel > .empty { padding: 1.25rem 1rem; }
 

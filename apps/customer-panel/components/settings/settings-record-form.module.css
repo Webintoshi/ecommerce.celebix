@@ -1,13 +1,15 @@
 .form { width: 100%; max-width: 1200px; min-width: 0; }
 .section { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 44px; padding: 28px 0; border-bottom: 1px solid var(--settings-border,#E7E2DD); }
 .section:first-child { padding-top: 6px; }
-.sectionLabel h2 { margin: 6px 0 18px; color: #2B2B2B; font-size: 14px; font-weight: 650; }
+.sectionLabel h2 { margin: 6px 0 18px; color: #2B2B2B; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .sectionLabel img { width: 140px; height: 94px; object-fit: contain; }
 .fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-content: start; gap: 24px; min-width: 0; margin: 0; padding: 0; border: 0; }
-.fields label { display: flex; flex-wrap: wrap; align-content: start; gap: 8px; min-width: 0; color: #625B55; font-size: 13px; font-weight: 600; }
-.fields input:not([type=checkbox]),.fields select,.fields textarea { width: 100%; min-width: 0; min-height: 46px; border: 1px solid var(--settings-border,#E7E2DD); border-radius: 8px; background: var(--settings-surface,#FFFDFC); padding: 11px 12px; color: #2B2B2B; font: inherit; font-size: 14px; font-weight: 450; box-sizing: border-box; }
+.fields label { display: flex; flex-wrap: wrap; align-content: start; gap: 8px; min-width: 0; color: #625B55; font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.fields input:not([type=checkbox]),.fields select,.fields textarea { width: 100%; min-width: 0; min-height: 46px; border: 1px solid var(--settings-border,#E7E2DD); border-radius: 8px; background: var(--settings-surface,#FFFDFC); padding: 11px 12px; color: #2B2B2B; font: inherit; font-size: 14px; box-sizing: border-box; }
+.fields input:not([type=checkbox]), .fields textarea { font-weight: var(--cp-font-weight-body); }
+.fields select { font-weight: var(--cp-font-weight-control); }
 .fields textarea { resize: vertical; }
-.fields small { font-size: 12px; color: #79716A; font-weight: 400; line-height: 1.5; }
+.fields small { font-size: 12px; color: #79716A; font-weight: var(--cp-font-weight-helper); line-height: 1.5; }
 .required { color: #B0473F; }
 .wide { grid-column: 1/-1; }
 .fields .switchRow { display: flex; align-items: center; justify-content: space-between; flex-wrap: nowrap; min-height: 46px; padding-bottom: 12px; border-bottom: 1px solid #E7E2DD; }
@@ -20,7 +22,7 @@
 .saveBar { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; min-height: 76px; padding: 12px 0; background: #F8F7F5; border-top: 1px solid #E7E2DD; }
 .saveBar > span { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #79716A; }
 .saveBar > div { display: flex; gap: 10px; }
-.saveBar button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid #E7E2DD; border-radius: 8px; background: #FFFDFC; padding: 0 18px; color: #2B2B2B; font: inherit; font-size: 13px; font-weight: 650; cursor: pointer; }
+.saveBar button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid #E7E2DD; border-radius: 8px; background: #FFFDFC; padding: 0 18px; color: #2B2B2B; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .saveBar .primary { border-color: #2B2B2B; color: #FFFFFF; background: #2B2B2B; }
 .saveBar button:disabled { opacity: .5; cursor: not-allowed; }
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); }

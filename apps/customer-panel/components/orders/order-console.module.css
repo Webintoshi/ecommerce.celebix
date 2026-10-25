@@ -68,7 +68,7 @@
 .filterToolbar label > span {
   color: #596273;
   font-size: .75rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .filterToolbar select {
@@ -99,7 +99,7 @@
   color: #B94B00;
   cursor: pointer;
   font-size: .8125rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
   white-space: nowrap;
 }
 
@@ -138,7 +138,7 @@
   color: #374151;
   cursor: pointer;
   font-size: .8125rem;
-  font-weight: 650;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .columnPicker > div label:hover {
@@ -163,7 +163,7 @@
   padding: .7rem 1.25rem;
   color: #6B7280;
   font-size: .75rem;
-  line-height: 1.5;
+  line-height: 1.5; font-weight: var(--cp-font-weight-helper);
 }
 
 .toolbar input,
@@ -201,7 +201,12 @@
   color: #B94B00;
   cursor: pointer;
   font-size: .8125rem;
-  font-weight: 700;
+}
+.searchField button, .errorState button, .primaryButton, .detailLink, .noteList button {
+  font-weight: var(--cp-font-weight-control);
+}
+.loadMore {
+  font-weight: var(--cp-font-weight-heading);
 }
 .searchField button { border-radius: 0 8px 8px 0; background: #FF6A00; color: #20150D; }
 .primaryButton { background: #FF6A00; color: #20150D; }
@@ -229,7 +234,7 @@ button:disabled.primaryButton,
   min-height: 48px;
   align-items: center;
   color: #111827;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 .orderLink:hover { color: #B94B00; }
 .rowDetailLink {
@@ -243,7 +248,7 @@ button:disabled.primaryButton,
   padding: 0 .85rem;
   color: #B94B00;
   font-size: .76rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
   white-space: nowrap;
 }
 .rowDetailLink:hover { background: #FFF7F2; }
@@ -260,12 +265,12 @@ button:disabled.primaryButton,
   box-shadow: none;
 }
 .cardHeading { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
-.cardHeading > a { font-weight: 750; }
+.cardHeading > a { font-weight: var(--cp-font-weight-control); }
 .cardFacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; margin: 0; }
 .cardFacts div { min-width: 0; }
-.cardFacts dt { color: #6B7280; font-size: .7rem; font-weight: 700; text-transform: uppercase; }
-.cardFacts dd { margin: .25rem 0 0; overflow-wrap: anywhere; color: #1F2937; font-size: .83rem; font-weight: 650; }
-.cardFacts small { display: block; margin-top: .2rem; color: #6B7280; font-weight: 500; }
+.cardFacts dt { color: #6B7280; font-size: .7rem; font-weight: var(--cp-font-weight-helper); text-transform: uppercase; }
+.cardFacts dd { margin: .25rem 0 0; overflow-wrap: anywhere; color: #1F2937; font-size: .83rem; font-weight: var(--cp-font-weight-value); }
+.cardFacts small { display: block; margin-top: .2rem; color: #6B7280; font-weight: var(--cp-font-weight-helper); }
 .detailLink { width: 100%; }
 .loadMore { margin: 1rem auto; }
 
@@ -308,7 +313,7 @@ button:disabled.primaryButton,
 .filterPanel .filterToolbar label > span {
   color: #697386;
   font-size: .6875rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .filterPanel .toolbar input,
@@ -364,7 +369,7 @@ button:disabled.primaryButton,
   padding: 0 .75rem;
   color: #4A5568;
   font-size: .74rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .filterPanel .columnPicker[open] summary,
@@ -497,7 +502,7 @@ button:disabled.primaryButton,
   overflow: hidden;
   color: #182235;
   font-size: .78rem;
-  font-weight: 780;
+  font-weight: var(--cp-font-weight-control);
   text-overflow: ellipsis;
   text-decoration: none;
   white-space: nowrap;
@@ -532,7 +537,7 @@ button:disabled.primaryButton,
   border-radius: 999px;
   padding: 0 .5rem;
   font-size: .66rem;
-  font-weight: 720;
+  font-weight: var(--cp-font-weight-heading);
   line-height: 1;
   white-space: nowrap;
 }
@@ -615,7 +620,7 @@ button:disabled.primaryButton,
 .cardOrderIdentity > a {
   color: #182235;
   font-size: .84rem;
-  font-weight: 780;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .cardOrderIdentity > small {
@@ -642,7 +647,7 @@ button:disabled.primaryButton,
   color: #182235;
   font-size: .84rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 780;
+  font-weight: var(--cp-font-weight-value);
 }
 
 .dataSurface .detailLink {
@@ -712,7 +717,7 @@ button:disabled.primaryButton,
   overflow: hidden;
   color: #7A8494;
   font-size: .66rem;
-  font-weight: 680;
+  font-weight: var(--cp-font-weight-heading);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -750,7 +755,7 @@ button:disabled.primaryButton,
   padding: 0 .65rem;
   color: #4A5568;
   font-size: .72rem;
-  font-weight: 720;
+  font-weight: var(--cp-font-weight-control);
   text-decoration: none;
 }
 
@@ -935,7 +940,14 @@ button:disabled.primaryButton,
 .summaryTotal > span {
   color: #7A8494;
   font-size: .66rem;
-  font-weight: 700;
+}
+
+.summaryRow > span:first-child, .summaryCustomer > span {
+  font-weight: var(--cp-font-weight-heading);
+}
+
+.summaryTotal > span {
+  font-weight: var(--cp-font-weight-value);
 }
 
 .summaryRow > span:last-child {
@@ -1052,7 +1064,7 @@ button:disabled.primaryButton,
 .compactForm label > span {
   color: #697386;
   font-size: .68rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .operationBar select {
@@ -1092,7 +1104,7 @@ button:disabled.primaryButton,
 .orderInfoCard dt {
   color: #7A8494;
   font-size: .66rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-helper);
 }
 
 .orderInfoCard dd {
@@ -1101,7 +1113,7 @@ button:disabled.primaryButton,
   overflow-wrap: anywhere;
   color: #253044;
   font-size: .76rem;
-  font-weight: 680;
+  font-weight: var(--cp-font-weight-heading);
 }
 
 .orderInfoCard a {
@@ -1184,7 +1196,7 @@ button:disabled.primaryButton,
   color: #3D485A;
   font-size: .76rem;
   font-variant-numeric: tabular-nums;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-value);
   text-align: right;
 }
 
@@ -1196,13 +1208,13 @@ button:disabled.primaryButton,
 
 .totals .grandTotal dt {
   color: #253044;
-  font-weight: 760;
+  font-weight: var(--cp-font-weight-value);
 }
 
 .totals .grandTotal dd {
   color: #9E3D00;
   font-size: .94rem;
-  font-weight: 800;
+  font-weight: var(--cp-font-weight-value);
 }
 
 .detailColumns {
@@ -1234,7 +1246,7 @@ button:disabled.primaryButton,
 .shippingBlock > span {
   color: #7A8494;
   font-size: .66rem;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-heading);
 }
 
 .shippingBlock address,
@@ -1280,7 +1292,7 @@ button:disabled.primaryButton,
   color: #4A5568;
   cursor: pointer;
   font-size: .74rem;
-  font-weight: 720;
+  font-weight: var(--cp-font-weight-control);
   list-style: none;
 }
 
@@ -1388,7 +1400,7 @@ button:disabled.primaryButton,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: .75rem;
+  gap: .75rem; font-weight: var(--cp-font-weight-helper);
 }
 
 .noteList small {
@@ -1512,7 +1524,7 @@ button:disabled.primaryButton,
 
 .notificationStatus {
   color: #4A5568 !important;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-body);
 }
 
 .notificationList button {
@@ -1525,7 +1537,7 @@ button:disabled.primaryButton,
   color: #4A5568;
   cursor: pointer;
   font-size: .68rem;
-  font-weight: 720;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .notificationList button:hover {
@@ -1541,7 +1553,7 @@ button:disabled.primaryButton,
 
 .printPage { display: grid; max-width: 58rem; gap: 1.5rem; margin: 0 auto; color: #1F2937; }
 .printActions { display: flex; justify-content: flex-end; }
-.printActions button { min-width: 48px; min-height: 48px; border: 1px solid #FFD7BF; border-radius: 8px; background: #FF6A00; padding: 0 1rem; color: #20150D; cursor: pointer; font-weight: 750; }
+.printActions button { min-width: 48px; min-height: 48px; border: 1px solid #FFD7BF; border-radius: 8px; background: #FF6A00; padding: 0 1rem; color: #20150D; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 .printHeading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; border-bottom: 2px solid #1F2937; padding-bottom: 1rem; }
 .printHeading p, .printHeading h1 { margin: 0; }
 .printHeading p { color: #6B7280; font-size: .75rem; font-weight: 700; text-transform: uppercase; }
@@ -1632,7 +1644,7 @@ button:disabled.primaryButton,
   color: #fff;
   display: inline-flex;
   font-size: .78rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
   min-height: 38px;
   padding: 0 .85rem;
   text-decoration: none;

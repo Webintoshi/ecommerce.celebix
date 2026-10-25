@@ -7,7 +7,7 @@
 .offerRow svg { width: 144px; }
 .offerRow button { white-space: normal; line-height: 1.5; text-align: center; }
 .price { display: grid; gap: 4px; margin-top: 12px; }
-.price strong { color: var(--cp-text-primary); font-size: 18px; font-weight: 600; }
+.price strong { color: var(--cp-text-primary); font-size: 18px; font-weight: var(--cp-font-weight-value); }
 .price span, .delivery { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; }
 .delivery { display: block; margin-top: 12px; }
 .requestState { display: grid; gap: 4px; margin-bottom: 0 !important; }
@@ -15,7 +15,7 @@
 .error { color: var(--cp-danger); font-size: 13px; line-height: 1.6; margin: 12px 0; overflow-wrap: anywhere; }
 .recovery { display: flex; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-soft); padding: 16px; margin-top: 16px; }
 .recovery div { min-width: 0; }
-.recovery strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.recovery strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .recovery p { font-size: 13px; color: var(--cp-text-secondary); line-height: 1.6; margin: 4px 0 0; }
 .recovery button { flex-shrink: 0; }
 @media(max-width:760px) {

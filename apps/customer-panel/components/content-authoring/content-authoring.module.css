@@ -2,6 +2,8 @@
 .panel small { overflow-wrap: anywhere; }
 .panel label { display: grid; gap: 4px; font-size: 13px; }
 .panel button, .panel input, .panel select, .panel textarea { font: inherit; color: inherit; }
+.panel button, .panel select { font-weight: var(--cp-font-weight-control); }
+.panel input, .panel textarea { font-weight: var(--cp-font-weight-body); }
 .panel button, .panel select, .panel textarea { min-height: 44px; border: 1px solid var(--catalog-border, var(--border, #E7E2DD)); background: var(--catalog-surface, var(--surface, #FFFDFC)); border-radius: 8px; padding: 8px 12px; max-width: 100%; box-sizing: border-box; min-width: 0; }
 .panel button { cursor: pointer; overflow-wrap: anywhere; }
 .panel select, .panel textarea { width: 100%; }

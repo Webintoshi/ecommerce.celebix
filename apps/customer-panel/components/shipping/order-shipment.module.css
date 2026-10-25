@@ -9,10 +9,10 @@
 .console, .modalContent { display: grid; min-width: 0; gap: 16px; color: var(--shipping-text); font-size: 13px; }
 .summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-width: 0; }
 .summary > div { display: grid; min-width: 0; gap: 8px; }
-.summary strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.summary strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .summary small { color: var(--shipping-secondary); font-size: 12px; }
 .status { display: inline-flex; align-items: center; gap: 8px; color: var(--shipping-secondary); font-size: 12px; }
-.button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--shipping-border); border-radius: 8px; background: var(--shipping-surface); padding: 8px 12px; color: var(--shipping-text); font: inherit; font-size: 12px; font-weight: 600; line-height: 1.4; cursor: pointer; text-decoration: none; }
+.button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--shipping-border); border-radius: 8px; background: var(--shipping-surface); padding: 8px 12px; color: var(--shipping-text); font: inherit; font-size: 12px; font-weight: var(--cp-font-weight-control); line-height: 1.4; cursor: pointer; text-decoration: none; }
 .button:hover:not(:disabled) { background: var(--shipping-canvas); }
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .button:focus-visible, .option input:focus-visible, .result a:focus-visible, .packageForm input:focus-visible { outline: 2px solid var(--shipping-focus); outline-offset: 3px; }
@@ -20,15 +20,15 @@
 .button.primary:hover:not(:disabled) { background: var(--cp-action-primary-hover, #201c19); }
 .danger { color: var(--danger); }
 .packageForm fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; border: 0; padding: 0; }
-.packageForm legend { margin-bottom: 16px; color: var(--shipping-text); font-size: 13px; font-weight: 600; }
+.packageForm legend { margin-bottom: 16px; color: var(--shipping-text); font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .packageForm label { display: grid; min-width: 0; gap: 8px; color: var(--shipping-secondary); font-size: 12px; }
-.packageForm input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--shipping-border); border-radius: 8px; background: var(--shipping-surface); padding: 8px 12px; color: var(--shipping-text); font: inherit; font-size: 14px; }
+.packageForm input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--shipping-border); border-radius: 8px; background: var(--shipping-surface); padding: 8px 12px; color: var(--shipping-text); font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .quotes { display: grid; gap: 12px; }
 .option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 64px; border: 1px solid var(--shipping-border); border-radius: 8px; padding: 12px; color: var(--shipping-text); cursor: pointer; }
 .option:has(input:checked) { border-color: var(--shipping-text); background: var(--shipping-canvas); }
 .option input { width: 16px; height: 16px; accent-color: var(--shipping-text); }
 .option span { display: grid; min-width: 0; gap: 4px; }
-.option strong, .option b { font-size: 13px; font-weight: 600; }
+.option strong, .option b { font-size: 13px; font-weight: var(--cp-font-weight-heading); }
 .option strong { overflow-wrap: anywhere; }
 .option small { color: var(--shipping-secondary); font-size: 12px; }
 .option b { white-space: nowrap; font-variant-numeric: tabular-nums; }

@@ -20,7 +20,7 @@
   color: var(--cp-text-secondary);
   padding: 0 0.875rem;
   font-size: 0.8125rem;
-  font-weight: 650;
+  font-weight: var(--cp-font-weight-control);
   line-height: 1.25;
   white-space: nowrap;
 }

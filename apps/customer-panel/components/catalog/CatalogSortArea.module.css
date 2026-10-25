@@ -1,4 +1,4 @@
 .item { position: relative; }
 .item[data-sort-dragging="true"] { opacity: .35; }
-.overlay { max-width: 300px; padding: 10px 14px; overflow: hidden; border: 1px solid var(--catalog-border, #ded9d3); border-radius: 8px; background: var(--catalog-surface, #fff); color: var(--catalog-text, #292724); box-shadow: 0 8px 24px rgb(0 0 0 / .12); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; cursor: grabbing; }
+.overlay { max-width: 300px; padding: 10px 14px; overflow: hidden; border: 1px solid var(--catalog-border, #ded9d3); border-radius: 8px; background: var(--catalog-surface, #fff); color: var(--catalog-text, #292724); box-shadow: 0 8px 24px rgb(0 0 0 / .12); font-size: 13px; font-weight: var(--cp-font-weight-helper); text-overflow: ellipsis; white-space: nowrap; cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) { .item { transition: none !important; } }

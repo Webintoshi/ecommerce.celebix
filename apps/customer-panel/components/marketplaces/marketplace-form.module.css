@@ -1,18 +1,22 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); align-items: start; gap: 40px; min-width: 0; }
 .form { display: grid; gap: 24px; min-width: 0; }
 .section { display: grid; gap: 20px; min-width: 0; padding-top: 20px; border-top: 1px solid var(--cp-border); }
-.section h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.section h2 { margin: 0; font-size: 15px; font-weight: var(--cp-font-weight-heading); }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-.fields label, .statusField { display: grid; gap: 8px; min-width: 0; color: var(--cp-text-primary); font-size: 13px; font-weight: 500; }
+.fields label, .statusField { display: grid; gap: 8px; min-width: 0; color: var(--cp-text-primary); font-size: 13px; }
+.fields label { font-weight: var(--cp-font-weight-control); }
+.statusField { font-weight: var(--cp-font-weight-body); }
 .fields input, .statusField select { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); padding: 8px 12px; font: inherit; }
+.fields input { font-weight: var(--cp-font-weight-body); }
+.statusField select { font-weight: var(--cp-font-weight-control); }
 .fields input:focus-visible, .statusField select:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .fields input:disabled, .statusField select:disabled { opacity: .65; }
 .wide { grid-column: 1 / -1; }
 .statusField { max-width: 320px; }
 .toggle { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px; cursor: pointer; }
 .toggle > span:first-child { display: grid; gap: 8px; min-width: 0; }
-.toggle strong { font-size: 13px; font-weight: 500; }
-.toggle small { color: var(--cp-text-secondary); font-size: 12px; font-weight: 400; line-height: 1.6; }
+.toggle strong { font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.toggle small { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); line-height: 1.6; }
 .toggle input { position: absolute; right: 0; width: 44px; height: 44px; margin: 0; opacity: 0; cursor: pointer; z-index: 1; }
 .toggleTrack { position: relative; display: flex; flex: none; align-items: center; width: 40px; height: 24px; border-radius: 24px; background: var(--cp-border); color: var(--cp-text-inverse); }
 .toggleTrack::after { content: ""; position: absolute; left: 4px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--cp-surface); }
@@ -29,7 +33,7 @@
 .artwork { display: block; width: 180px; max-width: 100%; height: auto; justify-self: center; }
 .identity { display: grid; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 .identity > span { color: var(--cp-text-secondary); font-size: 12px; }
-.identity h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.identity h2 { margin: 0; font-size: 18px; font-weight: var(--cp-font-weight-heading); }
 .summary { display: grid; gap: 16px; margin: 0; min-width: 0; }
 .summary > div { display: grid; gap: 4px; min-width: 0; }
 .summary dt { color: var(--cp-text-secondary); font-size: 12px; }

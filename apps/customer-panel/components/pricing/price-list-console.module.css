@@ -39,13 +39,13 @@
   background: var(--pricing-canvas);
   color: #667085;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .desktopTable a,
 .cardHeading a {
   color: var(--pricing-text);
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
   text-decoration: none;
 }
 
@@ -106,7 +106,7 @@
 .editor legend {
   padding: 0 8px;
   color: var(--pricing-text);
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .editor label {
@@ -114,7 +114,7 @@
   gap: 7px;
   color: var(--pricing-text);
   font-size: 14px;
-  font-weight: 650;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .editor input,
@@ -131,6 +131,14 @@
   font: inherit;
 }
 
+.editor input {
+  font-weight: var(--cp-font-weight-body);
+}
+
+.editor select, .editor button, .actions button {
+  font-weight: var(--cp-font-weight-control);
+}
+
 .editor input,
 .editor select { min-height: 48px; }
 
@@ -142,7 +150,7 @@
 }
 
 .editor button,
-.actions button { font-weight: 700; cursor: pointer; }
+.actions button { font-weight: var(--cp-font-weight-control); cursor: pointer; }
 
 .editor button:hover:not(:disabled),
 .actions button:hover:not(:disabled) {
@@ -312,26 +320,32 @@
 .listToolbar { display: flex; flex-wrap: wrap; min-width: 0; align-items: center; gap: 12px; margin-bottom: 16px; }
 .searchField { width: min(100%, 420px); min-width: 0; }
 .listToolbar :is(input, select, button) { min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 14px; }
+.listToolbar input {
+  font-weight: var(--cp-font-weight-body);
+}
+.listToolbar select, .listToolbar button {
+  font-weight: var(--cp-font-weight-control);
+}
 .searchField input { width: 100%; }
 .listToolbar button { font-size: 13px; cursor: pointer; }
 .resultCount { color: var(--cp-text-secondary); font-size: 12px; font-variant-numeric: tabular-nums; }
 .desktopTable { max-width: 100%; border-radius: 8px; }
 .desktopTable :is(th, td), .preview :is(th, td) { padding: 12px 16px; font-size: 13px; }
-.desktopTable th, .preview th { color: var(--cp-text-secondary); font-weight: 500; }
-.desktopTable a, .cardHeading a { display: inline-flex; min-height: 44px; align-items: center; font-weight: 600; }
+.desktopTable th, .preview th { color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-control); }
+.desktopTable a, .cardHeading a { display: inline-flex; min-height: 44px; align-items: center; font-weight: var(--cp-font-weight-control); }
 .editor { max-width: 1080px; gap: 24px; }
 .editor fieldset { min-width: 0; gap: 16px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 24px; }
-.editor legend { padding: 0 0 16px; font-size: 16px; font-weight: 600; }
-.editor label { min-width: 0; gap: 8px; font-size: 14px; font-weight: 500; }
+.editor legend { padding: 0 0 16px; font-size: 16px; font-weight: var(--cp-font-weight-control); }
+.editor label { min-width: 0; gap: 8px; font-size: 14px; font-weight: var(--cp-font-weight-control); }
 .editor :is(input, select, button), .actions button { min-width: 0; min-height: 44px; font-size: 14px; }
 .editor :is(input, select) { width: 100%; }
-.editor button, .actions button { font-size: 13px; font-weight: 600; justify-self: start; padding: 0 16px; }
+.editor button, .actions button { font-size: 13px; font-weight: var(--cp-font-weight-control); justify-self: start; padding: 0 16px; }
 .editor :is(input, select, button, summary):focus-visible, .actions button:focus-visible, .tableScroll:focus-visible { outline: 2px solid var(--cp-text-primary); outline-offset: 2px; }
 .ruleRows { gap: 20px; }
 .ruleRow { min-width: 0; gap: 16px; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 0 0; }
 .ruleRow:first-child { border-top: 0; padding-top: 0; }
 .ruleHeading { grid-column: 1 / -1; color: var(--cp-text-secondary); font-size: 12px; }
-.ruleHeading strong { font-weight: 500; }
+.ruleHeading strong { font-weight: var(--cp-font-weight-heading); }
 .ruleDetails { grid-column: 1 / -1; border-top: 1px solid var(--cp-border); }
 .ruleDetails summary { display: flex; min-height: 44px; align-items: center; font-size: 14px; cursor: pointer; }
 .ruleDetails summary::after { margin-left: auto; content: "+"; color: var(--cp-text-secondary); }
@@ -343,10 +357,10 @@
 .itemRow > span { overflow-wrap: anywhere; color: var(--cp-text-primary); font-size: 14px; line-height: 1.5; }
 .summary { align-items: center; gap: 12px 24px; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 20px; color: var(--cp-text-secondary); font-size: 13px; }
 .summary > span { display: inline-flex; align-items: center; gap: 8px; }
-.summary strong { color: var(--cp-text-primary); font-weight: 600; }
+.summary strong { color: var(--cp-text-primary); font-weight: var(--cp-font-weight-heading); }
 .readOnly { margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
 .preview { overflow: visible; border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 0 0 24px; }
-.preview h2 { margin: 0; padding: 0; font-size: 16px; font-weight: 600; }
+.preview h2 { margin: 0; padding: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
 .preview > p { margin: 8px 0 16px; padding: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }
 .tableScroll { max-width: 100%; min-width: 0; overflow-x: auto; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); }
 .actions { gap: 8px; }

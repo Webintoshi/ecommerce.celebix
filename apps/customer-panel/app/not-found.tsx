@@ -39,7 +39,7 @@ const resilienceStyles = `
     gap: .625rem;
     color: var(--panel-sidebar, #2A2A2A);
     font-size: .75rem;
-    font-weight: 800;
+    font-weight: var(--cp-font-weight-heading);
     letter-spacing: .08em;
     text-transform: uppercase;
   }
@@ -60,7 +60,7 @@ const resilienceStyles = `
     margin: .625rem 0 0;
     color: #A94300;
     font-size: .75rem;
-    font-weight: 800;
+    font-weight: var(--cp-font-weight-heading);
     letter-spacing: .08em;
   }
 
@@ -73,6 +73,7 @@ const resilienceStyles = `
   }
 
   .resilienceDescription {
+    font-weight: var(--cp-font-weight-helper);
     max-width: 30rem;
     margin: 0;
     color: #667085;
@@ -92,7 +93,7 @@ const resilienceStyles = `
     background: var(--panel-accent, #FF6A00);
     color: var(--panel-sidebar, #2A2A2A);
     font-size: .875rem;
-    font-weight: 750;
+    font-weight: var(--cp-font-weight-control);
     text-decoration: none;
     transition: background-color 160ms ease, border-color 160ms ease;
   }

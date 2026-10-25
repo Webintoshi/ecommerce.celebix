@@ -5,7 +5,7 @@
 .secondaryButtons button, .lineRow button, .error button, .confirmation button {
   display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
   border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface);
-  padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 12px; font-weight: 600;
+  padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 12px; font-weight: var(--cp-font-weight-control);
   text-decoration: none; cursor: pointer;
 }
 .primaryAction, .primaryButton, .primaryLink { border-color: var(--cp-graphite); background: var(--cp-graphite); color: var(--cp-text-inverse); }
@@ -17,7 +17,7 @@
 .tableSurface, .stateSurface { min-width: 0; }
 .desktopTable { max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
 .desktopTable table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 12px; }
-.desktopTable th { height: 44px; padding: 8px; border-bottom: 1px solid var(--cp-border); color: var(--cp-text-secondary); font-size: 12px; font-weight: 500; text-align: left; white-space: nowrap; }
+.desktopTable th { height: 44px; padding: 8px; border-bottom: 1px solid var(--cp-border); color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-control); text-align: left; white-space: nowrap; }
 .desktopTable td { height: 64px; padding: 12px 8px; border-bottom: 1px solid var(--cp-border); vertical-align: middle; }
 .desktopTable tr:hover td { background: color-mix(in srgb, var(--cp-graphite) 3%, transparent); }
 .draftColumn, .draftCell { width: 16%; }
@@ -27,13 +27,15 @@
 .inventoryColumn, .inventoryCell { width: 16%; }
 .totalColumn, .totalCell, .actionColumn, .actionCell { text-align: right!important; }
 .updatedColumn, .updatedCell { white-space: nowrap; }
-.customerCell strong, .totalCell strong { font-size: 13px; font-weight: 600; }
+.customerCell strong, .totalCell strong { font-size: 13px; }
+.customerCell strong { font-weight: var(--cp-font-weight-heading); }
+.totalCell strong { font-weight: var(--cp-font-weight-value); }
 .customerCell small, .cardFacts small { display: block; max-width: 200px; margin-top: 4px; overflow: hidden; color: var(--cp-text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.draftNumber { display: inline-flex; min-height: 44px; align-items: center; max-width: 100%; color: var(--cp-text-primary); font-size: 12px; font-weight: 650; overflow-wrap: anywhere; }
+.draftNumber { display: inline-flex; min-height: 44px; align-items: center; max-width: 100%; color: var(--cp-text-primary); font-size: 12px; font-weight: var(--cp-font-weight-control); overflow-wrap: anywhere; }
 .draftNumber:hover { text-decoration: underline; text-underline-offset: 4px; }
 .lineCount, .totalCell { font-variant-numeric: tabular-nums; }
 .inventoryPolicy { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
-.recordLink { border-color: transparent; background: transparent; padding: 0 8px; font-weight: 500; }
+.recordLink { border-color: transparent; background: transparent; padding: 0 8px; font-weight: var(--cp-font-weight-control); }
 .mobileCards { display: none; }
 .draftCard { display: grid; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--cp-border); }
 .cardHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -41,7 +43,7 @@
 .cardFacts > div { min-width: 0; }
 .cardFacts dt { color: var(--cp-text-secondary); font-size: 12px; }
 .cardFacts dd { margin: 4px 0 0; overflow-wrap: anywhere; font-size: 12px; }
-.totalFact dd { font-size: 13px; font-weight: 650; }
+.totalFact dd { font-size: 13px; font-weight: var(--cp-font-weight-value); }
 .draftCard .recordLink { justify-self: end; }
 .loadMore { display: flex; margin: 24px auto 0; }
 .loadingState { display: flex; align-items: center; gap: 12px; padding: 24px 0; color: var(--cp-text-secondary); font-size: 13px; }
@@ -49,34 +51,36 @@
 .loadingRows { display: grid; gap: 12px; }
 .loadingRows span, .editorLoading i { display: block; height: 48px; border-radius: 8px; background: color-mix(in srgb, var(--cp-graphite) 6%, transparent); animation: loading 1.4s ease-in-out infinite alternate; }
 .emptyState { display: grid; min-height: 240px; align-content: center; justify-items: center; gap: 12px; padding: 40px 16px; text-align: center; }
-.emptyState h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.emptyState h2 { margin: 0; font-size: 15px; font-weight: var(--cp-font-weight-heading); }
 .emptyState p { max-width: 420px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .error { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 0; }
-.error h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.error h2 { margin: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
 .error p { margin: 8px 0 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .editorWorkspace { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 320px); align-items: start; gap: 40px; }
 .editorForm { display: grid; min-width: 0; gap: 24px; }
 .formSection { display: grid; min-width: 0; gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--cp-border); }
 .formSection:last-child { border-bottom: 0; }
-.sectionHeading h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.sectionHeading h2 { margin: 0; font-size: 15px; font-weight: var(--cp-font-weight-heading); }
 .editorForm fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .fieldGrid, .addressFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .editorForm label { display: grid; min-width: 0; gap: 8px; color: var(--cp-text-primary); font-size: 12px; }
 .editorForm label > span { color: var(--cp-text-secondary); font-size: 12px; }
 .editorForm :is(input:not([type="checkbox"]), select, textarea) { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 8px 12px; color: var(--cp-text-primary); font: inherit; font-size: 13px; }
+.editorForm input:not([type="checkbox"]), .editorForm textarea { font-weight: var(--cp-font-weight-body); }
+.editorForm select { font-weight: var(--cp-font-weight-control); }
 .editorForm textarea { resize: vertical; }
 .editorForm :is(input, select, textarea):disabled { background: var(--cp-canvas); color: var(--cp-text-secondary); opacity: 1; }
 .fullField { grid-column: 1 / -1; }
-.addressFields legend { margin-bottom: 16px; padding: 0; color: var(--cp-text-secondary); font-size: 12px; font-weight: 600; }
+.addressFields legend { margin-bottom: 16px; padding: 0; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .editorForm .checkRow { display: flex; min-height: 44px; align-items: center; gap: 12px; }
 .checkRow input { width: 20px; height: 20px; flex: none; accent-color: var(--cp-brand); }
 .editorForm .checkRow > span { color: var(--cp-text-primary); font-size: 12px; }
 .lineRows { display: grid; margin-top: 16px; }
 .lineRow { display: grid; grid-template-columns: minmax(0, 1fr) 80px 140px auto; align-items: end; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--cp-border); }
 .lineIdentity { display: grid; align-self: center; min-width: 0; gap: 4px; overflow-wrap: anywhere; }
-.lineIdentity strong { font-size: 13px; font-weight: 600; }
+.lineIdentity strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); }
 .lineIdentity span { color: var(--cp-text-secondary); font-size: 12px; }
-.lineRow button { border-color: transparent; background: transparent; color: var(--cp-text-secondary); font-weight: 500; }
+.lineRow button { border-color: transparent; background: transparent; color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-control); }
 .inlineEmpty, .summaryHint, .choiceWarning { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; }
 .inlineEmpty { padding: 24px 0; }
 .choiceWarning { padding: 12px; border-left: 2px solid var(--cp-brand); }
@@ -87,19 +91,19 @@
 .summaryHeading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .summaryHeading > div { display: grid; min-width: 0; gap: 8px; }
 .summaryHeading span { color: var(--cp-text-secondary); font-size: 12px; }
-.summaryHeading strong { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.summaryHeading strong { font-size: 14px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .summaryFacts { display: grid; gap: 12px; margin: 0; font-size: 12px; }
 .summaryFacts > div { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
 .summaryFacts dt { color: var(--cp-text-secondary); }
 .summaryFacts dd { font-size: 13px; max-width: 60%; margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
-.summaryTotal { border-top: 1px solid var(--cp-border); padding-top: 16px; font-weight: 600; }
+.summaryTotal { border-top: 1px solid var(--cp-border); padding-top: 16px; font-weight: var(--cp-font-weight-value); }
 .summaryTotal dt { color: var(--cp-text-primary); }
 .summaryHint { font-size: 12px; }
 .secondaryButtons { display: grid; gap: 8px; }
 .secondaryButtons .dangerButton, .confirmation .dangerButton { border-color: color-mix(in srgb, var(--cp-danger) 24%, var(--cp-border)); color: var(--cp-danger); background: var(--cp-surface); }
 .confirmation { width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 24px; color: var(--cp-text-primary); }
 .confirmation::backdrop { background: color-mix(in srgb, var(--cp-graphite) 40%, transparent); }
-.confirmation h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.confirmation h2 { margin: 0; font-size: 18px; font-weight: var(--cp-font-weight-heading); }
 .confirmation p { margin: 16px 0 24px; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .confirmation > div { display: flex; justify-content: flex-end; gap: 8px; }
 .editorLoading { display: grid; gap: 16px; padding: 24px 0; color: var(--cp-text-secondary); font-size: 13px; }
@@ -121,7 +125,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .loadingRows span, .editorLoading i { animation-duration: .01ms; } }
 
-.choiceRetry { min-height: 44px; border: 0; border-radius: 8px; background: transparent; padding: 0 8px; color: var(--cp-text-primary); font: inherit; text-decoration: underline; cursor: pointer; }
+.choiceRetry { min-height: 44px; border: 0; border-radius: 8px; background: transparent; padding: 0 8px; color: var(--cp-text-primary); font: inherit; text-decoration: underline; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 @media (max-width: 1024px) { .editorToolbar { gap: 12px; } }
 .editorLoading{grid-template-columns:minmax(0,1fr) minmax(280px,320px);gap:40px;padding:0;min-width:0}
 .editorLoading>div{display:grid;gap:24px;min-width:0}

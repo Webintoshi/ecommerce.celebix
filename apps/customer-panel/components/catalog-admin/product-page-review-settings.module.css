@@ -1,5 +1,5 @@
 .root { display: grid; gap: 16px; min-width: 0; margin-bottom: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--cp-border); color: var(--cp-text-primary); }
-.heading h2 { margin: 0 0 8px; font-size: 16px; font-weight: 650; }
+.heading h2 { margin: 0 0 8px; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
 .heading p { margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .root form { display: grid; gap: 12px; }
 .toggle { display: flex; align-items: center; gap: 12px; min-height: 44px; width: fit-content; max-width: 100%; font-size: 14px; line-height: 1.5; cursor: pointer; }
@@ -8,7 +8,7 @@
 .feedback { margin: 0; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); }
 .feedback p { margin: 0 0 8px; }
 .actions { display: flex; justify-content: flex-end; gap: 12px; }
-.root button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 14px; cursor: pointer; }
+.root button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 14px; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 .root button.primary { border-color: var(--cp-action-primary); background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
 .root button:disabled { opacity: .5; cursor: default; }
 .root :is(button, input):focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 2px; }

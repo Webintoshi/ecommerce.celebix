@@ -18,14 +18,14 @@
 .main, .summary, .section { min-width: 0; }
 .section { padding: 0 0 24px; margin-bottom: 24px; border-bottom: 1px solid var(--edit-border); }
 .section:last-child { margin-bottom: 0; border-bottom: 0; }
-.drawer h3 { font-size: 15px; line-height: 1.4; font-weight: 650; margin: 0 0 12px; }
+.drawer h3 { font-size: 15px; line-height: 1.4; font-weight: var(--cp-font-weight-heading); margin: 0 0 12px; }
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .sectionHeading h3 { margin: 0; }
 .muted { color: var(--edit-muted); font-size: 12px; line-height: 1.6; margin: 8px 0 12px; }
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; min-width: 0; }
 .wide { grid-column: 1 / -1; }
 .drawer label { display: grid; gap: 8px; color: var(--edit-text); font-size: 12px; min-width: 0; }
-.drawer input, .drawer textarea { box-sizing: border-box; min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--edit-border); border-radius: 8px; padding: 12px; color: var(--edit-text); background: var(--cp-surface); font: inherit; font-size: 13px; }
+.drawer input, .drawer textarea { box-sizing: border-box; min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--edit-border); border-radius: 8px; padding: 12px; color: var(--edit-text); background: var(--cp-surface); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-body); }
 .drawer textarea { resize: vertical; line-height: 1.5; }
 .drawer input:disabled, .drawer textarea:disabled { color: var(--edit-muted); background: var(--cp-canvas); opacity: 1; }
 .drawer .check { display: flex; align-items: center; gap: 8px; min-height: 44px; }
@@ -39,19 +39,19 @@
 .products button:hover { background: var(--cp-canvas); }
 .products button > span { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .products button > span:last-child { align-items: flex-end; white-space: nowrap; }
-.products strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.products strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .products small, .line small { color: var(--edit-muted); font-size: 12px; overflow-wrap: anywhere; }
 .lines { display: grid; gap: 12px; margin: 16px 0; }
 .line { min-width: 0; border: 1px solid var(--edit-border); border-radius: 12px; padding: 16px; }
 .lineHeading { display: flex; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 12px; }
 .lineHeading > div { display: grid; gap: 4px; min-width: 0; }
-.lineHeading strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.lineHeading strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .lineFields { display: grid; grid-template-columns: 80px minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-.primary, .secondary, .icon { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--edit-border); border-radius: 8px; background: var(--cp-surface); color: var(--edit-text); font: inherit; font-size: 13px; font-weight: 600; padding: 0 16px; cursor: pointer; }
+.primary, .secondary, .icon { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--edit-border); border-radius: 8px; background: var(--cp-surface); color: var(--edit-text); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); padding: 0 16px; cursor: pointer; }
 .primary { background: var(--cp-action-primary); color: var(--cp-action-primary-text); border-color: var(--cp-action-primary); }
 .primary:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
 .secondary:hover:not(:disabled), .icon:hover:not(:disabled) { background: var(--cp-canvas); }
-.textButton { min-height: 44px; width: fit-content; padding: 0; border: 0; color: var(--edit-muted); background: transparent; font: inherit; font-size: 12px; text-align: left; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.textButton { min-height: 44px; width: fit-content; padding: 0; border: 0; color: var(--edit-muted); background: transparent; font: inherit; font-size: 12px; text-align: left; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 .icon { width: 44px; flex: none; padding: 0; color: var(--edit-muted); border-color: transparent; }
 .drawer button:disabled { cursor: not-allowed; opacity: .5; }
 .summary { position: sticky; top: 16px; padding: 20px; background: var(--cp-canvas); border-radius: 12px; }
@@ -60,7 +60,7 @@
 .totals > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; font-size: 12px; line-height: 1.5; }
 .totals dt { color: var(--edit-muted); }
 .totals dd { flex: none; margin: 0; color: var(--edit-text); font-variant-numeric: tabular-nums; text-align: right; }
-.totals .total { border-top: 1px solid var(--edit-border); padding-top: 16px; font-size: 14px; font-weight: 650; }
+.totals .total { border-top: 1px solid var(--edit-border); padding-top: 16px; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .total dt { color: var(--edit-text); }
 .reason { margin-top: 20px; }
 .error, .notice, .closeGuard { margin: 0 0 16px; padding: 16px; border: 1px solid var(--edit-border); border-radius: 8px; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }

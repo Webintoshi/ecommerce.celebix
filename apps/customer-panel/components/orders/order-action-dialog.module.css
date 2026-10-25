@@ -16,7 +16,7 @@
 }
 .dialog::backdrop { background: rgb(32 28 25 / 32%); }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px 0; }
-.header h2 { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: -.02em; }
+.header h2 { margin: 0; font-size: 18px; font-weight: var(--cp-font-weight-heading); letter-spacing: -.02em; }
 .header button { width: 44px; min-width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--order-muted); cursor: pointer; }
 .header button:hover:not(:disabled) { background: var(--cp-canvas, #f8f7f5); color: var(--order-text); }
 .header button:disabled { opacity: .5; cursor: wait; }

@@ -3,16 +3,19 @@
 .layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 24px; align-items: start; }
 .main { min-width: 0; display: grid; gap: 24px; }
 .editor fieldset { min-width: 0; padding: 0; margin: 0; border: 0; display: grid; gap: 12px; }
-.editor legend { margin-bottom: 12px; font-weight: 600; }
-.editor label { display: grid; gap: 8px; color: var(--cp-text-primary); font-weight: 500; }
+.editor legend { margin-bottom: 12px; font-weight: var(--cp-font-weight-control); }
+.editor label { display: grid; gap: 8px; color: var(--cp-text-primary); font-weight: var(--cp-font-weight-control); }
 .editor :is(input:not([type="checkbox"]), select) { min-width: 0; width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; }
+.editor input:not([type="checkbox"]) { font-weight: var(--cp-font-weight-body); }
+.editor select { font-weight: var(--cp-font-weight-control); }
 .editor :is(button, input, select, a):focus-visible { outline: 2px solid var(--cp-graphite); outline-offset: 2px; }
-.editor button { font: inherit; min-height: 44px; }
+.editor button { font: inherit; min-height: 44px; font-weight: var(--cp-font-weight-control); }
 .editor button:disabled { opacity: .5; cursor: default; }
 .editor :is(h3, h4, p) { margin: 0; }
-.editor h3 { font-size: 16px; font-weight: 600; }
-.editor h4 { font-size: 14px; font-weight: 600; }
+.editor h3 { font-size: 16px; font-weight: var(--cp-font-weight-heading); }
+.editor h4 { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .editor small, .help, .discount { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; }
+.help { font-weight: var(--cp-font-weight-helper); }
 .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .editor .toggle { display: flex; min-height: 44px; gap: 12px; align-items: center; }
 .toggle input { width: 20px; height: 20px; margin: 0; accent-color: var(--cp-graphite); }
@@ -36,7 +39,7 @@
 .selections { margin-top: 0; }
 .selections li, .optionList li { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; border-bottom: 1px solid var(--cp-border); padding: 8px 0; }
 .selections li > span, .optionList li > span { display: grid; min-width: 0; gap: 4px; }
-.selections strong, .optionList strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.selections strong, .optionList strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .picker { display: grid; gap: 16px; padding: 20px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }
 .optionList { margin: 0; max-height: 320px; overflow-y: auto; }
 .pagination { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--cp-text-secondary); }
@@ -62,4 +65,4 @@
 .fieldError { display: block; color: var(--cp-danger); font-size: 13px; line-height: 1.5; margin-top: 4px; }
 .editor [aria-invalid="true"] { border-color: var(--cp-danger); }
 
-.pickerResults{min-width:0;min-height:280px}.pickerLoading{display:grid;gap:12px}.pickerLoading>span:not(:global(.sr-only)){display:block;min-height:72px;border-radius:8px;background:var(--cp-soft)}
+.pickerResults{min-width:0;min-height:280px}.pickerLoading{display:grid;gap:12px}.pickerLoading>span:not(:global(.sr-only)){display:block;min-height:72px;border-radius:8px;background:var(--cp-soft)}.preview { font-weight: 400; }.preview > h4 { font-weight: 600; }

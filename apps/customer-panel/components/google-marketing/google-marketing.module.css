@@ -1,6 +1,6 @@
 .workspace { display: grid; gap: 16px; min-width: 0; color: var(--cp-text-primary); }
 .domain { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; }
-.domain strong { color: var(--cp-text-primary); font-weight: 500; overflow-wrap: anywhere; }
+.domain strong { color: var(--cp-text-primary); font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .domain { min-height: 20px; }
 .domainLoading { display: block; width: min(240px, 65%); height: 20px; }
 .services { border-top: 1px solid var(--cp-border); min-width: 0; }
@@ -8,10 +8,10 @@
 .serviceContent { display: grid; justify-items: start; gap: 8px; min-width: 0; }
 .serviceContent { min-height: 160px; align-content: start; }
 .serviceHeading { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
-.serviceHeading h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
-.description { margin: 0 0 4px; color: var(--cp-text-secondary); font-size: 14px; line-height: 1.6; }
+.serviceHeading h2 { margin: 0; font-size: 18px; font-weight: var(--cp-font-weight-heading); line-height: 1.5; overflow-wrap: anywhere; }
+.description { margin: 0 0 4px; color: var(--cp-text-secondary); font-size: 14px; line-height: 1.6; font-weight: var(--cp-font-weight-helper); }
 .selectionSummary { display: grid; gap: 4px; min-width: 0; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-.selectionSummary strong { font-weight: 500; }
+.selectionSummary strong { font-weight: var(--cp-font-weight-heading); }
 .selectionSummary span, .email { color: var(--cp-text-secondary); }
 .email { margin: 0; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .manage { min-width: 104px; }
@@ -20,6 +20,7 @@
 .feedback { padding: 16px; margin: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-soft); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .feedback p { margin: 0 0 12px; }
 .cardError, .help { margin: 0; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); overflow-wrap: anywhere; }
+.help { font-weight: var(--cp-font-weight-helper); }
 .cardError { color: var(--cp-warning); }
 .dialog { width: min(680px, calc(100% - 32px)); background: var(--cp-canvas); }
 .dialog > header { padding-bottom: 16px; border-bottom: 1px solid var(--cp-border); }
@@ -28,27 +29,27 @@
 .form { display: grid; gap: 16px; min-width: 0; }
 .steps { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; list-style: none; padding: 0; margin: 0; font-size: 13px; color: var(--cp-text-secondary); }
 .steps li { display: flex; align-items: center; gap: 8px; }
-.steps li[aria-current="step"] { color: var(--cp-text-primary); font-weight: 600; }
+.steps li[aria-current="step"] { color: var(--cp-text-primary); font-weight: var(--cp-font-weight-control); }
 .stepNumber { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--cp-soft); }
 .steps li[aria-current="step"] .stepNumber { background: var(--cp-graphite); color: var(--cp-text-inverse); }
 .steps .stepArrow { color: var(--cp-text-secondary); }
 .scope { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 8px 16px; font-size: 13px; line-height: 1.5; }
 .scope span { color: var(--cp-text-secondary); }
-.scope strong { font-weight: 500; overflow-wrap: anywhere; }
+.scope strong { font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .choiceGroup { display: grid; gap: 16px; min-width: 0; }
-.field { display: grid; gap: 8px; min-width: 0; font-size: 13px; font-weight: 500; }
-.field select { display: block; box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; }
+.field { display: grid; gap: 8px; min-width: 0; font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.field select { display: block; box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-weight: var(--cp-font-weight-control); }
 .field select:disabled { opacity: .65; }
 .field select:focus-visible, .details summary:focus-visible, .privacy:focus-visible, .link:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .empty, .externalHelp { display: grid; justify-items: start; gap: 8px; }
 .empty p, .connectPrompt p, .applySummary p, .removePrompt p { margin: 0; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); overflow-wrap: anywhere; }
 .externalHelp { border-top: 1px solid var(--cp-border); padding-top: 16px; }
-.link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: 500; max-width: 100%; overflow-wrap: anywhere; }
+.link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: var(--cp-font-weight-control); max-width: 100%; overflow-wrap: anywhere; }
 .link svg { flex: none; }
 .link:hover { text-decoration: underline; text-underline-offset: 4px; }
 .connectPrompt { display: grid; grid-template-columns: 144px minmax(0, 1fr); align-items: center; gap: 20px; }
 .connectPrompt .artwork { width: 144px; }
-.connectPrompt h3, .removePrompt h3 { margin: 0 0 8px; font-size: 16px; font-weight: 600; line-height: 1.5; }
+.connectPrompt h3, .removePrompt h3 { margin: 0 0 8px; font-size: 16px; font-weight: var(--cp-font-weight-heading); line-height: 1.5; }
 .applySummary { display: flex; align-items: start; gap: 12px; border-top: 1px solid var(--cp-border); padding-top: 16px; }
 .applySummary > svg { flex: none; color: var(--cp-text-secondary); }
 .applySummary > div { display: grid; gap: 4px; min-width: 0; }
@@ -86,7 +87,7 @@
   .serviceRow > .artwork { width: 80px; }
   .serviceHeading { gap: 8px; }
   .serviceHeading h2 { font-size: 16px; }
-  .description { font-size: 13px; }
+  .description { font-size: 13px; font-weight: var(--cp-font-weight-helper); }
   .manage { grid-column: 2; justify-self: start; }
   .dialog { width: calc(100% - 24px); }
   .steps { gap: 8px; font-size: 12px; }

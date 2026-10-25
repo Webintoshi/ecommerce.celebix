@@ -15,7 +15,7 @@
 .previewHeading h2 {
   margin: 0;
   font-size: 1rem;
-  font-weight: 780;
+  font-weight: var(--cp-font-weight-heading);
   letter-spacing: -.015em;
 }
 
@@ -48,7 +48,7 @@
   background: transparent;
   font: inherit;
   font-size: .72rem;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
   cursor: pointer;
   transition: color .16s ease, background-color .16s ease, box-shadow .16s ease;
 }
@@ -585,4 +585,8 @@
   .modeButton,
   .previewViewport { transition-duration: .01ms; }
   .previewMarqueeTrack { animation-duration: .01ms; animation-iteration-count: 1; }
+}
+
+.previewStore {
+  font-weight: 400;
 }

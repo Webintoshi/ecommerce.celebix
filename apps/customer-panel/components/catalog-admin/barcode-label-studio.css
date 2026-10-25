@@ -25,9 +25,9 @@
 .barcode-studio *::before,
 .barcode-studio *::after { box-sizing: border-box; }
 .barcode-studio :is(h2, h3, p) { margin: 0; }
-.barcode-studio h2 { font-size: 14px; font-weight: 600; line-height: 1.5; }
-.barcode-studio h3 { font-size: 13px; font-weight: 600; line-height: 1.5; }
-.barcode-studio small { color: var(--barcode-muted); font-size: 12px; font-weight: 400; line-height: 1.5; }
+.barcode-studio h2 { font-size: 14px; font-weight: var(--cp-font-weight-heading); line-height: 1.5; }
+.barcode-studio h3 { font-size: 13px; font-weight: var(--cp-font-weight-heading); line-height: 1.5; }
+.barcode-studio small { color: var(--barcode-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); line-height: 1.5; }
 .barcode-studio :is(button, input, select, textarea) { font-family: inherit; }
 .barcode-studio :is(button, summary) { cursor: pointer; }
 .barcode-studio :is(button, input, select, textarea, summary, a):focus-visible {
@@ -38,17 +38,17 @@
 .barcode-studio input[type="checkbox"] { width: 20px; height: 20px; min-height: 20px; flex: none; margin: 0; padding: 0; accent-color: var(--barcode-text); }
 .barcode-studio .barcode-checkbox-control { display: inline-flex; width: 44px; min-height: 44px; align-items: center; justify-content: center; cursor: pointer; }
 .barcode-studio .barcode-studio-header { display: flex; justify-content: flex-end; align-items: center; min-width: 0; }
-.barcode-studio .barcode-header-meta { display: inline-flex; align-items: center; gap: 8px; color: var(--barcode-muted); font-size: 12px; }
+.barcode-studio .barcode-header-meta { display: inline-flex; align-items: center; gap: 8px; color: var(--barcode-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .barcode-studio .barcode-header-meta svg { width: 16px; height: 16px; }
 
 /* Steps stay open and quiet; completion is determined by the component. */
 .barcode-studio .barcode-flow-head { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-width: 0; border-bottom: 1px solid var(--barcode-border); }
 .barcode-studio .barcode-steps { display: flex; align-items: stretch; gap: 32px; min-width: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.barcode-studio .barcode-steps button { position: relative; display: inline-flex; align-items: center; justify-content: flex-start; gap: 12px; min-width: 0; min-height: 64px; border: 0; border-radius: 0; padding: 12px 0; background: transparent; color: var(--barcode-muted); font-size: 13px; font-weight: 500; text-align: left; }
+.barcode-studio .barcode-steps button { position: relative; display: inline-flex; align-items: center; justify-content: flex-start; gap: 12px; min-width: 0; min-height: 64px; border: 0; border-radius: 0; padding: 12px 0; background: transparent; color: var(--barcode-muted); font-size: 13px; font-weight: var(--cp-font-weight-control); text-align: left; }
 .barcode-studio .barcode-steps button > span:first-child { display: grid; flex: none; width: 28px; height: 28px; place-items: center; border: 1px solid var(--barcode-border); border-radius: 50%; background: transparent; font-size: 12px; }
 .barcode-studio .barcode-steps button > span:not(:first-child) { display: grid; min-width: 0; gap: 4px; }
-.barcode-studio .barcode-steps button strong { font-size: 13px; font-weight: 600; }
-.barcode-studio .barcode-steps button small { font-size: 11px; }
+.barcode-studio .barcode-steps button strong { font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.barcode-studio .barcode-steps button small { font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .barcode-studio .barcode-steps button.active { color: var(--barcode-text); background: transparent; box-shadow: none; }
 .barcode-studio .barcode-steps button.active::after { position: absolute; inset: auto 0 -1px; height: 2px; background: var(--barcode-text); content: ""; }
 .barcode-studio .barcode-steps button.active > span:first-child { border-color: var(--barcode-text); background: var(--barcode-text); color: var(--barcode-surface); }
@@ -61,7 +61,7 @@
   min-width: 44px; min-height: 44px; border: 1px solid var(--barcode-border);
   border-radius: 8px; padding: 8px 12px; background: var(--barcode-surface);
   color: var(--barcode-text); box-shadow: none; font-size: 12px;
-  font-weight: 550; line-height: 1.4; text-decoration: none; transform: none;
+  font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; transform: none;
 }
 .barcode-studio :is(.button, .barcode-history-button, .barcode-preset-row > button, .barcode-selection-status > button, .barcode-missing-action > button, .barcode-actionbar > div > button, .barcode-fix-action, .preview-placeholder button, .blocking-errors button, .barcode-pagination button, .quantity-modes button, .hidden-selection button, .barcode-size-options button):hover:not(:disabled) { border-color: var(--barcode-text); background: var(--barcode-canvas); box-shadow: none; transform: none; }
 .barcode-studio .button.button-primary { border-color: var(--barcode-text); background: var(--barcode-text); color: var(--barcode-surface); }
@@ -75,7 +75,10 @@
   width: 100%; min-width: 0; max-width: 100%; min-height: 44px;
   border: 1px solid var(--barcode-border); border-radius: 8px;
   padding: 8px 12px; background: var(--barcode-surface); color: var(--barcode-text);
-  font-size: 13px; font-weight: 400;
+  font-size: 13px; font-weight: var(--cp-font-weight-body);
+}
+.barcode-studio :is(.barcode-toolbar input, .barcode-toolbar select, .editor-card input:not([type="checkbox"]), .editor-card select, .quantity-modes input, .barcode-pagination select, .barcode-actionbar select, .barcode-history-dialog input:not([type="checkbox"]), .barcode-history-dialog select, .output-panel input:not([type="checkbox"]), .output-panel select):is(select) {
+  font-weight: var(--cp-font-weight-control);
 }
 
 /* Main work area and preview rail. */
@@ -112,18 +115,18 @@
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) { width: 100%; min-width: 0; max-width: 100%; min-height: 320px; overflow-x: auto; border: 0; border-radius: 0; background: transparent; }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) table { width: 100%; min-width: 760px; border-collapse: collapse; }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) :is(th, td) { padding: 12px 8px; border-bottom: 1px solid var(--barcode-border); color: var(--barcode-text); text-align: left; vertical-align: middle; font-size: 12px; line-height: 1.5; }
-.barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) th { height: 44px; background: transparent; color: var(--barcode-muted); font-size: 11px; font-weight: 500; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+.barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) th { height: 44px; background: transparent; color: var(--barcode-muted); font-size: 11px; font-weight: var(--cp-font-weight-control); text-transform: none; letter-spacing: 0; white-space: nowrap; }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) :is(th, td):first-child { width: 44px; padding-left: 0; }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) tr.selected td { background: var(--barcode-selected); }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td:nth-child(2) { min-width: 160px; max-width: 240px; }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td:nth-child(3) { min-width: 48px; }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td:nth-child(4) { max-width: 144px; }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td:nth-child(5) { max-width: 160px; }
-.barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td strong { display: block; font-weight: 600; overflow-wrap: anywhere; }
-.barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td small { display: block; margin-top: 4px; font-size: 11px; }
+.barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td strong { display: block; font-weight: var(--cp-font-weight-value); overflow-wrap: anywhere; }
+.barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td small { display: block; margin-top: 4px; font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; }
-.barcode-studio .missing-badge { display: inline-flex; align-items: center; gap: 4px; padding: 0; background: transparent; color: var(--barcode-muted); font-size: 12px; font-weight: 500; }
-.barcode-studio .invalid-barcode-badge { display: block; margin-top: 4px; color: var(--danger, #b72d31); font-size: 11px; font-weight: 500; overflow-wrap: anywhere; }
+.barcode-studio .missing-badge { display: inline-flex; align-items: center; gap: 4px; padding: 0; background: transparent; color: var(--barcode-muted); font-size: 12px; font-weight: var(--cp-font-weight-body); }
+.barcode-studio .invalid-barcode-badge { display: block; margin-top: 4px; color: var(--danger, #b72d31); font-size: 11px; font-weight: var(--cp-font-weight-helper); overflow-wrap: anywhere; }
 .barcode-studio .quantity-input { width: 72px; min-height: 44px; border: 1px solid var(--barcode-border); border-radius: 8px; padding: 8px; background: var(--barcode-surface); color: var(--barcode-text); font-size: 13px; font-variant-numeric: tabular-nums; }
 .barcode-studio .icon-action { display: inline-grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--barcode-muted); }
 .barcode-studio .icon-action:hover:not(:disabled) { background: var(--barcode-selected); color: var(--barcode-text); }
@@ -140,15 +143,15 @@
 .barcode-studio .editor-card + .editor-card { border-top: 1px solid var(--barcode-border); padding-top: 24px; }
 .barcode-studio .editor-card:last-child { grid-column: auto; }
 .barcode-studio .editor-card h2 { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
-.barcode-studio .editor-card label { display: grid; min-width: 0; gap: 8px; color: var(--barcode-text); font-size: 12px; font-weight: 500; }
+.barcode-studio .editor-card label { display: grid; min-width: 0; gap: 8px; color: var(--barcode-text); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .barcode-studio .dimension-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
 .barcode-studio .editor-card .inline-check,
 .barcode-studio .inline-check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
 .barcode-studio .barcode-paper-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; }
 .barcode-studio .barcode-paper-option { position: relative; display: grid; align-content: start; justify-items: start; gap: 8px; min-width: 0; min-height: 136px; padding: 12px; border: 1px solid var(--barcode-border); border-radius: 8px; background: transparent; color: var(--barcode-text); text-align: left; }
 .barcode-studio .barcode-paper-option[aria-pressed="true"] { border-color: var(--barcode-text); background: var(--barcode-surface); }
-.barcode-studio .barcode-paper-option strong { font-size: 13px; font-weight: 600; }
-.barcode-studio .barcode-paper-option small { font-size: 11px; }
+.barcode-studio .barcode-paper-option strong { font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.barcode-studio .barcode-paper-option small { font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .barcode-studio .barcode-paper-art { display: block; width: 100%; max-width: 120px; height: 64px; justify-self: center; color: var(--barcode-muted); }
 .barcode-studio .barcode-paper-art svg { width: 100px; max-width: 100%; height: 64px; }
 .barcode-studio .barcode-size-options { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -177,15 +180,15 @@
 .barcode-studio .barcode-field-settings :is(input:not([type="checkbox"]), select) { width: 100%; }
 .barcode-studio .barcode-field-settings .auto-shrink { grid-column: 1 / -1; }
 .barcode-studio .barcode-advanced-settings { min-width: 0; border-top: 1px solid var(--barcode-border); border-bottom: 1px solid var(--barcode-border); }
-.barcode-studio .barcode-advanced-settings > summary { display: flex; align-items: center; gap: 8px; min-height: 56px; color: var(--barcode-text); font-size: 13px; font-weight: 600; list-style: none; }
+.barcode-studio .barcode-advanced-settings > summary { display: flex; align-items: center; gap: 8px; min-height: 56px; color: var(--barcode-text); font-size: 13px; font-weight: var(--cp-font-weight-control); list-style: none; }
 .barcode-studio .barcode-advanced-settings > summary::-webkit-details-marker { display: none; }
 .barcode-studio .barcode-advanced-settings > summary > svg { width: 16px; height: 16px; flex: none; }
 .barcode-studio .barcode-advanced-settings[open] > summary > svg { transform: rotate(180deg); }
 .barcode-studio .barcode-advanced-settings .dimension-grid { padding: 8px 0 20px; }
 .barcode-studio :is(.saved-list, .job-list) { display: grid; gap: 0; min-width: 0; }
 .barcode-studio :is(.saved-list, .job-list) button { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; min-height: 48px; border: 0; border-bottom: 1px solid var(--barcode-border); border-radius: 0; padding: 12px 0; background: transparent; color: var(--barcode-text); text-align: left; }
-.barcode-studio :is(.saved-list, .job-list) button > span { min-width: 0; font-size: 13px; font-weight: 550; overflow-wrap: anywhere; }
-.barcode-studio :is(.saved-list, .job-list) small { font-size: 12px; overflow-wrap: anywhere; }
+.barcode-studio :is(.saved-list, .job-list) button > span { min-width: 0; font-size: 13px; font-weight: var(--cp-font-weight-control); overflow-wrap: anywhere; }
+.barcode-studio :is(.saved-list, .job-list) small { font-size: 12px; overflow-wrap: anywhere; font-weight: var(--cp-font-weight-helper); }
 .barcode-studio .saved-template-row { display: grid; gap: 8px; min-width: 0; padding: 12px 0; border: 0; border-bottom: 1px solid var(--barcode-border); border-radius: 0; }
 .barcode-studio .saved-template-row > button { border: 0; padding: 0; }
 .barcode-studio .saved-template-row > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -200,12 +203,12 @@
 .barcode-studio .zpl-disclosure { display: grid; gap: 8px; min-width: 0; color: var(--barcode-muted); font-size: 12px; }
 .barcode-studio .zpl-disclosure span { color: var(--danger, #b72d31); overflow-wrap: anywhere; }
 .barcode-studio .blocking-errors { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid color-mix(in srgb, var(--danger, #b72d31) 25%, var(--barcode-border)); border-radius: 8px; background: color-mix(in srgb, var(--danger, #b72d31) 4%, var(--barcode-surface)); color: var(--danger, #b72d31); font-size: 12px; overflow-wrap: anywhere; }
-.barcode-studio .internal-report > summary { display: flex; align-items: center; min-height: 44px; font-size: 12px; font-weight: 550; }
+.barcode-studio .internal-report > summary { display: flex; align-items: center; min-height: 44px; font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .barcode-studio .internal-report > div { display: grid; gap: 8px; min-width: 0; padding-top: 8px; }
-.barcode-studio .barcode-ready { display: flex; align-items: center; gap: 8px; color: var(--success, #177b50); font-size: 13px; font-weight: 500; }
+.barcode-studio .barcode-ready { display: flex; align-items: center; gap: 8px; color: var(--success, #177b50); font-size: 13px; font-weight: var(--cp-font-weight-body); }
 .barcode-studio .barcode-ready svg { width: 16px; height: 16px; }
 .barcode-studio .barcode-start-options { display: grid; gap: 16px; min-width: 0; border-top: 1px solid var(--barcode-border); padding-top: 20px; }
-.barcode-studio .barcode-start-options > label { display: grid; gap: 8px; width: 100%; max-width: 320px; min-width: 0; font-size: 12px; font-weight: 500; }
+.barcode-studio .barcode-start-options > label { display: grid; gap: 8px; width: 100%; max-width: 320px; min-width: 0; font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .barcode-studio .internal-report { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--barcode-border); border-radius: 8px; background: var(--barcode-surface); color: var(--barcode-text); font-size: 12px; overflow-wrap: anywhere; }
 .barcode-studio .barcode-start-grid { display: grid; grid-template-columns: repeat(var(--barcode-columns, 3), minmax(44px, 1fr)); gap: 4px; width: 100%; max-width: 320px; overflow-x: auto; overscroll-behavior-x: contain; padding: 12px; border: 1px solid var(--barcode-border); border-radius: 4px; background: var(--barcode-surface); }
 .barcode-studio .barcode-start-cell { display: grid; min-width: 44px; min-height: 44px; place-items: center; border: 1px solid var(--barcode-border); border-radius: 4px; padding: 4px; background: var(--barcode-soft); color: var(--barcode-text); font-size: 11px; }
@@ -214,13 +217,13 @@
 .barcode-studio .barcode-start-cell[data-used="true"] { background: transparent; color: var(--barcode-muted); }
 .barcode-studio .barcode-start-cell.active,
 .barcode-studio .barcode-start-cell.start,
-.barcode-studio .barcode-start-cell[aria-pressed="true"] { border: 2px solid var(--barcode-accent); background: var(--barcode-surface); font-weight: 600; }
+.barcode-studio .barcode-start-cell[aria-pressed="true"] { border: 2px solid var(--barcode-accent); background: var(--barcode-surface); font-weight: var(--cp-font-weight-control); }
 .barcode-studio .barcode-start-cell.printing,
 .barcode-studio .barcode-start-cell[data-printing="true"] { background: var(--barcode-text); color: var(--barcode-surface); }
 
 /* Live preview remains visible alongside the work, inline on compact screens. */
 .barcode-studio .barcode-summary { position: sticky; top: 84px; display: grid; gap: 16px; min-width: 0; max-width: 100%; padding: 0 0 0 24px; border: 0; border-left: 1px solid var(--barcode-border); border-radius: 0; background: transparent; box-shadow: none; }
-.barcode-studio .summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; color: var(--barcode-text); font-size: 13px; font-weight: 600; letter-spacing: 0; }
+.barcode-studio .summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; color: var(--barcode-text); font-size: 13px; font-weight: var(--cp-font-weight-heading); letter-spacing: 0; }
 .barcode-studio .summary-heading button { display: none; }
 .barcode-studio .barcode-label-navigation { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; color: var(--barcode-muted); font-size: 12px; }
 .barcode-studio .barcode-label-navigation button { display: grid; width: 44px; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: 8px; padding: 0; background: transparent; color: var(--barcode-muted); }
@@ -234,16 +237,16 @@
 .barcode-studio .barcode-live-symbol svg { display: block; width: 100%; max-width: 100%; max-height: 80px; }
 .barcode-studio .preview-placeholder { display: grid; justify-items: center; gap: 12px; min-width: 0; color: var(--barcode-muted); text-align: center; font-size: 12px; }
 .barcode-studio .barcode-preview-context { display: grid; gap: 4px; min-width: 0; }
-.barcode-studio .barcode-preview-context strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.barcode-studio .barcode-preview-context strong { font-size: 13px; font-weight: var(--cp-font-weight-body); overflow-wrap: anywhere; }
 .barcode-studio .barcode-preview-context span { color: var(--barcode-muted); font-size: 12px; overflow-wrap: anywhere; }
 .barcode-studio .barcode-summary-numbers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; border-top: 1px solid var(--barcode-border); padding-top: 16px; }
 .barcode-studio .barcode-summary-numbers > div { display: grid; gap: 4px; min-width: 0; }
 .barcode-studio .barcode-summary-numbers :is(dt, span, small) { color: var(--barcode-muted); font-size: 12px; }
-.barcode-studio .barcode-summary-numbers :is(dd, strong) { margin: 0; color: var(--barcode-text); font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.barcode-studio .barcode-summary-numbers :is(dd, strong) { margin: 0; color: var(--barcode-text); font-size: 24px; font-weight: var(--cp-font-weight-value); font-variant-numeric: tabular-nums; }
 .barcode-studio .barcode-summary dl:not(.barcode-summary-numbers) { display: grid; gap: 12px; min-width: 0; margin: 0; }
 .barcode-studio .barcode-summary dl:not(.barcode-summary-numbers) > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
 .barcode-studio .barcode-summary dl:not(.barcode-summary-numbers) dt { color: var(--barcode-muted); font-size: 12px; }
-.barcode-studio .barcode-summary dl:not(.barcode-summary-numbers) dd { min-width: 0; max-width: 65%; margin: 0; text-align: right; color: var(--barcode-text); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.barcode-studio .barcode-summary dl:not(.barcode-summary-numbers) dd { min-width: 0; max-width: 65%; margin: 0; text-align: right; color: var(--barcode-text); font-size: 12px; font-weight: var(--cp-font-weight-body); overflow-wrap: anywhere; }
 .barcode-studio .summary-next { width: 100%; }
 .barcode-studio .clear-selection { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border: 0; border-radius: 8px; padding: 8px; font-size: 12px; text-decoration: none; }
 
@@ -254,8 +257,8 @@
 .barcode-studio .barcode-actionbar > div > button:not(.button-primary) { border-color: transparent; background: transparent; color: var(--barcode-muted); }
 .barcode-studio .barcode-actionbar > div > button svg { width: 16px; height: 16px; }
 .barcode-studio .barcode-actionbar > div:first-child > span { color: var(--barcode-muted); font-size: 12px; }
-.barcode-studio .barcode-actionbar strong { font-size: 13px; font-weight: 600; }
-.barcode-studio .barcode-actionbar small { font-size: 12px; }
+.barcode-studio .barcode-actionbar strong { font-size: 13px; font-weight: var(--cp-font-weight-value); }
+.barcode-studio .barcode-actionbar small { font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .barcode-studio .barcode-actionbar .button-primary { min-width: 160px; }
 
 /* Native history modal, scoped through its owning studio. */
@@ -310,7 +313,7 @@
   .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td { display: block; width: auto; min-width: 0; max-width: none; padding: 0; border: 0; font-size: 13px; overflow-wrap: anywhere; }
   .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) tr.selected td { background: transparent; }
   .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) tr.selected { background: var(--barcode-selected); }
-  .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td::before { display: block; margin-bottom: 4px; color: var(--barcode-muted); font-size: 11px; font-weight: 400; content: attr(data-label); }
+  .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td::before { display: block; margin-bottom: 4px; color: var(--barcode-muted); font-size: 11px; font-weight: var(--cp-font-weight-control); content: attr(data-label); }
   .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td:nth-child(1) { grid-column: 1; grid-row: 1 / 3; width: 44px; min-width: 44px; padding: 0; }
   .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td:nth-child(2) { grid-column: 2 / -1; grid-row: 1; min-width: 0; max-width: none; }
   .barcode-studio :is(.barcode-table-shell, .barcode-table-wrap) td:nth-child(3) { grid-column: 2 / -1; grid-row: 2; min-width: 0; }
@@ -335,7 +338,7 @@
   .barcode-studio .barcode-paper-options { gap: 8px; }
   .barcode-studio .barcode-paper-option { min-height: 124px; padding: 8px; }
   .barcode-studio .barcode-paper-option strong { font-size: 12px; }
-  .barcode-studio .barcode-paper-option small { font-size: 11px; }
+  .barcode-studio .barcode-paper-option small { font-size: 11px; font-weight: var(--cp-font-weight-helper); }
   .barcode-studio .barcode-paper-art { height: 56px; }
   .barcode-studio .barcode-paper-art svg { width: 80px; height: 56px; }
   .barcode-studio .dimension-grid { grid-template-columns: minmax(0, 1fr); gap: 12px; }
@@ -355,7 +358,7 @@
   .barcode-studio .barcode-actionbar { gap: 8px; }
   .barcode-studio .barcode-actionbar > div:first-child { flex: 1; }
   .barcode-studio .barcode-actionbar strong { font-size: 12px; }
-  .barcode-studio .barcode-actionbar small { max-width: 140px; font-size: 11px; }
+  .barcode-studio .barcode-actionbar small { max-width: 140px; font-size: 11px; font-weight: var(--cp-font-weight-helper); }
   .barcode-studio .barcode-actionbar > div:last-child { flex-wrap: nowrap; }
   .barcode-studio .barcode-actionbar :is(.button, button) { padding-inline: 8px; font-size: 12px; }
   .barcode-studio .barcode-actionbar .button-primary { min-width: 0; }

@@ -13,6 +13,14 @@ section.root:global(.product-detail-section) {
 }
 
 .root button, .root input { font: inherit; }
+
+.root button {
+  font-weight: var(--cp-font-weight-control);
+}
+
+.root input {
+  font-weight: var(--cp-font-weight-body);
+}
 .root button { cursor: pointer; }
 .root button:disabled { cursor: default; opacity: .48; }
 .root button:focus-visible, .root input:focus-visible, .root form:focus-visible {
@@ -35,7 +43,7 @@ section.root:global(.product-detail-section) {
   gap: 8px;
   margin: 0;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-heading);
   letter-spacing: -.025em;
   line-height: 1.2;
 }
@@ -50,7 +58,7 @@ section.root:global(.product-detail-section) {
   padding: 0 6px;
   color: var(--detail-muted, #79716b);
   font-size: 11px;
-  font-weight: 650;
+  font-weight: var(--cp-font-weight-helper);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
@@ -66,7 +74,7 @@ section.root:global(.product-detail-section) {
   padding: 0 2px;
   color: var(--detail-muted, #79716b);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
   white-space: nowrap;
 }
 .tabs button[aria-selected="true"] {
@@ -109,7 +117,7 @@ section.root:global(.product-detail-section) {
   padding: 0 7px;
   color: var(--catalog-text, #2b2b2b);
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-helper);
   font-variant-numeric: tabular-nums;
 }
 .purgedImage { display: grid; width: 100%; height: 100%; place-items: center; color: var(--detail-muted, #79716b); }
@@ -143,7 +151,7 @@ section.root:global(.product-detail-section) {
   overflow: hidden;
   color: var(--catalog-text, #2b2b2b);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-heading);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -190,8 +198,8 @@ section.root:global(.product-detail-section) {
 }
 .addButton:hover:not(:disabled) { background: rgba(254, 97, 0, .06); color: var(--catalog-text, #2b2b2b); }
 .addButton svg { width: 22px; height: 22px; margin-bottom: 4px; stroke-width: 1.7; }
-.addButton strong { font-size: 12px; font-weight: 700; }
-.addButton small { font-size: 11px; font-weight: 500; }
+.addButton strong { font-size: 12px; font-weight: var(--cp-font-weight-control); }
+.addButton small { font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .uploadForm[data-expanded="true"] > .addButton {
   min-height: 44px;
   aspect-ratio: auto;
@@ -221,9 +229,9 @@ section.root:global(.product-detail-section) {
 }
 .uploadDetails > span:first-child svg { width: 24px; height: 24px; }
 .uploadFields { display: grid; gap: 6px; min-width: 0; }
-.fileName { overflow: hidden; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-.bulkHint { color: var(--detail-muted, #79716b); font-size: 11px; line-height: 1.4; }
-.field { display: grid; gap: 5px; min-width: 0; color: var(--catalog-text, #2b2b2b); font-size: 12px; font-weight: 650; }
+.fileName { overflow: hidden; font-size: 12px; font-weight: var(--cp-font-weight-body); text-overflow: ellipsis; white-space: nowrap; }
+.bulkHint { color: var(--detail-muted, #79716b); font-size: 11px; line-height: 1.4; font-weight: var(--cp-font-weight-helper); }
+.field { display: grid; gap: 5px; min-width: 0; color: var(--catalog-text, #2b2b2b); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .field input {
   width: 100%;
   min-width: 0;
@@ -234,7 +242,7 @@ section.root:global(.product-detail-section) {
   padding: 0 10px;
   color: var(--catalog-text, #2b2b2b);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: var(--cp-font-weight-body);
 }
 .field input::placeholder { color: var(--detail-muted, #79716b); }
 .uploadActions { display: flex; grid-column: 1 / -1; justify-content: flex-end; gap: 8px; }
@@ -262,7 +270,7 @@ section.root:global(.product-detail-section) {
   padding: 0 12px;
   color: var(--catalog-text, #2b2b2b);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
   white-space: nowrap;
 }
 .quietButton:hover:not(:disabled) { background: var(--catalog-canvas, #f8f7f5); }
@@ -284,7 +292,7 @@ section.root:global(.product-detail-section) {
   line-height: 1.5;
 }
 .error { justify-content: space-between; border-left-color: var(--danger, #b72d31); color: var(--danger, #b72d31); }
-.error button { min-height: 44px; border: 0; background: transparent; color: inherit; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.error button { min-height: 44px; border: 0; background: transparent; color: inherit; font-size: 12px; font-weight: var(--cp-font-weight-control); white-space: nowrap; }
 .empty { display: grid; justify-items: center; align-content: center; gap: 8px; min-height: 188px; text-align: center; }
 .empty svg { width: 24px; height: 24px; color: var(--detail-muted, #79716b); }
 .empty strong { font-size: 13px; }

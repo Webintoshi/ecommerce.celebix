@@ -16,7 +16,7 @@
 .page { display: grid; min-width: 0; gap: 24px; background: transparent; }
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .commandBar, .dialogActions, .drawerActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.primaryButton, .secondaryButton, .plannedButton, .iconButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-surface); padding: 8px 16px; color: var(--pay-text); cursor: pointer; font: inherit; font-size: 13px; font-weight: 550; line-height: 1.4; }
+.primaryButton, .secondaryButton, .plannedButton, .iconButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-surface); padding: 8px 16px; color: var(--pay-text); cursor: pointer; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); line-height: 1.4; }
 .primaryButton { border-color: var(--pay-text); background: var(--pay-text); color: var(--pay-surface); }
 .primaryButton:hover:not(:disabled) { filter: brightness(.85); }
 .secondaryButton:hover:not(:disabled), .iconButton:hover:not(:disabled) { background: var(--pay-soft); border-color: var(--pay-muted); }
@@ -29,8 +29,8 @@
 .summaryMetrics { display: flex; flex-wrap: wrap; gap: 24px; margin: 0; }
 .summaryMetrics > div { display: grid; gap: 4px; }
 .summaryMetrics dt { order: 2; color: var(--pay-muted); font-size: 12px; }
-.summaryMetrics dd { margin: 0; color: var(--pay-text); font-size: 18px; font-weight: 600; }
-.tone-success, .tone-warning, .tone-danger, .tone-neutral { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 500; line-height: 1.5; }
+.summaryMetrics dd { margin: 0; color: var(--pay-text); font-size: 18px; font-weight: var(--cp-font-weight-value); }
+.tone-success, .tone-warning, .tone-danger, .tone-neutral { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: var(--cp-font-weight-body); line-height: 1.5; }
 .tone-success::before, .tone-warning::before, .tone-danger::before, .tone-neutral::before { width: 6px; height: 6px; flex: 0 0 6px; border-radius: 50%; background: currentColor; content: ''; }
 .tone-success { color: var(--pay-success); }
 .tone-warning { color: var(--pay-warning); }
@@ -44,14 +44,17 @@
 .loadError { align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .methodsPanel, .providerWorkspace { min-width: 0; background: transparent; }
 .workspaceSectionHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 0 16px; }
-.workspaceSectionHeader h2 { margin: 0; font-size: 14px; font-weight: 600; }
+.workspaceSectionHeader h2 { margin: 0; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .workspaceSectionHeader p, .workspaceNote { margin: 4px 0 0; color: var(--pay-muted); font-size: 13px; line-height: 1.6; }
-.workspaceNote { margin: 0 0 16px; }
+.workspaceNote {
+  font-weight: var(--cp-font-weight-helper);
+}
+.workspaceNote { margin: 0 0 16px; font-weight: var(--cp-font-weight-helper); }
 .workspaceTabs, .addFlowTabs { display: flex; min-width: 0; gap: 24px; border-bottom: 1px solid var(--pay-border); overflow-x: auto; }
-.workspaceTabs button, .addFlowTabs button { position: relative; display: inline-flex; min-width: 44px; min-height: 48px; flex: 0 0 auto; align-items: center; gap: 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 0 4px; color: var(--pay-muted); cursor: pointer; font: inherit; font-size: 13px; white-space: nowrap; }
+.workspaceTabs button, .addFlowTabs button { position: relative; display: inline-flex; min-width: 44px; min-height: 48px; flex: 0 0 auto; align-items: center; gap: 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 0 4px; color: var(--pay-muted); cursor: pointer; font: inherit; font-size: 13px; white-space: nowrap; font-weight: var(--cp-font-weight-control); }
 .workspaceTabs button svg, .addFlowTabs button svg { width: 16px; height: 16px; }
 .workspaceTabs button > span { color: var(--pay-muted); font-size: 12px; }
-.workspaceTabs .activeWorkspaceTab, .addFlowTabs .activeAddFlowTab { border-bottom-color: var(--pay-brand); color: var(--pay-text); font-weight: 600; }
+.workspaceTabs .activeWorkspaceTab, .addFlowTabs .activeAddFlowTab { border-bottom-color: var(--pay-brand); color: var(--pay-text); font-weight: var(--cp-font-weight-control); }
 .workspaceTabs button:hover, .addFlowTabs button:hover { color: var(--pay-text); }
 .loadingState, .dialogState { margin: 0; padding: 32px 16px; color: var(--pay-muted); font-size: 13px; text-align: center; }
 .emptyMethods { display: grid; justify-items: center; gap: 12px; padding: 40px 16px; text-align: center; }
@@ -62,7 +65,7 @@
 .emptyMethods > span { color: var(--pay-muted); font-size: 12px; }
 .methodTableWrap { min-width: 0; border-top: 1px solid var(--pay-border); }
 .methodTable { width: 100%; border-collapse: collapse; font-size: 13px; }
-.methodTable th { padding: 12px 16px 12px 0; color: var(--pay-muted); font-size: 12px; font-weight: 500; text-align: left; }
+.methodTable th { padding: 12px 16px 12px 0; color: var(--pay-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); text-align: left; }
 .methodTable td { border-top: 1px solid var(--pay-border); padding: 16px 16px 16px 0; vertical-align: middle; }
 .methodTable th:last-child, .methodTable td:last-child { padding-right: 0; text-align: right; }
 .methodTable th:first-child, .methodTable td:first-child { width: 30%; }
@@ -70,7 +73,7 @@
 .profileState { display: block; margin-top: 4px; color: var(--pay-muted); font-size: 12px; }
 .methodIdentity { display: flex; align-items: center; gap: 16px; }
 .methodIdentity > span:last-child { display: grid; min-width: 0; gap: 4px; }
-.methodIdentity strong { overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+.methodIdentity strong { overflow-wrap: anywhere; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .methodIdentity small, .checkoutPreferenceSummary { color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .checkoutPreferenceSummary { display: block; margin-top: 4px; }
 .methodLogo { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border: 1px solid var(--pay-border); border-radius: 12px; background: var(--pay-surface); }
@@ -86,7 +89,7 @@
 .methodActionMenu > summary:hover { background: var(--pay-soft); }
 .methodActionMenu > summary svg { width: 20px; height: 20px; }
 .methodActionMenu > div { position: absolute; z-index: 10; top: calc(100% + 4px); right: 0; display: grid; width: max-content; min-width: 200px; max-width: min(320px, 80vw); border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-surface); padding: 4px; box-shadow: 0 12px 24px rgb(32 28 25 / 12%); }
-.methodActionMenu button { display: flex; min-width: 44px; min-height: 44px; align-items: center; gap: 8px; border: 0; border-radius: 4px; background: transparent; padding: 8px 12px; color: var(--pay-text); cursor: pointer; font: inherit; font-size: 13px; text-align: left; }
+.methodActionMenu button { display: flex; min-width: 44px; min-height: 44px; align-items: center; gap: 8px; border: 0; border-radius: 4px; background: transparent; padding: 8px 12px; color: var(--pay-text); cursor: pointer; font: inherit; font-size: 13px; text-align: left; font-weight: var(--cp-font-weight-control); }
 .methodActionMenu button:hover:not(:disabled) { background: var(--pay-soft); }
 .methodActionMenu button:disabled { cursor: not-allowed; opacity: .5; }
 .methodActionMenu button svg { width: 16px; height: 16px; }
@@ -100,14 +103,14 @@
 .addFlowTabs { margin: 0 24px; }
 .dialogHeader { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; flex-shrink: 0; align-items: center; gap: 12px; border-bottom: 1px solid var(--pay-border); padding: 16px 24px; }
 .dialogHeader h2, .dialogHeader p { margin: 0; }
-.dialogHeader h2 { font-size: 18px; font-weight: 600; }
+.dialogHeader h2 { font-size: 18px; font-weight: var(--cp-font-weight-heading); }
 .dialogHeader p { margin-top: 4px; color: var(--pay-muted); font-size: 13px; line-height: 1.6; }
 .dialogTitleIcon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 8px; background: var(--pay-soft); color: var(--pay-text); }
 .dialogTitleIcon svg { width: 20px; height: 20px; }
 .catalogDialog > .readOnlyNotice, .orderDialog > .readOnlyNotice, .connectionDrawer > .readOnlyNotice, .builtInDrawer > .readOnlyNotice, .checkoutSettingsDrawer > .readOnlyNotice, .orderDialog > .errorNotice, .connectionDrawer > .successNotice, .connectionDrawer > .errorNotice, .connectionDrawer > .providerWarning, .builtInDrawer > .providerWarning, .builtInDrawer > .errorNotice, .checkoutSettingsDrawer > .errorNotice { margin: 16px 24px 0; }
 .catalogBuiltInBody { display: grid; min-height: 0; gap: 20px; overflow-y: auto; padding: 24px; }
 .catalogSectionHeading, .catalogResultsHeader { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; }
-.catalogSectionHeading h3, .catalogResultsHeader h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.catalogSectionHeading h3, .catalogResultsHeader h3 { margin: 0; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .catalogSectionHeading p { margin: 4px 0 0; color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .catalogSectionHeading > span, .catalogCount { color: var(--pay-muted); font-size: 12px; }
 .builtInGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
@@ -117,11 +120,17 @@
 .builtInCopy { display: grid; min-width: 0; gap: 4px; }
 .builtInCopy > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .builtInCopy h3, .builtInCopy p { margin: 0; }
-.builtInCopy h3 { font-size: 14px; font-weight: 600; }
+.builtInCopy h3 { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .builtInCopy p, .builtInCopy small { color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .builtInCard > button { padding-inline: 12px; white-space: nowrap; }
 .catalogFilters { display: grid; grid-template-columns: minmax(160px, 1.5fr) repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 0 20px; }
 .catalogFilters input, .catalogFilters select, .connectionForm input, .connectionForm select, .builtInForm input, .builtInForm textarea, .selectField select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-surface); padding: 8px 12px; color: var(--pay-text); font: inherit; font-size: 13px; }
+.catalogFilters input, .connectionForm input, .builtInForm input, .builtInForm textarea {
+  font-weight: var(--cp-font-weight-body);
+}
+.catalogFilters select, .connectionForm select, .selectField select {
+  font-weight: var(--cp-font-weight-control);
+}
 .catalogSearch { position: relative; display: block; }
 .catalogSearch svg { position: absolute; top: 50%; left: 12px; width: 16px; height: 16px; transform: translateY(-50%); color: var(--pay-muted); }
 .catalogSearch input { padding-left: 40px; }
@@ -135,36 +144,36 @@
 .providerLogo img { display: block; width: auto; max-width: 96px; height: auto; max-height: 32px; object-fit: contain; object-position: left center; filter: grayscale(1); }
 .providerCardHeading { display: flex; min-width: 0; justify-content: space-between; gap: 12px; }
 .providerCardHeading h3, .providerCardHeading p { margin: 0; }
-.providerCardHeading h3 { overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+.providerCardHeading h3 { overflow-wrap: anywhere; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .providerCardHeading p { margin-top: 4px; color: var(--pay-muted); font-size: 12px; }
-.providerMeta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--pay-muted); font-size: 12px; }
+.providerMeta { display: flex; flex-wrap: wrap; gap: 8px; color: var(--pay-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .providerCard > button { justify-self: start; }
 .providerCatalogSurface { min-width: 0; }
 .onlineAddFlow .providerCatalogSurface { padding: 24px; }
 .drawerLayer { place-items: stretch; padding: 0; }
 .connectionDrawer, .builtInDrawer, .checkoutSettingsDrawer { width: min(520px, 100%); max-height: 100dvh; justify-self: end; overflow-y: auto; border-radius: 16px 0 0 16px; }
 .connectionForm, .builtInForm, .checkoutSettingsForm { display: grid; gap: 24px; padding: 24px; }
-.connectionForm label, .builtInForm label { display: grid; min-width: 0; gap: 8px; font-size: 13px; font-weight: 500; }
+.connectionForm label, .builtInForm label { display: grid; min-width: 0; gap: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .builtInForm textarea { min-height: 104px; max-height: 240px; resize: vertical; }
 .formSection { display: grid; gap: 20px; border-bottom: 1px solid var(--pay-border); padding-bottom: 24px; }
 .formSectionHeading h3, .formSectionHeading p { margin: 0; }
-.formSectionHeading h3 { font-size: 14px; font-weight: 600; }
+.formSectionHeading h3 { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .formSectionHeading p { margin-top: 4px; color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .ibanInput { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; }
 .connectionSummary { display: grid; gap: 8px; border-bottom: 1px solid var(--pay-border); padding-bottom: 20px; overflow-wrap: anywhere; }
-.connectionSummary strong { font-size: 14px; font-weight: 600; }
+.connectionSummary strong { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .connectionSummary span { color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .drawerActions { justify-content: flex-end; border-top: 1px solid var(--pay-border); padding-top: 20px; }
 .paytrStatusCard, .checkoutAuthorityCard { display: grid; min-width: 0; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--pay-border); padding-bottom: 20px; }
 .paytrStatusIcon, .checkoutAuthorityCard > span:first-child { display: grid; width: 40px; height: 40px; place-items: center; background: var(--pay-soft); border-radius: 8px; color: var(--pay-text); }
 .paytrStatusIcon svg, .checkoutAuthorityCard svg { width: 20px; height: 20px; }
 .paytrStatusCard > span:nth-child(2) { display: grid; min-width: 0; gap: 4px; }
-.paytrStatusCard strong, .checkoutAuthorityCard strong { font-size: 14px; font-weight: 600; }
+.paytrStatusCard strong, .checkoutAuthorityCard strong { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .paytrStatusCard small, .checkoutAuthorityCard p { overflow-wrap: anywhere; margin: 4px 0 0; color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .paytrModeControl { display: flex !important; align-items: center; justify-content: space-between; gap: 16px; }
 .paytrModeControl > span { display: grid; gap: 4px; }
 .paytrModeControl strong { font-size: 13px; }
-.paytrModeControl small { color: var(--pay-muted); font-size: 12px; font-weight: 400; line-height: 1.6; }
+.paytrModeControl small { color: var(--pay-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); line-height: 1.6; }
 .paytrModeControl input { position: relative; width: 40px; min-width: 40px; height: 24px; min-height: 24px; appearance: none; border: 0; border-radius: 24px; background: var(--pay-border); padding: 0; cursor: pointer; }
 .paytrModeControl input::after { position: absolute; top: 4px; left: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--pay-surface); content: ''; transition: transform 120ms ease; }
 .paytrModeControl input:checked { background: var(--pay-text); }
@@ -186,18 +195,18 @@
 .paytrPanelLink:hover { text-decoration: underline; }
 .paytrPanelLink svg { width: 16px; height: 16px; }
 .preferenceGroup { display: grid; min-width: 0; gap: 16px; margin: 0; border: 0; border-bottom: 1px solid var(--pay-border); padding: 0 0 24px; }
-.preferenceGroup legend { margin-bottom: 12px; padding: 0; font-size: 14px; font-weight: 600; }
+.preferenceGroup legend { margin-bottom: 12px; padding: 0; font-size: 14px; font-weight: var(--cp-font-weight-control); }
 .readOnlyPreference { display: flex; align-items: flex-start; gap: 12px; }
 .readOnlyPreference > svg { width: 20px; height: 20px; flex: 0 0 20px; color: var(--pay-muted); }
 .readOnlyPreference > span { display: grid; gap: 4px; }
-.readOnlyPreference strong { font-size: 13px; font-weight: 500; }
+.readOnlyPreference strong { font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .readOnlyPreference small { color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .segmentedControl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .segmentedControl label, .optionCards label { position: relative; display: flex; min-height: 44px; align-items: center; gap: 12px; border: 1px solid var(--pay-border); border-radius: 8px; background: transparent; padding: 12px; color: var(--pay-text); cursor: pointer; }
 .segmentedControl label[data-selected='true'], .optionCards label[data-selected='true'] { border-color: var(--pay-text); background: var(--pay-soft); }
 .segmentedControl input, .optionCards input { width: 16px; height: 16px; flex: 0 0 16px; accent-color: var(--pay-text); }
 .segmentedControl label:focus-within, .optionCards label:focus-within { outline: 2px solid var(--pay-brand); outline-offset: 2px; }
-.segmentedControl span, .optionCards strong { font-size: 13px; font-weight: 500; }
+.segmentedControl span, .optionCards strong { font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .optionCards { display: grid; gap: 12px; }
 .optionCards label > span { display: grid; gap: 4px; }
 .optionCards small { color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
@@ -207,12 +216,12 @@
 .securityBoundary p { margin: 0; font-size: 12px; line-height: 1.6; }
 .orderLayout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(240px, .7fr); min-height: 0; overflow-y: auto; }
 .orderEditor { min-width: 0; padding: 24px; }
-.orderEditor h3, .checkoutPreview h3 { margin: 0 0 16px; font-size: 14px; font-weight: 600; }
+.orderEditor h3, .checkoutPreview h3 { margin: 0 0 16px; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .orderEditor ol { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--pay-border); }
 .orderEditor li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--pay-border); padding: 12px 0; }
 .orderEditor li > svg { width: 16px; height: 16px; color: var(--pay-muted); cursor: grab; }
 .orderEditor li > span { display: grid; min-width: 0; gap: 4px; }
-.orderEditor li strong { overflow-wrap: anywhere; font-size: 13px; font-weight: 500; }
+.orderEditor li strong { overflow-wrap: anywhere; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .orderEditor li small { color: var(--pay-muted); font-size: 12px; }
 .orderEditor li > div { display: flex; gap: 4px; }
 .orderEditor li button { display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--pay-text); cursor: pointer; }
@@ -239,11 +248,11 @@
   .methodCards > article[data-highlighted='true'] { outline: 2px solid var(--pay-brand); outline-offset: 4px; }
   .mobileMethodIdentity { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; }
   .mobileMethodIdentity > span:nth-child(2) { display: grid; min-width: 0; gap: 4px; }
-  .mobileMethodIdentity strong { overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
+  .mobileMethodIdentity strong { overflow-wrap: anywhere; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
   .mobileMethodIdentity small { color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
-  .mobileMethodMeta { display: flex; gap: 12px; margin: 12px 0 12px 60px; font-size: 12px; }
-  .mobileMethodMeta span { color: var(--pay-muted); }
-  .mobileMethodMeta strong { font-weight: 500; }
+  .mobileMethodMeta { display: flex; gap: 12px; margin: 12px 0 12px 60px; font-size: 12px; font-weight: var(--cp-font-weight-helper); }
+  .mobileMethodMeta span { color: var(--pay-muted); font-weight: var(--cp-font-weight-helper); }
+  .mobileMethodMeta strong { font-weight: var(--cp-font-weight-heading); }
   .methodCards .checkoutPreferenceSummary { margin-left: 60px; }
   .methodCards .methodActions { position: relative; justify-content: flex-start; margin: 16px 0 0 60px; }
   .methodCards .methodActionMenu { position: static; }
@@ -285,6 +294,9 @@
   .mobileMethodIdentity { grid-template-columns: auto minmax(0, 1fr); gap: 12px; }
   .mobileMethodIdentity > :last-child { grid-column: 2; justify-self: start; }
   .mobileMethodMeta, .methodCards .checkoutPreferenceSummary, .methodCards .methodActions { margin-left: 56px; }
+.mobileMethodMeta {
+    font-weight: var(--cp-font-weight-helper);
+  }
   .methodActions { flex-wrap: wrap; }
   .methodActionMenu > div { right: auto; left: 0; max-width: calc(100vw - 104px); }
   .methodCards .methodActionMenu > div { right: 0; left: 0; width: 100%; min-width: 0; max-width: 100%; }

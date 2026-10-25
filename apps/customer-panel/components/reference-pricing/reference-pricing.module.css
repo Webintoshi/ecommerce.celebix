@@ -27,6 +27,12 @@
 .policy button,
 .policy input,
 .policy select { font: inherit; }
+.root button, .root select, .policy button, .policy select {
+  font-weight: var(--cp-font-weight-control);
+}
+.root input, .policy input {
+  font-weight: var(--cp-font-weight-body);
+}
 .root button,
 .policy button { min-height: 44px; padding: 8px 16px; border: 1px solid var(--rp-border); border-radius: 8px; background: var(--rp-surface); color: var(--rp-graphite); cursor: pointer; }
 .root button:hover:not(:disabled),
@@ -40,10 +46,10 @@
 .root :is(button, input, select, a):focus-visible,
 .policy :is(button, input, select, a):focus-visible { outline: 2px solid var(--rp-brand); outline-offset: 2px; }
 .root label,
-.policy label { display: grid; gap: 8px; font-size: 14px; font-weight: 600; }
+.policy label { display: grid; gap: 8px; font-size: 14px; font-weight: var(--cp-font-weight-control); }
 .root small,
 .policy small,
-.subtle { color: var(--rp-secondary); font-size: 12px; font-weight: 400; }
+.subtle { color: var(--rp-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 
 .intro,
 .section,
@@ -78,7 +84,7 @@
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .actions span { color: var(--rp-secondary); font-size: 13px; }
 .root .primary,
-.policy .primary { border-color: var(--rp-graphite); background: var(--rp-graphite); color: var(--rp-surface); font-weight: 650; }
+.policy .primary { border-color: var(--rp-graphite); background: var(--rp-graphite); color: var(--rp-surface); font-weight: var(--cp-font-weight-control); }
 .root .primary:hover:not(:disabled),
 .policy .primary:hover:not(:disabled) { border-color: var(--rp-sidebar); background: var(--rp-sidebar); }
 .definitionForm { display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr) minmax(0, 240px) auto; gap: 12px; align-items: end; }
@@ -92,10 +98,10 @@
 .impactStats strong { color: var(--rp-graphite); font-size: 24px; line-height: 1.2; }
 .tableScroll { max-width: 100%; overflow-x: auto; border: 1px solid var(--rp-border); border-radius: 10px; }
 .tableScroll table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 13px; }
-.tableScroll caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tableScroll caption { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; font-weight: var(--cp-font-weight-helper); }
 .tableScroll th,
 .tableScroll td { height: 44px; padding: 8px 12px; border-bottom: 1px solid var(--rp-border); text-align: left; }
-.tableScroll th { color: var(--rp-secondary); background: var(--rp-canvas); font-weight: 650; }
+.tableScroll th { color: var(--rp-secondary); background: var(--rp-canvas); font-weight: var(--cp-font-weight-control); }
 .tableScroll tr:last-child td { border-bottom: 0; }
 .tableScroll code { font-family: inherit; color: var(--rp-secondary); }
 .historyDetail { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--rp-border); border-radius: 10px; }
@@ -125,7 +131,7 @@
 .policyHeading p { color: var(--rp-secondary); font-size: 12px; }
 .policyForm { display: grid; gap: 12px; }
 .policyFields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.policyHelp { color: var(--rp-secondary); font-size: 13px; }
+.policyHelp { color: var(--rp-secondary); font-size: 13px; font-weight: var(--cp-font-weight-helper); }
 .policyActions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .policyPreview { display: grid; gap: 16px; padding: 16px; border: 1px solid var(--rp-border); border-radius: 10px; background: var(--rp-canvas); }
 .policyPreview h4 { margin: 0 0 4px; font-size: 14px; }
@@ -185,43 +191,46 @@
   font-size: 14px;
 }
 .root [hidden] { display: none; }
-.root h2, .root h3 { font-size: 14px; font-weight: 600; }
-.root button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: 500; }
-.root label { gap: 8px; font-size: 13px; font-weight: 500; }
+.root h2, .root h3 { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
+.root button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.root label { gap: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .root input, .root select { font-size: 13px; }
 .root small, .root .subtle { color: var(--rp-secondary); font-size: 12px; line-height: 1.6; }
+.root .subtle {
+  font-weight: var(--cp-font-weight-helper);
+}
 .root .intro { flex-wrap: wrap; padding: 0; border: 0; border-radius: 0; background: transparent; }
 .root .intro > div { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
-.root .intro strong { font-size: 14px; font-weight: 500; }
+.root .intro strong { font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .root .section { padding: 0; border: 0; border-radius: 0; background: transparent; gap: 24px; }
 .root .sectionHeading { align-items: center; gap: 16px; }
 .root .sectionHeading p { color: var(--rp-secondary); font-size: 12px; line-height: 1.6; }
 .root .rateList { border-top: 1px solid var(--rp-border); }
 .root .rateRow { grid-template-columns: minmax(0, 1fr) minmax(320px, 1.15fr); gap: 32px; padding: 24px 0; }
 .root .rateIdentity { gap: 8px; }
-.root .rateIdentity strong { font-weight: 600; }
+.root .rateIdentity strong { font-weight: var(--cp-font-weight-heading); }
 .root .rateIdentity span { font-size: 12px; line-height: 1.6; }
 .root .rateControls { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; }
-.root .toggle { min-height: 44px; font-weight: 400; }
+.root .toggle { min-height: 44px; font-weight: var(--cp-font-weight-control); }
 .root .toggle input { width: 16px; height: 16px; min-height: 16px; accent-color: var(--rp-graphite); }
 .root .actions { justify-content: flex-end; gap: 16px; }
 .root .actions span { margin-right: auto; font-size: 12px; line-height: 1.6; }
-.root .primary { background: var(--settings-action, var(--rp-graphite)); border-color: var(--settings-action, var(--rp-graphite)); color: var(--settings-inverse, var(--rp-surface)); font-weight: 500; }
+.root .primary { background: var(--settings-action, var(--rp-graphite)); border-color: var(--settings-action, var(--rp-graphite)); color: var(--settings-inverse, var(--rp-surface)); font-weight: var(--cp-font-weight-control); }
 .root .primary:hover:not(:disabled) { background: var(--settings-action-hover, var(--rp-sidebar)); }
 .tabs { display: flex; min-width: 0; gap: 24px; border-bottom: 1px solid var(--rp-border); overflow-x: auto; }
 .root .tabs button { position: relative; min-height: 48px; flex: 0 0 auto; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; padding: 0 4px; color: var(--rp-secondary); white-space: nowrap; }
-.root .tabs button[aria-selected='true'] { border-bottom-color: var(--rp-brand); color: var(--rp-graphite); font-weight: 600; }
+.root .tabs button[aria-selected='true'] { border-bottom-color: var(--rp-brand); color: var(--rp-graphite); font-weight: var(--cp-font-weight-control); }
 .root .tabs button:hover:not(:disabled) { border-color: transparent; border-bottom-color: var(--rp-border); }
 .root .tabs button[aria-selected='true']:hover { border-bottom-color: var(--rp-brand); }
 .root .previewControls { justify-content: space-between; align-items: end; gap: 16px; }
 .root .previewControls label { width: min(240px, 100%); }
 .root .impactStats { gap: 24px; padding: 16px 0 24px; border-bottom: 1px solid var(--rp-border); }
 .root .impactStats > div { display: grid; gap: 8px; border: 0; border-radius: 0; background: transparent; padding: 0; }
-.root .impactStats strong { order: -1; font-size: 20px; font-weight: 600; }
+.root .impactStats strong { order: -1; font-size: 20px; font-weight: var(--cp-font-weight-value); }
 .root .impactStats span { font-size: 12px; }
 .root .tableScroll { border: 0; border-top: 1px solid var(--rp-border); border-radius: 0; }
 .root .tableScroll th, .root .tableScroll td { min-height: 44px; height: auto; padding: 16px 16px 16px 0; }
-.root .tableScroll th { background: transparent; font-size: 12px; font-weight: 500; }
+.root .tableScroll th { background: transparent; font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .root .tableScroll th:last-child, .root .tableScroll td:last-child { padding-right: 0; }
 .root .historyDetail { border: 0; border-top: 1px solid var(--rp-border); border-radius: 0; padding: 24px 0; }
 .root .state, .root .feedback, .root .warning, .root .success, .root .empty { border: 0; border-radius: 0; background: transparent; padding: 12px 0; font-size: 13px; line-height: 1.6; }
@@ -236,7 +245,7 @@
 .definitionHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--rp-border); padding: 16px 24px; }
 .root .definitionHeader h2 { font-size: 18px; }
 .root .closeButton { width: 44px; height: 44px; padding: 0; border: 0; background: transparent; }
-.root .definitionHelp { margin: 20px 24px 0; color: var(--rp-secondary); font-size: 12px; line-height: 1.6; }
+.root .definitionHelp { margin: 20px 24px 0; color: var(--rp-secondary); font-size: 12px; line-height: 1.6; font-weight: var(--cp-font-weight-helper); }
 .root .definitionDialog > .feedback { margin: 16px 24px 0; padding: 0; }
 .root .definitionForm { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 24px; }
 .root .definitionForm > label:nth-child(3) { grid-column: 1 / -1; }
@@ -264,6 +273,9 @@
   .definitionHeader { padding: 12px 16px; }
   .root .definitionHeader h2 { font-size: 16px; }
   .root .definitionHelp, .root .definitionDialog > .feedback { margin-inline: 16px; }
+.root .definitionHelp {
+    font-weight: var(--cp-font-weight-helper);
+  }
   .root .definitionForm { padding: 20px 16px; }
   .root .definitionForm button { width: auto; }
   .tabs { gap: 20px; }

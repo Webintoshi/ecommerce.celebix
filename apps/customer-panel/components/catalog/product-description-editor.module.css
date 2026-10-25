@@ -30,14 +30,14 @@
 .labelRow strong {
   color: var(--catalog-text);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
   line-height: 1.3;
 }
 
 .labelRow small {
   color: #6f6964;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: var(--cp-font-weight-helper);
   line-height: 1.45;
 }
 
@@ -52,7 +52,7 @@
   color: var(--catalog-text);
   font: inherit;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
   cursor: pointer;
 }
 
@@ -117,7 +117,7 @@
   color: var(--catalog-text);
   font: inherit;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .toolbarButton {
@@ -178,6 +178,7 @@
   line-height: 1.68;
   overflow-wrap: anywhere;
   resize: none;
+  font-weight: 400;
 }
 
 .editorContent > :first-child {
@@ -301,7 +302,7 @@
 .linkPanel label span {
   color: var(--catalog-text);
   font-size: 11px;
-  font-weight: 750;
+  font-weight: var(--cp-font-weight-control);
 }
 
 .linkPanel input {
@@ -315,6 +316,7 @@
   color: var(--catalog-text);
   font: inherit;
   font-size: 13px;
+  font-weight: var(--cp-font-weight-body);
 }
 
 .linkPanel button,
@@ -331,7 +333,7 @@
   color: var(--catalog-text);
   font: inherit;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: var(--cp-font-weight-control);
   cursor: pointer;
 }
 
@@ -356,7 +358,7 @@
   margin: 0;
   color: #b42318;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: var(--cp-font-weight-helper);
 }
 
 .tableToolbar {
@@ -379,7 +381,7 @@
   padding-top: 6px;
   color: #7c8799;
   font-size: 11px;
-  font-weight: 550;
+  font-weight: var(--cp-font-weight-helper);
 }
 
 .countError,
@@ -390,7 +392,7 @@
 .lengthError {
   margin: 5px 0 0;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: var(--cp-font-weight-helper);
 }
 
 .focusMode {
@@ -488,3 +490,9 @@
 
 /* Keep the inline product form compact; full-screen writing retains its own height. */
 .compact:not(.focusMode) .editorContent { min-height: 160px; max-height: 400px; padding: 16px; }
+.editorContent td {
+  font-weight: 400;
+}
+.editorContent strong, .editorContent b {
+  font-weight: bolder;
+}

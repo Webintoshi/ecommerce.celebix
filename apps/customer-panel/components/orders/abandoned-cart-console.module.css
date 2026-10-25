@@ -3,21 +3,23 @@
 .metric { display: grid; min-width: 0; align-content: start; gap: 8px; }
 .metricLabel { display: flex; align-items: center; gap: 8px; color: var(--cp-text-secondary); font-size: 12px; }
 .metricLabel svg { width: 14px; height: 14px; flex: none; }
-.metric > strong { font-size: 24px; font-weight: 650; line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.metric > strong { font-size: 24px; font-weight: var(--cp-font-weight-value); line-height: 1.3; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .metric > small { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; }
 .metric-neutral, .metric-lost, .metric-recovered { background: transparent; }
 .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(144px, 176px) minmax(176px, 224px); align-items: center; gap: 16px; margin-bottom: 8px; }
 .search { position: relative; display: flex; min-width: 0; min-height: 44px; align-items: center; gap: 8px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding-left: 12px; }
 .search > svg { width: 16px; height: 16px; flex: none; color: var(--cp-text-secondary); }
-.search input { width: 100%; min-width: 0; height: 44px; border: 0; background: transparent; padding: 0; color: var(--cp-text-primary); font: inherit; font-size: 13px; }
+.search input { width: 100%; min-width: 0; height: 44px; border: 0; background: transparent; padding: 0; color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-body); }
 .search:focus-within { outline: 2px solid var(--cp-graphite); outline-offset: 2px; }
 .search input:focus-visible { outline: none!important; }
-.search button { flex: none; border: 0; border-left: 1px solid var(--cp-border); border-radius: 0 8px 8px 0; background: transparent; font-weight: 500; }
+.search button { flex: none; border: 0; border-left: 1px solid var(--cp-border); border-radius: 0 8px 8px 0; background: transparent; font-weight: var(--cp-font-weight-control); }
 .selectControl { position: relative; min-width: 0; }
 .selectControl > svg { position: absolute; top: 50%; left: 12px; width: 14px; height: 14px; transform: translateY(-50%); color: var(--cp-text-secondary); pointer-events: none; }
-.selectControl select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 8px 8px 8px 32px; color: var(--cp-text-primary); font: inherit; font-size: 12px; }
+.selectControl select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 8px 8px 8px 32px; color: var(--cp-text-primary); font: inherit; font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .search button, .clearFilters, .appliedFilters button, .rowAction, .detailLink, .loadMore, .error button,
-.actions button, .contactActions button, .recoveryLink button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); cursor: pointer; font: inherit; font-size: 12px; font-weight: 500; text-decoration: none; }
+.actions button, .contactActions button, .recoveryLink button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); cursor: pointer; font: inherit; font-size: 12px; text-decoration: none; }
+.search button, .appliedFilters button, .rowAction, .detailLink, .error button, .actions button, .contactActions button, .recoveryLink button { font-weight: var(--cp-font-weight-control); }
+.clearFilters, .loadMore { font-weight: var(--cp-font-weight-body); }
 .search button { border-width: 0 0 0 1px; border-radius: 0 8px 8px 0; }
 .surface :is(button, a, select):focus-visible, .detailToolbar :is(button, a):focus-visible,
 .panel :is(button, a, input):focus-visible, .recoveryLink :is(button, input):focus-visible,
@@ -32,27 +34,29 @@
 .loadingRows { display: grid; grid-column: 1 / -1; gap: 12px; width: 100%; padding-top: 16px; }
 .loadingRows i { height: 48px; border-radius: 8px; background: color-mix(in srgb, var(--cp-graphite) 6%, transparent); animation: loading 1.4s ease-in-out infinite alternate; }
 .error { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; padding: 40px 0; }
-.error h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.error h2 { margin: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
 .error p { margin: 8px 0 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .listEmpty { display: grid; min-height: 240px; justify-items: center; align-content: center; gap: 12px; padding: 40px 16px; text-align: center; }
 .listEmpty > span svg { width: 28px; height: 28px; color: var(--cp-text-secondary); stroke-width: 1.5; }
-.listEmpty strong { font-size: 15px; font-weight: 600; }
+.listEmpty strong { font-size: 15px; font-weight: var(--cp-font-weight-heading); }
 .listEmpty p { max-width: 420px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .desktopTable { max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
 .desktopTable table { width: 100%; min-width: 840px; border-collapse: collapse; font-size: 12px; }
-.desktopTable th { height: 44px; border-bottom: 1px solid var(--cp-border); padding: 8px; color: var(--cp-text-secondary); font-size: 12px; font-weight: 500; text-align: left; white-space: nowrap; }
+.desktopTable th { height: 44px; border-bottom: 1px solid var(--cp-border); padding: 8px; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-control); text-align: left; white-space: nowrap; }
 .desktopTable td { height: 64px; border-bottom: 1px solid var(--cp-border); padding: 12px 8px; vertical-align: middle; }
 .desktopTable tr:hover td { background: color-mix(in srgb, var(--cp-graphite) 3%, transparent); }
 .customerCell { width: 28%; }
 .customerIdentity, .customerLink, .productIdentity { display: grid; min-width: 0; gap: 4px; }
-.customerIdentity strong, .customerLink strong, .productIdentity strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.customerIdentity strong, .customerLink strong, .productIdentity strong { font-size: 12px; overflow-wrap: anywhere; }
+.customerIdentity strong, .productIdentity strong { font-weight: var(--cp-font-weight-heading); }
+.customerLink strong { font-weight: var(--cp-font-weight-control); }
 .customerIdentity small, .customerLink small, .productIdentity small { max-width: 200px; overflow: hidden; color: var(--cp-text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .customerLink:hover strong { text-decoration: underline; text-underline-offset: 4px; }
 .accountBadge { width: fit-content; color: var(--cp-text-secondary); font-size: 12px; }
 .activityCell { white-space: nowrap; color: var(--cp-text-secondary); }
 .activityCell time { font-variant-numeric: tabular-nums; }
 .numericHeading, .totalCell, .actionHeading, .actionCell { text-align: right!important; }
-.totalCell strong { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.totalCell strong { font-size: 13px; font-weight: var(--cp-font-weight-value); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rowAction, .detailLink { border-color: transparent; background: transparent; padding: 0 8px; }
 .rowAction svg, .detailLink svg { width: 14px; height: 14px; }
 .rowAction:hover, .detailLink:hover { background: var(--cp-surface); }
@@ -64,46 +68,46 @@
 .cartCard dl > div:last-child { grid-column: 1 / -1; }
 .cartCard dt { color: var(--cp-text-secondary); font-size: 12px; }
 .cartCard dd { margin: 4px 0 0; color: var(--cp-text-primary); font-size: 12px; overflow-wrap: anywhere; }
-.cartCard .cardTotal { font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.cartCard .cardTotal { font-size: 13px; font-weight: var(--cp-font-weight-value); font-variant-numeric: tabular-nums; }
 .detailLink { justify-self: end; }
 .loadMore { display: flex; margin: 24px auto 0; }
 .back { display: inline-flex; min-height: 48px; align-items: center; color: var(--cp-text-secondary); font-size: 12px; }
 .back:hover { color: var(--cp-text-primary); }
 .detailToolbar { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 16px; }
-.detailIdentity { display: grid; min-width: 0; gap: 4px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-.detailIdentity small { color: var(--cp-text-secondary); font-size: 12px; font-weight: 400; }
+.detailIdentity { display: grid; min-width: 0; gap: 4px; font-size: 13px; font-weight: var(--cp-font-weight-control); overflow-wrap: anywhere; }
+.detailIdentity small { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
 .actions svg { width: 16px; height: 16px; }
-.actions .primaryAction { border-color: var(--cp-graphite); background: var(--cp-graphite); color: var(--cp-text-inverse); font-weight: 600; }
+.actions .primaryAction { border-color: var(--cp-graphite); background: var(--cp-graphite); color: var(--cp-text-inverse); font-weight: var(--cp-font-weight-control); }
 .actions .primaryAction:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
 .inlineError, .notice { margin: 0; border-left: 2px solid var(--cp-border); background: var(--cp-surface); padding: 12px 16px; color: var(--cp-text-primary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .inlineError { border-color: var(--cp-danger); }
 .notice { border-color: var(--cp-success); }
 .recoveryLink { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 12px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 16px; }
-.recoveryLink > strong { width: 100%; font-size: 13px; font-weight: 600; }
-.recoveryLink > input { min-width: 0; flex: 1; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-canvas); padding: 8px 12px; color: var(--cp-text-primary); font: inherit; font-size: 12px; }
+.recoveryLink > strong { width: 100%; font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.recoveryLink > input { min-width: 0; flex: 1; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-canvas); padding: 8px 12px; color: var(--cp-text-primary); font: inherit; font-size: 12px; font-weight: var(--cp-font-weight-body); }
 .detailHero { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; border-bottom: 1px solid var(--cp-border); padding: 0 0 24px; }
 .detailHero > div { display: grid; min-width: 0; gap: 8px; }
 .detailHero > div > svg { display: none; }
 .detailHero > div > span:not(:last-child) { color: var(--cp-text-secondary); font-size: 12px; }
-.detailHero strong { color: var(--cp-text-primary); font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.detailHero strong { color: var(--cp-text-primary); font-size: 15px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .detailGrid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 40px; }
 .panel > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 0 16px; border-bottom: 1px solid var(--cp-border); }
-.panel h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.panel h2 { margin: 0; font-size: 15px; font-weight: var(--cp-font-weight-heading); }
 .items { display: grid; min-width: 0; }
 .items article { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--cp-border); padding: 16px 0; }
 .items img, .items > article > i { display: grid; width: 48px; height: 48px; place-items: center; border: 1px solid var(--cp-border); border-radius: 8px; object-fit: cover; color: var(--cp-text-secondary); }
 .items > article > i svg { width: 18px; height: 18px; }
 .items article > div { display: grid; min-width: 0; gap: 4px; overflow-wrap: anywhere; }
-.items article strong { font-size: 13px; font-weight: 600; }
+.items article strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); }
 .items article > div > span { color: var(--cp-text-secondary); font-size: 12px; }
 .items article > span { grid-column: 2; color: var(--cp-text-secondary); font-size: 12px; }
-.items article > b { grid-column: 3; grid-row: 1 / 3; font-size: 13px; font-weight: 600; }
+.items article > b { grid-column: 3; grid-row: 1 / 3; font-size: 13px; font-weight: var(--cp-font-weight-heading); }
 .totals { display: grid; gap: 12px; margin: 0; padding: 20px 0; font-size: 13px; }
 .totals > div { display: flex; justify-content: space-between; gap: 16px; }
 .totals dt { color: var(--cp-text-secondary); }
-.totals dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
-.totals > div:last-child { border-top: 1px solid var(--cp-border); padding-top: 16px; font-weight: 600; }
+.totals dd { margin: 0; font-weight: var(--cp-font-weight-value); font-variant-numeric: tabular-nums; }
+.totals > div:last-child { border-top: 1px solid var(--cp-border); padding-top: 16px; font-weight: var(--cp-font-weight-control); }
 .customer { display: grid; gap: 16px; margin: 0; padding: 20px 0; }
 .customer > div { min-width: 0; }
 .customer dt { display: flex; align-items: center; gap: 8px; color: var(--cp-text-secondary); font-size: 12px; }
@@ -112,7 +116,7 @@
 .contactActions { display: grid; min-width: 0; gap: 16px; border-top: 1px solid var(--cp-border); padding-top: 16px; }
 .contactActions > button { justify-self: start; }
 .noteField { display: grid; min-width: 0; gap: 8px; color: var(--cp-text-primary); font-size: 12px; }
-.noteField input { min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 8px 12px; color: var(--cp-text-primary); font: inherit; font-size: 13px; }
+.noteField input { min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 8px 12px; color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-body); }
 .detailLoading { display: flex; min-height: 200px; align-items: center; gap: 12px; color: var(--cp-text-secondary); font-size: 13px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes loading { to { opacity: .4; } }

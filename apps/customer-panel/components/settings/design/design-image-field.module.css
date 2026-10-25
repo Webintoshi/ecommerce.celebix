@@ -1,7 +1,7 @@
 .field { display: grid; min-width: 0; align-content: start; gap: 8px; color: var(--cp-text-primary); }
 .heading { display: flex; min-width: 0; min-height: 44px; align-items: center; justify-content: space-between; gap: 12px; }
-.heading > strong { font-size: 14px; font-weight: 600; line-height: 1.4; }
-.field button { font: inherit; cursor: pointer; }
+.heading > strong { font-size: 14px; font-weight: var(--cp-font-weight-heading); line-height: 1.4; }
+.field button { font: inherit; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 .field button:disabled { cursor: default; opacity: .6; }
 .field button:focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 4px; }
 .dropzone { display: flex; width: 100%; min-width: 0; min-height: 112px; align-items: center; gap: 16px; border: 1px dashed var(--cp-border); border-radius: 12px; padding: 12px; background: var(--cp-canvas); color: var(--cp-text-primary); text-align: left; }
@@ -24,7 +24,7 @@
 .textButton, .iconButton, .retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 8px; padding: 8px; background: transparent; color: var(--cp-text-primary); font-size: 12px; line-height: 1.4; }
 .textButton:not(:disabled):hover, .iconButton:hover { background: var(--cp-soft); }
 .textButton svg, .iconButton svg { width: 16px; height: 16px; flex: 0 0 16px; }
-.retryButton { border-color: var(--cp-border); padding-inline: 12px; background: var(--cp-surface); font-weight: 600; }
+.retryButton { border-color: var(--cp-border); padding-inline: 12px; background: var(--cp-surface); font-weight: var(--cp-font-weight-control); }
 .retryButton:not(:disabled):hover { background: var(--cp-soft); }
 .error { display: grid; gap: 4px; border-inline-start: 2px solid var(--cp-danger); padding-inline-start: 12px; }
 .error p { margin: 0; color: var(--cp-danger); font-size: 12px; line-height: 1.5; }
