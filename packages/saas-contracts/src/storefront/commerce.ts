@@ -520,7 +520,7 @@ function paymentMethod(value: unknown): PublicPaymentMethod {
     ["bankName", "accountHolder", "iban", "id", "providerCode", "presentation", "requiredCustomerFields"],
   );
   const label = text(parsed.label, 1, 120);
-  const instructions = text(parsed.instructions, 1, 2_000);
+  const instructions = text(parsed.instructions, parsed.kind === "bank_transfer" || parsed.kind === "cash_on_delivery" ? 0 : 1, 2_000);
   if (parsed.kind === "bank_transfer") {
     if (
       !Object.hasOwn(parsed, "bankName")

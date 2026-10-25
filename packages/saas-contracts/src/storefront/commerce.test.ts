@@ -251,6 +251,39 @@ test("checkout quote exposes only eligible finite payment methods", () => {
   assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ kind: "cash_on_delivery", label: "Kapıda ödeme", instructions: "Kurye teslimatında ödeyin.", iban: BANK_TRANSFER.iban }] }));
 });
 
+for (const method of [
+  { ...BANK_TRANSFER, instructions: "" },
+  { kind: "cash_on_delivery", label: "Kapıda ödeme", instructions: "" },
+]) {
+  test(`${method.kind} checkout quotes and receipts preserve valid empty payment instructions`, () => {
+    assert.deepEqual(parsePublicCheckoutQuote({ cart: CART, paymentMethods: [method] }).paymentMethods, [method]);
+    assert.deepEqual(parsePublicCheckoutQuoteV2({ ...DISCOUNTED_QUOTE, paymentMethods: [method] }).paymentMethods, [method]);
+    assert.deepEqual(parsePublicCheckoutReceipt({ ...RECEIPT, paymentMethod: method }).paymentMethod, method);
+    assert.deepEqual(parsePublicCheckoutReceiptV2({
+      ...RECEIPT,
+      lineDiscountCents: DISCOUNTED_CART.lineDiscountCents,
+      shippingDiscountCents: DISCOUNTED_CART.shippingDiscountCents,
+      discountCents: DISCOUNTED_CART.discountCents,
+      totalCents: DISCOUNTED_CART.totalCents,
+      items: DISCOUNTED_QUOTE.cart.items,
+      promotionStatus: DISCOUNTED_QUOTE.promotionStatus,
+      appliedPromotions: DISCOUNTED_QUOTE.appliedPromotions,
+      gifts: DISCOUNTED_QUOTE.gifts,
+      paymentMethod: method,
+    }).paymentMethod, method);
+  });
+}
+
+test("optional offline payment instructions still require a present canonical string", () => {
+  for (const method of [BANK_TRANSFER, { kind: "cash_on_delivery", label: "Kapıda ödeme", instructions: "" }]) {
+    const { instructions: _instructions, ...missing } = method;
+    for (const invalid of [missing, ...[undefined, null, 1, [], {}, " ", " Açıklama", "Açıklama ", "Açıklama\u0000", "x".repeat(2_001)].map(instructions => ({ ...method, instructions }))]) {
+      assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [invalid] }));
+      assert.throws(() => parsePublicCheckoutQuoteV2({ ...DISCOUNTED_QUOTE, paymentMethods: [invalid] }));
+    }
+  }
+});
+
 test("checkout quote accepts one exact hosted card without private authority", () => {
   const quote = parsePublicCheckoutQuote({ cart: CART, paymentMethods: [HOSTED_CARD] });
   assert.deepEqual(quote.paymentMethods, [HOSTED_CARD]);
@@ -261,6 +294,8 @@ test("checkout quote accepts one exact hosted card without private authority", (
   assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ ...HOSTED_CARD, providerCode: "stripe" }] }));
   assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ ...HOSTED_CARD, presentation: "embedded_html" }] }));
   assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [HOSTED_CARD, HOSTED_CARD] }));
+  assert.throws(() => parsePublicCheckoutQuote({ cart: CART, paymentMethods: [{ ...HOSTED_CARD, instructions: "" }] }));
+  assert.throws(() => parsePublicCheckoutQuoteV2({ ...DISCOUNTED_QUOTE, paymentMethods: [{ ...HOSTED_CARD, instructions: "" }] }));
 });
 
 test("V2 checkout quote adds only reconciled public promotion facts while V1 stays exact", () => {
