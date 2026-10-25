@@ -7,6 +7,7 @@ import { CatalogProductList } from "../../components/CatalogProductList";
 import { useCommercePolicy } from "../../components/CommercePolicyProvider";
 import { StoreIcon } from "../../components/StoreIcon";
 import { catalogHref, isValidProductCatalogSearch, type ProductCatalogSelection } from "../../lib/product-catalog-query.ts";
+import { productIndexPath } from "../../lib/storefront-routes.ts";
 
 export function EzmeoProductExplorer({ selection: initial, ...props }: ProductExplorerProps) {
   const policy = useCommercePolicy();
@@ -35,6 +36,13 @@ export function EzmeoProductExplorer({ selection: initial, ...props }: ProductEx
       <div className="explorer-filters" role="group" aria-label="Ürün filtresi">{([["all", "Tümü"], ["available", "Stokta"], ["discounted", "İndirimli"]] as const).filter(([value]) => !policy.hidePrices || value !== "discounted").map(([value, label]) => <button type="button" key={value} data-filter={value} disabled={pending} aria-pressed={selection.filter === value} onClick={() => navigate({ ...selection, query, order, filter: value })}>{label}</button>)}</div>
       <p className="explorer-count" aria-live="polite">{props.total} ürün</p>
     </div>
-    <CatalogProductList {...props} selection={selection} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />
+    {props.total === 0 ? <div className="store-empty ez-catalog-empty">
+      <h2>Ürün bulunamadı</h2>
+      <p>{selection.query || selection.filter !== "all" ? "Aramanızı veya filtrelerinizi değiştirerek yeniden deneyin." : "Şu anda gösterilecek ürün bulunmuyor."}</p>
+      <button className="store-button store-button-secondary" type="button" disabled={pending} onClick={() => {
+        setQuery("");
+        startTransition(() => router.push(productIndexPath(props.locale)));
+      }}>Tüm ürünleri gör</button>
+    </div> : <CatalogProductList {...props} selection={selection} emptyMessage="Aramanızla eşleşen ürün bulunamadı." />}
   </div>;
 }

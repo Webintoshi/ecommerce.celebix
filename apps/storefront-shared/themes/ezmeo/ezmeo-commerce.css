@@ -670,9 +670,13 @@
   .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-content] { padding: 24px 20px 32px; }
 }
 
-.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-media] { min-height: 0; background: transparent; }
-.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-media] img { object-fit: contain; }
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-catalog-empty .store-button { justify-self: center; margin-top: 12px; }
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-media] { min-height: 0; grid-template-rows: minmax(0, 1fr); overflow: hidden; background: transparent; }
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-media] img { min-height: 0; height: 100%; max-height: 100%; object-fit: contain; }
 @media (max-width: 760px) {
   .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-media] { height: min(240px, 30dvh); max-height: none; }
-  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-media] img { max-height: 100%; }
+  .starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-media] img { height: min(240px, 30dvh); }
 }
+
+/* Utility launchers must never cover an active purchase dialog. */
+body:has(.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-view]) :is(.google-consent-preferences, [data-contact-widget]) { visibility: hidden; pointer-events: none; }

@@ -66,6 +66,24 @@ test("Ezmeo compact choices hide stock counts and duplicate prices while keeping
   });
 });
 
+test("Ezmeo empty search shows a truthful empty state and returns to the locale's full catalog", async () => {
+  const pushes: unknown[] = [];
+  const load = componentLoader({
+    "next/navigation": { useRouter: () => ({ push: (...args: unknown[]) => pushes.push(args) }) },
+    "../../components/CatalogProductList": { CatalogProductList: () => React.createElement("div", { "data-test-catalog": true }) },
+    "../../components/CommercePolicyProvider": { useCommercePolicy: () => ({ hidePrices: false }) },
+  });
+  const { EzmeoProductExplorer: Explorer } = load<{ EzmeoProductExplorer: Component }>(new URL("../themes/ezmeo/EzmeoProductExplorer.tsx", import.meta.url));
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Explorer, { selection: { ...selection, query: "yok", filter: "available" }, products: [], locale: "en", total: 0, nextOffset: null, path: "/search", cardStyle: "editorial", imageRatio: "square" }));
+    assert.equal(container.querySelector('.store-empty h2')?.textContent, "Ürün bulunamadı");
+    assert.equal(container.querySelector('[data-test-catalog]'), null);
+    assert.ok(!container.textContent?.includes("hazırlanıyor"));
+    await click('.ez-catalog-empty button');
+    assert.deepEqual(pushes.at(-1), ["/products"]);
+  });
+});
+
 test("Ezmeo quick view honors quantity settings and hands the selected variant to the cart after closing", async () => {
   const order: string[] = [], calls: unknown[] = [];
   let container: HTMLElement;
