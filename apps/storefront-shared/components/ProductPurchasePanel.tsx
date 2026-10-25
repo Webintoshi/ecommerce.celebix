@@ -3,6 +3,7 @@ import { useCommercePolicy } from "./CommercePolicyProvider";
 import { WhatsAppOrderButton } from "./WhatsAppOrderButton";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "./RestockAlerts";
 
+import { ezmeoVariantHeading, ezmeoVariantTitle } from "../themes/ezmeo/variant-labels.ts";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -40,7 +41,8 @@ export function ProductPurchasePanel({
   const policy = useCommercePolicy();
   const pricesHidden = policy.hidePrices || product.pricesHidden === true;
   const restockConfig = useRestockAlertsConfig();
-  const { openDrawer, replaceCart } = useCartStatus();
+  const { openDrawer, replaceCart, visualTheme } = useCartStatus();
+  const compactChoices = visualTheme === "ezmeo-deniz";
   const [selectedId, setSelectedId] = useProductVariantSelection(product);
   const [quantity, setQuantity] = useState(1);
   const [pending, setPending] = useState<"add" | "buy" | null>(null);
@@ -149,8 +151,8 @@ export function ProductPurchasePanel({
     >
       {showVariantChoices ? (
         <fieldset disabled={pending !== null}>
-          <legend id="purchase-variants-title">{showStockQuantity ? "Varyant seçin" : "Beden / numara seçin"}</legend>
-          <div className="purchase-variants">
+          <legend id="purchase-variants-title">{compactChoices ? ezmeoVariantHeading(product.variants.map(variant => variant.title)) : showStockQuantity ? "Varyant seçin" : "Beden / numara seçin"}</legend>
+          <div className="purchase-variants" data-compact-variants={compactChoices || undefined}>
             {product.variants.map((variant) => (
               <label
                 className={variant.available ? "" : "is-disabled"}
@@ -160,6 +162,7 @@ export function ProductPurchasePanel({
                   type="radio"
                   name="variant"
                   value={variant.id}
+                  aria-label={compactChoices ? `${ezmeoVariantTitle(variant.title)}${variant.available ? "" : " · Tükendi"}` : undefined}
                   checked={selectedId === variant.id}
                   disabled={!variant.available && !restockConfig?.enabled}
                   onChange={() => {
@@ -168,12 +171,10 @@ export function ProductPurchasePanel({
                   }}
                 />
                 <span>
-                  <b>{variant.title}</b>
-                  <small>
-                    {variantStockLabel(variant, showStockQuantity)}
-                  </small>
+                  <b>{compactChoices ? ezmeoVariantTitle(variant.title) : variant.title}</b>
+                  {!compactChoices ? <small>{variantStockLabel(variant, showStockQuantity)}</small> : null}
                 </span>
-                {!pricesHidden ? <strong>{formatTry(variant.priceCents)}</strong> : null}
+                {!pricesHidden && !compactChoices ? <strong>{formatTry(variant.priceCents)}</strong> : null}
               </label>
             ))}
           </div>

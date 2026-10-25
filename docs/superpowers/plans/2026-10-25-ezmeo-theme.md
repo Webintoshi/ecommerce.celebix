@@ -84,3 +84,12 @@ Validation: 37 focused component/navigation/banner tests passed sequentially wit
 ## Modern minimalism refinement
 
 Merchant explicitly requested continuing in modern minimalism. Scope stays inside Ezmeo CSS: calmer section typography in the published font family, no product image border, lighter favorite control, soft option buttons without outlined boxes, mobile product heading/actions on one row, and borderless/shadowless testimonial surfaces. Merchant text, images, section composition and settings remain untouched. The decorative system testimonial eyebrow is hidden for this tenant. Existing square setting, banner pagination, opt-in swipe and mobile dock are retained. No new dependencies, images, JavaScript behavior or database writes are needed.
+
+
+## 2026-10-26 shopping-flow consistency correction
+
+Merchant rejected the legacy catalog toolbar and oversized variant cards and asked for complete design ownership. Changes follow existing public data authority and remain selected only for Ezmeo: one compact explorer for product/category/collection/search routes; immediate sort/filter and normal search submission; unchanged canonical query validation and 24-item infinite continuation; compact, accessible native gramaj radios with no stock count or duplicate per-choice price; selected price/gallery/cart variant stay synchronized. Empty/hidden-price/stock-unavailable behavior uses existing policies.
+
+The bounded review found quickview could cover the cart, ignore the admin quantity setting and use oversized legacy typography. Ezmeo now reuses the existing coordinated overlay handoff and selected price; stock availability is retained, quantity setting forwarded, and typography scoped. Existing panel-history hook now handles Ezmeo header/cart Back and close-before-navigation semantics. Other tenant behavior is preserved by existing and added regression tests. Homepage rail now shows two complete square cards.
+
+Validation before release: 54 focused route, selection, cart, overlay, infinite-list, frame and scroll tests passed in one process sequence with a 384 MiB Node heap. No local dev server or production build was started. Full storefront test suite was not run. Remaining native/source guard and remote/live QA must bind the exact candidate before completion.

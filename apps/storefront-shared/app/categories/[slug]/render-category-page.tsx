@@ -8,6 +8,7 @@ import { SeoStructuredData } from "@/components/SeoStructuredData";
 import { buildPublicSeoMetadata, effectivePublicSeo, buildBreadcrumbStructuredData } from "@/lib/public-seo.ts";
 import { loadPublicResourceSeo } from "@/lib/public-seo-read.ts";
 import { CommercePageEvent } from "@/components/CommercePageEvent";
+import { ezmeoThemeFor } from "../../../themes/ezmeo/theme.ts";
 import { sioraThemeFor } from "../../../themes/siora/theme.ts";
 import { alplerThemeFor } from "../../../themes/alpler/theme.ts";
 import { guzideThemeFor } from "../../../themes/guzide/theme.ts";
@@ -34,7 +35,7 @@ async function category(slug: string) {
       storefront,
       now: new Date(),
       slug,
-      limit: (hizliThemeFor(storefront) ?? guzideThemeFor(storefront)) ? 1 : 48,
+      limit: (ezmeoThemeFor(storefront) ?? hizliThemeFor(storefront) ?? guzideThemeFor(storefront)) ? 1 : 48,
     });
     const seoSelection = await loadPublicResourceSeo(runtime.seo, storefront.hostname, "category", selected.category.id);
     return {
@@ -80,13 +81,14 @@ export async function renderCategoryPage({
     );
   }
   const { presentation } = selected.storefront;
+  const ezmeo = ezmeoThemeFor(selected.storefront);
   const guzide = guzideThemeFor(selected.storefront);
   const hizli = hizliThemeFor(selected.storefront);
   const navigation = "navigation" in presentation ? presentation.navigation : {
     items: (presentation.categoryShowcase?.items ?? []).map(({ name, slug }) => ({ name, slug, children: [] })),
   };
-  const selection = parseProductCatalogQuery(guzide || hizli ? await searchParams : {});
-  const catalog = guzide || hizli ? await (async () => {
+  const selection = parseProductCatalogQuery(ezmeo || guzide || hizli ? await searchParams : {});
+  const catalog = ezmeo || guzide || hizli ? await (async () => {
     if (!selected.runtime.repository.queryPublicCatalog) throw new Error("public_catalog_query_unavailable");
     try {
       return await selected.runtime.repository.queryPublicCatalog({
@@ -123,8 +125,8 @@ export async function renderCategoryPage({
         <span aria-current="page">{selected.category.name}</span>
       </nav>
       <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.section}` : ""}`}>
-        {(guzide || hizli) && catalog ? <ProductExplorer
-          visualTheme={hizli ?? guzide}
+        {(ezmeo || guzide || hizli) && catalog ? <ProductExplorer
+          visualTheme={ezmeo ?? hizli ?? guzide}
           products={catalog.items}
           selection={selection}
           total={catalog.total}

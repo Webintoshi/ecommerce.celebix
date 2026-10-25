@@ -13,6 +13,8 @@ import type { GuzideCatalogContext } from "../themes/guzide/guzide-catalog.ts";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 import { HizliProductExplorer } from "../themes/hizli-kutu/HizliProductExplorer";
 
+import { EzmeoProductExplorer } from "../themes/ezmeo/EzmeoProductExplorer";
+
 const FILTERS = Object.freeze([
   ["all", "Tümü"],
   ["available", "Stokta"],
@@ -34,6 +36,7 @@ export type ProductExplorerProps = Readonly<{
 }>;
 
 export function ProductExplorer({ visualTheme, ...props }: ProductExplorerProps) {
+  if (visualTheme === "ezmeo-deniz") return <EzmeoProductExplorer {...props} />;
   if (visualTheme === "hizli-kutu-deniz") return <HizliProductExplorer {...props} />;
   if (visualTheme === "guzide-deniz") return <GuzideProductExplorer {...props} />;
   return visualTheme === "siora-deniz" || visualTheme === "alpler-deniz" ? <SioraProductExplorer {...props} /> : <StandardProductExplorer {...props} />;

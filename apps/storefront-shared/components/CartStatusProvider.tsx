@@ -8,6 +8,7 @@ import { storefrontCartClient } from "@/lib/cart/client.ts";
 import { SideCartDrawer } from "./SideCartDrawer";
 import { useHydrated } from "./use-hydrated";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
+import { EZMEO_STOREFRONT_ID } from "../themes/ezmeo/theme.ts";
 import { ALPLER_STOREFRONT_ID } from "../themes/alpler/theme.ts";
 import { useGuzidePanelHistory } from "../themes/guzide/useGuzidePanelHistory";
 import { useSioraPanelHistory } from "../themes/siora/useSioraPanelHistory";
@@ -31,10 +32,10 @@ export type CartStatus = Readonly<{
 const Context = createContext<CartStatus | null>(null);
 type DrawerHistory = Readonly<{ open(): boolean; close(): Promise<boolean>; navigate(href: string): void }>;
 
-/** Mount history behavior only for Alpler; the other storefront drawers keep their current flow. */
-function AlplerCartHistory({ bridge, onClose }: Readonly<{ bridge: RefObject<DrawerHistory | null>; onClose(restoreFocus: boolean): void }>) {
+/** Reuse owned panel history for the tenant themes that coordinate shopping overlays. */
+function ScopedCartHistory({ storefrontId, bridge, onClose }: Readonly<{ storefrontId: string; bridge: RefObject<DrawerHistory | null>; onClose(restoreFocus: boolean): void }>) {
   const router = useRouter();
-  const history = useSioraPanelHistory({ storefrontId: ALPLER_STOREFRONT_ID, panel: "cart", onClose: (reason) => onClose(reason === "back") });
+  const history = useSioraPanelHistory({ storefrontId, panel: "cart", onClose: (reason) => onClose(reason === "back") });
   const controller = useMemo<DrawerHistory>(() => ({
     open: history.open,
     close: history.close,
@@ -74,7 +75,7 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
   const pendingDrawerGateRef = useRef<Promise<boolean> | null>(null);
   const drawerGateRef = useRef<(() => Promise<boolean> | null) | null>(null);
   const registerDrawerGate = useCallback((gate: () => Promise<boolean> | null) => { drawerGateRef.current = gate; return () => { if (drawerGateRef.current === gate) drawerGateRef.current = null; }; }, []);
-  const alpler = visualTheme === "alpler-deniz";
+  const coordinated = visualTheme === "alpler-deniz" || visualTheme === "ezmeo-deniz";
   const guzide = visualTheme === "guzide-deniz" && Boolean(storefrontId);
   const showQuantitySelector = presentation?.showQuantitySelector ?? true;
   const refreshGenerationRef = useRef(0);
@@ -112,9 +113,9 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
   }, []);
   const openDrawer = useCallback((trigger?: HTMLElement | null) => {
     const show = () => {
-      if (alpler && !drawerOpenRef.current && !drawerHistoryRef.current?.open()) return;
+      if (coordinated && !drawerOpenRef.current && !drawerHistoryRef.current?.open()) return;
       if (guzide && !drawerOpenRef.current) drawerHistoryRef.current?.open();
-      triggerRef.current = alpler || guzide
+      triggerRef.current = coordinated || guzide
         ? trigger?.isConnected ? trigger : (document.activeElement instanceof HTMLElement ? document.activeElement : null)
         : trigger ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
       drawerOpenRef.current = true; setDrawerOpen(true);
@@ -126,19 +127,19 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
       void waiting.then(sameRoute => { if (sameRoute) show(); }).finally(() => { if (pendingDrawerGateRef.current === waiting) pendingDrawerGateRef.current = null; });
     }
     else show();
-  }, [alpler, guzide]);
+  }, [coordinated, guzide]);
   const closeDrawerAndWait = useCallback((restoreFocus = true): Promise<boolean> => {
     hideDrawer(restoreFocus);
-    if (!alpler && !guzide) return Promise.resolve(true);
+    if (!coordinated && !guzide) return Promise.resolve(true);
     const sourceRoute = `${window.location.pathname}${window.location.search}`;
     return (drawerHistoryRef.current?.close() ?? Promise.resolve(true)).then((sameRoute) => new Promise<boolean>((resolve) => {
       // Finish Next's popstate work before another overlay entry or route is opened.
       window.setTimeout(() => resolve(sameRoute && `${window.location.pathname}${window.location.search}` === sourceRoute), 0);
     }));
-  }, [alpler, guzide, hideDrawer]);
+  }, [coordinated, guzide, hideDrawer]);
   const closeDrawer = useCallback((event?: MouseEvent<HTMLElement>) => {
     const link = event?.currentTarget instanceof HTMLAnchorElement ? event.currentTarget : null;
-    if ((alpler || guzide) && event && link && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && link.target !== "_blank" && !link.hasAttribute("download")) {
+    if ((coordinated || guzide) && event && link && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && link.target !== "_blank" && !link.hasAttribute("download")) {
       const href = link.getAttribute("href");
       if (href && (!guzide || (href.startsWith("/") && !href.startsWith("//")))) {
         event.preventDefault();
@@ -147,7 +148,7 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
       }
     }
     void closeDrawerAndWait();
-  }, [alpler, guzide, closeDrawerAndWait]);
+  }, [coordinated, guzide, closeDrawerAndWait]);
   const replaceCart = useCallback((nextCart: PublicCart) => {
     cartEpochRef.current += 1;
     setCart(nextCart);
@@ -165,7 +166,7 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
       },
     });
   }, [storefrontId, closeDrawerAndWait]);
-  return <Context.Provider value={value}>{alpler ? <AlplerCartHistory bridge={drawerHistoryRef} onClose={hideDrawer} /> : guzide ? <Suspense fallback={null}><GuzideCartHistory storefrontId={storefrontId!} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : null}{children}<SideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} style={drawerStyle} /><span className="sr-only" aria-live="polite">{!hydrated || loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
+  return <Context.Provider value={value}>{coordinated ? <Suspense fallback={null}><ScopedCartHistory storefrontId={visualTheme === "ezmeo-deniz" ? EZMEO_STOREFRONT_ID : ALPLER_STOREFRONT_ID} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : guzide ? <Suspense fallback={null}><GuzideCartHistory storefrontId={storefrontId!} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : null}{children}<SideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} style={drawerStyle} /><span className="sr-only" aria-live="polite">{!hydrated || loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }
 
 export function useCartStatus(): CartStatus {

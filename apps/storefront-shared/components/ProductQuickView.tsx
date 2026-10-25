@@ -10,6 +10,8 @@ import { ProductPurchasePanel } from "./ProductPurchasePanel";
 import { ProductVariantMediaProvider, useProductVariantMedia, useProductVariantSelection } from "./ProductVariantMedia";
 import { useCartStatus } from "./CartStatusProvider";
 import styles from "./product-quick-view.module.css";
+import { EZMEO_STOREFRONT_ID } from "../themes/ezmeo/theme.ts";
+import { ezmeoVariantHeading } from "../themes/ezmeo/variant-labels.ts";
 import { ALPLER_STOREFRONT_ID } from "../themes/alpler/theme.ts";
 import { useSioraPanelHistory } from "../themes/siora/useSioraPanelHistory";
 import dynamic from "next/dynamic";
@@ -18,10 +20,10 @@ const HizliQuickView = dynamic(() => import("../themes/hizli-kutu/HizliQuickView
 
 const focusable = "a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex='-1'])";
 
-function QuickViewMedia({ product, alpler = false }: Readonly<{ product: PublicProduct; alpler?: boolean }>) {
+function QuickViewMedia({ product, alpler = false, ezmeo = false }: Readonly<{ product: PublicProduct; alpler?: boolean; ezmeo?: boolean }>) {
   const { images, selectedMediaId } = useProductVariantMedia(product);
   const primary = images.find(({ id }) => id === selectedMediaId);
-  return <div className={styles.media} data-alpler-quick-media={alpler || undefined}>{primary ? /* eslint-disable-next-line @next/next/no-img-element */<img src={primary.url} alt={primary.altText || product.title} width={primary.width} height={primary.height} /> : <span>Görsel yakında</span>}</div>;
+  return <div className={styles.media} data-alpler-quick-media={alpler || undefined} data-ezmeo-quick-media={ezmeo || undefined}>{primary ? /* eslint-disable-next-line @next/next/no-img-element */<img src={primary.url} alt={primary.altText || product.title} width={primary.width} height={primary.height} /> : <span>Görsel yakında</span>}</div>;
 }
 
 function QuickViewPrice({ product }: Readonly<{ product: PublicProduct }>) {
@@ -49,7 +51,7 @@ function StandardProductQuickView({ product }: Readonly<{ product: PublicProduct
 }
 
 
-function AlplerProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {
+function CoordinatedProductQuickView({ product, ezmeo = false }: Readonly<{ product: PublicProduct; ezmeo?: boolean }>) {
   const { drawerOpen, closeDrawerAndWait, showQuantitySelector = true } = useCartStatus();
   const [open, setOpen] = useState(false);
   const openRef = useRef(false);
@@ -57,13 +59,13 @@ function AlplerProductQuickView({ product }: Readonly<{ product: PublicProduct }
   const renderedSession = sessionRef.current;
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
-  const titleId = `alpler-quick-view-${product.id}`;
+  const titleId = `${ezmeo ? "ezmeo" : "alpler"}-quick-view-${product.id}`;
   const hide = useCallback((restoreFocus = true) => {
     openRef.current = false;
     setOpen(false);
     if (restoreFocus) window.requestAnimationFrame(() => { if (triggerRef.current?.isConnected) triggerRef.current.focus(); });
   }, []);
-  const { open: openHistory, close: closeHistory } = useSioraPanelHistory({ storefrontId: ALPLER_STOREFRONT_ID, panel: `quick-view:${product.id}`, onClose: (reason) => hide(reason === "back") });
+  const { open: openHistory, close: closeHistory } = useSioraPanelHistory({ storefrontId: ezmeo ? EZMEO_STOREFRONT_ID : ALPLER_STOREFRONT_ID, panel: `quick-view:${product.id}`, onClose: (reason) => hide(reason === "back") });
   const close = useCallback(() => { hide(); void closeHistory(); }, [closeHistory, hide]);
   const launch = () => {
     const sourceRoute = `${window.location.pathname}${window.location.search}`;
@@ -101,11 +103,12 @@ function AlplerProductQuickView({ product }: Readonly<{ product: PublicProduct }
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     return { proceed: sameRoute && sessionRef.current === renderedSession && `${window.location.pathname}${window.location.search}` === sourceRoute && Boolean(triggerRef.current?.isConnected), drawerTrigger: triggerRef.current };
   };
-  return <><button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={launch}>Seçenekleri seç</button>{open ? <ProductVariantMediaProvider key={product.id} product={product}><div className={styles.backdrop} onMouseDown={backdrop}><section className={styles.dialog} data-alpler-quick-view ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={keyboard}><button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button><QuickViewMedia product={product} alpler /><div className={styles.content} data-alpler-quick-content><p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p><h2 id={titleId}>{product.title}</h2><QuickViewPrice product={product} /><ProductPurchasePanel product={product} available={product.available} showStockQuantity={false} showQuantitySelector={showQuantitySelector} beforePurchaseTransition={beforePurchaseTransition} /></div></section></div></ProductVariantMediaProvider> : null}</>;
+  return <><button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={launch}>{ezmeo && ezmeoVariantHeading(product.variants.map(variant => variant.title)) === "Gramaj" ? "Gramaj seç" : "Seçenekleri seç"}</button>{open ? <ProductVariantMediaProvider key={product.id} product={product}><div className={styles.backdrop} onMouseDown={backdrop}><section className={styles.dialog} data-alpler-quick-view={!ezmeo || undefined} data-ezmeo-quick-view={ezmeo || undefined} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={keyboard}><button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button><QuickViewMedia product={product} alpler={!ezmeo} ezmeo={ezmeo} /><div className={styles.content} data-alpler-quick-content={!ezmeo || undefined} data-ezmeo-quick-content={ezmeo || undefined}><p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p><h2 id={titleId}>{product.title}</h2><QuickViewPrice product={product} /><ProductPurchasePanel product={product} available={product.available} showStockQuantity={false} showQuantitySelector={showQuantitySelector} beforePurchaseTransition={beforePurchaseTransition} /></div></section></div></ProductVariantMediaProvider> : null}</>;
 }
 
 export function ProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {
   const { visualTheme } = useCartStatus();
   if (visualTheme === "hizli-kutu-deniz") return <HizliQuickView product={product} />;
-  return visualTheme === "alpler-deniz" ? <AlplerProductQuickView product={product} /> : <StandardProductQuickView product={product} />;
+  if (visualTheme === "ezmeo-deniz") return <CoordinatedProductQuickView product={product} ezmeo />;
+  return visualTheme === "alpler-deniz" ? <CoordinatedProductQuickView product={product} /> : <StandardProductQuickView product={product} />;
 }

@@ -5,6 +5,7 @@ import ts from "typescript";
 import * as jsxRuntime from "react/jsx-runtime";
 import { isCatalogSearchCursor } from "../../../packages/saas-data/src/catalog-search/common.ts";
 import * as guzide from "../themes/guzide/theme.ts";
+import * as ezmeo from "../themes/ezmeo/theme.ts";
 import * as hizli from "../themes/hizli-kutu/theme.ts";
 import * as catalogQuery from "../lib/product-catalog-query.ts";
 
@@ -18,9 +19,9 @@ function nodes(value: unknown): Node[] {
 }
 
 async function loadSearch(id: string) {
-  const calls: Record<string, unknown>[] = [];
+  const calls: Record<string, unknown>[] = [], catalogCalls: Record<string, unknown>[] = [];
   const products = [{ id: "real-search-product" }];
-  const context = { storefront: { id, hostname: "guzide.example.test", locale: "tr", presentation: { theme: { productCardStyle: "compact", productImageRatio: "portrait" } } }, design: {}, runtime: { content: { async search(input: Record<string, unknown>) { calls.push(input); return { items: products, nextCursor: cursor }; } } } };
+  const context = { storefront: { id, hostname: "guzide.example.test", locale: "tr", presentation: { theme: { productCardStyle: "compact", productImageRatio: "portrait" } } }, design: {}, runtime: { repository: { async queryPublicCatalog(input: Record<string, unknown>) { catalogCalls.push(input); return { items: products, total: 50, nextOffset: 24 }; } }, content: { async search(input: Record<string, unknown>) { calls.push(input); return { items: products, nextCursor: cursor }; } } } };
   const dependencies: Record<string, unknown> = {
     "@/components/CommercePolicyServerPage": { withCommercePolicyPage: <T,>(Page: T) => Page },
     "react/jsx-runtime": jsxRuntime, "next/link": "a", "@celebix/saas-data": { isCatalogSearchCursor },
@@ -32,6 +33,8 @@ async function loadSearch(id: string) {
   const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const module: { exports: { default?: (value: unknown) => Promise<unknown>; metadata?: unknown } } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "../../components/ProductExplorer") return { ProductExplorer: "ProductExplorer" };
+    if (name === "../../themes/ezmeo/theme.ts") return ezmeo;
     if (name === "../../themes/hizli-kutu/theme.ts") return hizli;
     if (name === "../../themes/hizli-kutu/HizliProductExplorer") return { HizliProductExplorer: "HizliProductExplorer" };
     if (name === "../../lib/product-catalog-query.ts") return catalogQuery;
@@ -39,7 +42,7 @@ async function loadSearch(id: string) {
     if (name.startsWith("@/components/")) { const component = name.slice("@/components/".length); return { [component]: component }; }
     throw new Error(`unexpected_dependency:${name}`);
   }, module, module.exports);
-  return { module: module.exports, calls, products };
+  return { module: module.exports, calls, catalogCalls, products };
 }
 
 test("Only exact Güzide search uses client suggestion navigation and its approved catalog card styling", async () => {
@@ -74,4 +77,19 @@ test("Güzide search keeps invalid query and cursor handling without requesting 
     assert.deepEqual(nodes(tree).find(({ type }) => type === "ProductGrid")?.props.products, []);
     assert.equal(nodes(tree).find(({ props }) => props.className === "store-button search-next"), undefined);
   }
+});
+
+
+test("Ezmeo search uses its shared catalog controls and authoritative 24-item result paging", async () => {
+  const { module, calls, catalogCalls, products } = await loadSearch(ezmeo.EZMEO_STOREFRONT_ID);
+  const tree = await module.default!({ searchParams: Promise.resolve({ q: "eriste", sort: "price-asc" }) });
+  const explorer = nodes(tree).find(node => node.type === "ProductExplorer");
+  assert.equal(explorer?.props.visualTheme, "ezmeo-deniz");
+  assert.deepEqual(explorer?.props.products, products);
+  assert.equal(explorer?.props.nextOffset, 24);
+  assert.equal(explorer?.props.path, "/search");
+  assert.equal(catalogCalls[0]?.query, "eriste");
+  assert.equal(catalogCalls[0]?.order, "price-asc");
+  assert.equal(catalogCalls[0]?.limit, 24);
+  assert.equal(calls.length, 0);
 });

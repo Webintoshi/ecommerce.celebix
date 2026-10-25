@@ -5,13 +5,15 @@ import { componentLoader, withProductBrowser } from "./product-variant-media-tes
 
 type Browser = Parameters<Parameters<typeof withProductBrowser>[0]>[0];
 
-async function withHeader(run: (browser: Browser & { pushes: string[]; triggers: HTMLElement[] }) => Promise<void>, options: { pathname?: string; style?: "solid" | "overlay"; drawerOpen?: boolean } = {}) {
-  const pushes: string[] = [], triggers: HTMLElement[] = [];
+async function withHeader(run: (browser: Browser & { pushes: string[]; triggers: HTMLElement[]; historyEvents: string[]; back: () => Promise<void> }) => Promise<void>, options: { pathname?: string; style?: "solid" | "overlay"; drawerOpen?: boolean } = {}) {
+  const pushes: string[] = [], triggers: HTMLElement[] = [], historyEvents: string[] = [];
+  let historyClose: (reason: string) => void = () => {};
   const load = componentLoader({
-    "next/navigation": { useRouter: () => ({ push: (href: string) => pushes.push(href) }), usePathname: () => options.pathname ?? "/urunler" },
+    "next/navigation": { useRouter: () => ({ push: (href: string) => { historyEvents.push("navigate"); pushes.push(href); } }), usePathname: () => options.pathname ?? "/urunler" },
     "next/link": { __esModule: true, default: ({ children, prefetch: _prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => React.createElement("a", props, children) },
     "../../components/CartStatusProvider": { useCartStatus: () => ({ cart: { itemCount: 4 }, drawerOpen: options.drawerOpen ?? false, openDrawer: (trigger: HTMLElement) => triggers.push(trigger) }) },
     "../../components/use-hydrated": { useHydrated: () => true },
+    "../siora/useSioraPanelHistory": { useSioraPanelHistory: ({ onClose }: { onClose: (reason: string) => void }) => { historyClose = onClose; return { open: () => { historyEvents.push("open"); return true; }, close: async () => { historyEvents.push("close"); onClose("dismiss"); return true; } }; } },
     "../siora/useCatalogScrollRestoration": { useCatalogScrollRestoration: () => undefined },
     "./CommercePolicyProvider": { useCommercePolicy: () => ({ hidePrices: false }) },
   });
@@ -24,7 +26,7 @@ async function withHeader(run: (browser: Browser & { pushes: string[]; triggers:
         { name: "Geleneksel", slug: "geleneksel", children: [{ name: "Tarhanalar", slug: "tarhanalar", children: [] }] },
         { name: "Hikâyemiz", slug: "hikayemiz", path: "/pages/hikayemiz", children: [] },
       ] }));
-      await run({ ...browser, pushes, triggers });
+      await run({ ...browser, click: async selector => { await browser.click(selector); await React.act(async () => { await new Promise(resolve => window.setTimeout(resolve, 0)); }); }, pushes, triggers, historyEvents, back: () => React.act(async () => historyClose("back")) });
     } finally { Object.assign(globalThis, { FormData: previous }); }
   });
 }
@@ -39,7 +41,7 @@ test("Ezmeo search opens in place, submits a real encoded query and restores scr
     assert.equal(document.activeElement, input);
     assert.deepEqual(pushes, [], "opening search must not navigate");
     input.value = "  Fındık & kakao  ";
-    await React.act(async () => input.form!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })));
+    await React.act(async () => { input.form!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); await new Promise(resolve => window.setTimeout(resolve, 0)); });
     assert.deepEqual(pushes, [`/search?q=${encodeURIComponent("Fındık & kakao")}`]);
     assert.equal(dialog.open, false);
     assert.equal(document.body.style.overflow, "");
@@ -110,4 +112,19 @@ test("Ezmeo mobile navigation uses real destinations and the shared menu/cart wi
     await withHeader(async ({ container }) => assert.equal(container.querySelector(".ez-bottom-nav"), null, pathname), { pathname });
   }
   await withHeader(async ({ container }) => assert.equal(container.querySelector<HTMLElement>(".ez-bottom-nav")?.hidden, true), { drawerOpen: true });
+});
+
+
+test("Ezmeo Back closes the owned panel and navigation waits for its history entry to close", async () => {
+  await withHeader(async ({ container, click, pushes, back, historyEvents }) => {
+    await click('.ez-menu-trigger');
+    await back();
+    assert.equal(container.querySelector<HTMLDialogElement>('dialog')?.open, false);
+    assert.deepEqual(pushes, []);
+    historyEvents.length = 0;
+    await click('.ez-menu-trigger');
+    await click('.ez-menu-path a');
+    assert.deepEqual(historyEvents, ["open", "close", "navigate"]);
+    assert.deepEqual(pushes, ["/urunler"]);
+  });
 });

@@ -9,6 +9,8 @@ import { CommercePageEvent } from "@/components/CommercePageEvent";
 import { StorefrontFrame } from "@/components/StorefrontFrame";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
+import { ProductExplorer } from "../../components/ProductExplorer";
+import { ezmeoThemeFor } from "../../themes/ezmeo/theme.ts";
 import { guzideThemeFor } from "../../themes/guzide/theme.ts";
 import { hizliThemeFor } from "../../themes/hizli-kutu/theme.ts";
 import { HizliProductExplorer } from "../../themes/hizli-kutu/HizliProductExplorer";
@@ -43,6 +45,17 @@ async function SearchPage({
   );
   const parameters = await searchParams;
   const selected = query(parameters.q);
+  const ezmeo = ezmeoThemeFor(storefront);
+  if (ezmeo) {
+    const selection = parseProductCatalogQuery(parameters);
+    if (!runtime.repository.queryPublicCatalog) throw new Error("public_catalog_query_unavailable");
+    const result = selected === null ? { items: [], total: 0, nextOffset: null } : await runtime.repository.queryPublicCatalog({ storefront, now: new Date(), categorySlug: null, query: selection.query, filter: selection.filter, order: selection.order, offset: selection.offset, limit: PRODUCT_CATALOG_PAGE_SIZE });
+    return <StorefrontFrame storefront={storefront} design={design}><section className="store-section store-container">
+      <h1 className="ez-catalog-title">Ürün ara</h1>{selected ? <CommercePageEvent event={{ name: "search", data: {} }} /> : null}
+      {selected === null ? <p role="alert">Arama metni geçersiz.</p> : null}
+      <ProductExplorer visualTheme={ezmeo} products={result.items} total={result.total} nextOffset={result.nextOffset} selection={selection} path="/search" locale={storefront.locale} cardStyle={storefront.presentation.theme.productCardStyle} imageRatio={storefront.presentation.theme.productImageRatio} />
+    </section></StorefrontFrame>;
+  }
   if (hizliThemeFor(storefront)) {
     const selection = parseProductCatalogQuery(parameters);
     if (!selected) return <StorefrontFrame storefront={storefront} design={design}><section className="hk-container hk-section"><h1 className="hk-search-title">Ürün ara</h1><StorefrontSearchForm defaultValue={selected ?? ""} clientNavigation />{selected === null ? <p role="alert">Arama metni geçersiz.</p> : null}</section></StorefrontFrame>;

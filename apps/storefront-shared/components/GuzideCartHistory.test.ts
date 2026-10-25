@@ -135,3 +135,22 @@ test("Güzide a second open request cannot bypass an already pending gate after 
     assert.equal(window.history.length, before + 1);
   }, { gate: () => { if (requested) return null; requested = true; return gate.promise; } });
 });
+
+
+test("Ezmeo cart owns one merchant-scoped entry and browser Back dismisses it without losing the cart", async () => {
+  await withCart(async ({ container, open }) => {
+    const before = window.history.length;
+    await open();
+    assert.equal(window.history.length, before + 1);
+    assert.ok(window.history.state.__celebixSioraPanel?.owner.includes("7892a771-67a9-42d7-9b36-f4c3e8562e95:cart:"));
+    assert.equal(container.querySelector('output')?.getAttribute('data-cart-open'), "true");
+    await React.act(async () => {
+      const popped = new Promise<void>(resolve => window.addEventListener("popstate", () => resolve(), { once: true }));
+      window.history.back();
+      await popped;
+    });
+    assert.equal(container.querySelector('output')?.getAttribute('data-cart-open'), "false");
+    assert.equal(container.querySelector('output')?.getAttribute('data-cart-count'), "1");
+    assert.equal(window.history.state.custom, "keep");
+  }, { visualTheme: "ezmeo-deniz", storefrontId: "7892a771-67a9-42d7-9b36-f4c3e8562e95" });
+});

@@ -9,6 +9,7 @@ import { StorefrontSearchForm } from "../../components/StorefrontSearchForm";
 import { useCartStatus } from "../../components/CartStatusProvider";
 import { useHydrated } from "../../components/use-hydrated";
 import { categoryPath, localizeStorefrontPath, productIndexPath } from "../../lib/storefront-routes.ts";
+import { useSioraPanelHistory } from "../siora/useSioraPanelHistory";
 import { useCatalogScrollRestoration } from "../siora/useCatalogScrollRestoration";
 import { EZMEO_STOREFRONT_ID } from "./theme.ts";
 
@@ -48,6 +49,8 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
   const menuHeadingRef = useRef<HTMLHeadingElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const previousPathRef = useRef(pathname);
+  const panelSession = useRef(0);
+  const history = useSioraPanelHistory({ storefrontId: EZMEO_STOREFRONT_ID, panel: "navigation", onClose: reason => { setPanel(null); if (reason !== "dismiss") panelSession.current += 1; } });
   const dialogId = useId();
   const headingId = `${dialogId}-title`;
   const catalog = productIndexPath(locale);
@@ -69,8 +72,18 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
   useCatalogScrollRestoration(EZMEO_STOREFRONT_ID, pathname, panel !== null || drawerOpen, "ezmeo");
 
   const destination = (item: Item) => item.path ? localizeStorefrontPath(item.path, locale) : categoryPath(locale, item.slug);
-  const close = () => setPanel(null);
+  const close = () => { panelSession.current += 1; setPanel(null); void history.close(); };
+  const navigate = async (href: string) => {
+    const session = panelSession.current;
+    const source = `${window.location.pathname}${window.location.search}`;
+    setPanel(null);
+    const sameRoute = await history.close();
+    await new Promise<void>(resolve => window.setTimeout(resolve, 0));
+    if (sameRoute && session === panelSession.current && `${window.location.pathname}${window.location.search}` === source) router.push(href);
+  };
   function open(kind: Panel, trigger: HTMLElement, item?: Item) {
+    if (!history.open()) return;
+    panelSession.current += 1;
     openerRef.current = trigger;
     setTrail(item ? [item] : []);
     setPanel(kind);
@@ -78,13 +91,13 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
   function follow(event: MouseEvent<HTMLAnchorElement>, href: string) {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    close();
-    router.push(href);
+    void navigate(href);
   }
 
   useEffect(() => {
     if (previousPathRef.current !== pathname) {
       previousPathRef.current = pathname;
+      panelSession.current += 1;
       setPanel(null);
     }
   }, [pathname]);
@@ -98,10 +111,7 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
     if (!dialog.open) dialog.showModal();
     if (panel === "search") dialog.querySelector<HTMLInputElement>('input[name="q"]')?.focus();
     else dialog.querySelector<HTMLButtonElement>("[data-ezmeo-panel-close]")?.focus();
-    const onPopState = () => setPanel(null);
-    window.addEventListener("popstate", onPopState);
     return () => {
-      window.removeEventListener("popstate", onPopState);
       if (dialog.open) dialog.close();
       document.body.style.overflow = previousOverflow;
       if (opener?.isConnected) opener.focus({ preventScroll: true });
@@ -133,11 +143,11 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
       </div>
     </header>
     <dialog id={dialogId} ref={dialogRef} className="ez-header-dialog" data-ezmeo-header data-panel={panel ?? undefined} aria-labelledby={headingId}
-      onCancel={event => { event.preventDefault(); close(); }} onClose={event => { if (!event.currentTarget.open) close(); }} onClick={event => { if (event.target === event.currentTarget) close(); }}>
+      onCancel={event => { event.preventDefault(); close(); }} onClick={event => { if (event.target === event.currentTarget) close(); }}>
       <div className="ez-header-panel">
         <header className="ez-panel-heading"><h2 id={headingId} ref={menuHeadingRef} tabIndex={-1}>{panel === "search" ? "Ne arıyorsunuz?" : current?.name ?? "Keşfet"}</h2><button className="ez-icon-button" type="button" data-ezmeo-panel-close aria-label={panel === "search" ? "Aramayı kapat" : "Menüyü kapat"} onClick={close}><HeaderIcon name="close" /></button></header>
         {panel === "search" ? <div className="ez-search-content">
-          <StorefrontSearchForm variant="panel" icon={<StoreIcon name="search" />} clientNavigation onNavigate={href => { close(); router.push(href); }} />
+          <StorefrontSearchForm variant="panel" icon={<StoreIcon name="search" />} clientNavigation onNavigate={href => { void navigate(href); }} />
           <Link className="ez-all-products" href={catalog} onClick={event => follow(event, catalog)}>Tüm ürünleri gör<HeaderIcon name="arrow" /></Link>
         </div> : <>
           <div className="ez-menu-path">

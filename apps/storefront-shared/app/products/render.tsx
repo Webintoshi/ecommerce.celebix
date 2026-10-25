@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 
+import { ezmeoThemeFor } from "../../themes/ezmeo/theme.ts";
 import { sioraThemeFor } from "../../themes/siora/theme.ts";
 import { alplerThemeFor } from "../../themes/alpler/theme.ts";
 import { guzideThemeFor } from "../../themes/guzide/theme.ts";
@@ -55,10 +56,10 @@ export async function renderProductsPage(routeVariant: StorefrontRouteVariant, s
   return (
     <StorefrontFrame storefront={storefront} design={design}>
       <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.section}` : ""}`}>
-        {!guzide ? <h1 className="sr-only">Ürünler</h1> : null}
+        {!guzide && !ezmeoThemeFor(storefront) ? <h1 className="sr-only">Ürünler</h1> : null}
         <ProductExplorer
-          visualTheme={hizliThemeFor(storefront) ?? guzide ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront)}
-          catalog={guzide ? { title: "Ürünler", navigation } : undefined}
+          visualTheme={ezmeoThemeFor(storefront) ?? hizliThemeFor(storefront) ?? guzide ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront)}
+          catalog={guzide || ezmeoThemeFor(storefront) ? { title: "Ürünler", navigation } : undefined}
           products={products.items}
           selection={selection}
           total={products.total}
