@@ -1,0 +1,85 @@
+{
+  "phase": "order-delete-quotes277",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "fixturePredecessorRoutineCount": 2034,
+  "fixtureInstalledRoutineCount": 2034,
+  "reviewedPredecessorRoutineCount": 2060,
+  "reviewedInstalledRoutineCount": 2060,
+  "reviewedPredecessorCatalogSha256": "49818ebae58044d34b86f66ecc74d566faca13b6095a5a994fd7d3abdd0025d7",
+  "reviewedInstalledCatalogSha256": "4cd1cd710e73ec8c162ed7826222e02563b07ac9430a4087c9b41253d7938ab4",
+  "reviewedRollbackCatalogSha256": "49818ebae58044d34b86f66ecc74d566faca13b6095a5a994fd7d3abdd0025d7",
+  "changedRoutines": [
+    {
+      "signature": "saas.delete_order(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,text,uuid,bigint,text)",
+      "beforeSha256": "fb468a3acb086d49fdbc277796315561dc097f7dee3d42cade890c439a62d9ce",
+      "afterSha256": "4d0aff86c32516560b29838b94b3f912edf2509e71c49b2729cac55814f11a17",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "definer": true,
+      "volatility": "v"
+    },
+    {
+      "signature": "saas.order_deletion_impact(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid)",
+      "beforeSha256": "17463828e29c9eff02fb559ce9558d61606218e31e3e98f02c238912359a0fae",
+      "afterSha256": "02f7e8703024041b73d8d91a0d49cd139f6e66702ffd3369840f991ae8d65546",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_app=X/celebix_saas_owner}",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "definer": true,
+      "volatility": "s"
+    },
+    {
+      "signature": "saas.shipping_fulfillment_guard_immutable()",
+      "beforeSha256": "6f6a3572fa2a865010db8b06c6f7a1e84b489c37e5786ab4b8e9ecc812a28f31",
+      "afterSha256": "1307a3c5e52e512357adc4c57010284b71632860efd8cf37341c97e63750d66b",
+      "owner": "celebix_saas_owner",
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "definer": false,
+      "volatility": "v"
+    }
+  ],
+  "scope": {
+    "providerCalls": 0,
+    "existingRuntimeSchemaChanges": 0,
+    "privateBackupTable": "saas.order_delete_quotes277_function_backup",
+    "quoteOnlyCleanup": true,
+    "shipmentEvidenceOutcome": "invalid_transition",
+    "quoteLockContentionOutcome": "invalid_transition",
+    "unchangedRoutineCount": 2057,
+    "metadataChanges": 0
+  },
+  "rehearsal": {
+    "receiptPath": ".tmp/order-delete-shipping-20261025/native277-expected-catalog.json",
+    "receiptSha256": "b047b21ce30396766271d50635e927a95d2074fecebd838fe5f7904e99b25448",
+    "exactBeforeMatch": true,
+    "onlyAddedRelation": "saas.order_delete_quotes277_function_backup"
+  },
+  "artifacts": [
+    {
+      "path": "apps/owner/scripts/sql/saas/202610250277_order_delete_quotes.up.sql",
+      "sha256": "5270ba5a8698d022040ef5d80ed7bf24d6af78ddf32511153399c37c78ea5d73"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610250277_order_delete_quotes.down.sql",
+      "sha256": "0e0a861bb8ddb20b678808429937b56cab3bbec5589e99449b6eaa8729a70a9e"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610250277_order_delete_quotes_assertions.sql",
+      "sha256": "e788d6d89d89a43ca8ba2aabc887bba5ce8ebe4d77b24069af50e9a32f8af00b"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/order-delete-quotes277.native.test.mjs",
+      "sha256": "3e8fcd0ee00f299f8267e9bc27b910ee82e5fb4091b2f626752d81181c683100"
+    }
+  ]
+}

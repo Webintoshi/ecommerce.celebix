@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "59a89b503d18ed11f3f2ecae24c6924da1e527393131ba6037078517c1f9535e",
+  "inputDigest": "0dbd0504ffb5c84bc2c843254a50ae3c20ca606aabe48e09075b5ca67e08df89",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2828,6 +2828,10 @@
       "sha256": "6a35b791a9d2970fdc14dbc1f1848deabec836078a48a7e103fdfeae982afc52"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610250277_order_delete_quotes.up.sql",
+      "sha256": "5270ba5a8698d022040ef5d80ed7bf24d6af78ddf32511153399c37c78ea5d73"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -2858,6 +2862,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/email-marketing-connections.up.sql",
       "sha256": "9ca7571f3cb877b13c4bb0e9516687772afa6650bd67c74076ab5e97255b8fbf"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/order-delete-quotes277-manifest.json",
+      "sha256": "d9962d8e4929ae106907ffebe9ad519f03a38d24cba5e2c97d05153916bc3146"
     },
     {
       "path": "apps/owner/scripts/sql/saas/order-edit-address276-manifest.json",
