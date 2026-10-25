@@ -13,6 +13,7 @@ import {
 import { campaignAnnouncement } from "./campaign-ui-model";
 import { localizePublicStorefrontDesign, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import styles from "./campaign-home.module.css";
+import { ezmeoThemeFor } from "../themes/ezmeo/theme.ts";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 
 export function CampaignHome({
@@ -44,6 +45,7 @@ export function CampaignHome({
           productRows={projection.productRows}
           locale={storefront.locale}
           priority={index === 0}
+          bannerSwipeNavigation={Boolean(ezmeoThemeFor(storefront))}
           renderProductRow={(input) => <CampaignProductRow {...input} visualTheme={guzideThemeFor(storefront)} />}
         />
       ))}

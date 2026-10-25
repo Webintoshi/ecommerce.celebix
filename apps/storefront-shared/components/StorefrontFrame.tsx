@@ -19,6 +19,7 @@ import { lilyumLogoFor } from "../themes/lilyum/logo.ts";
 import { GuzideClientFrame, GuzidePageBoundary } from "../themes/guzide/GuzideMobileExperience";
 import { CheckoutHeader } from "./checkout/CheckoutChrome";
 import { hizliThemeFor } from "../themes/hizli-kutu/theme.ts";
+import { ezmeoThemeFor } from "../themes/ezmeo/theme.ts";
 
 type DesignStyle = CSSProperties & Record<`--store-${string}`, string>;
 
@@ -44,7 +45,7 @@ export function StorefrontFrame({
   const customized = design.publicationVersion > 1;
   const typography = createStorefrontTypographyResources(design.typography);
   const guzideTheme = guzideThemeFor(storefront);
-  const visualTheme = (checkout ? undefined : hizliThemeFor(storefront)) ?? lilyumThemeFor(storefront) ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront) ?? guzideTheme;
+  const visualTheme = ezmeoThemeFor(storefront) ?? (checkout ? undefined : hizliThemeFor(storefront)) ?? lilyumThemeFor(storefront) ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront) ?? guzideTheme;
   const immersiveSiora = immersiveProduct && Boolean(sioraThemeFor(storefront)) && !checkout;
   const logo = lilyumLogoFor(storefront, customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo);
   const style: DesignStyle = {
@@ -79,13 +80,13 @@ export function StorefrontFrame({
           </div>
   );
   const legacy = <>{typographyLinks}
-    <CartStatusProvider presentation={campaign.cart} locale={storefront.locale} visualTheme={visualTheme} storefrontId={storefront.id} drawerStyle={visualTheme === "hizli-kutu-deniz" ? style : undefined}>
+    <CartStatusProvider presentation={campaign.cart} locale={storefront.locale} visualTheme={visualTheme} storefrontId={storefront.id} drawerStyle={visualTheme === "hizli-kutu-deniz" || visualTheme === "ezmeo-deniz" ? style : undefined}>
       <FavoriteStatusProvider>{legacyContent}</FavoriteStatusProvider>
     </CartStatusProvider>
   </>;
   if (guzideTheme && persistentGuzide) return <>
     {typographyLinks}
-    <CartStatusProvider presentation={campaign.cart} locale={storefront.locale} visualTheme={visualTheme} storefrontId={storefront.id} drawerStyle={visualTheme === "hizli-kutu-deniz" ? style : undefined}>
+    <CartStatusProvider presentation={campaign.cart} locale={storefront.locale} visualTheme={visualTheme} storefrontId={storefront.id} drawerStyle={visualTheme === "hizli-kutu-deniz" || visualTheme === "ezmeo-deniz" ? style : undefined}>
       <FavoriteStatusProvider>
         <GuzideClientFrame storefrontId={storefront.id} locale={storefront.locale}
           className={`starter-storefront ${campaign.campaignClass} ${campaign.cornerClass} ${tokens.schemeClass} ${tokens.headingClass} ${tokens.cardClass} ${tokens.imageClass}`}

@@ -1,19 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PublicStarterHomeSection } from "@celebix/saas-contracts";
 
 type BannerSection = Extract<PublicStarterHomeSection, { kind: "banner" }>;
-export function StorefrontBanner({ section, previewMode, destinationHrefs, priority = false }: Readonly<{
+export function StorefrontBanner({ section, previewMode, destinationHrefs, priority = false, swipeNavigation = false }: Readonly<{
   section: BannerSection;
   previewMode?: "desktop" | "mobile";
   destinationHrefs?: Readonly<Record<string, string>>;
   priority?: boolean;
+  swipeNavigation?: boolean;
 }>) {
   const destinationHref = (path: string) => destinationHrefs?.[path] ?? path;
   const enabled = section.slides.filter((slide) => slide.enabled && (slide.desktopImage || section.presentation === "overlay"));
   const slides = section.layout === "single" ? enabled.slice(0, 1) : enabled;
   const carousel = section.layout === "slider" && slides.length > 1;
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const suppressClickUntil = useRef(0);
   const [activeSlide, setActiveSlide] = useState(0);
   const [paused, setPaused] = useState(false);
   const [interacted, setInteracted] = useState(false);
@@ -26,8 +29,28 @@ export function StorefrontBanner({ section, previewMode, destinationHrefs, prior
   }, [carousel, section.autoplay, paused, interacted, slides.length]);
   const selectSlide = (index: number) => { setInteracted(true); setActiveSlide((index + slides.length) % slides.length); };
   if (!slides.length) return null;
-  return <section className="celebix-store-banner" data-layout={section.layout} data-presentation={section.presentation} data-preview-mode={previewMode}
+  return <section className="celebix-store-banner" data-layout={section.layout} data-presentation={section.presentation} data-preview-mode={previewMode} data-swipe-navigation={swipeNavigation && carousel ? "true" : undefined}
     aria-roledescription={carousel ? "carousel" : undefined} aria-label="Mağaza bannerları"
+    onTouchStart={event => {
+      suppressClickUntil.current = 0;
+      const touch = event.touches[0];
+      touchStart.current = swipeNavigation && carousel && event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : null;
+    }}
+    onTouchCancel={() => { touchStart.current = null; }}
+    onTouchEnd={event => {
+      const start = touchStart.current, touch = event.changedTouches[0];
+      touchStart.current = null;
+      if (!start || !touch) return;
+      const dx = touch.clientX - start.x, dy = touch.clientY - start.y;
+      if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy) * 1.5) return;
+      suppressClickUntil.current = Date.now() + 500;
+      selectSlide(active + (dx < 0 ? 1 : -1));
+    }}
+    onClickCapture={event => {
+      if (Date.now() < suppressClickUntil.current && event.detail > 0 && (event.target as Element).closest("a")) {
+        event.preventDefault(); event.stopPropagation(); suppressClickUntil.current = 0;
+      }
+    }}
     onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onPointerDown={() => setInteracted(true)}
     onFocusCapture={() => setPaused(true)} onBlurCapture={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false); }}
     onKeyDown={(event) => { if (!carousel || !["ArrowLeft", "ArrowRight"].includes(event.key)) return; event.preventDefault(); selectSlide(active + (event.key === "ArrowRight" ? 1 : -1)); }}>

@@ -3,5 +3,6 @@ import type { SioraVisualTheme } from "./siora/theme.ts";
 import type { AlplerVisualTheme } from "./alpler/theme.ts";
 import type { LilyumVisualTheme } from "./lilyum/theme.ts";
 import type { HizliVisualTheme } from "./hizli-kutu/theme.ts";
+import type { EzmeoVisualTheme } from "./ezmeo/theme.ts";
 
-export type StorefrontVisualTheme = GuzideVisualTheme | SioraVisualTheme | AlplerVisualTheme | LilyumVisualTheme | HizliVisualTheme;
+export type StorefrontVisualTheme = GuzideVisualTheme | SioraVisualTheme | AlplerVisualTheme | LilyumVisualTheme | HizliVisualTheme | EzmeoVisualTheme;
