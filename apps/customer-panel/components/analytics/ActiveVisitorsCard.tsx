@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Activity } from "lucide-react";
 import type { AnalyticsActiveVisitors } from "@celebix/saas-contracts";
 
@@ -9,8 +9,9 @@ import { createActiveVisitorPoller } from "@/lib/analytics-ui/active-visitors";
 import styles from "./commerce-analytics-workspace.module.css";
 
 const api = createAnalyticsBrowserApi();
+const ActiveVisitorsContext = createContext<AnalyticsActiveVisitors | null | undefined>(undefined);
 
-export function ActiveVisitorsCard({ presentation = "compact" }: Readonly<{ presentation?: "compact" | "panel" }>) {
+export function ActiveVisitorsProvider({ children }: Readonly<{ children: ReactNode }>) {
   const [snapshot, setSnapshot] = useState<AnalyticsActiveVisitors | null>(
     null,
   );
@@ -31,6 +32,15 @@ export function ActiveVisitorsCard({ presentation = "compact" }: Readonly<{ pres
       poller.dispose();
     };
   }, []);
+  return <ActiveVisitorsContext.Provider value={snapshot}>{children}</ActiveVisitorsContext.Provider>;
+}
+
+export function ActiveVisitorsCard({ presentation = "compact" }: Readonly<{ presentation?: "compact" | "panel" }>) {
+  const snapshot = useContext(ActiveVisitorsContext);
+  // Preserve standalone usage; workspace cards always share its persistent provider.
+  if (snapshot === undefined) {
+    return <ActiveVisitorsProvider><ActiveVisitorsCard presentation={presentation} /></ActiveVisitorsProvider>;
+  }
   const value =
     snapshot === null
       ? "Yükleniyor"

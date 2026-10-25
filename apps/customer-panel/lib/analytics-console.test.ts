@@ -6,6 +6,7 @@ import { createElement, type ReactNode } from "react";
 import { renderToString } from "react-dom/server";
 import * as jsxRuntime from "react/jsx-runtime";
 import ts from "typescript";
+import { analyticsMoney } from "./analytics-ui/formatters.ts";
 
 import {
   MERCHANT_MODULE_DEFINITIONS,
@@ -88,13 +89,13 @@ test("commerce analytics workspace exposes URL-stable tabs, honest formulas, deg
   assert.match(page, /CommerceAnalyticsWorkspace/);
 });
 
-test("analytics moves the honest active visitor card into a titleless sticky topbar", async () => {
+test("analytics shares honest live visitors between its titleless topbar and overview", async () => {
   const [workspace, component, poller] = await Promise.all([
     source("components/analytics/CommerceAnalyticsWorkspace.tsx"),
     source("components/analytics/ActiveVisitorsCard.tsx"),
     source("lib/analytics-ui/active-visitors.ts"),
   ]);
-  assert.match(workspace, /<PanelTopbarBridge[\s\S]*?hideHeading[\s\S]*?context=\{<div className=\{styles[.]topbarLiveMetric\}><ActiveVisitorsCard \/><\/div>\}/);
+  assert.match(workspace, /<ActiveVisitorsProvider>[\s\S]*<PanelTopbarBridge[\s\S]*?hideHeading[\s\S]*?context=\{tab !== "overview" \|\| viewState !== "ready" \? <div className=\{styles[.]topbarLiveMetric\}><ActiveVisitorsCard \/><\/div> : undefined\}/);
   assert.match(workspace, /<h1 className="sr-only">Analizler<\/h1>/);
   assert.doesNotMatch(workspace, /className=\{styles[.]pageHeader\}/);
   assert.doesNotMatch(workspace, /aria-label="İçerik yolu"/);
@@ -148,7 +149,7 @@ test("Mira analytics presentation has one h1, accessible responsive tabs and no 
   assert.match(css, /overflow-x:\s*auto/);
   assert.match(css, /min-height:\s*44px/);
   assert.match(css, /focus-visible/);
-  assert.match(css, /[.]topbarLiveMetric\s*\{[^}]*--analytics-ink:\s*var\(--cp-text-primary,[^)]+\);[^}]*--analytics-line:\s*var\(--cp-border,[^)]+\);/);
+  assert.match(css, /[.]topbarLiveMetric\s*\{[^}]*--analytics-ink:\s*var\(--cp-text-primary,[^)]+\);[^}]*--analytics-line:\s*color-mix\(in srgb, var\(--analytics-ink\) 11%, var\(--analytics-surface\)\);/);
   assert.match(css, /[.]activeVisitors \{[^}]*min-height: 44px;[^}]*border-radius: var\(--cp-control-radius\);/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*?[.]visitorsLabel\s*\{[^}]*clip:\s*rect\(0, 0, 0, 0\);/);
   assert.doesNotMatch(css, /[.]visitorsLabel\s*\{\s*display:\s*none;/);
@@ -174,6 +175,7 @@ test("sales chart renders positive geometry before browser measurement", async (
   const requireModule = (specifier: string): unknown => {
     if (specifier === "react") return React;
     if (specifier === "react/jsx-runtime") return jsxRuntime;
+    if (specifier === "@/lib/analytics-ui/formatters") return {analyticsMoney};
     if (specifier === "./sales-trend-chart.module.css")
       return { __esModule: true, default: styles };
     throw new Error(`unexpected_sales_chart_import:${specifier}`);

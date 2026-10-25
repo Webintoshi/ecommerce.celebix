@@ -30,7 +30,7 @@ import { analyticsIndexedProductMetricCount, analyticsProductMetricIndex, analyt
 import { analyticsMoney as money, analyticsPercent as percent, analyticsDateTime as date, analyticsDayLabel } from "@/lib/analytics-ui/formatters";
 import { joinAnalyticsAcquisition } from "@/lib/analytics-ui/acquisition";
 import { analyticsQueryHref, analyticsRequestQuery, analyticsTabHref, analyticsCommerceTrends, analyticsFunnelStages } from "@/lib/analytics-ui/workspace";
-import { ActiveVisitorsCard } from "./ActiveVisitorsCard";
+import { ActiveVisitorsCard, ActiveVisitorsProvider } from "./ActiveVisitorsCard";
 import { SalesTrendChart } from "./SalesTrendChart";
 import styles from "./commerce-analytics-workspace.module.css";
 
@@ -1121,6 +1121,7 @@ export function CommerceAnalyticsWorkspace({
     : viewState === "loading" ? "Yükleniyor" : "Veri alınamadı";
 
   return (
+    <ActiveVisitorsProvider>
     <PanelPageShell>
       <div className={styles.root}>
         <PanelTopbarBridge
@@ -1362,6 +1363,7 @@ export function CommerceAnalyticsWorkspace({
         </div>
       </div>
     </PanelPageShell>
+    </ActiveVisitorsProvider>
   );
 }
 

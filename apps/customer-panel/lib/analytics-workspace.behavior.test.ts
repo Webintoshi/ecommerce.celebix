@@ -20,7 +20,7 @@ async function workspace(initialHref: string, run: (context: { host: any; window
       useRouter: () => ({ push: (href: string) => move(href) }),
     },
     "next/link": { __esModule: true, default: ({ children, href, onClick, ...props }: any) => createElement("a", { ...props, href, onClick: (event: any) => { onClick?.(event); if (!event.defaultPrevented) { event.preventDefault(); move(String(href)); } } }, children) },
-    "./ActiveVisitorsCard": { ActiveVisitorsCard: () => null },
+    "./ActiveVisitorsCard": { ActiveVisitorsCard: () => null, ActiveVisitorsProvider: ({children}: any) => children },
   }).CommerceAnalyticsWorkspace;
   function Harness() {
     const [href, setHref] = useState(initialHref);
