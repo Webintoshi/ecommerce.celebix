@@ -15,7 +15,7 @@ export function renderSitemapIndex(canonicalUrl: string, shards: readonly Public
   if (shards.length > 10_000 || new Set(shards.map(({ kind, page }) => `${kind}:${page}`)).size !== shards.length) throw new TypeError("sitemap_index_invalid");
   const entries = shards.map(({ kind, page }) => {
     if (kind !== "products" && kind !== "content" || !Number.isSafeInteger(page) || page < 0 || page >= 10_000) throw new TypeError("sitemap_index_invalid");
-    return `<sitemap><loc>${xml(`${base}/sitemaps/${kind}/${page}`)}</loc></sitemap>`;
+    return `<sitemap><loc>${xml(`${base}/sitemap-${kind}-${page}.xml`)}</loc></sitemap>`;
   });
   return `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries.join("")}</sitemapindex>`;
 }

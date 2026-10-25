@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import ts from "typescript";
 import { createRobotsResponse, createIndexNowKeyResponse, isIndexNowKeyFile } from "./seo-public-routes.ts";
 import type { PublicSeoReader } from "./public-seo-read.ts";
+import * as sitemapRoutes from "./sitemap-public-routes.ts";
 
 const TOKEN = Buffer.alloc(32, 0x42).toString("base64url");
 const source = { CELEBIX_DEPLOYMENT_TIER: "staging", CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging", CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: TOKEN };
@@ -64,6 +65,7 @@ test("the root key route serves the known file and returns unknown slugs before 
     if (name === "next/headers") return { headers: async () => headers };
     if (name === "@/lib/default-runtime.ts") return { resolveDefaultPublicStorefrontRuntime: async () => { runtimeLookups++; return { seo: reader() }; } };
     if (name === "@/lib/seo-public-routes.ts") return { isIndexNowKeyFile, createIndexNowKeyResponse: (input: Parameters<typeof createIndexNowKeyResponse>[0]) => createIndexNowKeyResponse({ ...input, source }) };
+    if (name === "@/lib/sitemap-public-routes.ts") return sitemapRoutes;
     throw new Error(`unexpected_import:${name}`);
   }, route, route.exports);
   const request = new Request("https://shop.example.test/");
