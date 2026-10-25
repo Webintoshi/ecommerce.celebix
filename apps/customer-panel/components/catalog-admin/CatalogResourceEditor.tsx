@@ -10,7 +10,7 @@ import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/cl
 import { brandLogoAssetId, loadBrandProductDirectory, type BrandProductDirectoryEntry } from "@/lib/catalog-admin-ui/brand-product-directory";
 import { catalogApi } from "@/lib/catalog-ui/client";
 import { getCatalogResourceRouteDefinitionForKind } from "@/lib/catalog-admin-ui/resource-route";
-import { attributeSlug } from "@/lib/catalog-onboarding-ui/attribute-resource";
+import { attributeSlug, attributeValueIdentity, parseAttributeMeasurementValue } from "@/lib/catalog-onboarding-ui/attribute-resource";
 import { saveBrandResource } from "@/lib/catalog-admin-ui/brand-resource";
 import { CatalogWorkspaceLoading } from "../catalog/CatalogWorkspaceLoading";
 import styles from "./catalog-admin-console.module.css";
@@ -28,11 +28,12 @@ function value(data: FormData, name: string) {
   return String(data.get(name) ?? "").trim();
 }
 
-function appendAttributeValue(current: readonly string[], raw: string) {
+function appendAttributeValue(current: readonly string[], raw: string, config: Readonly<Record<string, CatalogAdminJson>> = {}) {
   const next = raw.trim();
   if (!next) return { values: current, error: "" };
-  if (next.length > 120) return { values: current, error: "Değer en fazla 120 karakter olabilir." };
-  if (current.some((entry) => entry.toLocaleLowerCase("tr-TR") === next.toLocaleLowerCase("tr-TR"))) return { values: current, error: "Bu değer zaten eklendi." };
+  if (next.length > 100) return { values: current, error: "Değer en fazla 100 karakter olabilir." };
+  if (typeof config.measurementField === "string" && !parseAttributeMeasurementValue(config.measurementField, next)) return { values: current, error: "Pozitif bir sayı ve uygun birim girin. Örneğin: 750 g, 1 kg veya 500 ml." };
+  if (current.some((entry) => attributeValueIdentity(config, entry) === attributeValueIdentity(config, next))) return { values: current, error: "Bu değer zaten eklendi." };
   if (current.length >= 64) return { values: current, error: "En fazla 64 değer ekleyebilirsiniz." };
   return { values: Object.freeze([...current, next]), error: "" };
 }
@@ -158,7 +159,7 @@ function CatalogResourceEditorWorkspace(props: { kind: CatalogAdminResourceKind;
     const data = new FormData(event.currentTarget);
     const name = value(data, "name");
     const slug = kind === "attribute" ? resource?.slug ?? attributeSlug(name) : value(data, "slug");
-    const submittedAttributeValues = kind === "attribute" ? appendAttributeValue(attributeValues, attributeValueInput.current?.value ?? "") : { values: attributeValues, error: "" };
+    const submittedAttributeValues = kind === "attribute" ? appendAttributeValue(attributeValues, attributeValueInput.current?.value ?? "", resource?.config) : { values: attributeValues, error: "" };
     if (kind === "attribute" && !slug) {
       setError("Nitelik adı en az bir harf veya rakam içermeli.");
       return;
@@ -198,7 +199,7 @@ function CatalogResourceEditorWorkspace(props: { kind: CatalogAdminResourceKind;
   }
 
   function addAttributeValue() {
-    const result = appendAttributeValue(attributeValues, attributeValueInput.current?.value ?? "");
+    const result = appendAttributeValue(attributeValues, attributeValueInput.current?.value ?? "", resource?.config);
     if (result.values === attributeValues && !result.error) return;
     if (result.error) { setAttributeValueError(result.error); return; }
     setAttributeValues(result.values);
@@ -258,9 +259,9 @@ function CatalogResourceEditorWorkspace(props: { kind: CatalogAdminResourceKind;
       {kind === "attribute" ? <>
         <div className={`${styles.wide} ${styles.attributeValueField}`}>
           <label htmlFor="attribute-value-draft">Seçenek değerleri</label>
-          <p id="attribute-values-help">Değerleri tek tek ekleyin.</p>
+          <p id="attribute-values-help">{resource?.config.measurementField ? "Seçilen değer, varyantın ilgili ölçü alanına otomatik yazılır." : "Değerleri tek tek ekleyin."}</p>
           <div className={styles.attributeValueEntry}>
-            <input ref={attributeValueInput} id="attribute-value-draft" aria-describedby={attributeValueError ? "attribute-values-help attribute-values-error" : "attribute-values-help"} aria-invalid={Boolean(attributeValueError)} placeholder="Örn. Siyah" maxLength={120} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addAttributeValue(); } }} />
+            <input ref={attributeValueInput} id="attribute-value-draft" aria-describedby={attributeValueError ? "attribute-values-help attribute-values-error" : "attribute-values-help"} aria-invalid={Boolean(attributeValueError)} placeholder={resource?.config.measurementField === "weight" ? "Örn. 750 g" : resource?.config.measurementField === "volume" ? "Örn. 500 ml" : "Örn. Siyah"} maxLength={100} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addAttributeValue(); } }} />
             <button className={styles.button} type="button" onClick={addAttributeValue}>Değer ekle</button>
           </div>
           {attributeValueError ? <p id="attribute-values-error" className={styles.error} role="alert">{attributeValueError}</p> : null}

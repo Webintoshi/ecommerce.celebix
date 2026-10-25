@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CatalogAdminResource, ProductVariant } from "@celebix/saas-contracts";
 
 import { catalogAdminApi, CatalogAdminApiError } from "@/lib/catalog-admin-ui/client";
-import { buildAttributeResourceMutation, saveAttributeForPicker } from "@/lib/catalog-onboarding-ui/attribute-resource";
+import { attributeValueIdentity, buildAttributeResourceMutation, parseAttributeMeasurementValue, saveAttributeForPicker } from "@/lib/catalog-onboarding-ui/attribute-resource";
 import { attributeChoices, mergeSelectedVariants, reconcileVariantRows, updateSharedVariantDefault, variantAttributeKey, type CatalogAttributeChoice } from "@/lib/catalog-onboarding-ui/attribute-variants";
 import { buildVariantMatrix } from "@/lib/catalog-onboarding-ui/variant-matrix";
 import type { VariantDraft } from "./ProductVariantBuilder";
@@ -69,7 +69,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
   useEffect(() => { if (editor) editorInputRef.current?.focus(); }, [editor]);
 
   const choices = useMemo(() => attributeChoices(resources), [resources]);
-  const invalidChoiceCount = resources.filter((resource) => resource.kind === "attribute" && resource.status === "active").length - choices.length;
+  const invalidChoiceCount = resources.filter((resource) => resource.kind === "attribute" && resource.status === "active" && resource.config.enabled !== false).length - choices.length;
   const selectedChoices = selectedIds.map((id) => choices.find((choice) => choice.id === id)).filter((choice): choice is CatalogAttributeChoice => choice !== undefined);
   const options = selectedChoices.map((choice) => ({ name: choice.key, values: selectedValues[choice.id] ?? [] }));
   const matrix = useMemo(() => options.length && options.every(({ values }) => values.length) ? buildVariantMatrix(options) : null, [JSON.stringify(options)]);
@@ -106,7 +106,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
     if (presentation !== "create" && selectedKeys.has(key) && !window.confirm("Bu varyantın girilmiş fiyat, stok ve diğer bilgileri kaldırılacak. Devam edilsin mi?")) return;
     const next = selectedKeys.has(key) ? [...selectedKeys].filter((item) => item !== key) : [...selectedKeys, key];
     if (!next.length) { onChange(Object.freeze([])); setError(""); return; }
-    const result = mergeSelectedVariants({ options, selectedKeys: next, current: value, existing: existing.map(({ attributes }) => attributes), defaultPrice: price, defaultStock: stock, baseSku });
+    const result = mergeSelectedVariants({ options, resources, selectedKeys: next, current: value, existing: existing.map(({ attributes }) => attributes), defaultPrice: price, defaultStock: stock, baseSku });
     if (!result.ok) { setError(result.error); return; }
     setError("");
     onChange(result.value);
@@ -137,10 +137,15 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
 
   function addEditorValue() {
     const candidate = editorInput.trim();
-    const current = editor?.kind === "existing" ? resources.find((item) => item.id === editor.id)?.config.values : [];
+    const config = editor?.kind === "existing" ? resources.find((item) => item.id === editor.id)?.config ?? {} : {};
+    const current = config.values;
     const previous = Array.isArray(current) ? current.filter((item): item is string => typeof item === "string") : [];
-    if (!candidate || candidate.length > 100 || [...previous, ...editorValues].some((item) => item.toLocaleLowerCase("tr-TR") === candidate.toLocaleLowerCase("tr-TR"))) {
+    if (!candidate || candidate.length > 100 || [...previous, ...editorValues].some((item) => attributeValueIdentity(config, item) === attributeValueIdentity(config, candidate))) {
       setEditorError("Boş, çok uzun veya tekrar eden değer eklenemez.");
+      return;
+    }
+    if (typeof config.measurementField === "string" && !parseAttributeMeasurementValue(config.measurementField, candidate)) {
+      setEditorError("Bu nitelik için geçerli bir ölçü ve birim girin.");
       return;
     }
     setEditorValues((values) => Object.freeze([...values, candidate]));

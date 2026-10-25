@@ -408,7 +408,7 @@ export function ProductAdvancedEditor({ options, initialKind, aiAvailable = true
       cost: standard.cost,
       shippingDesi: standard.shippingDesi,
       hsCode: standard.hsCode,
-      ...(standard.measurements === undefined ? {} : { measurements: standard.measurements }),
+      ...(standard.measurements === undefined && variant.measurements === undefined ? {} : { measurements: Object.freeze({ ...standard.measurements, ...variant.measurements }) }),
       continueSellingWhenOutOfStock: standard.continueSellingWhenOutOfStock,
       // Barcodes remain independent; the SKU follows the selected color or size.
     })));

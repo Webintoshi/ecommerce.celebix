@@ -8,7 +8,7 @@ import { createRoot } from "react-dom/client";
 import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
-import { attributeSlug } from "../../lib/catalog-onboarding-ui/attribute-resource.ts";
+import { attributeSlug, attributeValueIdentity, parseAttributeMeasurementValue } from "../../lib/catalog-onboarding-ui/attribute-resource.ts";
 import { saveBrandResource } from "../../lib/catalog-admin-ui/brand-resource.ts";
 
 test("attribute editor saves a name and selected values without asking for a technical key", async () => {
@@ -38,7 +38,7 @@ test("attribute editor saves a name and selected values without asking for a tec
     if (name === "@/components/panel/PanelPageShell") return { PanelPageShell: ({ children }: { children: React.ReactNode }) => children, PanelPageHeader: () => null };
     if (name === "@/lib/catalog-admin-ui/client") return { catalogAdminApi: { async resource() { return selectedResource; }, async saveResource(_kind: string, input: unknown) { if (failSave) throw new StubApiError("Bu URL anahtarı başka bir kayıtta kullanılıyor."); saved.push(input); } }, CatalogAdminApiError: StubApiError };
     if (name === "@/lib/catalog-admin-ui/brand-product-directory") return { brandLogoAssetId: () => undefined, loadBrandProductDirectory: async () => [] };
-    if (name === "@/lib/catalog-onboarding-ui/attribute-resource") return { attributeSlug };
+    if (name === "@/lib/catalog-onboarding-ui/attribute-resource") return { attributeSlug, attributeValueIdentity, parseAttributeMeasurementValue };
     if (name === "@/lib/catalog-admin-ui/brand-resource") return { saveBrandResource };
     if (name === "@/lib/catalog-ui/client") return { catalogApi: {} };
     if (name === "@/lib/catalog-admin-ui/resource-route") return { getCatalogResourceRouteDefinitionForKind: () => ({ title: "Nitelik", segment: "attributes" }) };
@@ -99,6 +99,23 @@ test("attribute editor saves a name and selected values without asking for a tec
     nativeDraft.value = "14";
     await act(async () => { nativeForm.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
     assert.deepEqual(saved[3], { resourceId: "22222222-2222-4222-8222-222222222222", expectedVersion: 5, name: "Yüzük Bedeni", slug: "yuzuk-olcusu", config: { key: "yuzuk_olcusu", values: ["12", "14"], source: { provider: "qukasoft" } }, productIds: [] }, "nitelik adı ve değerleri düzenlenirken kaynak anahtarı ve diğer ayarlar korunmalı");
+    const weightConfig = { enabled: false, starterTemplate: "agirlik", measurementField: "weight", values: ["250 g", "1 kg"] };
+    selectedResource = { id: "33333333-3333-4333-8333-333333333333", kind: "attribute", name: "Ağırlık", slug: "agirlik", version: 1, config: weightConfig, productIds: [] };
+    await act(async () => { root.render(createElement(Editor, { kind: "attribute", canManage: true, resourceId: "33333333-3333-4333-8333-333333333333" })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    const weightDraft = container.querySelector('#attribute-value-draft') as unknown as HTMLInputElement;
+    const weightForm = container.querySelector("form")!;
+    weightDraft.value = "1000 g";
+    await act(async () => { weightForm.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.equal(saved.length, 4, "1 kg ile aynı ağırlık tekrar kaydedilmemeli");
+    assert.match(container.textContent ?? "", /Bu değer zaten eklendi/);
+    weightDraft.value = "büyük paket";
+    await act(async () => { weightForm.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.equal(saved.length, 4, "ağırlık değeri sayı ve uygun birim içermeli");
+    weightDraft.value = "750 g";
+    const remove = container.querySelector('button[aria-label="250 g değerini kaldır"]') as unknown as HTMLButtonElement;
+    await act(async () => { remove.click(); });
+    await act(async () => { weightForm.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.deepEqual(saved[4], { resourceId: "33333333-3333-4333-8333-333333333333", expectedVersion: 1, name: "Ağırlık", slug: "agirlik", config: { ...weightConfig, values: ["1 kg", "750 g"] }, productIds: [] }, "hazır değer düzenlenebilir ve kapalı durum kaydetmekle değişmez");
   } finally {
     await act(async () => root.unmount());
     for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);

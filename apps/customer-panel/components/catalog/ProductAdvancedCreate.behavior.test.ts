@@ -18,6 +18,9 @@ import * as drafts from "../../lib/catalog-ui/product-draft-session.ts";
 import * as attributes from "../../lib/catalog-onboarding-ui/attribute-variants.ts";
 import * as skuPrefix from "../../lib/catalog-ui/sku-prefix.ts";
 import * as dirtyNavigation from "../../lib/catalog-ui/dirty-navigation.ts";
+import * as attributeResources from "../../lib/catalog-onboarding-ui/attribute-resource.ts";
+import * as variantMatrix from "../../lib/catalog-onboarding-ui/variant-matrix.ts";
+import type { CatalogAdminResource } from "@celebix/saas-contracts";
 
 class HarnessApiError extends Error { constructor(public code: string) { super(code); } }
 
@@ -63,7 +66,7 @@ type Harness = Readonly<{
   stage(rows: readonly drafts.ProductDraftVariant[]): Promise<void>;
   remount(session: drafts.ProductDraftSession): Promise<void>;
 }>;
-async function withAdvanced(supplied: Record<string, unknown>, verify: (harness: Harness) => Promise<void>, reserve = async () => "9800000000007", authoringPanel: React.ComponentType<any> = () => null) {
+async function withAdvanced(supplied: Record<string, unknown>, verify: (harness: Harness) => Promise<void>, reserve = async () => "9800000000007", authoringPanel: React.ComponentType<any> = () => null, pickerResources?: readonly CatalogAdminResource[]) {
   const browser = new Window({ url: "https://panel.example.test/products/new?mode=advanced" });
   Reflect.set(browser, "confirm", () => true);
   const globals = new Map<string, PropertyDescriptor | undefined>();
@@ -83,6 +86,12 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
   const classification = await compile(new URL("../catalog-onboarding/ProductClassificationPicker.tsx", import.meta.url), {});
   let stagedRows: readonly drafts.ProductDraftVariant[] = [];
   const ApiError = HarnessApiError;
+  const picker = pickerResources ? await compile(new URL("../catalog-onboarding/AttributeVariantPicker.tsx", import.meta.url), {
+    "@/lib/catalog-admin-ui/client": { catalogAdminApi: { resources: async () => pickerResources }, CatalogAdminApiError: ApiError },
+    "@/lib/catalog-onboarding-ui/attribute-resource": attributeResources,
+    "@/lib/catalog-onboarding-ui/attribute-variants": attributes,
+    "@/lib/catalog-onboarding-ui/variant-matrix": variantMatrix,
+  }) : { AttributeVariantPicker: ({ onChange, onAttributeIdsChange }: { onChange(rows: readonly drafts.ProductDraftVariant[]): void; onAttributeIdsChange(ids: readonly string[]): void }) => createElement("button", { type: "button", "data-testid": "stage-variants", onClick() { onChange(stagedRows); onAttributeIdsChange([attributeId]); } }, "Seçimi değiştir") };
   const textAuthoring = await compile(new URL("../content-authoring/ContentAuthoringTextField.tsx", import.meta.url), {"@/lib/content-authoring-ui/state": await import("../../lib/content-authoring-ui/state.ts")});
   const galleryDialog = await compile(new URL("./VariantGalleryDialog.tsx", import.meta.url), {});
   const galleryEditor = await compile(new URL("./ProductVariantGalleryEditor.tsx", import.meta.url), {"./VariantGalleryDialog":galleryDialog,"@/lib/catalog-ui/variant-media-client":{productVariantMediaApi:{},ProductVariantMediaApiError:HarnessApiError}});
@@ -108,13 +117,13 @@ async function withAdvanced(supplied: Record<string, unknown>, verify: (harness:
     "./ProductVariantBuilder": builder,
     "@/components/catalog/SkuInput": sku,
     // Selection contract is isolated here; resource fetch/matrix rules have their own tests.
-    "./AttributeVariantPicker": { AttributeVariantPicker: ({ onChange, onAttributeIdsChange }: { onChange(rows: readonly drafts.ProductDraftVariant[]): void; onAttributeIdsChange(ids: readonly string[]): void }) => createElement("button", { type: "button", "data-testid": "stage-variants", onClick() { onChange(stagedRows); onAttributeIdsChange([attributeId]); } }, "Seçimi değiştir") },
+    "./AttributeVariantPicker": picker,
   });
   const Advanced = advanced.ProductAdvancedEditor as React.ComponentType<Record<string, unknown>>;
   const container = browser.document.createElement("div"); browser.document.body.append(container);
   const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
   let latest = (supplied.draftSession as drafts.ProductDraftSession | undefined) ?? draft();
-  const props = { options, onCancel() {}, onCreated() {}, mediaClient: { upload: async () => ({}) }, draftSession: latest, onDraftSessionChange: (session: drafts.ProductDraftSession) => { latest = session; }, ...supplied, api: { createProduct: async () => created, publishAfterMedia: async () => ({ ...created, product: { ...created.product, status: "active" } }), getProductEditor: async () => created, ...(supplied.api as Record<string, unknown> ?? {}) } };
+  const props = { options: pickerResources ? { ...options, resources: pickerResources } : options, onCancel() {}, onCreated() {}, mediaClient: { upload: async () => ({}) }, draftSession: latest, onDraftSessionChange: (session: drafts.ProductDraftSession) => { latest = session; }, ...supplied, api: { createProduct: async () => created, publishAfterMedia: async () => ({ ...created, product: { ...created.product, status: "active" } }), getProductEditor: async () => created, ...(supplied.api as Record<string, unknown> ?? {}) } };
   let key = 0;
   try {
     await act(async () => { root.render(createElement(Advanced, { ...props, key })); });
@@ -204,6 +213,27 @@ test("advanced optional measurements restore after remount and save without chan
     assert.equal(variant.priceCents, 24990);
     assert.equal(variant.stockQuantity, 7);
   });
+});
+
+test("real attribute selection fills 250g after standard inheritance while preserving dimensions and shipping desi", async () => {
+  const resource: CatalogAdminResource = { id: attributeId, kind: "attribute", name: "Net ağırlık", slug: "gramaj", status: "active", config: { key: "net_weight", measurementField: "weight", values: ["250 g", "500 g"] }, productIds: [], productCount: 0, version: 1, createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+  const original = drafts.updateProductDraft(draft(), { variants: [{ ...standard, measurements: { weight: "14,89", weightUnit: "g", width: "2,125", widthUnit: "cm" } }] });
+  const intents: any[] = [];
+  await withAdvanced({ draftSession: original, api: { createProduct: async (intent: unknown) => { intents.push(intent); return created; } } }, async ({ container, browser, latest }) => {
+    await click(container, "Varyant ekle");
+    const choose = async (label: string, combination = false) => {
+      const scope = combination ? container.querySelector('[aria-label="Satılacak kombinasyonlar"]')! : container;
+      const input = [...scope.querySelectorAll("label")].find(node => node.textContent?.trim() === label)?.querySelector("input"); assert.ok(input, label); await act(async () => input.click());
+    };
+    await choose("Net ağırlık"); await choose("250 g"); await choose("250 g", true); await click(container, "Seçilenleri ekle");
+    assert.deepEqual(latest().current.variants[0]?.measurements, { weight: "250", weightUnit: "g", width: "2,125", widthUnit: "cm" });
+    assert.equal(container.querySelector<HTMLInputElement>('input[name="measurement-weight"]')?.value, "250");
+    assert.equal(container.querySelector<HTMLSelectElement>('select[name="measurement-weightUnit"]')?.value, "g");
+    assert.equal(latest().current.variants[0]?.shippingDesi, "2,5");
+    await submit(container, browser); assert.equal(intents.length, 1);
+    assert.deepEqual(intents[0].variants[0].measurements, { weight: { valueMilli: 250000, unit: "g" }, width: { valueMilli: 2125, unit: "cm" } });
+    assert.deepEqual(intents[0].variants[0].attributes, { net_weight: "250 g" }); assert.equal(intents[0].variants[0].shippingDesiMilli, 2500);
+  }, undefined, undefined, [resource]);
 });
 
 test("staged combinations inherit a size SKU after confirmation while keeping barcodes independent", async () => {

@@ -15,6 +15,8 @@ import * as onboardingForms from "../../lib/catalog-onboarding-ui/forms.ts";
 import * as money from "../../lib/catalog-ui/money.ts";
 import * as dirtyNavigation from "../../lib/catalog-ui/dirty-navigation.ts";
 import * as attributeVariants from "../../lib/catalog-onboarding-ui/attribute-variants.ts";
+import * as attributeResources from "../../lib/catalog-onboarding-ui/attribute-resource.ts";
+import * as variantMatrix from "../../lib/catalog-onboarding-ui/variant-matrix.ts";
 import * as pricingModel from "../../lib/reference-pricing-ui/model.ts";
 import { ReferencePricingApiError, referencePricingErrorState } from "../../lib/reference-pricing-ui/client.ts";
 
@@ -60,6 +62,13 @@ test("detail batch derives the product SKU and validates optional measurements b
   const row = { title: "Beyaz", sku: "", barcode: "", price: "100,00", compareAt: "", cost: "", stockQuantity: "7", continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "", attributes: { Renk: "Beyaz" }, measurements: { weight: "14,8912" } };
   const requests: unknown[] = [];
   class ApiError extends Error {}
+  const weightResource = { id: "30000000-0000-4000-8000-000000000001", kind: "attribute", name: "Gramaj", slug: "gramaj", status: "active", config: { key: "net_weight", measurementField: "weight", values: ["250 g"] } };
+  const picker = await compile("../catalog-onboarding/AttributeVariantPicker.tsx", {
+    "@/lib/catalog-admin-ui/client": { catalogAdminApi: { resources: async () => [weightResource] }, CatalogAdminApiError: ApiError },
+    "@/lib/catalog-onboarding-ui/attribute-resource": attributeResources,
+    "@/lib/catalog-onboarding-ui/attribute-variants": attributeVariants,
+    "@/lib/catalog-onboarding-ui/variant-matrix": variantMatrix,
+  });
   const detail = await compile("./ProductDetailConsole.tsx", {
     "next/link": ({ children, ...props }: Record<string, unknown>) => createElement("a", props, children as React.ReactNode),
     "@/lib/catalog-admin-ui/client": { catalogAdminApi: { resources: async () => [] } },
@@ -74,7 +83,7 @@ test("detail batch derives the product SKU and validates optional measurements b
     "@/components/catalog/SkuInput": { SkuInput: identifier },
     "@/components/catalog/BarcodeInput": { BarcodeInput: identifier },
     "@/components/catalog-onboarding/ProductAdvancedEditor": { ProductAdvancedEditor: () => null },
-    "@/components/catalog-onboarding/AttributeVariantPicker": { AttributeVariantPicker: ({ onChange }: { onChange(rows: unknown[]): void }) => createElement("button", { type: "button", onClick: () => onChange([row]) }, "Test kombinasyonu") },
+    "@/components/catalog-onboarding/AttributeVariantPicker": { AttributeVariantPicker: (props: { onChange(rows: unknown[]): void }) => createElement(React.Fragment, {}, createElement(picker.AttributeVariantPicker as React.ComponentType<any>, props), createElement("button", { type: "button", onClick: () => props.onChange([row]) }, "Test kombinasyonu")) },
     "@/lib/catalog-onboarding-ui/client": { CatalogOnboardingApiError: ApiError, catalogOnboardingClient: { getOptions: async () => ({ categories: [], channels: [], resources: [] }), getProductEditor: async () => ({ product, variants: [], profile: { productType: "physical", minimumPurchaseQuantity: 1, version: 1 }, channelIds: [], categoryIds: [], resourceIds: { collections: [], tags: [] } }) } },
     "./ProductDescriptionField": { ProductDescriptionField: () => createElement("textarea", { name: "description" }), ProductDescriptionPreview: () => null },
     "./ProductVariantGalleryEditor": {ProductVariantGalleryEditor:({children}:any)=>children({thumbnail:()=>null})},
@@ -131,6 +140,19 @@ test("detail batch derives the product SKU and validates optional measurements b
       length: { valueMilli: 3000, unit: "cm" }, width: { valueMilli: 2100, unit: "cm" }, depth: { valueMilli: 4200, unit: "cm" },
       height: { valueMilli: 1, unit: "cm" }, area: { valueMilli: 5550, unit: "m2" }, packageCount: 4,
     });
+    await act(async () => button("Niteliklerden ekle").click());
+    const choose = async (label: string, combination = false) => {
+      const scope = combination ? container.querySelector('[aria-label="Satılacak kombinasyonlar"]')! : container;
+      const input = [...scope.querySelectorAll("label")].find(node => node.textContent?.trim() === label)?.querySelector("input"); assert.ok(input, label); await act(async () => input.click());
+    };
+    await choose("Gramaj"); await choose("250 g"); await choose("250 g", true);
+    assert.equal((container.querySelector('input[name="measurement-weight"]') as unknown as HTMLInputElement).value, "250", "add-variant UI receives the mapped physical weight without re-entry");
+    const price = [...container.querySelectorAll("label")].find(node => node.textContent?.trim() === "Satış fiyatı *")?.querySelector("input"); assert.ok(price);
+    await act(async () => { Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype, "value")!.set!.call(price, "100,00"); price.dispatchEvent(new browser.Event("input", { bubbles: true })); });
+    await submit(); assert.equal(requests.length, 3);
+    const mapped = requests[2] as { attributeIds: string[]; variants: Record<string, unknown>[] };
+    assert.deepEqual(mapped.variants[0]!.measurements, { weight: { valueMilli: 250000, unit: "g" } });
+    assert.deepEqual(mapped.variants[0]!.attributes, { net_weight: "250 g" }); assert.equal(Object.hasOwn(mapped.variants[0]!, "shippingDesiMilli"), false);
   } finally {
     await act(async () => root.unmount());
     for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);

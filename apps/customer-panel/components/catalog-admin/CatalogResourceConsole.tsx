@@ -50,6 +50,7 @@ function CatalogResourceConsoleWorkspace({ kind, canManage }: { kind: CatalogAdm
   const [resolved, setResolved] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const attributeMutation = useRef(false);
 
   const loadLogos = useCallback(async (signal: AbortSignal) => {
     setLogosState((current) => current === "ready" ? current : "loading");
@@ -116,6 +117,29 @@ function CatalogResourceConsoleWorkspace({ kind, canManage }: { kind: CatalogAdm
     }
   }
 
+  async function setAttributeEnabled(resource: CatalogAdminResource, enabled: boolean) {
+    if (!canManage || kind !== "attribute" || attributeMutation.current) return;
+    attributeMutation.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const mutation = await catalogAdminApi.saveResource("attribute", {
+        resourceId: resource.id, expectedVersion: resource.version,
+        name: resource.name, slug: resource.slug,
+        ...(resource.description ? { description: resource.description } : {}),
+        config: { ...resource.config, enabled }, productIds: resource.productIds,
+      });
+      const saved = await catalogAdminApi.resource("attribute", mutation.id);
+      if (saved.id !== resource.id || saved.status !== "active" || saved.config.enabled !== enabled) throw new Error("attribute_readback_failed");
+      setItems((current) => current.map((item) => item.id === saved.id ? saved : item));
+    } catch (caught) {
+      setError(caught instanceof CatalogAdminApiError ? caught.message : "Nitelik durumu güncellenemedi. Listeyi yenileyip tekrar deneyin.");
+    } finally {
+      attributeMutation.current = false;
+      setBusy(false);
+    }
+  }
+
   const productById = useMemo(() => new Map(brandProducts.map((product) => [product.id, product])), [brandProducts]);
   const logoById = useMemo(() => new Map(brandLogos.map((asset) => [asset.id, asset])), [brandLogos]);
   const normalizedSearch = search.trim().toLocaleLowerCase("tr-TR");
@@ -140,14 +164,15 @@ function CatalogResourceConsoleWorkspace({ kind, canManage }: { kind: CatalogAdm
 
   function attributeCard(resource: CatalogAdminResource) {
     const values = attributeValues(resource);
-    return <article className={styles.attributeCard} key={resource.id}>
+    const enabled = resource.config.enabled !== false;
+    return <article className={styles.attributeCard} key={resource.id} data-enabled={enabled}>
       <div className={styles.attributeMonogram} aria-hidden="true">{resource.name.charAt(0).toLocaleUpperCase("tr-TR")}</div>
       <div className={styles.attributeCardBody}>
-        <div className={styles.attributeCardHeading}><h2>{resource.name}</h2><span>{values.length} değer</span></div>
+        <div className={styles.attributeCardHeading}><h2>{resource.name}</h2><span>{values.length} değer</span><span>{enabled ? "Etkin" : "Kapalı"}</span></div>
         {resource.description ? <p>{resource.description}</p> : null}
         <ul className={styles.attributeChips}>{values.map((entry) => <li key={entry}>{entry}</li>)}</ul>
       </div>
-      {canManage ? <div className={styles.attributeCardActions}><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy || loading || Boolean(error)} onClick={() => void archive(resource)}>Arşivle</button></div> : null}
+      {canManage ? <div className={styles.attributeCardActions}><button className={styles.button} type="button" aria-label={`${resource.name} niteliğini ${enabled ? "kapat" : "etkinleştir"}`} aria-pressed={enabled} disabled={busy || loading || Boolean(error)} onClick={() => void setAttributeEnabled(resource, !enabled)}>{enabled ? "Kapat" : "Etkinleştir"}</button><Link className={styles.button} href={`/products/${route.segment}/${encodeURIComponent(resource.id)}/edit`}>Düzenle</Link><button className={styles.danger} type="button" disabled={busy || loading || Boolean(error)} onClick={() => void archive(resource)}>Arşivle</button></div> : null}
     </article>;
   }
 

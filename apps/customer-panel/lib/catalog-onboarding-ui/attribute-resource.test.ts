@@ -23,6 +23,14 @@ test("duplicate and invalid values are not submitted", () => {
   assert.equal(buildAttributeResourceMutation({ name: "Renk", values: [] }).ok, false);
 });
 
+test("inline values reject equivalent measurements and retain bound preset metadata", () => {
+  const bound = { ...existing, config: { measurementField: "weight", enabled: true, values: ["1 kg"] } };
+  assert.equal(buildAttributeResourceMutation({ existing: bound, values: ["1000 g"] }).ok, false);
+  assert.equal(buildAttributeResourceMutation({ existing: bound, values: ["250 ml"] }).ok, false);
+  const saved = buildAttributeResourceMutation({ existing: bound, values: ["250 g"] });
+  assert.equal(saved.ok, true); if (saved.ok) assert.deepEqual(saved.value.config, { measurementField: "weight", enabled: true, values: ["1 kg", "250 g"] });
+});
+
 test("inline attribute save reads back the server record before offering it to product form", async () => {
   const calls: unknown[] = [];
   const saved = { ...existing, config: { values: ["Siyah", "Beyaz"] }, version: 5 };

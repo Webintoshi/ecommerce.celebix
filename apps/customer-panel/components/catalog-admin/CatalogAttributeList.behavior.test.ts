@@ -9,7 +9,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
 
-async function withAttributeList(items: readonly unknown[], verify: (container: HTMLElement) => void) {
+async function withAttributeList(items: readonly unknown[], verify: (container: HTMLElement) => void | Promise<void>, options: { canManage?: boolean; save?: (...args: unknown[]) => Promise<unknown>; resource?: () => Promise<unknown> } = {}) {
   const browser = new Window({ url: "https://panel.example.test/products/attributes" });
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({
@@ -35,7 +35,7 @@ async function withAttributeList(items: readonly unknown[], verify: (container: 
       PanelPageHeader: ({ title, actions }: { title: string; actions?: React.ReactNode }) => createElement("header", null, title, actions),
       PanelEmptyState: ({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) => createElement("div", null, title, description, action),
     };
-    if (name === "@/lib/catalog-admin-ui/client") return { catalogAdminApi: { async resources() { return items; } }, CatalogAdminApiError: class extends Error {} };
+    if (name === "@/lib/catalog-admin-ui/client") return { catalogAdminApi: { async resources() { return items; }, saveResource: options.save, resource: options.resource }, CatalogAdminApiError: class extends Error {} };
     if (name === "@/lib/catalog-admin-ui/brand-product-directory") return { brandLogoAssetId: () => undefined, loadBrandProductDirectory: async () => [] };
     if (name === "@/lib/catalog-ui/client") return { catalogApi: {} };
     if (name === "@/lib/catalog-admin-ui/resource-route") return { getCatalogResourceRouteDefinitionForKind: () => ({ segment: "attributes" }) };
@@ -47,8 +47,8 @@ async function withAttributeList(items: readonly unknown[], verify: (container: 
   browser.document.body.append(container);
   const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
   try {
-    await act(async () => { root.render(createElement(Console, { kind: "attribute", canManage: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
-    verify(container as unknown as HTMLElement);
+    await act(async () => { root.render(createElement(Console, { kind: "attribute", canManage: options.canManage ?? true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    await verify(container as unknown as HTMLElement);
   } finally {
     await act(async () => root.unmount());
     for (const [key, descriptor] of globals) descriptor ? Object.defineProperty(globalThis, key, descriptor) : Reflect.deleteProperty(globalThis, key);
@@ -71,4 +71,38 @@ test("empty attribute list gives a direct first-step action", async () => {
     assert.match(container.textContent ?? "", /Renk veya beden ekleyerek başlayın/);
     assert.ok(container.querySelector('a[href="/products/attributes/new"]'));
   });
+});
+
+const closedWeight = { id: "11111111-1111-4111-8111-111111111111", kind: "attribute", name: "Ağırlık", slug: "agirlik", description: "Ürün ağırlığı", config: { enabled: false, starterTemplate: "agirlik", measurementField: "weight", values: ["250 g", "500 g"] }, productIds: [], productCount: 0, version: 1, status: "active" };
+
+test("closed starter can be enabled through a versioned save and verified readback", async () => {
+  const calls: unknown[] = [];
+  await withAttributeList([closedWeight], async (container) => {
+    assert.match(container.textContent ?? "", /Kapalı/);
+    const button = container.querySelector('button[aria-label="Ağırlık niteliğini etkinleştir"]') as HTMLButtonElement | null;
+    assert.ok(button);
+    await act(async () => { button.click(); button.click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.deepEqual(calls, [["attribute", { resourceId: closedWeight.id, expectedVersion: 1, name: "Ağırlık", slug: "agirlik", description: "Ürün ağırlığı", config: { ...closedWeight.config, enabled: true }, productIds: [] }]]);
+    assert.match(container.textContent ?? "", /Etkin/);
+    assert.equal(container.querySelector('button[aria-label="Ağırlık niteliğini etkinleştir"]'), null);
+  }, { save: async (...args) => { calls.push(args); return { id: closedWeight.id }; }, resource: async () => ({ ...closedWeight, version: 2, config: { ...closedWeight.config, enabled: true } }) });
+});
+
+test("failed activation leaves starter closed and provides retry without losing its values", async () => {
+  await withAttributeList([closedWeight], async (container) => {
+    const button = container.querySelector('button[aria-label="Ağırlık niteliğini etkinleştir"]') as HTMLButtonElement | null;
+    assert.ok(button);
+    await act(async () => { button.click(); await new Promise((resolve) => setTimeout(resolve, 0)); });
+    assert.match(container.textContent ?? "", /Kapalı/);
+    assert.match(container.textContent ?? "", /250 g/);
+    assert.match(container.textContent ?? "", /Tekrar dene/);
+    assert.ok(container.querySelector('[role="alert"]'));
+  }, { save: async () => { throw new Error("network"); } });
+});
+
+test("read-only users see starter state without activation actions", async () => {
+  await withAttributeList([closedWeight], (container) => {
+    assert.match(container.textContent ?? "", /Kapalı/);
+    assert.equal(container.querySelector('button[aria-label="Ağırlık niteliğini etkinleştir"]'), null);
+  }, { canManage: false });
 });

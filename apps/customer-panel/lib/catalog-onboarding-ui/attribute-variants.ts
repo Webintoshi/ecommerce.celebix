@@ -2,13 +2,14 @@ import type { CatalogAdminResource } from "@celebix/saas-contracts";
 import type { VariantDraft } from "../../components/catalog-onboarding/ProductVariantBuilder.tsx";
 import { buildVariantMatrix, type VariantMatrixOption } from "./variant-matrix.ts";
 import { composeVariantSku } from "./variant-sku.ts";
+import { attributeMeasurementDraft } from "./attribute-measurements.ts";
 
 export { assignVariantSkus, composeVariantSku, deriveProductBaseSku } from "./variant-sku.ts";
 
 export type CatalogAttributeChoice = Readonly<{ id: string; name: string; key: string; values: readonly string[] }>;
 
 export function attributeChoices(resources: readonly CatalogAdminResource[]): readonly CatalogAttributeChoice[] {
-  return Object.freeze(resources.filter((resource) => resource.kind === "attribute" && resource.status === "active").flatMap((resource) => {
+  return Object.freeze(resources.filter((resource) => resource.kind === "attribute" && resource.status === "active" && resource.config.enabled !== false).flatMap((resource) => {
     const raw = resource.config.values;
     const key = resource.config.key === undefined ? resource.slug : resource.config.key;
     const validKey = typeof key === "string" && (resource.config.key === undefined
@@ -53,6 +54,7 @@ export function mergeSelectedVariants(input: Readonly<{
   defaultPrice: string;
   defaultStock: string;
   baseSku?: string;
+  resources?: readonly CatalogAdminResource[];
 }>): Readonly<{ ok: false; error: string }> | Readonly<{ ok: true; value: readonly VariantDraft[] }> {
   const matrix = buildVariantMatrix(input.options);
   if (!matrix.ok) return matrix;
@@ -69,10 +71,12 @@ export function mergeSelectedVariants(input: Readonly<{
       const previous = current.get(key);
       if (previous) return previous;
       const candidate = candidates.get(key)!;
+      const measurements = attributeMeasurementDraft(input.resources ?? [], candidate.attributes);
       return Object.freeze({
         title: candidate.title, sku: composeVariantSku(input.baseSku ?? "", candidate.attributes), barcode: "", price: input.defaultPrice, compareAt: "", cost: "",
         stockQuantity: input.defaultStock, continueSellingWhenOutOfStock: false, shippingDesi: "", hsCode: "",
         attributes: candidate.attributes,
+        ...(Object.keys(measurements).length ? { measurements } : {}),
       } satisfies VariantDraft);
     });
   } catch (error) {

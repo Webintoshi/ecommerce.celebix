@@ -1,4 +1,7 @@
 import type { CatalogAdminResource, CatalogAdminJson } from "@celebix/saas-contracts";
+import { attributeValueIdentity, parseAttributeMeasurementValue } from "./attribute-measurements.ts";
+
+export { attributeValueIdentity, parseAttributeMeasurementValue } from "./attribute-measurements.ts";
 
 type AttributeResourceMutation = Readonly<{
   resourceId?: string;
@@ -31,15 +34,17 @@ export function buildAttributeResourceMutation(input: Readonly<{
   if (!name || name.length > 120 || !slug || previous === null || existing?.status === "archived") return { ok: false, error: "Geçerli bir nitelik adı girin." };
   const additions = input.values.map((value) => value.trim());
   const values = [...previous, ...additions];
+  const config = existing?.config ?? {};
   if (!additions.length || values.length > 64 || values.some((value) => !value || value.length > 100) ||
-    new Set(values.map((value) => value.toLocaleLowerCase("tr-TR"))).size !== values.length) {
+    new Set(values.map((value) => attributeValueIdentity(config, value))).size !== values.length ||
+    (typeof config.measurementField === "string" && additions.some((value) => !parseAttributeMeasurementValue(config.measurementField as string, value)))) {
     return { ok: false, error: "En az bir benzersiz değer ekleyin (en fazla 64 değer, değer başına 100 karakter)." };
   }
   return { ok: true, value: {
     ...(existing === undefined ? {} : { resourceId: existing.id, expectedVersion: existing.version }),
     name,
     slug,
-    config: { ...(existing?.config ?? {}), values },
+    config: { ...config, values },
     productIds: existing?.productIds ?? [],
   } };
 }

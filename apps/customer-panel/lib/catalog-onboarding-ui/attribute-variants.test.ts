@@ -21,6 +21,23 @@ test("a malformed active attribute does not hide the other saved choices", () =>
   assert.deepEqual(attributeChoices([malformed, resources[1]!]).map(({ key }) => key), ["beden"]);
 });
 
+test("disabled attributes are excluded while legacy omitted flags remain enabled", () => {
+  assert.deepEqual(attributeChoices([{ ...resources[0], config: { ...resources[0].config, enabled: false } }, resources[1]]).map(({ key }) => key), ["beden"]);
+});
+
+test("selected bound weight fills only new variant measurements and preserves row edits", () => {
+  const weight = { ...resources[0], slug: "net-weight", config: { key: "net_weight", measurementField: "weight", values: ["250 g", "500 g"] } };
+  const options = [{ name: "net_weight", values: ["250 g", "500 g"] }];
+  const first = mergeSelectedVariants({ options, resources: [weight], selectedKeys: [variantAttributeKey({ net_weight: "250 g" })], current: [], existing: [], defaultPrice: "100,00", defaultStock: "7" });
+  assert.equal(first.ok, true); if (!first.ok) return;
+  assert.deepEqual(first.value[0]?.measurements, { weight: "250", weightUnit: "g" });
+  assert.equal(first.value[0]?.shippingDesi, ""); assert.deepEqual(first.value[0]?.attributes, { net_weight: "250 g" });
+  const manual = { ...first.value[0]!, measurements: { weight: "240", weightUnit: "g", width: "3" }, shippingDesi: "2,5" };
+  const again = mergeSelectedVariants({ options, resources: [weight], selectedKeys: [variantAttributeKey({ net_weight: "250 g" }), variantAttributeKey({ net_weight: "500 g" })], current: [manual], existing: [], defaultPrice: "100,00", defaultStock: "7" });
+  assert.equal(again.ok, true); if (!again.ok) return;
+  assert.equal(again.value[0], manual); assert.deepEqual(again.value[1]?.measurements, { weight: "500", weightUnit: "g" });
+});
+
 test("an explicit native key keeps its friendly label and imported variant identity", () => {
   const native = { ...resources[0], name: "Yüzük Ölçüsü", slug: "yuzuk-olcusu", config: { key: "yuzuk_olcusu", values: ["12", "14"] } };
   const choices = attributeChoices([native]);
