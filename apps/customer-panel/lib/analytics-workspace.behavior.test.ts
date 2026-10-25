@@ -404,7 +404,7 @@ test("mobile filter sheet contains focus and restores background access while de
   }, undefined, setup(1440));
 });
 
-test("overview detail arrivals keep the chart, journey and all three lower cards in their original slots", async () => {
+test("overview detail arrivals keep the chart, journey and both summary cards in their original slots", async () => {
   const pending = new Map<string, (response: Response) => void>();
   await workspace("/analytics?range=30d", async ({ host, requests }) => {
     assert.deepEqual(requests.map(({ url }) => url.pathname).sort(), ["/api/analytics/funnel", "/api/analytics/overview", "/api/analytics/products"]);
@@ -417,8 +417,9 @@ test("overview detail arrivals keep the chart, journey and all three lower cards
     const journey = host.querySelector(".journeySection");
     assert.ok(journey, "pending cohort keeps its future section footprint");
     const lower = host.querySelector(".lowerGrid"), cards = [...lower.children];
-    assert.equal(cards.length, 3);
-    assert.match(cards[2].textContent, /Ticari hareket/);
+    assert.equal(cards.length, 2);
+    const commerce = host.querySelector(".secondaryGrid").firstElementChild;
+    assert.match(commerce.textContent, /Ticari hareket/);
     assert.equal(host.querySelectorAll('.productRows [aria-hidden="true"]').length, 3);
     const initialHeroClass = hero.className;
     const funnel: any = analyticsFixturePayload("funnel");
@@ -429,7 +430,8 @@ test("overview detail arrivals keep the chart, journey and all three lower cards
     assert.equal(host.querySelector(".journeySection"), journey);
     await act(async () => pending.get("products")!(Response.json(analyticsFixturePayload("products")))); await settle();
     assert.match(host.querySelector(".productRows").textContent, /Keten Ceket/);
-    assert.deepEqual([...lower.children], cards, "product arrival must not remove or move the commerce card");
+    assert.deepEqual([...lower.children], cards, "product arrival must not move summary cards");
+    assert.equal(host.querySelector(".secondaryGrid").firstElementChild, commerce, "commerce metrics retain their stable disclosure slot");
   }, async ({ url }) => new Promise<Response>((resolve) => pending.set(url.pathname.split("/").at(-1)!, resolve)));
 });
 
@@ -442,7 +444,7 @@ test("initial analytics loading follows the selected report rather than showing 
       assert.equal(loading.querySelector(".skeletonTable") !== null, ["carts", "acquisition", "products"].includes(tab));
       assert.equal(loading.querySelector(".skeletonFunnel") !== null, tab === "funnel");
       assert.equal(loading.querySelector(".skeletonChart") !== null, tab === "overview");
-      if (tab === "overview") assert.equal(loading.querySelector(".lowerGrid").children.length, 3);
+      if (tab === "overview") assert.equal(loading.querySelector(".lowerGrid").children.length, 2);
       assert.equal(loading.querySelectorAll("button, a, input, select").length, 0, "loading does not fabricate working controls");
     }, async () => new Promise<Response>(() => {}));
   }

@@ -26,7 +26,9 @@ import {
   largestFunnelDrop,
   previousAnalyticsRange,
 } from "@/lib/analytics-ui/commerce-insights";
-import { analyticsProductMetricCount, analyticsTrafficEvents, analyticsTrafficMetric, analyticsTrafficSources } from "@/lib/analytics-ui/traffic";
+import { analyticsIndexedProductMetricCount, analyticsProductMetricIndex, analyticsTrafficEvents, analyticsTrafficMetric, analyticsTrafficSources } from "@/lib/analytics-ui/traffic";
+import { analyticsMoney as money, analyticsPercent as percent, analyticsDateTime as date, analyticsDayLabel } from "@/lib/analytics-ui/formatters";
+import { joinAnalyticsAcquisition } from "@/lib/analytics-ui/acquisition";
 import { analyticsQueryHref, analyticsRequestQuery, analyticsTabHref, analyticsCommerceTrends, analyticsFunnelStages } from "@/lib/analytics-ui/workspace";
 import { ActiveVisitorsCard } from "./ActiveVisitorsCard";
 import { SalesTrendChart } from "./SalesTrendChart";
@@ -398,28 +400,6 @@ function parse(value: unknown): Payload {
     }),
   });
 }
-function money(value: number, currency: string) {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 2,
-  }).format(value / 100);
-}
-function percent(value: number | null) {
-  return value === null
-    ? "—"
-    : new Intl.NumberFormat("tr-TR", {
-        style: "percent",
-        maximumFractionDigits: 1,
-      }).format(value);
-}
-function date(value: string, timezone: string) {
-  return new Intl.DateTimeFormat("tr-TR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: timezone,
-  }).format(new Date(value));
-}
 function trafficSummary(value: unknown) {
   if (!value || typeof value !== "object") return null;
   const root = value as Record<string, unknown>,
@@ -531,7 +511,7 @@ function MetricTile({
       <strong className={styles.metricValue}>{value}</strong>
       {note ? (
         <small className={trend === "up" ? styles.positive : trend === "down" ? styles.negative : styles.metricNote}>
-          {note}
+          {note.startsWith("Önceki döneme göre ") ? <span className="sr-only">Önceki döneme göre </span> : null}{note.replace(/^Önceki döneme göre /, "")}
         </small>
       ) : null}
     </div>
@@ -546,32 +526,6 @@ function EmptyIllustration() {
       <path d="M28 45V26M28 45H63" className={styles.illustrationLine} strokeWidth="2.5" strokeLinecap="round" />
       <path d="M34 40L43 34L50 37L62 23" className={styles.illustrationAccent} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="83" cy="15" r="3" className={styles.illustrationAccent} />
-    </svg>
-  );
-}
-
-function InsightIllustration({ kind }: Readonly<{ kind: "funnel" | "cart" }>) {
-  return (
-    <svg className={styles.insightArtwork} viewBox="0 0 180 140" width={160} height={160} fill="none" aria-hidden="true" focusable="false">
-      <ellipse cx="88" cy="121" rx="65" ry="9" className={styles.insightBackdrop} />
-      {kind === "funnel" ? (
-        <>
-          <rect x="35" y="20" width="104" height="99" rx="10" transform="rotate(4 35 20)" className={styles.insightBackdrop} />
-          <rect x="28" y="14" width="104" height="99" rx="10" transform="rotate(-4 28 14)" className={styles.insightPaper} strokeWidth="2.5" />
-          <path d="M49 39h64L99 59H63L49 39ZM65 66h32l-7 13H72l-7-13Z" className={styles.insightPaper} strokeWidth="2.5" strokeLinejoin="round" />
-          <path d="M77 86h9v13l-9 5V86Z" className={styles.insightAccent} strokeWidth="3" strokeLinejoin="round" />
-          <path d="M143 23l4-11m3 22 10-6m-8 18h12" className={styles.insightAccent} strokeWidth="3" strokeLinecap="round" />
-        </>
-      ) : (
-        <>
-          <path d="M30 44h13l14 57h68" className={styles.insightOutline} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M46 56h83l-10 33H54l-8-33Z" className={styles.insightPaper} strokeWidth="3" strokeLinejoin="round" />
-          <path d="M70 61V49c0-11 6-17 15-17s15 6 15 17v12" className={styles.insightOutline} strokeWidth="3" strokeLinecap="round" />
-          <circle cx="66" cy="115" r="6" className={styles.insightPaper} strokeWidth="3" />
-          <circle cx="114" cy="115" r="6" className={styles.insightPaper} strokeWidth="3" />
-          <path d="M127 22c14-3 23 6 23 16 0 9-7 16-16 16m-7-32 2-10m-2 10 11 3" className={styles.insightAccent} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </>
-      )}
     </svg>
   );
 }
@@ -929,7 +883,7 @@ function filterFocusTargets(panel: HTMLElement) {
 }
 
 function ReportLoading({ tab }: Readonly<{ tab: Tab }>) {
-  const metrics = <div className={styles.skeletonGrid}><span /><span /><span /><span /></div>;
+  const metrics = <div className={tab === "overview" ? `${styles.skeletonGrid} ${styles.overviewSkeleton}` : styles.skeletonGrid}><span /><span /><span /><span />{tab === "overview" ? <span /> : null}</div>;
   const rows = (products = false) => <div className={products ? `${styles.skeletonRows} ${styles.productRows}` : styles.skeletonRows}>{[0, 1, 2].map((row) => <div className={styles.listRow} key={row}><span className={styles.skeletonLine} /></div>)}</div>;
   return <div className={styles.loading} role="status" aria-label="Analizler yükleniyor">
     <div className={tab === "overview" ? styles.overview : styles.detailPage} aria-hidden="true">
@@ -937,18 +891,20 @@ function ReportLoading({ tab }: Readonly<{ tab: Tab }>) {
       {tab === "overview" ? <>
         <div className={styles.heroGrid}>
           <span className={`${styles.skeletonChart} ${styles.overviewChartSlot}`} />
+          <div className={styles.overviewSide}>
+          <div className={styles.livePanel}><span className={styles.skeletonLine} /><span className={styles.skeletonHeading} /></div>
           <div className={styles.insight}>
             <div className={styles.insightContent}><span className={`${styles.insightLabel} ${styles.skeletonLine}`} /><h2><span className={styles.skeletonLine} /></h2><strong><span className={styles.skeletonLine} /></strong><p className={styles.filterHint}><span className={styles.skeletonLine} /></p></div>
-            <span className={`${styles.insightArtwork} ${styles.skeletonSurface}`} />
             <span className={styles.skeletonControl} />
           </div>
+          </div>
         </div>
+        <div className={styles.lowerGrid}>{[0, 1].map((card) => <section className={styles.listPanel} key={card}><div className={styles.sectionHeading}><span className={styles.skeletonHeading} /></div>{rows(card === 0)}</section>)}</div>
         <section className={styles.journeySection}>
           <div className={styles.sectionHeading}><span className={styles.skeletonHeading} /></div>
           <div className={styles.journeyState}>{[0, 1, 2, 3].map((row) => <div className={styles.journeyItem} key={row}><small><span className={styles.skeletonLine} /></small><span className={styles.journeyTrack} /><strong><span className={styles.skeletonLine} /></strong></div>)}</div>
           <p className={styles.slotStatus} />
         </section>
-        <div className={styles.lowerGrid}>{[0, 1, 2].map((card) => <section className={styles.listPanel} key={card}><div className={styles.sectionHeading}><span className={card === 2 ? styles.skeletonMetricHeading : styles.skeletonHeading} /></div>{rows(card === 1)}</section>)}</div>
         <span className={styles.skeletonDisclosure} />
       </> : tab === "funnel" ? <section className={`${styles.panel} ${styles.skeletonFunnel}`}>
         <div className={styles.panelHeading}><span className={styles.skeletonHeading} /></div>
@@ -1170,7 +1126,7 @@ export function CommerceAnalyticsWorkspace({
         <PanelTopbarBridge
           title="Analizler"
           hideHeading
-          context={<div className={styles.topbarLiveMetric}><ActiveVisitorsCard /></div>}
+          context={tab !== "overview" || viewState !== "ready" ? <div className={styles.topbarLiveMetric}><ActiveVisitorsCard /></div> : undefined}
         />
         <h1 className="sr-only">Analizler</h1>
         <div className={styles.pageTop}>
@@ -1222,14 +1178,6 @@ export function CommerceAnalyticsWorkspace({
                 <GitCompareArrows size={16} aria-hidden="true" /> Kıyasla
               </button>
             ) : null}
-          </div>
-        </div>
-
-        <div className={styles.contextRow}>
-          <div className={styles.dataStatus} role="status">
-            {dataHealthLabel ? <><span className={viewState !== "ready" ? styles.statusNeutral : trafficMissing || applicableDegradation ? styles.statusAmber : styles.statusDot} aria-hidden="true" />{dataHealthLabel}</> : null}
-            {viewState === "ready" && data ? <span className={styles.contextMeta}>{new Intl.DateTimeFormat("tr-TR", {day: "numeric", month: "short", timeZone: activeTimezone}).format(new Date(data.range.start))} – {new Intl.DateTimeFormat("tr-TR", {day: "numeric", month: "short", timeZone: activeTimezone}).format(new Date(Date.parse(data.range.end) - 1))} · {activeTimezone}</span> : null}
-          </div>
           <details
             className={styles.filterDisclosure}
             key={`${tab}:${serialized}`}
@@ -1321,6 +1269,15 @@ export function CommerceAnalyticsWorkspace({
               </div>
             </div>
           </details>
+          </div>
+        </div>
+
+        <div className={styles.contextRow}>
+          <div className={styles.dataStatus} role="status">
+            {dataHealthLabel ? <><span className={viewState !== "ready" ? styles.statusNeutral : trafficMissing || applicableDegradation ? styles.statusAmber : styles.statusDot} aria-hidden="true" />{dataHealthLabel}</> : null}
+            {viewState === "ready" && data ? <span className={styles.contextMeta}>{new Intl.DateTimeFormat("tr-TR", {day: "numeric", month: "short", timeZone: activeTimezone}).format(new Date(data.range.start))} – {new Intl.DateTimeFormat("tr-TR", {day: "numeric", month: "short", timeZone: activeTimezone}).format(new Date(Date.parse(data.range.end) - 1))} · {activeTimezone}</span> : null}
+          </div>
+
         </div>
 
         {error && viewState !== "error" ? <p className={styles.inlineError} role="alert">{error}</p> : null}
@@ -1451,21 +1408,15 @@ function Overview({
   const previousConversion = previousTraffic?.visitors ? previousOrders / previousTraffic.visitors : null;
   const conversionChange = conversion !== null && previousConversion !== null
     ? Number(((conversion - previousConversion) * 100).toFixed(1)) : null;
-  const currentSeries = selectedCurrency
+  const currentSeries = useMemo(() => selectedCurrency
     ? dailySalesPointsForCurrency(data.commerce.series, selectedCurrency.currency, data.range)
-    : [];
-  const labelDate = (value: string) => {
-    const calendarDay = /^\d{4}-\d{2}-\d{2}$/.test(value);
-    return new Intl.DateTimeFormat("tr-TR", {
-      day: "numeric", month: "short", year: "numeric",
-      timeZone: calendarDay ? "UTC" : timezone,
-    }).format(new Date(calendarDay ? `${value}T00:00:00.000Z` : value));
-  };
-  const chartPoints = currentSeries.map((point) => ({
+    : [], [data.commerce.series, selectedCurrency?.currency, data.range]);
+  const labelDate = useMemo(() => (value: string) => analyticsDayLabel(value, timezone), [timezone]);
+  const chartPoints = useMemo(() => currentSeries.map((point) => ({
     label: labelDate(point.day),
     value: point.value,
     orders: point.paidOrders,
-  }));
+  })), [currentSeries, labelDate]);
   const abandonedCarts = total(currencies, "abandonedCarts");
   const recoveredCarts = total(currencies, "recoveredCarts");
   const journey = [FUNNEL_STEPS[0], FUNNEL_STEPS[1], FUNNEL_STEPS[3], FUNNEL_STEPS[5]];
@@ -1475,13 +1426,14 @@ function Overview({
   const priorRange = comparison?.rangeStart && comparison.rangeEnd
     ? { start: comparison.rangeStart, end: comparison.rangeEnd, timezone }
     : previousAnalyticsRange(data.range);
-  const priorSeries = compare && selectedCurrency && data.comparisonCommerce && priorRange && previousCurrencies.some((bucket) => bucket.currency === selectedCurrency.currency)
+  const priorSeries = useMemo(() => compare && selectedCurrency && data.comparisonCommerce && priorRange && previousCurrencies.some((bucket) => bucket.currency === selectedCurrency.currency)
     ? dailySalesPointsForCurrency(data.comparisonCommerce.series, selectedCurrency.currency, priorRange).map((point) => ({label: labelDate(point.day), value: point.value, orders: point.paidOrders}))
-    : undefined;
+    : undefined, [compare, selectedCurrency?.currency, data.comparisonCommerce, priorRange?.start, priorRange?.end, timezone, labelDate]);
   const journeyPeak = Math.max(1, ...journey.map(([key]) => journeyEvents?.[key] ?? 0));
-  const sources = (analyticsTrafficSources(data.traffic) ?? []).slice(0, 3);
+  const allSources = useMemo(() => analyticsTrafficSources(data.traffic), [data.traffic]);
+  const sources = allSources?.slice(0, 4) ?? [];
   const products = detailsData?.products?.commerce.products.slice(0, 3) ?? [];
-  const commerceTrends = analyticsCommerceTrends(data.commerce.series, traffic?.series ?? null, timezone);
+  const commerceTrends = useMemo(() => analyticsCommerceTrends(data.commerce.series, traffic?.series ?? null, timezone), [data.commerce.series, traffic?.series, timezone]);
   const trafficBreakdowns = ([
     ["Sayfalar", "path"], ["Yönlendirenler", "referrer"],
     ["Cihazlar", "device"], ["Ülkeler", "country"],
@@ -1525,6 +1477,10 @@ function Overview({
           trend={compare && conversionChange !== null && conversionChange !== 0
             ? conversionChange > 0 ? "up" : "down" : undefined}
         />
+        <MetricTile
+          label="Ortalama sipariş"
+          value={currencies.length ? currencies.map((bucket) => <span className={styles.currencyAmount} key={bucket.currency}>{bucket.paidOrders ? money(bucket.grossRevenueMinor / bucket.paidOrders, bucket.currency) : "—"}</span>) : "—"}
+        />
       </section>
 
       {currencies.length > 1 ? (
@@ -1558,6 +1514,8 @@ function Overview({
           </section>
         )}
         </div>
+        <div className={styles.overviewSide}>
+        <ActiveVisitorsCard presentation="panel" />
         <aside className={styles.insight} aria-label={largestDrop ? "Dönüşüm içgörüsü" : "Sepet içgörüsü"}>
           <div className={styles.insightContent}>
             <span className={styles.insightLabel}>{largestDrop ? "EN BÜYÜK KAYIP" : "SEPET HAREKETİ"}</span>
@@ -1565,11 +1523,35 @@ function Overview({
             <strong>{largestDrop ? `${largestDrop.lost.toLocaleString("tr-TR")} oturum · ${percent(largestDrop.rate)}` : `${recoveredCarts.toLocaleString("tr-TR")} geri kazanım`}</strong>
             <p className={styles.filterHint}>{largestDrop ? `${largestDrop.from} → ${largestDrop.to}` : ""}</p>
           </div>
-          <InsightIllustration kind={largestDrop ? "funnel" : "cart"} />
           <Link href={largestDrop ? funnelHref : cartsHref}>{largestDrop ? "Huniyi incele" : "Sepetleri incele"} <ArrowRight size={16} aria-hidden="true" /></Link>
         </aside>
+        </div>
       </div>
 
+      <div className={styles.lowerGrid}>
+        {(
+          <section className={styles.listPanel}>
+            <div className={styles.sectionHeading}><h2>Öne çıkan ürünler</h2><Link href={productsHref}>Tümünü gör <ArrowRight size={14} aria-hidden="true" /></Link></div>
+            <div className={styles.productRows} aria-busy={!detailsData || detailsData.productsState === "loading"}>
+              <table className={styles.overviewProducts} aria-label="Öne çıkan ürünler">
+                <thead><tr><th>Ürün</th><th>Satılan</th><th>Satış</th></tr></thead>
+                <tbody>{products.length ? products.map((row) => <tr key={`${row.productId}:${row.currency}`}>
+                  <td><span className={styles.listProduct}><ProductThumbnail imageUrl={row.imageUrl} className={styles.productIcon} /><span>{row.title}</span></span></td>
+                  <td>{row.quantity.toLocaleString("tr-TR")}</td><td>{money(row.revenueMinor, row.currency)}</td>
+                </tr>) : !detailsData || detailsData.productsState === "loading" ? [0, 1, 2].map((row) => <tr key={row} aria-hidden="true"><td colSpan={3}><span className={styles.skeletonLine} /></td></tr>) : <tr><td colSpan={3}><p className={styles.quietState}>{detailsData.productsState === "error" ? "Ürün ölçümleri alınamadı." : "Bu dönemde ürün hareketi yok."}</p></td></tr>}</tbody>
+              </table>
+              {!detailsData || detailsData.productsState === "loading" ? <span className="sr-only" role="status">Ürünler yükleniyor</span> : null}
+            </div>
+          </section>
+        )}
+        {(
+          <section className={styles.listPanel}>
+            <div className={styles.sectionHeading}><h2>Başlıca kaynaklar</h2><Link href={sourcesHref}>Tümünü gör <ArrowRight size={14} aria-hidden="true" /></Link></div>
+            <div className={`${styles.listRows} ${styles.sourceRows}`}>{sources.length ? sources.map((row) => <div className={styles.sourceRow} key={row.label}><div><span>{sourceLabel(row.label)}</span><strong>{row.value.toLocaleString("tr-TR")}</strong></div><span className={styles.sourceTrack} aria-hidden="true"><span style={{ width: `${row.value / Math.max(1, ...sources.map((source) => source.value)) * 100}%` }} /></span></div>) : <p className={styles.quietState}>{allSources === null ? "Kaynak ölçümü alınamıyor." : "Bu dönemde kaynak kaydı yok."}</p>}</div>
+          </section>
+        )}
+
+      </div>
       <section className={styles.journeySection}>
         <div className={styles.sectionHeading}>
           <h2>Etkileşim adımları</h2>
@@ -1588,24 +1570,9 @@ function Overview({
         <p className={styles.slotStatus} role="status">{journeyEvents ? "" : !detailsData || detailsData.funnelState === "loading" ? "Etkileşimler yükleniyor" : "Etkileşim ölçümü bekleniyor. Bu durum sıfır ziyaretçi anlamına gelmez."}</p>
       </section>
 
-      <div className={styles.lowerGrid}>
-        {(
-          <section className={styles.listPanel}>
-            <div className={styles.sectionHeading}><h2>Başlıca kaynaklar</h2><Link href={sourcesHref}>Tümünü gör <ArrowRight size={14} aria-hidden="true" /></Link></div>
-            <div className={styles.listRows}>{sources.length ? sources.map((row) => <div className={styles.listRow} key={row.label}><span>{sourceLabel(row.label)}</span><strong>{row.value.toLocaleString("tr-TR")}</strong></div>) : <p className={styles.quietState}>{analyticsTrafficSources(data.traffic) === null ? "Kaynak ölçümü alınamıyor." : "Bu dönemde kaynak kaydı yok."}</p>}</div>
-          </section>
-        )}
-        {(
-          <section className={styles.listPanel}>
-            <div className={styles.sectionHeading}><h2>Öne çıkan ürünler</h2><Link href={productsHref}>Tümünü gör <ArrowRight size={14} aria-hidden="true" /></Link></div>
-            <div className={styles.productRows} aria-busy={!detailsData || detailsData.productsState === "loading"}>
-              {products.length ? products.map((row) => <div className={styles.listRow} key={`${row.productId}:${row.currency}`}><span className={styles.listProduct}><ProductThumbnail imageUrl={row.imageUrl} className={styles.productIcon} />{row.title}</span><strong>{money(row.revenueMinor, row.currency)}</strong></div>) : !detailsData || detailsData.productsState === "loading" ? <>
-                <span className="sr-only" role="status">Ürünler yükleniyor</span>
-                {[0, 1, 2].map((row) => <div className={styles.listRow} key={row} aria-hidden="true"><span className={styles.skeletonLine} /></div>)}
-              </> : <p className={styles.quietState}>{detailsData.productsState === "error" ? "Ürün ölçümleri alınamadı." : "Bu dönemde ürün hareketi yok."}</p>}
-            </div>
-          </section>
-        )}
+      <details className={styles.secondaryMetrics}>
+        <summary>Diğer ölçümler</summary>
+        <div className={styles.secondaryGrid}>
         <section className={styles.listPanel}>
             <div className={styles.sectionHeading}><h2>Ticari hareket</h2></div>
             <div className={styles.listRows}>
@@ -1614,10 +1581,6 @@ function Overview({
             <div className={styles.listRow}><span>Geri kazanılan sepet</span><strong>{total(currencies, "recoveredCarts").toLocaleString("tr-TR")}</strong></div>
             </div>
         </section>
-      </div>
-      <details className={styles.secondaryMetrics}>
-        <summary>Diğer ölçümler</summary>
-        <div className={styles.secondaryGrid}>
           {traffic ? <section className={styles.dataList}>
             <h3>Ziyaret davranışı</h3>
             <div><span>Sayfa görüntüleme</span><strong>{traffic.pageviews.toLocaleString("tr-TR")}</strong></div>
@@ -1748,17 +1711,10 @@ function Acquisition({
   params,
 }: Readonly<{ data: Payload; params: ReadonlyURLSearchParams }>) {
   const firstTouch = params.get("touch") === "first";
-  const behavioral = firstTouch ? [] : acquisitionRows(data.traffic);
+  const behavioral = useMemo(() => firstTouch ? [] : acquisitionRows(data.traffic), [firstTouch, data.traffic]);
   const behaviorAvailable = !firstTouch && Boolean(data.traffic && typeof data.traffic === "object" && (data.traffic as {breakdown?: {items?: unknown}}).breakdown?.items instanceof Array);
   const sum = (key: keyof AcquisitionTraffic) => behavioral.reduce((value, row) => value + (typeof row[key] === "number" ? Number(row[key]) : 0), 0);
-  const behaviorFor = (row: Payload["commerce"]["attribution"][number]) => behavioral.find((item) =>
-    item.source === row.source && item.medium === row.medium && (item.campaign ?? null) === (row.campaign ?? null));
-  const rows = [
-    ...data.commerce.attribution.map((commerce) => ({ commerce, behavior: behaviorFor(commerce) })),
-    ...behavioral.filter((behavior) => !data.commerce.attribution.some((commerce) =>
-      commerce.source === behavior.source && commerce.medium === behavior.medium && (commerce.campaign ?? null) === (behavior.campaign ?? null)
-    )).map((behavior) => ({ commerce: null, behavior })),
-  ];
+  const rows = useMemo(() => joinAnalyticsAcquisition(data.commerce.attribution, behavioral), [data.commerce.attribution, behavioral]);
   return (
     <div className={styles.detailPage}>
       {behaviorAvailable ? (
@@ -1813,6 +1769,8 @@ function Products({
   href: (patch: Record<string, string | null>) => string;
 }>) {
   const page = data.commerce.productPage;
+  const viewsIndex = useMemo(() => analyticsProductMetricIndex(data.traffic, "views"), [data.traffic]);
+  const addsIndex = useMemo(() => analyticsProductMetricIndex(data.traffic, "adds"), [data.traffic]);
   return (
     <div className={styles.detailPage}>
       <section className={styles.tablePanel}>
@@ -1823,8 +1781,8 @@ function Products({
               <thead><tr><th>Ürün</th><th>Görüntüleme</th><th>Sepete ekleme</th><th>Ödeme</th><th>Sipariş</th><th>Satılan</th><th>Satış</th><th>Terk</th><th>Geri kazanım</th></tr></thead>
               <tbody>
                 {data.commerce.products.map((row) => {
-                  const viewed = analyticsProductMetricCount(data.traffic, "views", row.productId);
-                  const added = analyticsProductMetricCount(data.traffic, "adds", row.productId);
+                  const viewed = analyticsIndexedProductMetricCount(viewsIndex, row.productId);
+                  const added = analyticsIndexedProductMetricCount(addsIndex, row.productId);
                   return (
                     <tr key={`${row.productId}:${row.currency}`}>
                       <td data-label="Ürün" data-primary="true"><div className={styles.productIdentity}><ProductThumbnail imageUrl={row.imageUrl} className={styles.productIcon} /><span><strong>{row.title}</strong><small>{row.categoryName ?? "—"} · {row.brandName ?? "—"}</small></span></div></td>
