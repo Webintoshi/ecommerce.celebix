@@ -40,6 +40,7 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
   const hydrated = useHydrated();
   const { cart, drawerOpen, openDrawer } = useCartStatus();
   const [panel, setPanel] = useState<Panel | null>(null);
+  const [scrolled, setScrolled] = useState(false);
   const [trail, setTrail] = useState<readonly Item[]>([]);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const menuHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -51,6 +52,15 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
   const current = trail.at(-1);
   const items = current?.children ?? navigation;
   const count = hydrated ? cart?.itemCount ?? 0 : 0;
+  const overlaysBanner = style === "overlay" && pathname === "/";
+
+  useEffect(() => {
+    if (!overlaysBanner) { setScrolled(false); return; }
+    const update = () => setScrolled(window.scrollY > 24);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, [overlaysBanner]);
 
   useCatalogScrollRestoration(EZMEO_STOREFRONT_ID, pathname, panel !== null || drawerOpen, "ezmeo");
 
@@ -99,7 +109,7 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
   }, [panel, trail]);
 
   return <>
-    <header className="ez-header" data-ezmeo-header data-storefront-header-bar data-header-layout={layout} data-header-width={width} data-header-style={style}>
+    <header className="ez-header" data-ezmeo-header data-storefront-header-bar data-header-layout={layout} data-header-width={width} data-header-style={style} data-header-overlay={overlaysBanner ? "true" : "false"} data-header-scrolled={scrolled ? "true" : "false"}>
       <div className="ez-header-row" data-storefront-header-container>
         <button className="ez-menu-trigger ez-icon-button" type="button" aria-label="Menüyü aç" aria-controls={dialogId} aria-haspopup="dialog" aria-expanded={panel === "menu"} onClick={event => open("menu", event.currentTarget)}><HeaderIcon name="menu" /></button>
         <Link className="ez-wordmark" data-storefront-wordmark href="/" aria-label={`${displayName} ana sayfa`}>

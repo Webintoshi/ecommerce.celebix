@@ -5,10 +5,10 @@ import { componentLoader, withProductBrowser } from "./product-variant-media-tes
 
 type Browser = Parameters<Parameters<typeof withProductBrowser>[0]>[0];
 
-async function withHeader(run: (browser: Browser & { pushes: string[]; triggers: HTMLElement[] }) => Promise<void>) {
+async function withHeader(run: (browser: Browser & { pushes: string[]; triggers: HTMLElement[] }) => Promise<void>, options: { pathname?: string; style?: "solid" | "overlay" } = {}) {
   const pushes: string[] = [], triggers: HTMLElement[] = [];
   const load = componentLoader({
-    "next/navigation": { useRouter: () => ({ push: (href: string) => pushes.push(href) }), usePathname: () => "/urunler" },
+    "next/navigation": { useRouter: () => ({ push: (href: string) => pushes.push(href) }), usePathname: () => options.pathname ?? "/urunler" },
     "next/link": { __esModule: true, default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => React.createElement("a", props, children) },
     "../../components/CartStatusProvider": { useCartStatus: () => ({ cart: { itemCount: 4 }, drawerOpen: false, openDrawer: (trigger: HTMLElement) => triggers.push(trigger) }) },
     "../../components/use-hydrated": { useHydrated: () => true },
@@ -20,7 +20,7 @@ async function withHeader(run: (browser: Browser & { pushes: string[]; triggers:
     const previous = globalThis.FormData;
     Object.assign(globalThis, { FormData: window.FormData });
     try {
-      await browser.render(React.createElement(EzmeoHeaderClient, { displayName: "Ezmeo", locale: "tr", navigation: [
+      await browser.render(React.createElement(EzmeoHeaderClient, { displayName: "Ezmeo", locale: "tr", style: options.style, navigation: [
         { name: "Geleneksel", slug: "geleneksel", children: [{ name: "Tarhanalar", slug: "tarhanalar", children: [] }] },
         { name: "Hikâyemiz", slug: "hikayemiz", path: "/pages/hikayemiz", children: [] },
       ] }));
@@ -45,6 +45,20 @@ test("Ezmeo search opens in place, submits a real encoded query and restores scr
     assert.equal(document.body.style.overflow, "");
     assert.equal(document.activeElement, container.querySelector(".ez-search-trigger"));
   });
+});
+
+test("Ezmeo honors overlay only on home and becomes opaque when scrolling", async () => {
+  await withHeader(async ({ container }) => {
+    const header = container.querySelector("header");
+    assert.equal(header?.getAttribute("data-header-overlay"), "true");
+    assert.equal(header?.getAttribute("data-header-scrolled"), "false");
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 100 });
+    await React.act(async () => window.dispatchEvent(new window.Event("scroll")));
+    assert.equal(header?.getAttribute("data-header-scrolled"), "true");
+  }, { pathname: "/", style: "overlay" });
+  await withHeader(async ({ container }) => {
+    assert.equal(container.querySelector("header")?.getAttribute("data-header-overlay"), "false");
+  }, { pathname: "/urun/karakilcik-kesme-eriste", style: "overlay" });
 });
 
 test("Ezmeo nested menu preserves parent destinations, children and explicit page links", async () => {

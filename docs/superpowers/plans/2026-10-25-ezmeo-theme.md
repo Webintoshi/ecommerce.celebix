@@ -67,3 +67,6 @@ Produces ezmeoThemeFor(Pick<PublicStorefront,'id'>) returning 'ezmeo-deniz' for 
 - Ruling: no separate image-generated concept because the user explicitly chose direct application over a visual proposal; use existing approved brand/media and code-native components.
 
 - User resource constraint (25 October): sequential local checks only, low priority and capped memory; no parallel test suites/builds/dev servers. Thirty focused tests passed with --test-concurrency=1 and 384 MiB heap. Previous full suite was interrupted, not a passing full-suite result.
+
+- Integrated already-live baseline 8f6a4212; payment/catalog/review updates retained. Independent read-only review identified overlay semantics; fixed home overlay/non-home solid behavior and scroll opacity with a regression test (RED→GREEN).
+- Post-merge focused serial suite: 31/31 pass. Updated only stale test dependency stubs for already-live selected-summary/review-form imports. Production review/payment behavior unchanged.

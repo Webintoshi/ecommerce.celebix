@@ -16,7 +16,13 @@
   border-bottom: 1px solid var(--ez-header-line);
 }
 
-.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-header[data-header-style="overlay"] {
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-header[data-header-overlay="true"] {
+  position: fixed;
+  inset-inline: 0;
+  width: 100%;
+}
+
+.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-header[data-header-overlay="true"][data-header-scrolled="false"] {
   background: color-mix(in srgb, var(--ez-header-paper) 90%, transparent);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);

@@ -38,11 +38,13 @@ async function compileProductDetailExperience() {
     if (specifier === "next/link") return Link;
     if (specifier === "@/lib/format.ts") return { formatTry: (value: number) => `₺${value}` };
     if (specifier === "@/lib/public-product-ordering.ts") return { availableProductsFirst };
-    if (specifier === "@/lib/storefront-routes.ts") return { categoryPath: (_locale: string, slug: string) => `/kategori/${slug}` };
+    if (specifier === "@/lib/storefront-routes.ts") return { categoryPath: (_locale: string, slug: string) => `/kategori/${slug}`, productPath: (_locale: string, slug: string) => `/urun/${slug}` };
     if (specifier === "@celebix/storefront-design-ui") return { ProductDetailSummary: component("ProductDetailSummary") };
     if (specifier === "./SelectedProductDetailSummary") return { SelectedProductDetailSummary: component("ProductDetailSummary") };
     if (specifier === "./ProductCard") return { ProductCard };
     if (specifier === "./ProductApprovedReviews") return { ProductApprovedReviews: component("ProductApprovedReviews") };
+    if (specifier === "./ProductPageReviewForm") return { ProductPageReviewForm: component("ProductPageReviewForm") };
+    if (specifier === "./SelectedProductDetailSummary") return { SelectedProductDetailSummary: component("SelectedProductDetailSummary") };
     if (specifier === "./ProductGallery") return { ProductGallery: component("ProductGallery") };
     if (specifier === "./ProductInformationDisclosures") return { ProductInformationDisclosures: component("ProductInformationDisclosures"), ProductSizeGuide: component("ProductSizeGuide") };
     if (specifier === "./ProductPurchasePanel") return { ProductPurchasePanel: component("ProductPurchasePanel") };
