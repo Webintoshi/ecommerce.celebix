@@ -155,9 +155,9 @@ test("authenticated catalog returns exactly 58 truthful local entries", async ()
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   const result = await response.json() as { items: Array<Record<string, unknown>> };
   assert.equal(result.items.length, 58);
-  assert.deepEqual(result.items.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode), ["iyzico_iframe"]);
+  assert.deepEqual(result.items.filter((entry) => entry.readiness === "verification").map((entry) => entry.providerCode), ["akbank_json", "iyzico_iframe"]);
   assert.deepEqual(result.items.filter((entry) => entry.readiness === "sandbox_ready").map((entry) => entry.providerCode), ["paytr_iframe"]);
-  assert.equal(result.items.filter((entry) => !["iyzico_iframe", "paytr_iframe"].includes(String(entry.providerCode))).every((entry) => entry.readiness === "planned"), true);
+  assert.equal(result.items.filter((entry) => !["akbank_json", "iyzico_iframe", "paytr_iframe"].includes(String(entry.providerCode))).every((entry) => entry.readiness === "planned"), true);
   assert.equal(result.items.some((entry) => String(entry.providerCode).includes("dummy")), false);
   assert.equal(result.items.every((entry) => String(entry.logoPath).startsWith("/payment-providers/")), true);
   assert.equal(probe.calls.length, 0);

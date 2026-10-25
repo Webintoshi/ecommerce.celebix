@@ -129,7 +129,7 @@ export function ProviderCheckoutSettingsDrawer(props: Readonly<{
 
         <fieldset className={styles.preferenceGroup}>
           <legend>Ödeme ekranı dili</legend>
-          {view.providerCode === "iyzico_iframe" ? <div className={styles.segmentedControl}>
+          {view.providerCode !== "paytr_iframe" ? <div className={styles.segmentedControl}>
             <label data-selected={locale === "tr"}><input type="radio" name="locale" value="tr" checked={locale === "tr"} disabled={editingDisabled} onChange={() => setLocale("tr")} /><span>Türkçe</span></label>
             <label data-selected={locale === "en"}><input type="radio" name="locale" value="en" checked={locale === "en"} disabled={editingDisabled} onChange={() => setLocale("en")} /><span>English</span></label>
           </div> : <div className={styles.readOnlyPreference}><CheckCircle2 aria-hidden="true" /><span><strong>Sağlayıcı yönetir</strong><small>PayTR ödeme formu dilini kendi güvenli ekranında belirler.</small></span></div>}
@@ -138,11 +138,11 @@ export function ProviderCheckoutSettingsDrawer(props: Readonly<{
         <fieldset className={styles.preferenceGroup}>
           <legend>Taksit seçenekleri</legend>
           <div className={styles.optionCards}>
-            <label data-selected={installmentMode === "all"}><input type="radio" name="installmentMode" value="all" checked={installmentMode === "all"} disabled={editingDisabled} onChange={() => setInstallmentMode("all")} /><span><strong>Tüm uygun taksitler</strong><small>Banka ve sağlayıcının izin verdiği seçenekler.</small></span></label>
+            {view.providerCode !== "akbank_json" ? <label data-selected={installmentMode === "all"}><input type="radio" name="installmentMode" value="all" checked={installmentMode === "all"} disabled={editingDisabled} onChange={() => setInstallmentMode("all")} /><span><strong>Tüm uygun taksitler</strong><small>Banka ve sağlayıcının izin verdiği seçenekler.</small></span></label> : null}
             <label data-selected={installmentMode === "single_payment"}><input type="radio" name="installmentMode" value="single_payment" checked={installmentMode === "single_payment"} disabled={editingDisabled} onChange={() => setInstallmentMode("single_payment")} /><span><strong>Yalnız tek çekim</strong><small>Taksit seçeneklerini tamamen kapatır.</small></span></label>
-            <label data-selected={installmentMode === "limited"}><input type="radio" name="installmentMode" value="limited" checked={installmentMode === "limited"} disabled={editingDisabled} onChange={() => setInstallmentMode("limited")} /><span><strong>Üst sınır belirle</strong><small>Seçilen vadeye kadar uygun taksitleri gösterir.</small></span></label>
+            {view.providerCode !== "akbank_json" ? <label data-selected={installmentMode === "limited"}><input type="radio" name="installmentMode" value="limited" checked={installmentMode === "limited"} disabled={editingDisabled} onChange={() => setInstallmentMode("limited")} /><span><strong>Üst sınır belirle</strong><small>Seçilen vadeye kadar uygun taksitleri gösterir.</small></span></label> : null}
           </div>
-          {installmentMode === "limited" ? <label className={styles.selectField}>En fazla taksit
+          {view.providerCode !== "akbank_json" && installmentMode === "limited" ? <label className={styles.selectField}>En fazla taksit
             <select aria-label="En fazla taksit" value={maxInstallment} disabled={editingDisabled} onChange={(event) => setMaxInstallment(Number(event.currentTarget.value) as ProviderMaxInstallment)}>
               {INSTALLMENT_LIMITS.map((value) => <option key={value} value={value}>{value} taksit</option>)}
             </select>

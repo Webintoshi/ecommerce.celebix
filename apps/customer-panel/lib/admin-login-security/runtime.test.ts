@@ -12,6 +12,18 @@ test("MFA completion validates session then issues authorized cross-host auto PO
  const response=await transfer(completion,new Request("https://panel.test/auth/admin-login/complete"));assert.equal(response.status,200);assert.deepEqual(calls[0],{currentCredential:session,operationId,destinationStoreId:storeId,destinationHostname:"admin.guzidekuyumcu.com.tr",now,candidateCredential:handoff,handoffId:completion.handoffId});const html=await response.text();assert.ok(html.includes('action="https://admin.guzidekuyumcu.com.tr/auth/handoff"'));assert.ok(html.includes(handoff));assert.ok(!html.includes(session));assert.equal(response.headers.get("set-cookie"),null);
  for(const bad of [{...completion,sessionExpiresAt:new Date(now.getTime()+28801000).toISOString()},{...completion,destinationOrigin:"https://evil.test/path"},{...completion,secret:"secret"}])await assert.rejects(transfer(bad,new Request("https://panel.test/auth/admin-login/complete")));assert.equal(calls.length,1);
 });
+test("trusted WhatsApp transfer policy accepts thirty-day sessions while retaining their original boundary",async()=>{
+ const transfer=createAdminSecurityCompletionTransfer({sessionPolicy:'store_whatsapp',clock:()=>now,randomBytes:size=>new Uint8Array(size).fill(1),repository:{
+  recoverIssuedHandoff:async()=>({kind:'unauthenticated'}),
+  issuePreparedHandoff:async()=>({kind:'handoff_issued',credential:handoff,destinationOrigin:completion.destinationOrigin,expiresAt:new Date(now.getTime()+120000).toISOString()}),
+ }});
+ for(const sessionAuthority of [
+  {sessionIssuedAt:'2026-10-12T12:00:00.000Z',sessionExpiresAt:'2026-11-11T12:00:00.000Z'},
+  {sessionIssuedAt:'2026-09-13T12:00:00.000Z',sessionExpiresAt:'2026-10-13T12:00:00.000Z'},
+ ])assert.equal((await transfer({...completion,...sessionAuthority},new Request('https://panel.test/auth/merchant-phone/complete'))).status,200);
+ await assert.rejects(transfer({...completion,sessionExpiresAt:'2026-11-11T12:00:00.001Z'},new Request('https://panel.test/auth/merchant-phone/complete')));
+ await assert.rejects(transfer({...completion,sessionPolicy:'store_whatsapp'},new Request('https://panel.test/auth/merchant-phone/complete')));
+});
 test("unknown cross-host commit recovers exact operation and failure stays closed",async()=>{
  const recover:any[]=[];const transfer=createAdminSecurityCompletionTransfer({clock:()=>now,randomBytes:size=>new Uint8Array(size),repository:{issuePreparedHandoff:async()=>({kind:"commit_unknown",credential:handoff}),recoverIssuedHandoff:async input=>{recover.push(input);if(recover.length===1)return{kind:"unauthenticated"};return{kind:"operation_replayed",credential:handoff,destinationOrigin:"https://admin.guzidekuyumcu.com.tr",expiresAt:new Date(now.getTime()+120000).toISOString()};}}});
  assert.equal((await transfer(completion,new Request("https://panel.test/auth/admin-login/complete"))).status,200);assert.deepEqual(recover[0],{operationId,credential:handoff,destinationHostname:"admin.guzidekuyumcu.com.tr",now});

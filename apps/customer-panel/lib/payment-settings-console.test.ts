@@ -2381,3 +2381,22 @@ test("read-only payment console never exposes mutation actions", async () => {
   assert.match(combined, /disabled=\{[^}]*!canManage/);
   assert.match(combined, /Salt okunur/);
 });
+
+test("mounted Akbank connection configuration never enters the extra activation action", async () => {
+  const selectedProfile: MerchantProviderProfile = { ...iyzicoProfile("live"), providerCode: "akbank_json", maskedAccountReference: "Akbank hesabı" };
+  const descriptor: MerchantProviderDescriptor = { ...verificationIyzicoDescriptor(), providerCode: "akbank_json", label: "Akbank",
+    credentialFields: ["merchantSafeId", "terminalSafeId", "secretKey"].map((key) => ({ key, label: key, secret: true })) };
+  const console = await compilePaymentConsole({ methods: [], profiles: [selectedProfile], definitions: [descriptor] });
+  console.render(); await console.settle();
+  const add = console.nodes().find((node) => node.type === "button" && drawerText(node) === "Ödeme Yöntemi Ekle");
+  assert.ok(add); (add.props.onClick as () => void)(); console.render();
+  const online = console.nodes().find((node) => node.type === "button" && node.props.role === "tab" && drawerText(node).includes("Online"));
+  assert.ok(online); (online.props.onClick as () => void)(); console.render();
+  const card = console.nodes().find((node) => node.type === "article" && drawerText(node).includes("Akbank") && drawerText(node).includes(PAYMENT_PROVIDER_CATALOG.find(({ providerCode }) => providerCode === "akbank_json")!.modeLabel));
+  assert.ok(card);
+  const configure = drawerNodes(card.children).find((node) => node.type === "button");
+  assert.ok(configure); assert.equal(drawerText(configure), "Yapılandırıldı");
+  await (configure.props.onClick as () => Promise<void>)(); console.render();
+  assert.ok(console.nodes().find((node) => node.type === "connection-drawer"));
+  assert.deepEqual(console.mutations, []);
+});

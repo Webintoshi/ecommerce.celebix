@@ -1,0 +1,17 @@
+[Unit]
+Description=Project native Celebix custom hostnames into shared origin routes
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/celebix/custom-domain-origin/custom-domain-origin-reconcile.py --apply
+TimeoutStartSec=25
+Nice=10
+MemoryMax=128M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX
+UMask=0077

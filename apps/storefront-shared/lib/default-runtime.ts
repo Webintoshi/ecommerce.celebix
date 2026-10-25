@@ -4,6 +4,7 @@ import "server-only";
 import { randomBytes, randomUUID } from "node:crypto";
 import process from "node:process";
 import {
+  AKBANK_JSON_PACKET,
   IYZICO_IFRAME_PACKET,
   PAYTR_IFRAME_PACKET,
   createBoundedProviderTransport,
@@ -89,6 +90,8 @@ import { parseCatalogSearchConfig } from "./catalog-search-config.ts";
 import { PUBLIC_CONTENT_READINESS_SQL, publicContentReadiness } from "./content-readiness.ts";
 import { createPublicGoogleMarketingRuntime, type PublicGoogleMarketingRuntime } from "./google-marketing-runtime.ts";
 import { protectCommerceRuntime, requireOnlineCheckout } from './commerce-policy.ts';
+import { PostgresProductPageReviewRepository } from "@celebix/saas-data";
+import { createProductPageReviewRuntime, type ProductPageReviewRuntime } from "./reviews/product-page-runtime.ts";
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
@@ -101,6 +104,7 @@ export type PublicStorefrontRuntime = Readonly<{
   googleMarketing?: PublicGoogleMarketingRuntime;
   restockAlerts?: PostgresPublicRestockRepository;
   reviewCollection?: PostgresReviewCollectionRepository;
+  productPageReviews?: ProductPageReviewRuntime;
   seo?: PublicSeoRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
@@ -135,7 +139,7 @@ function compiledHostedPaymentAuthorities(): StorefrontHostedPaymentCompiledAuth
 }
 
 type ExecutableCompiledAuthority = Readonly<{
-  providerCode: "paytr_iframe" | "iyzico_iframe";
+  providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json";
   authority: Readonly<PaymentProviderExecutionAuthority>;
 }>;
 
@@ -144,6 +148,7 @@ function executableCompiledAuthorities(
   source: Readonly<Record<string, string | undefined>>,
 ): readonly ExecutableCompiledAuthority[] {
   const packets = Object.freeze({
+    akbank_json: AKBANK_JSON_PACKET,
     paytr_iframe: PAYTR_IFRAME_PACKET,
     iyzico_iframe: IYZICO_IFRAME_PACKET,
   });
@@ -161,6 +166,16 @@ function executableCompiledAuthorities(
       && authority.adapterVersion === packets.paytr_iframe.adapterVersion
       && /^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)
     ) executable.push(Object.freeze({ providerCode: "paytr_iframe", authority }));
+  }
+  const akbankMode = resolveStorefrontHostedPaymentActivationMode(source, "akbank_json");
+  for (const environment of ["test", "live"] as const) {
+    const authority = authorities.akbank_json?.[environment] ?? null;
+    const enabled = akbankMode === "approved_test_and_live"
+      || (akbankMode === "approved_test_sandbox" && environment === "test")
+      || (akbankMode === "approved_live" && environment === "live");
+    if (authority !== null && enabled && authority.environment === environment
+      && authority.adapterVersion === packets.akbank_json.adapterVersion
+      && /^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)) executable.push(Object.freeze({ providerCode: "akbank_json", authority }));
   }
   const iyzico = authorities.iyzico_iframe;
   if (
@@ -341,6 +356,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
     const activeHostedProviders = new Set(executableCompiledAuthorities(compiledHostedPaymentAuthorities(), Object.freeze({
       CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
       CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
+      CELEBIX_AKBANK_JSON_STOREFRONT_MODE: process.env.CELEBIX_AKBANK_JSON_STOREFRONT_MODE,
     })).map(({ providerCode }) => providerCode));
     const whatsappOrders = new PostgresPublicWhatsAppOrderRepository({ pool, role: 'celebix_saas_host_resolver', timeouts: TIMEOUTS });
     const commercePolicy = async (hostname: string) => {
@@ -383,6 +399,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       content,
       restockAlerts: new PostgresPublicRestockRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       reviewCollection: new PostgresReviewCollectionRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
+      ...(identity && identityConfig ? { productPageReviews: createProductPageReviewRuntime({ repository: new PostgresProductPageReviewRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: identityConfig.hmacKeyring, now: () => new Date() }) } : {}),
       contactWidgets: new PostgresPublicContactWidgetRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       whatsappOrders,
       commercePolicy,
@@ -417,6 +434,8 @@ export async function resolveDefaultHostedPaymentRuntime(): Promise<HostedPaymen
       process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
     CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE:
       process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
+    CELEBIX_AKBANK_JSON_STOREFRONT_MODE:
+      process.env.CELEBIX_AKBANK_JSON_STOREFRONT_MODE,
   });
   const compiledAuthorities = compiledHostedPaymentAuthorities();
   const executableAuthorities = executableCompiledAuthorities(compiledAuthorities, source);
@@ -466,6 +485,8 @@ async function resolveDefaultHostedPaymentInfrastructure(): Promise<HostedPaymen
       process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
     CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE:
       process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
+    CELEBIX_AKBANK_JSON_STOREFRONT_MODE:
+      process.env.CELEBIX_AKBANK_JSON_STOREFRONT_MODE,
   });
   const compiledAuthorities = compiledHostedPaymentAuthorities();
   const executableAuthorities = executableCompiledAuthorities(compiledAuthorities, source);
@@ -675,14 +696,17 @@ export async function resolveStorefrontSetupPaymentAvailability(): Promise<Store
     const source = Object.freeze({
       CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE,
       CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: process.env.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE,
+      CELEBIX_AKBANK_JSON_STOREFRONT_MODE: process.env.CELEBIX_AKBANK_JSON_STOREFRONT_MODE,
     });
     const paytrMode = resolveStorefrontHostedPaymentActivationMode(source, 'paytr_iframe');
     const iyzicoMode = resolveStorefrontHostedPaymentActivationMode(source, 'iyzico_iframe');
-    if (paytrMode === 'disabled' && iyzicoMode === 'disabled') return { kind: 'disabled', providers: [] };
+    const akbankMode = resolveStorefrontHostedPaymentActivationMode(source, 'akbank_json');
+    if (paytrMode === 'disabled' && iyzicoMode === 'disabled' && akbankMode === 'disabled') return { kind: 'disabled', providers: [] };
     const executable = executableCompiledAuthorities(compiledHostedPaymentAuthorities(), source);
     if (executable.length === 0) return unavailable;
     if (paytrMode !== 'disabled' && !executable.some(item => item.providerCode === 'paytr_iframe')) return unavailable;
     if (iyzicoMode !== 'disabled' && !executable.some(item => item.providerCode === 'iyzico_iframe')) return unavailable;
+    if (akbankMode !== 'disabled' && !executable.some(item => item.providerCode === 'akbank_json')) return unavailable;
     const publicRuntime = await resolveDefaultPublicStorefrontRuntime();
     if (publicRuntime?.hostedCheckout == null) return unavailable;
     const infrastructure = await resolveDefaultHostedPaymentInfrastructure();

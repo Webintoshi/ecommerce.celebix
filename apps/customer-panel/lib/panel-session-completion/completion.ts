@@ -1,3 +1,4 @@
+import { STORE_ADMIN_SESSION_MAX_AGE_MS } from "@celebix/saas-contracts";
 import { PANEL_HOME_URL } from "../../../../packages/platform-config/src/saas.ts";
 import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
 import {
@@ -13,7 +14,6 @@ import { serializeAdminDestinationCookie, serializeAdminPendingCookie } from "..
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
-const MAXIMUM_SESSION_MS = 8 * 60 * 60_000;
 const MAXIMUM_HANDOFF_MS = 10 * 60_000;
 const MAXIMUM_CROSS_HOST_HANDOFF_MS = 2 * 60_000;
 
@@ -124,7 +124,7 @@ function successfulRedemption(value: unknown, trustedNow: Date): { credential: s
   if (
     issuedAt.milliseconds > trustedNow.getTime() || issuedAt.milliseconds > rotatedAt.milliseconds ||
     rotatedAt.milliseconds >= expiresAt.milliseconds || expiresAt.milliseconds <= trustedNow.getTime() ||
-    expiresAt.milliseconds > issuedAt.milliseconds + MAXIMUM_SESSION_MS
+    expiresAt.milliseconds > issuedAt.milliseconds + STORE_ADMIN_SESSION_MAX_AGE_MS
   ) invalid();
   return {
     credential: credential(result.credential),
@@ -188,7 +188,7 @@ function internalResult(value: unknown, clock: () => Date): Record<string, unkno
     const expiresAt = timestamp(row.sessionExpiresAt).milliseconds;
     canonicalUuid(row.destinationStoreId);
     canonicalAdminOrigin(row.destinationOrigin);
-    if (issuedAt > trustedNow || expiresAt <= trustedNow || expiresAt > issuedAt + MAXIMUM_SESSION_MS) invalid();
+    if (issuedAt > trustedNow || expiresAt <= trustedNow || expiresAt > issuedAt + STORE_ADMIN_SESSION_MAX_AGE_MS) invalid();
     return row;
   }
   exact(row, ["schemaVersion", "kind", "code", "retryable"]);

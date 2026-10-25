@@ -112,7 +112,7 @@ test("invalid persisted sessions are rejected and destroyed", async () => {
     { rotatedAt: "2026-07-10T10:01:00.000Z" },
     { expiresAt: "2026-07-10T09:59:59.000Z" },
     { expiresAt: "2026-07-10T10:00:00.000Z" },
-    { expiresAt: "2026-07-10T18:00:00.001Z" },
+    { expiresAt: "2026-08-09T10:00:00.001Z" },
     { activeStoreId: " store_1 " },
     { principal: { id: "", issuer: "https://identity.example.test", subject: "subject_123" } },
   ];
@@ -184,6 +184,36 @@ test("one principal may switch between multiple active stores with session rotat
   assert.notEqual(result.session.id, original.id);
   assert.equal(await store.read(original.id), null);
   assert.deepEqual(await store.read(result.session.id), result.session);
+  assert.equal(result.session.expiresAt, original.expiresAt);
+});
+
+test("accepts a thirty-day session through day twenty-nine and rejects it at the exact expiry", async () => {
+  assert.ok(sessions.resolvePanelSession && sessions.InMemoryPanelSessionStore);
+  const store = new sessions.InMemoryPanelSessionStore();
+  const original = panelSession({ expiresAt: "2026-08-09T10:00:00.000Z" });
+  await store.create(original);
+  assert.deepEqual(await sessions.resolvePanelSession(SESSION_ID, store, new Date("2026-08-08T10:00:00.000Z")), original);
+  assert.equal(await sessions.resolvePanelSession(SESSION_ID, store, new Date("2026-08-09T10:00:00.000Z")), null);
+  assert.equal(await store.read(SESSION_ID), null);
+});
+
+test("day twenty-nine store rotation keeps the original thirty-day expiry", async () => {
+  assert.ok(sessions.rotatePanelSessionForStore && sessions.InMemoryPanelSessionStore);
+  const store = new sessions.InMemoryPanelSessionStore();
+  const original = panelSession({ expiresAt: "2026-08-09T10:00:00.000Z" });
+  await store.create(original);
+  const result = await sessions.rotatePanelSessionForStore({
+    store, session: original, memberships: [membership("store_2")], selectionHint: "store_2",
+    now: new Date("2026-08-08T10:00:00.000Z"),
+  });
+  assert.equal(result.ok, true);
+  if (result.ok) assert.equal(result.session.expiresAt, "2026-08-09T10:00:00.000Z");
+});
+
+test("the legacy in-memory issuer retains its eight-hour authority", () => {
+  assert.ok(sessions.createPanelSession);
+  const session = sessions.createPanelSession({ principal: panelSession().principal, now: NOW });
+  assert.equal(session.expiresAt, "2026-07-10T18:00:00.000Z");
 });
 
 test("session serialization contains no raw provider token material", () => {

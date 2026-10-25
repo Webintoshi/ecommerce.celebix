@@ -1,4 +1,5 @@
 import {
+  STORE_ADMIN_SESSION_MAX_AGE_MS,
   STORE_MEMBERSHIP_ROLES,
   type PlanEntitlements,
   type PlanFeatureKey,
@@ -17,8 +18,8 @@ import {
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const HOSTNAME_PATTERN = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:@/-]{1,512}$/;
-const MAXIMUM_SESSION_MS = 8 * 60 * 60_000;
 const MAXIMUM_CLOCK_SKEW_MS = 30_000;
+const LEGACY_SESSION_ISSUE_MS = 8 * 60 * 60_000;
 const MAXIMUM_TIMEOUT_MS = 60_000;
 const MAXIMUM_CLEANUP_LIMIT = 500;
 const FEATURE_KEYS = new Set<PlanFeatureKey>([
@@ -206,7 +207,7 @@ function sessionAuthority(value: unknown): PersistedPanelSession {
   const issued = Date.parse(issuedAt);
   const rotated = Date.parse(rotatedAt);
   const expires = Date.parse(expiresAt);
-  if (issued > rotated || rotated >= expires || expires > issued + MAXIMUM_SESSION_MS) throw new Error("invalid");
+  if (issued > rotated || rotated >= expires || expires > issued + STORE_ADMIN_SESSION_MAX_AGE_MS) throw new Error("invalid");
   return deepFreezeProjection({
     sessionId: uuid(row.sessionId),
     familyId: uuid(row.familyId),
@@ -434,7 +435,7 @@ export function createPostgresPanelSessionRepository(
       let sessionId: string;
       let familyId: string;
       try { sessionId = createUuid(dependencies.randomBytes); familyId = createUuid(dependencies.randomBytes); } catch { return finish("issue", nonAuthority("unavailable")); }
-      const expiresAt = new Date(now.getTime() + MAXIMUM_SESSION_MS);
+      const expiresAt = new Date(now.getTime() + LEGACY_SESSION_ISSUE_MS);
       const executed = await transaction(dependencies, "write", async (client) => oneRow(await client.query(
         "SELECT outcome, authority FROM saas.issue_panel_session($1,$2,$3,$4,$5,$6,$7,$8,$9)",
         [sessionId, familyId, input.operationId, credential.tokenKeyId, credential.tokenDigest, input.principalId, input.activeStoreId ?? null, now, expiresAt],

@@ -39,6 +39,8 @@ const GIT_SHA = /^[a-f0-9]{40}$/;
 const REVIEWED_SOURCE_DIGEST = "sha256:07b8bd8d8324dfee9effd013f2b4278296807d4d9368f4510d8727c610c93fc6";
 const REVIEWED_COMPATIBLE_SOURCE_DIGEST = "sha256:1a07a5b9de71c42f2c13e55cdd1a4d9f7741f87883199222723708ac2ede800d";
 const REVIEWED_FAILED_ZERO_SOURCE_DIGEST = "sha256:ed6671e40af5116572449b29f759b79de431550173a7afccf0149566e6b15d2b";
+// Independently reviewed Akbank-only shared contracts/transport admission.
+const REVIEWED_AKBANK_SHARED_SOURCE_DIGEST = "sha256:76ffc126ce45e4401eb63d1af354be3e4a7db5760ce23b504f3326cd3cd320fb";
 const REVIEWED_EXECUTION_GIT_SHAS = Object.freeze({
   test: "d3d4d48860d280b8a2836fc6ca1323929a8e598a",
   live: "03f81a1eb1e2546e155a4cce7a822ca3dcf19234",
@@ -219,7 +221,8 @@ export function canonicalPaytrExecutionEvidenceDigest(candidate: PaytrCandidateB
   if (
     parsed.sourceDigest !== REVIEWED_SOURCE_DIGEST &&
     parsed.sourceDigest !== REVIEWED_COMPATIBLE_SOURCE_DIGEST &&
-    parsed.sourceDigest !== REVIEWED_FAILED_ZERO_SOURCE_DIGEST
+    parsed.sourceDigest !== REVIEWED_FAILED_ZERO_SOURCE_DIGEST &&
+    parsed.sourceDigest !== REVIEWED_AKBANK_SHARED_SOURCE_DIGEST
   ) {
     return parsed.candidateExecutionDigest;
   }

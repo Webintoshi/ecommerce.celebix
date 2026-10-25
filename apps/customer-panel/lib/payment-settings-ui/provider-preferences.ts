@@ -13,7 +13,7 @@ import type { SavePaymentMethodCommand } from "@/lib/payment-method-ui/client";
 export type ProviderCheckoutPreferenceView = Readonly<{
   methodId: string;
   providerCode: ExecutableHostedPaymentProvider;
-  providerLabel: "PayTR" | "iyzico";
+  providerLabel: "PayTR" | "iyzico" | "Akbank";
   environment: "test" | "live";
   environmentLabel: "Test ortamı" | "Canlı ortam";
   locale: ProviderPaymentMethodLocale;
@@ -67,7 +67,7 @@ export function buildProviderCheckoutPreferenceView(
   return Object.freeze({
     methodId: method.id,
     providerCode: selected.providerCode,
-    providerLabel: selected.providerCode === "paytr_iframe" ? "PayTR" : "iyzico",
+    providerLabel: selected.providerCode === "paytr_iframe" ? "PayTR" : selected.providerCode === "akbank_json" ? "Akbank" : "iyzico",
     environment: selected.config.environment,
     environmentLabel: selected.config.environment === "test" ? "Test ortamı" : "Canlı ortam",
     locale: selected.config.locale,

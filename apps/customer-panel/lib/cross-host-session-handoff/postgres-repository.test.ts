@@ -162,6 +162,33 @@ test("accepts a database-clamped source expiry and its shorter recovery interval
   if (recovered.kind === "redeemed") assert.equal(recovered.session.expiresAt, clampedExpiry);
 });
 
+test("requests a thirty-day handoff cap and preserves the original issue and expiry on day twenty-nine", async () => {
+  const issuedAt = new Date(NOW.getTime() - 2_505_600_000).toISOString();
+  const expiresAt = new Date(NOW.getTime() + 86_400_000).toISOString();
+  const h = harness((_text, values) => {
+    assert.equal((values[9] as Date).toISOString(), "2026-08-29T12:00:00.000Z");
+    return { rows: [{ outcome: "redeemed", authority: { session: { ...sessionAuthority(values).session, issuedAt, expiresAt } } }], rowCount: 1 };
+  });
+  const credential = `v1.panel.handoff.v1.${Buffer.alloc(32, 0x32).toString("base64url")}`;
+  const result = await h.repository.redeemHandoff({ credential, destinationHostname: DESTINATION, now: NOW });
+  assert.equal(result.kind, "redeemed");
+  if (result.kind === "redeemed") {
+    assert.equal(result.session.issuedAt, issuedAt);
+    assert.equal(result.session.expiresAt, expiresAt);
+  }
+});
+
+test("rejects handoff session authority longer than thirty days", async () => {
+  const h = harness((_text, values) => ({ rows: [{ outcome: "redeemed", authority: { session: {
+    ...sessionAuthority(values).session, expiresAt: "2026-08-29T12:00:00.001Z",
+  } } }], rowCount: 1 }));
+  const result = await h.repository.redeemHandoff({
+    credential: `v1.panel.handoff.v1.${Buffer.alloc(32, 0x32).toString("base64url")}`,
+    destinationHostname: DESTINATION, now: NOW,
+  });
+  assert.equal(result.kind, "durable_authority_invalid");
+});
+
 test("prepared issuance reuses the supplied candidate and identifiers without plaintext SQL", async () => {
   const candidate=`v1.panel.handoff.v1.${Buffer.alloc(32,0x55).toString('base64url')}`;
   const handoffId='80000000-0000-4000-8000-000000000001';

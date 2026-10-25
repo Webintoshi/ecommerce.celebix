@@ -63,6 +63,7 @@ const ERROR_STATUS: Readonly<Record<CatalogErrorCode, number>> = Object.freeze({
   variant_combination_conflict: 409,
   variant_limit_reached: 409,
   version_conflict: 409,
+  order_membership_changed: 409,
   removal_not_eligible: 409,
   invalid_confirmation: 409,
   cleanup_pending: 409,
@@ -444,6 +445,18 @@ export function createCatalogHttpHandlers(dependencies: Dependencies) {
       const authorized = await authorize(dependencies, request, { method: "POST", pathname: `${PRODUCTS_PATH}/${productId}/remove`, query: "forbidden" }, "remove"); if (isResponse(authorized)) return authorized;
       const input = await readCatalogMutationInput(request, "remove_product"); if (input.kind !== "valid") return error("invalid_input", 400);
       return execute(() => authorized.runtime.catalog.removeProduct({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: input.operationId, productId, ...input.value }), (result) => json(result, 200));
+    },
+
+    async getVariantOrder(request:Request,rawProductId:unknown):Promise<Response> {
+      const productId=exactId(rawProductId);if(isResponse(productId))return productId;
+      const authorized=await authorize(dependencies,request,{method:"GET",pathname:`${PRODUCTS_PATH}/${productId}/variant-order`,query:"forbidden"},"read");if(isResponse(authorized))return authorized;
+      return execute(()=>authorized.runtime.catalog.getVariantOrder({tenantContext:authorized.tenantContext,now:authorized.now,productId}),result=>json(result,200));
+    },
+    async reorderVariants(request:Request,rawProductId:unknown):Promise<Response> {
+      const productId=exactId(rawProductId);if(isResponse(productId))return productId;
+      const authorized=await authorize(dependencies,request,{method:"POST",pathname:`${PRODUCTS_PATH}/${productId}/variant-order`,query:"forbidden"},"update_variant");if(isResponse(authorized))return authorized;
+      const input=await readCatalogMutationInput(request,"reorder_variants");if(input.kind!=="valid")return error("invalid_input",400);
+      return execute(()=>authorized.runtime.catalog.reorderVariants({tenantContext:authorized.tenantContext,now:authorized.now,productId,operationId:input.operationId,...input.value}),result=>json(result,200));
     },
 
     async createVariant(request: Request, rawProductId: unknown): Promise<Response> {

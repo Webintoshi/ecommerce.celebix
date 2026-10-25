@@ -8,7 +8,7 @@ import {
   PostgresStorefrontHostedCheckoutRepository,
   StorefrontHostedCheckoutRepositoryError,
 } from "./repository.ts";
-import { hostedPromotionCodes, parseHostedAuthority, parseHostedAuthorityV2 } from "./validation.ts";
+import { hostedPromotionCodes, parseHostedAuthority, parseHostedAuthorityV2, parseHostedAuthorityV3, parseHostedPresentation } from "./validation.ts";
 import type { HostedCheckoutBeginResult } from "./types.ts";
 
 const HOST = "guzide.saas-staging.celebix.site";
@@ -100,6 +100,30 @@ const authorityV2 = () => ({
     { reference: SECOND_VARIANT, name: "İkinci ürün", quantity: 1, unitAmountMinor: 4_600, itemType: "PHYSICAL" },
     { reference: "shipping:standard", name: "Kargo", quantity: 1, unitAmountMinor: 600, itemType: "VIRTUAL" },
   ],
+});
+
+test("Akbank hosted authorities require card-free POST presentation in every version", () => {
+  const modern = { providerCode: "akbank_json", presentation: "form_post", requiredCustomerFields: [] };
+  const v1 = { ...authority(), ...modern };
+  const v2 = { ...authorityV2(), ...modern };
+  const v3 = { ...v2, pricingDigest: PRICING_DIGEST, requiresQuoteConfirmation: false };
+  for (const [parse, input] of [[parseHostedAuthority, v1], [parseHostedAuthorityV2, v2], [parseHostedAuthorityV3, v3]] as const) {
+    assert.equal(parse(input).presentation, "form_post");
+    assert.equal(parse(input).providerCode, "akbank_json");
+    for (const bad of [{ presentation: "redirect" }, { presentation: "iframe" },
+      { requiredCustomerFields: ["identity_number"] }, { requiredCustomerFields: ["identity_number", "identity_number"] },
+      { providerCode: "akbank" }, { secretKey: "unexpected" }]) {
+      assert.throws(() => parse({ ...input, ...bad }), /invalid_input/u);
+    }
+  }
+});
+
+test("Akbank presentation remains an opaque sealed session projection", () => {
+  const state = { sessionId: SESSION, status: "provider_ready", version: 2, providerCode: "akbank_json",
+    presentationExpiresAt: "2026-08-06T12:15:00.000Z", presentationKeyId: "provider-key",
+    presentationDigest: DIGEST, sealedPresentation: envelope() };
+  assert.equal(parseHostedPresentation(state, true).providerCode, "akbank_json");
+  assert.throws(() => parseHostedPresentation({ ...state, fields: { secretKey: "unexpected" } }, true), /invalid_input/u);
 });
 
 test("hosted authority versions preserve international phones from the validated delivery", () => {

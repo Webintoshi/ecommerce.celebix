@@ -5,17 +5,17 @@ import {createMerchantWhatsAppCodec} from './codec.ts';
 import {createOwnerMerchantWhatsAppService} from './service.ts';
 const op='12345678-1234-4234-8234-123456789abc',verifyOp='12345678-1234-4234-8234-123456789abd';
 const browser=Buffer.alloc(32,8).toString('base64url'),hostname='shop.admin.example.com';
-function fixture(purpose:'login'|'bind_phone'='login'){
+function fixture(purpose:'login'|'bind_phone'|'signup'='login',sessionTimes={issuedAt:'2026-10-13T10:00:00.000Z',expiresAt:'2026-10-13T18:00:00.000Z'}){
  const codec=createMerchantWhatsAppCodec({environment:'staging',masterKeyId:'master-v1',masterKeys:new Map([['master-v1',Buffer.alloc(32,1)]]),phoneLookupKeyId:'phone-v1',phoneLookupKey:Buffer.alloc(32,2),recipientRateKey:Buffer.alloc(32,3),sessionKeyId:'session1',sessionKeys:new Map([['session1',Buffer.alloc(32,4)]])});
  const prepared=codec.prepare({phone:'+905551234567',operationId:op,browserCredential:browser,destinationHostname:hostname,purpose});
  const row={pendingId:prepared.pending.pendingId,purpose,phoneMasked:'+90 ••••••• 4567',phoneKeyId:prepared.pending.phoneKeyId,phoneDigest:prepared.pending.phoneDigest,phoneCiphertext:prepared.command.phoneCiphertext,challengeId:prepared.command.challengeId,status:'accepted',expiresAt:'2026-10-13T10:10:00.000Z',resendAt:'2026-10-13T10:01:00.000Z',destinationOrigin:'https://'+hostname};
  const calls:any[]=[],messages:any[]=[];
- let outcome='prepared',throwPrepare=false,throwFinish=false,throwVerify=false;
+ let outcome='prepared',throwPrepare=false,throwFinish=false,throwVerify=false,now='2026-10-13T10:00:00.000Z';
  let consumed:any=null;
- const repository={async command(command:any):Promise<MerchantWhatsAppResult>{calls.push(command);if(command.action==='prepare'){if(throwPrepare)throw Error('commit_unknown');return {outcome:outcome as MerchantWhatsAppResult['outcome'],authority:row};}if(command.action==='finish_delivery'){if(throwFinish)throw Error('commit_unknown');row.status=command.input.status;return {outcome:command.input.status,authority:row};}if(command.action==='read')return consumed?{outcome:'completed',authority:consumed}:{outcome:'pending',authority:row};if(command.action==='verify'){const input=command.input;consumed={...row,principalId:'22345678-1234-4234-8234-123456789abc',completedOperationId:input.operationId,completionCiphertext:input.completionCiphertext,session:{sessionId:input.sessionId,familyId:input.familyId,principalId:'22345678-1234-4234-8234-123456789abc',activeStoreId:'32345678-1234-4234-8234-123456789abc',issuedAt:'2026-10-13T10:00:00.000Z',expiresAt:'2026-10-13T18:00:00.000Z'}};if(throwVerify)throw Error('commit_unknown');return {outcome:'issued',authority:consumed};}return {outcome:'owner_required',authority:null};}};
- const service=createOwnerMerchantWhatsAppService({codec,repository,recipientRateKey:Buffer.alloc(32,3),sessionKeys:new Map([['session1',Buffer.alloc(32,4)]]),clock:()=>new Date('2026-10-13T10:00:00.000Z'),delivery:async message=>{messages.push(message);return {recipient:message.phone.slice(1),reportId:op};}});
+ const repository={async command(command:any):Promise<MerchantWhatsAppResult>{calls.push(command);if(command.action==='prepare'){if(throwPrepare)throw Error('commit_unknown');return {outcome:outcome as MerchantWhatsAppResult['outcome'],authority:row};}if(command.action==='finish_delivery'){if(throwFinish)throw Error('commit_unknown');row.status=command.input.status;return {outcome:command.input.status,authority:row};}if(command.action==='read')return consumed?{outcome:'completed',authority:consumed}:{outcome:'pending',authority:row};if(command.action==='verify'||command.action==='claim_signup'){const input=command.input;consumed={...row,principalId:'22345678-1234-4234-8234-123456789abc',completedOperationId:input.operationId,completionCiphertext:input.completionCiphertext,session:{sessionId:input.sessionId,familyId:input.familyId,principalId:'22345678-1234-4234-8234-123456789abc',activeStoreId:'32345678-1234-4234-8234-123456789abc',...sessionTimes}};if(throwVerify)throw Error('commit_unknown');return {outcome:'issued',authority:consumed};}return {outcome:'owner_required',authority:null};}};
+ const service=createOwnerMerchantWhatsAppService({codec,repository,recipientRateKey:Buffer.alloc(32,3),sessionKeys:new Map([['session1',Buffer.alloc(32,4)]]),clock:()=>new Date(now),delivery:async message=>{messages.push(message);return {recipient:message.phone.slice(1),reportId:op};}});
  const command={schemaVersion:1 as const,action:'start' as const,purpose,hostname,browserCredential:browser,operationId:op,ingressAuthenticated:true,trustedIp:'203.0.113.4',payload:{phone:'+905551234567'}};
- return {service,prepared,row,calls,messages,command,setOutcome(v:string){outcome=v;},losePrepare(){throwPrepare=true;},loseFinish(){throwFinish=true;},loseVerify(){throwVerify=true;}};
+ return {service,prepared,row,calls,messages,command,setOutcome(v:string){outcome=v;},setNow(v:string){now=v;},losePrepare(){throwPrepare=true;},loseFinish(){throwFinish=true;},loseVerify(){throwVerify=true;}};
 }
 test('only a fresh durable reservation sends the OTP, with shared recipient/IP budget',async()=>{const f=fixture();const r=await f.service.command(f.command);assert.equal(r.code,'ok');assert.equal(f.messages.length,1);assert.equal(f.calls[0].input.recipientBudgetDigest,f.prepared.command.recipientBudgetDigest);assert.match(f.calls[0].input.ipDigest,/^[a-f0-9]{64}$/);assert.equal(f.calls[1].action,'finish_delivery');assert.equal(r.pendingCookie,f.prepared.cookie);assert.equal(JSON.stringify(r).includes('+905551234567'),false);});
 test('prepare replay never sends again',async()=>{const f=fixture();f.setOutcome('pending');assert.equal((await f.service.command(f.command)).code,'ok');assert.equal(f.messages.length,0);});
@@ -24,6 +24,35 @@ test('unsigned ingress fails before any reservation or delivery',async()=>{const
 test('authenticated unknown IP skips only IP budget',async()=>{const f=fixture();await f.service.command({...f.command,trustedIp:undefined});assert.equal(f.calls[0].input.ipDigest,null);assert.match(f.calls[0].input.recipientBudgetDigest,/^[a-f0-9]{64}$/);});
 test('lost delivery commit is read on a new call without repeating the provider',async()=>{const f=fixture();f.loseFinish();assert.equal((await f.service.command(f.command)).code,'ok');assert.equal(f.messages.length,1);assert.deepEqual(f.calls.map(v=>v.action),['prepare','finish_delivery','read']);});
 test('OTP verify and lost COMMIT recover exactly one original session credential',async()=>{const f=fixture();f.loseVerify();const r=await f.service.command({...f.command,action:'verify',pendingCookie:f.prepared.cookie,operationId:verifyOp,payload:{code:f.prepared.code}});assert.equal(r.code,'complete');assert.equal(r.completion?.sessionCredential,f.service.codec.session(f.prepared.pending,verifyOp).sessionCredential);assert.equal(f.messages.length,0);assert.deepEqual(f.calls.map(v=>v.action),['read','verify','read']);assert.equal(JSON.stringify(r).includes('passwordProof'),false);});
+test('merchant login and phone binding preserve a native 30 day session deadline across lost commit and replay',async()=>{
+ for(const purpose of ['login','bind_phone'] as const){
+  const f=fixture(purpose,{issuedAt:'2026-10-13T10:00:00.000Z',expiresAt:'2026-11-12T10:00:00.000Z'});f.loseVerify();
+  const command={...f.command,action:'verify' as const,pendingCookie:f.prepared.cookie,operationId:verifyOp,payload:{code:f.prepared.code},...(purpose==='bind_phone'?{sessionCredential:'v1.session1.'+Buffer.alloc(32,7).toString('base64url')}:{})};
+  const first=await f.service.command(command);assert.equal(first.code,purpose==='bind_phone'?'phone_bound':'complete');
+  assert.equal(first.completion?.sessionIssuedAt,'2026-10-13T10:00:00.000Z');assert.equal(first.completion?.sessionExpiresAt,'2026-11-12T10:00:00.000Z');
+  f.setNow('2026-10-13T10:05:00.000Z');const replay=await f.service.command(command);assert.deepEqual(replay.completion,first.completion);assert.equal(f.calls.filter(c=>c.action==='verify').length,1);
+ }
+});
+test('merchant signup completion accepts its original native 30 day session deadline',async()=>{
+ const f=fixture('signup',{issuedAt:'2026-10-13T10:00:00.000Z',expiresAt:'2026-11-12T10:00:00.000Z'});
+ const result=await f.service.claimSignup({pending:f.prepared.pending,storeId:'32345678-1234-4234-8234-123456789abc',operationId:verifyOp});
+ assert.equal(result.code,'complete');assert.equal(result.completion?.sessionExpiresAt,'2026-11-12T10:00:00.000Z');assert.equal(result.completion?.purpose,'signup');
+});
+test('merchant completion rejects expired, future issued and over 30 day native sessions',async()=>{
+ for(const times of [
+  {issuedAt:'2026-10-13T10:00:00.000Z',expiresAt:'2026-11-12T10:00:00.001Z'},
+  {issuedAt:'2026-10-13T10:00:00.001Z',expiresAt:'2026-11-12T10:00:00.001Z'},
+  {issuedAt:'2026-10-05T10:00:00.000Z',expiresAt:'2026-10-13T10:00:00.000Z'},
+ ]){
+  const f=fixture('login',times);const result=await f.service.command({...f.command,action:'verify',pendingCookie:f.prepared.cookie,operationId:verifyOp,payload:{code:f.prepared.code}});
+  assert.equal(result.code,'unavailable');assert.equal(result.completion,undefined);
+ }
+});
+test('old merchant sessions keep their original eight hour expiry when replayed',async()=>{
+ const f=fixture();const command={...f.command,action:'verify' as const,pendingCookie:f.prepared.cookie,operationId:verifyOp,payload:{code:f.prepared.code}};
+ const first=await f.service.command(command);assert.equal(first.completion?.sessionExpiresAt,'2026-10-13T18:00:00.000Z');
+ f.setNow('2026-10-13T18:00:00.000Z');const replay=await f.service.command(command);assert.equal(replay.code,'unavailable');assert.equal(replay.completion,undefined);
+});
 test('pending cookie from another browser cannot reach native verification',async()=>{const f=fixture();const r=await f.service.command({...f.command,action:'verify',pendingCookie:f.prepared.cookie,browserCredential:Buffer.alloc(32,9).toString('base64url'),operationId:verifyOp,payload:{code:f.prepared.code}});assert.equal(r.code,'fresh_login_required');assert.equal(f.calls.length,0);});
 test('session replay rejects a tampered authority destination before releasing credential',async()=>{const f=fixture();f.row.destinationOrigin='https://evil.example.com';const r=await f.service.command({...f.command,action:'verify',pendingCookie:f.prepared.cookie,operationId:verifyOp,payload:{code:f.prepared.code}});assert.equal(r.code,'unavailable');assert.equal(r.completion,undefined);});
 test('binding carries the current actor into every pending read, write and lost-commit recovery',async()=>{

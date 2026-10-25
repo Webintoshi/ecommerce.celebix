@@ -13,6 +13,7 @@ import { StorefrontHostedCheckoutRepositoryError } from "@celebix/saas-data";
 import { createStorefrontCredential, parseStorefrontCommerceCredentialKeyring } from "../cart/credential.ts";
 import type { HostedCheckoutStartRequest } from "../cart/types.ts";
 import type { HostedPaymentPresentation, HostedPaymentRuntime } from "../payment-adapters/runtime.ts";
+import { fixtureAkbankForm } from "./akbank-form-post.fixture.ts";
 import { createStandardHostedCheckoutRuntime } from "./standard-hosted-payment.ts";
 
 const HOST = "shop.example.test";
@@ -129,13 +130,13 @@ function fixture(
     runtimeNow?: () => Date;
     attemptNow?: Date;
     requirePreparedAuthorityClock?: boolean;
-    providerCode?: "iyzico_iframe" | "paytr_iframe";
+    providerCode?: "iyzico_iframe" | "paytr_iframe" | "akbank_json";
     resume?: NonNullable<StorefrontHostedCheckoutRepository["resume"]>;
     assertNewCheckoutAllowed?: (hostname: string) => Promise<void>;
   }> = {},
 ) {
   const providerCode = options.providerCode ?? "iyzico_iframe";
-  const selectedAuthority = Object.freeze({ ...authority, providerCode });
+  const selectedAuthority = Object.freeze({ ...authority, providerCode, ...(providerCode === "akbank_json" ? { presentation: "form_post" as const, requiredCustomerFields: Object.freeze([]) } : {}) });
   let beginInput: Parameters<StorefrontHostedCheckoutRepository["begin"]>[0] | undefined;
   let beginV3Input: Parameters<StorefrontHostedCheckoutRepository["beginV3"]>[0] | undefined;
   let preparedV3: Awaited<ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]>> | undefined;
@@ -212,7 +213,7 @@ function fixture(
     },
     presentation: async () => {
       if (!stored) throw new Error("not_ready");
-      return Object.freeze({ sessionId: beginInput!.sessionId, status: "provider_ready", version: 2, providerCode: "iyzico_iframe", presentationExpiresAt: stored.presentationExpiresAt.toISOString(), presentationKeyId: stored.presentationKeyId, presentationDigest: stored.presentationDigest, sealedPresentation: stored.sealedPresentation });
+      return Object.freeze({ sessionId: beginInput!.sessionId, status: "provider_ready", version: 2, providerCode, presentationExpiresAt: stored.presentationExpiresAt.toISOString(), presentationKeyId: stored.presentationKeyId, presentationDigest: stored.presentationDigest, sealedPresentation: stored.sealedPresentation });
     },
     status: async () => Object.freeze({ sessionId: beginInput?.sessionId ?? ATTEMPT, status: "processing", safeCode: "provider_pending", version: 2, paymentSessionExpiresAt: new Date(NOW.getTime() + 900_000).toISOString() }),
   };
@@ -401,7 +402,7 @@ function v2Fixture(options: Readonly<{
   beginError?: StorefrontHostedCheckoutRepositoryError;
   beginOutcome?: "created" | "replayed";
   promotionReservation?: ReturnType<typeof v2PromotionReservation> | null;
-  providerCode?: "iyzico_iframe" | "paytr_iframe";
+  providerCode?: "iyzico_iframe" | "paytr_iframe" | "akbank_json";
   providerPresentation?: HostedPaymentPresentation;
   presentationStore?: V2PresentationStore;
   presentationError?: StorefrontHostedCheckoutRepositoryError;
@@ -439,7 +440,8 @@ function v2Fixture(options: Readonly<{
         : Object.freeze({
           ...initial,
           providerCode: options.providerCode,
-          presentation: options.providerCode === "paytr_iframe" ? "iframe" as const : initial.presentation,
+          presentation: options.providerCode === "akbank_json" ? "form_post" as const : options.providerCode === "paytr_iframe" ? "iframe" as const : initial.presentation,
+          ...(options.providerCode === "akbank_json" ? { requiredCustomerFields: Object.freeze([]) } : {}),
         });
       selectedPrepared = options.prepareAuthority?.(base) ?? base;
       return selectedPrepared;
@@ -1269,4 +1271,50 @@ test("V2 derives every future settlement id from host and operation so a fresh r
   assert.equal(replay.calls.randomUuid(), 0);
   assert.equal(first.calls.providerFetches(), 1);
   assert.equal(replay.calls.providerFetches(), 0);
+});
+
+
+test("Akbank checkout seals, reopens and replays one form with no second provider initialization", async () => {
+  const form = fixtureAkbankForm();
+  form.fields.orderId = OPERATION;
+  form.fields.amount = "137.00";
+  const presentationStore: V2PresentationStore = {};
+  const first = v2Fixture({ providerCode: "akbank_json", providerPresentation: form, presentationStore });
+  const created = await first.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request: { ...requestV2, identityNumber: undefined } });
+  assert.equal(created.state, "ready");
+  assert.equal(first.calls.providerFetches(), 1);
+  assert.equal(JSON.stringify(created).includes("payhosting"), false);
+  assert.ok(presentationStore.state!.sealedPresentation!.ciphertext.length > 20);
+  assert.deepEqual(await first.runtime.presentation({ hostname: HOST, cookieHeader: created.setCookies[0]! }), form);
+  await assert.rejects(first.runtime.presentation({ hostname: "other.example.test", cookieHeader: created.setCookies[0]! }), /unavailable/);
+  const replay = v2Fixture({ providerCode: "akbank_json", beginOutcome: "replayed", presentationStore });
+  assert.deepEqual(await replay.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request: { ...requestV2, identityNumber: undefined } }), created);
+  assert.equal(replay.calls.providerFetches(), 0);
+  assert.equal(replay.calls.presentationWrites(), 0);
+  for (const state of [
+    { ...presentationStore.state!, presentationDigest: "f".repeat(64) },
+    { ...presentationStore.state!, sessionId: "99999999-0000-4000-8000-000000000001" },
+    { ...presentationStore.state!, providerCode: "iyzico_iframe" as const },
+    { ...presentationStore.state!, presentationExpiresAt: NOW.toISOString() },
+    { ...presentationStore.state!, sealedPresentation: { ...presentationStore.state!.sealedPresentation!, tag: Buffer.alloc(16, 9).toString("base64url") } },
+  ]) {
+    const denied = v2Fixture({ providerCode: "akbank_json", beginOutcome: "replayed", presentationStore: { state } });
+    await assert.rejects(denied.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request: { ...requestV2, identityNumber: undefined } }), /unavailable/);
+    assert.equal(denied.calls.providerFetches(), 0);
+    assert.equal(denied.calls.presentationWrites(), 0);
+  }
+});
+
+test("Akbank presentation cannot seal another order, amount or callback host", async () => {
+  const form = fixtureAkbankForm();
+  form.fields.orderId = OPERATION;
+  form.fields.amount = "137.00";
+  for (const fields of [
+    { ...form.fields, orderId: "other-order" }, { ...form.fields, amount: "137.01" },
+    { ...form.fields, okUrl: form.fields.okUrl!.replace(HOST, "other.example.test") },
+  ]) {
+    const selected = v2Fixture({ providerCode: "akbank_json", providerPresentation: { ...form, fields } });
+    await assert.rejects(selected.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request: { ...requestV2, identityNumber: undefined } }), /unavailable/);
+    assert.equal(selected.calls.presentationWrites(), 0);
+  }
 });

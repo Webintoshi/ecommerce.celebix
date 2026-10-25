@@ -38,12 +38,13 @@ export function createPanelStoreSwitchHandler(dependencies: StoreSwitchDependenc
     if (!/^[A-Za-z0-9_-]{1,128}$/.test(storeId)) return json("invalid_input", 400);
 
     const memberships = await dependencies.getMemberships(session.principal.id).catch(() => []);
+    const now = dependencies.now?.() ?? new Date();
     const rotated = await rotatePanelSessionForStore({
       store: dependencies.sessionStore,
       session,
       memberships,
       selectionHint: storeId,
-      now: dependencies.now?.() ?? new Date(),
+      now,
     });
     if (!rotated.ok) return json(rotated.error.code, rotated.error.code === "unauthenticated" ? 401 : 403);
 
@@ -51,7 +52,11 @@ export function createPanelStoreSwitchHandler(dependencies: StoreSwitchDependenc
       status: 204,
       headers: {
         "cache-control": "no-store",
-        "set-cookie": buildPanelSessionSetCookie(rotated.session.id, dependencies.cookiePolicy),
+        "set-cookie": buildPanelSessionSetCookie(rotated.session.id, dependencies.cookiePolicy, {
+          issuedAt: rotated.session.createdAt,
+          expiresAt: rotated.session.expiresAt,
+          now,
+        }),
       },
     });
   };

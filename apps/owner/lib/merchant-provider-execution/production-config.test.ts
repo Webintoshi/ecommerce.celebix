@@ -8,11 +8,12 @@ import {
   resolveMerchantProviderProductionMode,
 } from "./production-config.ts";
 import { createProductionMerchantProviderRegistries } from "./registry.ts";
-import {IYZICO_APPROVED_EXECUTION_AUTHORITY,PAYTR_APPROVED_EXECUTION_AUTHORITIES} from '@celebix/payment-adapters';
+import {IYZICO_APPROVED_EXECUTION_AUTHORITY,PAYTR_APPROVED_EXECUTION_AUTHORITIES,AKBANK_APPROVED_EXECUTION_AUTHORITIES} from '@celebix/payment-adapters';
 
 const KEY = Buffer.alloc(32, 0x41).toString("base64url");
 const EVIDENCE = `sha256:${"a".repeat(64)}`;
 const NO_AUTHORITIES = Object.freeze({
+  akbank_json: null,
   iyzico_iframe: null,
   paytr_iframe: null,
 });
@@ -24,6 +25,7 @@ const IYZICO_IDENTITIES = Object.freeze({
   paytr_iframe: Object.freeze([]),
 });
 const ALL_IDENTITIES = Object.freeze({
+  akbank_json: Object.freeze([Object.freeze({environment:"test" as const,adapterVersion:1}),Object.freeze({environment:"live" as const,adapterVersion:1})]),
   iyzico_iframe: IYZICO_IDENTITIES.iyzico_iframe,
   paytr_iframe: Object.freeze([
     Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
@@ -64,7 +66,7 @@ test("closed execution authority fixture enables Iyzico and PayTR verification i
 
 test('default parser preserves the currently compiled approved execution authorities',()=>{
  const config=parseMerchantProviderProductionConfig(environment());
- assert.deepEqual(config.executionAuthorities,{iyzico_iframe:IYZICO_APPROVED_EXECUTION_AUTHORITY,paytr_iframe:PAYTR_APPROVED_EXECUTION_AUTHORITIES.test??PAYTR_APPROVED_EXECUTION_AUTHORITIES.live});
+ assert.deepEqual(config.executionAuthorities,{akbank_json:AKBANK_APPROVED_EXECUTION_AUTHORITIES.live??AKBANK_APPROVED_EXECUTION_AUTHORITIES.test,iyzico_iframe:IYZICO_APPROVED_EXECUTION_AUTHORITY,paytr_iframe:PAYTR_APPROVED_EXECUTION_AUTHORITIES.test??PAYTR_APPROVED_EXECUTION_AUTHORITIES.live});
  assert.deepEqual(config.verificationIdentities,ALL_IDENTITIES);
 });
 
@@ -105,6 +107,7 @@ test("provider-keyed compiled authority seam parses only the selected PayTR conf
     failureUrl: "https://payments.celebix.co/odeme/hizli/sonuc?durum=basarisiz",
   });
   assert.deepEqual(config.executionAuthorities, {
+    akbank_json: null,
     iyzico_iframe: null,
     paytr_iframe: paytrAuthority,
   });

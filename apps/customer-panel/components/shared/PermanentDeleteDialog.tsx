@@ -27,12 +27,16 @@ export function PermanentDeleteDialog({
   impact,
   resourceLabel,
   busy,
+  error,
+  onRetry,
   onCancel,
   onConfirm,
 }: Readonly<{
   impact?: PermanentDeletionImpact;
   resourceLabel: string;
   busy: boolean;
+  error?: string;
+  onRetry?: () => void;
   onCancel: () => void;
   onConfirm: (confirmation: string) => void;
 }>) {
@@ -41,7 +45,8 @@ export function PermanentDeleteDialog({
   const [confirmation, setConfirmation] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
 
-  useEffect(() => { cancelRef.current?.focus(); }, []);
+  useEffect(() => { if (busy) dialogRef.current?.focus(); else cancelRef.current?.focus(); }, [busy]);
+  useEffect(() => { setConfirmation(""); setAcknowledged(false); }, [impact?.resourceId, impact?.expectedVersion]);
 
   function keyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape" && !busy) { event.preventDefault(); onCancel(); return; }
@@ -68,12 +73,13 @@ export function PermanentDeleteDialog({
         <span className={styles.icon} aria-hidden="true"><Trash2 /></span>
         <div><h2 id="permanent-delete-title">{resourceLabel} kalıcı olarak silinsin mi?</h2><p id="permanent-delete-description">Bu işlem geri alınamaz. Arşivleme seçeneği ayrı olarak kullanılmaya devam eder.</p></div>
       </header>
+      {error ? <p className={styles.error} role="alert">{error}</p> : null}
       {impact ? <form className={styles.form} onSubmit={submit}>
         <div className={styles.effects}><strong>Silme etkileri</strong>{impact.effects.length ? <ul>{impact.effects.map((effect) => <li key={`${effect.kind}:${effect.disposition}`}>{effectText(effect)}</li>)}</ul> : <p>Bu kayda bağlı ek kayıt bulunmuyor.</p>}</div>
         <label className={styles.field}><span>Onaylamak için aşağıdaki adı aynen yazın</span><small>{impact.confirmationLabel}</small><input value={confirmation} onChange={(event) => setConfirmation(event.currentTarget.value)} autoComplete="off" spellCheck={false} disabled={busy} /></label>
         <label className={styles.acknowledge}><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.currentTarget.checked)} disabled={busy} /><span>Bu işlemin geri alınamayacağını ve yalnız bu kaydın kalıcı olarak silineceğini anlıyorum.</span></label>
         <div className={styles.actions}><button ref={cancelRef} className={styles.cancel} type="button" onClick={onCancel} disabled={busy}>Vazgeç</button><button className={styles.delete} type="submit" disabled={!valid || busy}>{busy ? "Kalıcı olarak siliniyor…" : "Kalıcı olarak sil"}</button></div>
-      </form> : <div className={styles.effects}><p className={styles.loading} role="status">Silme etkileri yükleniyor…</p><div className={styles.actions}><button ref={cancelRef} className={styles.cancel} type="button" onClick={onCancel} disabled={busy}>Vazgeç</button></div></div>}
+      </form> : <div className={styles.effects}>{!error || busy ? <p className={styles.loading} role="status">Silme etkileri yükleniyor…</p> : null}<div className={styles.actions}><button ref={cancelRef} className={styles.cancel} type="button" onClick={onCancel} disabled={busy}>Vazgeç</button>{error && onRetry ? <button className={styles.cancel} type="button" onClick={onRetry} disabled={busy}>Silme etkilerini yeniden yükle</button> : null}</div></div>}
     </div>
   </div>;
 }

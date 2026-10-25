@@ -1,0 +1,130 @@
+{
+  "phase": "akbank-hosted-pos275",
+  "postgresqlMajor": 16,
+  "externalConnections": 0,
+  "productionMutations": 0,
+  "livePredecessorRoutineCount": 2059,
+  "liveInstalledRoutineCount": 2060,
+  "newRoutine": {
+    "signature": "saas.akbank_merchant_self_service_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)",
+    "sha256": "16acfda8782e3a2ddf3d64880cc9c7252aa5f7bb5f7da9c3ce197b5b382157d1",
+    "owner": "celebix_saas_owner",
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+    "config": [
+      "search_path=pg_catalog, saas"
+    ],
+    "definer": true,
+    "volatility": "v"
+  },
+  "predecessors": [
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "md5": "d8504fe319b7b433af7bb800251bcc21",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "afb30b2a358a721cc61e7083724f144894e5f167b3b696a8c45732526b8990c1",
+      "definer": false,
+      "signature": "saas.provider_payment_method_config_valid(text,jsonb)",
+      "volatility": "i",
+      "afterSha256": "e47385a5bd60fc156dd601898add132bd58723eb1f0de3c47dc5e62135ce3f3d"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "md5": "afb1da305769324a1ca829dfede08855",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "134cb5a1ecbcc1788ef684103663ab0b09a9e4df972d9ab7d323fdbb87612b46",
+      "definer": true,
+      "signature": "saas.storefront_payment_methods_projection(uuid)",
+      "volatility": "v",
+      "afterSha256": "7cd4bd2ea1c6d532fe27b9d9e832dfa2d017ff16d6aae3e044dd7cc4a4131185"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "md5": "3b3b561da25330e6a0251ef2094bb51b",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "0740afbe293ea0ae88e9b37c9b0020ae54fe162e893803caf318075692de3838",
+      "definer": true,
+      "signature": "saas.storefront_hosted_checkout_authority_projection(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid)",
+      "volatility": "v",
+      "afterSha256": "c31a041c7cbbbb421d14a46f605fed168be3d140d876ed53f861f6737fed194f"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+      "md5": "bfb050670d4639e7990334b1d0832c27",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "fd0466a2bcf8f534c1f07e428f0b78a943b166b96dcfb22f3eb0564c06ce14cb",
+      "definer": true,
+      "signature": "saas.storefront_hosted_checkout_reconciliation_candidates_scoped(timestamp with time zone,integer,jsonb)",
+      "volatility": "s",
+      "afterSha256": "badf728eb63dcdc9b21651b832584c4fb6c12f3a7b89a3983e3c9fe926ec80c1"
+    }
+  ],
+  "unchangedTemplate": {
+    "acl": "{celebix_saas_owner=X/celebix_saas_owner,celebix_saas_workflow=X/celebix_saas_owner}",
+    "md5": "650582796d070dbfb2ad8b47108edc63",
+    "owner": "celebix_saas_owner",
+    "config": [
+      "search_path=pg_catalog, saas"
+    ],
+    "sha256": "109e0b0dcfd76aa043224fd19f23968f9038fe4b518f13a11d5fe2dca1c40336",
+    "definer": true,
+    "signature": "saas.paytr_merchant_self_service_mark_verification(uuid,text,text,text,integer,text,timestamp with time zone,uuid,bigint,bigint,text,text)",
+    "volatility": "v"
+  },
+  "constraints": [
+    {
+      "name": "storefront_hosted_checkout_sessions_provider_code_check",
+      "table": "saas.storefront_hosted_checkout_sessions",
+      "sha256": "410294f4588f305c1b9a2d9b6b88f1eb506066517f0c5e0e2ddd872537833359",
+      "definition": "CHECK ((provider_code = ANY (ARRAY['paytr_iframe'::text, 'iyzico_iframe'::text])))"
+    },
+    {
+      "name": "payment_methods_provider_preference_check",
+      "table": "saas.payment_methods",
+      "sha256": "376da792e1d7e343be6659d11740a75b430594fae8d46357a511ea735b137291",
+      "definition": "CHECK (((kind <> 'provider'::text) OR (provider_code <> ALL (ARRAY['paytr_iframe'::text, 'iyzico_iframe'::text])) OR saas.provider_payment_method_config_valid(provider_code, config)))"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "202610250275_akbank_hosted_pos.up.sql",
+      "sha256": "bc3f97f4b6ba3e0e74647d97160b8e35e6978f67eda230171694077b419a8292",
+      "direction": "up"
+    },
+    {
+      "file": "202610250275_akbank_hosted_pos.down.sql",
+      "sha256": "b21482645e71c17e4e2c2309ae79b02ec5b9366b0e07c0541b6e33d401199126",
+      "direction": "down"
+    },
+    {
+      "file": "202610250275_akbank_hosted_pos_assertions.sql",
+      "sha256": "6604ab46449f5b7f78b3c7829a48605acd59f223abd001a7c090f406c214c3ae",
+      "direction": "verify"
+    }
+  ],
+  "installedConstraints": [
+    {
+      "name": "storefront_hosted_checkout_sessions_provider_code_check",
+      "table": "saas.storefront_hosted_checkout_sessions",
+      "sha256": "6655dd49cbce4b8313e805df8334da1e428e97ef68be9c88e0fcdb52201be795",
+      "definition": "CHECK ((provider_code = ANY (ARRAY['paytr_iframe'::text, 'iyzico_iframe'::text, 'akbank_json'::text])))"
+    },
+    {
+      "name": "payment_methods_provider_preference_check",
+      "table": "saas.payment_methods",
+      "sha256": "18cdece4d307fc401cac7242c7d4189f1dc6d59613cf4e3cd7de78d47079a9ee",
+      "definition": "CHECK (((kind <> 'provider'::text) OR (provider_code <> ALL (ARRAY['paytr_iframe'::text, 'iyzico_iframe'::text, 'akbank_json'::text])) OR saas.provider_payment_method_config_valid(provider_code, config)))"
+    }
+  ]
+}

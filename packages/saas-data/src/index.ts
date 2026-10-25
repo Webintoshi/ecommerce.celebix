@@ -215,3 +215,5 @@ export type {OrderEditRepository,OrderEditErrorCode} from './order-edit/reposito
 
 export {createPostgresProductTaxRepository} from './product-tax/repository.ts';
 export type {ProductTaxRepository,ProductTaxReadInput} from './product-tax/repository.ts';
+
+export * from "./product-page-reviews/index.ts";

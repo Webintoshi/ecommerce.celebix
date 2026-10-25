@@ -15,6 +15,7 @@ async function body(request: Request, hostname: string): Promise<Record<string, 
   const buffer = new Uint8Array(length); let offset = 0; for (const chunk of chunks) { buffer.set(chunk, offset); offset += chunk.length; }
   const result = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(buffer)); if (!result || typeof result !== "object" || Array.isArray(result)) invalid(); return result;
 }
+export { body as readReviewJsonBody };
 export function createReviewCollectionPublicRoute(deps: ReviewRouteDependencies, action: "invitation" | "submit" | "unsubscribe") {
   return async (request: Request): Promise<Response> => {
     try {

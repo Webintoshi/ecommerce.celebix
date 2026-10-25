@@ -28,11 +28,11 @@ function denseArray(value, maximum) {
     descriptors[String(index)]?.enumerable && "value" in descriptors[String(index)]).every(Boolean);
 }
 function executionScope(value) {
-  if (!denseArray(value, 4) || value.length === 0) return null;
+  if (!denseArray(value, 6) || value.length === 0) return null;
   const unique = new Set(); const result = [];
   for (const authority of value) {
     if (!exactDataRecord(authority, ["providerCode", "environment", "adapterVersion", "evidenceDigest"])
-      || !["paytr_iframe", "iyzico_iframe"].includes(authority.providerCode)
+      || !["paytr_iframe", "iyzico_iframe", "akbank_json"].includes(authority.providerCode)
       || !["test", "live"].includes(authority.environment)
       || !Number.isSafeInteger(authority.adapterVersion) || authority.adapterVersion < 1 || authority.adapterVersion > 2_147_483_647
       || typeof authority.evidenceDigest !== "string" || !/^sha256:[a-f0-9]{64}$/u.test(authority.evidenceDigest)) return null;

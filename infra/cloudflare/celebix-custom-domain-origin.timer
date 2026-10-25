@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep registered Celebix custom origin routes current
+
+[Timer]
+OnBootSec=30s
+OnUnitInactiveSec=60s
+AccuracySec=5s
+Unit=celebix-custom-domain-origin.service
+
+[Install]
+WantedBy=timers.target

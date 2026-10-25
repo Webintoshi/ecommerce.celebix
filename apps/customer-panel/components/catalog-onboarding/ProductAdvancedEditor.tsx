@@ -3,8 +3,9 @@ import { CommercialFeatureLink } from "@/components/commercial-packages/Commerci
 
 
 import Link from "next/link";
-import { ChevronDown, ImagePlus, Plus, Store, Trash2 } from "lucide-react";
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { CatalogSortArea, CatalogSortItem } from "@/components/catalog/CatalogSortArea";
+import { ArrowLeft, ArrowRight, GripVertical, ChevronDown, ImagePlus, Plus, Store, Trash2 } from "lucide-react";
+import { useEffect, useId, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import type {
   CatalogAdvancedCreateIntent,
   CatalogOnboardingOptions,
@@ -52,6 +53,7 @@ type EditorApi = Pick<typeof catalogOnboardingClient, "createProduct" | "publish
 
 type ProductAdvancedEditorProps = Readonly<{
   options: CatalogOnboardingOptions;
+  initialKind?: "simple" | "variant";
   aiAvailable?: boolean;
   onCancel(): void;
   /** Inline product detail rail. The default editor presentation is unchanged. */
@@ -72,7 +74,7 @@ type ProductAdvancedEditorProps = Readonly<{
   onDraftSessionChange?(session: ProductDraftSession): void;
 }>;
 
-type EditorMediaSelection = ProductMediaSelection & Readonly<{ preview: string }>;
+type EditorMediaSelection = ProductMediaSelection & Readonly<{ localId: string; preview: string }>;
 
 function text(data: FormData, name: string) { const value = data.get(name); return typeof value === "string" ? value.trim() : ""; }
 function positiveInteger(value: string, fallback?: number) { if (value === "" && fallback !== undefined) return fallback; return /^(?:0|[1-9]\d*)$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : null; }
@@ -83,6 +85,7 @@ function money(cents?: number) { return cents === undefined ? "" : `${Math.floor
 function initialVariants(editor?: CatalogProductEditorProjection): readonly VariantDraft[] {
   if (!editor) return [emptyVariant()];
   return Object.freeze(editor.variants.map(({ variant, continueSellingWhenOutOfStock, shippingDesiMilli, hsCode }) => Object.freeze({
+    localId: variant.id,
     title: variant.title,
     sku: variant.sku ?? "",
     barcode: variant.barcode ?? "",
@@ -96,6 +99,15 @@ function initialVariants(editor?: CatalogProductEditorProjection): readonly Vari
     attributes: variant.attributes,
     ...(variant.measurements === undefined ? {} : { measurements: measurementsToDraft(variant.measurements) }),
   })));
+}
+
+function identifyVariants(variants: readonly VariantDraft[], initialPrefix?: string): readonly VariantDraft[] {
+  const used = new Set<string>();
+  return Object.freeze(variants.map((variant, index) => {
+    const localId = variant.localId && !used.has(variant.localId) ? variant.localId : initialPrefix ? `${initialPrefix}-variant-${index}` : crypto.randomUUID();
+    used.add(localId);
+    return localId === variant.localId ? variant : Object.freeze({ ...variant, localId });
+  }));
 }
 
 function initialChannelIds(options: CatalogOnboardingOptions, editor?: CatalogProductEditorProjection): readonly string[] {
@@ -134,8 +146,9 @@ function variantIntent(variant: VariantDraft, productType: "physical" | "digital
   });
 }
 
-export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, galleryClient = productVariantMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, onAuthoringBridgeChange, captureProductAuthoringDraft, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
+export function ProductAdvancedEditor({ options, initialKind, aiAvailable = true, onCancel, presentation = "default", api = catalogOnboardingClient, mediaClient = productMediaApi, galleryClient = productVariantMediaApi, editor, onCreated, onUpdated, onConflictReload, onDirtyChange, onBusyChange, onSeoPreviewChange, onAuthoringBridgeChange, captureProductAuthoringDraft, draftSession, onDraftSessionChange }: ProductAdvancedEditorProps) {
   const editing = editor !== undefined;
+  const variantEntry = !editing && initialKind === "variant" && !draftSession?.current.creationRecovery;
   const [authoringDraftId] = useState(() => draftSession?.current.authoringDraftId ?? crypto.randomUUID());
   const [authoringSessionId] = useState(() => crypto.randomUUID());
   const [contentOrigins,setContentOrigins] = useState<ContentAuthoringFieldOriginsInput>(draftSession?.current.contentOrigins ?? editor?.contentOrigins ?? {});
@@ -145,7 +158,8 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
   const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
   const [taxChoice,setTaxChoice]=useState(draftSession?.current.taxChoice??'');
-  const [variants, setVariants] = useState<readonly VariantDraft[]>(() => draftSession?.current.variants ?? initialVariants(editor));
+  const variantDraftPrefix = useId();
+  const [variants, setVariants] = useState<readonly VariantDraft[]>(() => { const initial = draftSession?.current.variants ?? initialVariants(editor); return kind === "variant" ? identifyVariants(initial, variantDraftPrefix) : initial; });
   const [selectedVariantAttributeIds, setSelectedVariantAttributeIds] = useState<readonly string[]>(draftSession?.current.resourceAttributeIds ?? editor?.resourceIds.attributes ?? []);
   const [authoringAttributeChoices, setAuthoringAttributeChoices] = useState<readonly CatalogAttributeChoice[]>([]);
   const needsAuthoringAttributes = !captureProductAuthoringDraft && variants.some(variant => Object.keys(variant.attributes).length > 0);
@@ -162,7 +176,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
-  const [media, setMedia] = useState<readonly EditorMediaSelection[]>((draftSession?.current.media ?? []).map(item => ({...item,localId:item.localId ?? crypto.randomUUID()})));
+  const [media, setMedia] = useState<readonly EditorMediaSelection[]>(() => (draftSession?.current.media ?? []).map(item => ({...item,localId:item.localId ?? crypto.randomUUID()})));
   const [categoryIds, setCategoryIds] = useState<readonly string[]>(draftSession?.current.categoryIds ?? editor?.categoryIds ?? []);
   const [collectionIds, setCollectionIds] = useState<readonly string[]>(draftSession?.current.collectionIds ?? editor?.resourceIds.collections ?? []);
   const [tagIds, setTagIds] = useState<readonly string[]>(draftSession?.current.tagIds ?? editor?.resourceIds.tags ?? []);
@@ -175,12 +189,13 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const recoveryRef = useRef(creationRecovery);
   const [createdProductId, setCreatedProductId] = useState<string | undefined>(draftSession?.current.creationRecovery?.result.product.id);
   const [progress, setProgress] = useState(0);
-  const [variantBuilderOpen, setVariantBuilderOpen] = useState(false);
+  const [variantBuilderOpen, setVariantBuilderOpen] = useState(variantEntry && (draftSession?.current.kind !== "variant" || !draftSession.current.variants.length) && !draftSession?.current.creationRecovery);
   const [pendingVariants, setPendingVariants] = useState<readonly VariantDraft[]>([]);
   const [pendingAttributeIds, setPendingAttributeIds] = useState<readonly string[]>([]);
   const [attributeSaving, setAttributeSaving] = useState(false);
   const [pendingBarcodeCount, setPendingBarcodeCount] = useState(0);
-  const [activeMediaIndex, setActiveMediaIndex] = useState(0);
+  const [activeMediaId, setActiveMediaId] = useState<string | undefined>(media[0]?.localId);
+  const activeMediaIndex = Math.max(0, media.findIndex(item => item.localId === activeMediaId));
   const lock = useRef(false);
   const simpleVariantRef = useRef<VariantDraft>(draftSession?.current.standardVariant ?? (kind === "simple" ? variants[0] : undefined) ?? { ...emptyVariant(), sku: deriveProductBaseSku(variants) });
   const pendingVariantSnapshotRef = useRef(new Map<string, VariantDraft>());
@@ -188,6 +203,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   const attributeSavingRef = useRef(false);
   const variantAddRef = useRef<HTMLButtonElement>(null);
   const variantBuilderRef = useRef<HTMLDivElement>(null);
+  const focusVariantBuilderRef = useRef(false);
   const returnVariantFocusRef = useRef(false);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const salesLimitsRef = useRef<HTMLDetailsElement>(null);
@@ -208,7 +224,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
 
   useEffect(() => { if (!editing) onBusyChange?.(busy || createPending); }, [busy, createPending, editing, onBusyChange]);
   useEffect(() => {
-    if (variantBuilderOpen) variantBuilderRef.current?.focus();
+    if (variantBuilderOpen && focusVariantBuilderRef.current) { focusVariantBuilderRef.current = false; variantBuilderRef.current?.focus(); }
     else if (returnVariantFocusRef.current) { returnVariantFocusRef.current = false; variantAddRef.current?.focus(); }
   }, [variantBuilderOpen]);
 
@@ -332,16 +348,17 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   }
 
   function changeCreateVariants(next: readonly VariantDraft[]) {
-    if (recoveryRef.current) return;
+    if (lock.current || recoveryRef.current || variantBuilderOpen) return;
     markEditingDirty();
     if (!next.length) {
-      setKind("simple");
-      setVariants([simpleVariantRef.current]);
+      setKind(variantEntry ? "variant" : "simple");
+      setVariants(variantEntry ? [] : [simpleVariantRef.current]);
       setSelectedVariantAttributeIds([]);
-    } else setVariants(next);
+    } else setVariants(kind === "variant" ? identifyVariants(next) : next);
   }
 
   function openVariantBuilder() {
+    focusVariantBuilderRef.current = true;
     const current = kind === "variant" ? variants : [];
     pendingVariantSnapshotRef.current = new Map(current.map((variant) => [variantAttributeKey(variant.attributes), variant]));
     setPendingVariants(current);
@@ -365,7 +382,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
   function changePendingVariants(next: readonly VariantDraft[]) {
     const previousKeys = new Set(pendingVariants.map((variant) => variantAttributeKey(variant.attributes)));
     for (const variant of pendingVariants) pendingVariantSnapshotRef.current.set(variantAttributeKey(variant.attributes), variant);
-    setPendingVariants(Object.freeze(next.map((variant) => {
+    setPendingVariants(identifyVariants(next.map((variant) => {
       const key = variantAttributeKey(variant.attributes);
       return !previousKeys.has(key) ? pendingVariantSnapshotRef.current.get(key) ?? variant : variant;
     })));
@@ -434,6 +451,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     const next = Object.freeze([...media, ...files.map((file) => Object.freeze({ localId:crypto.randomUUID(), file, altText: "", preview: URL.createObjectURL(file) }))]);
     mediaPreviewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
     setMedia(next);
+    if (!media.length) setActiveMediaId(next[0]?.localId);
   }
 
   function changeMediaAlt(index: number, altText: string) {
@@ -452,16 +470,29 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     mediaPreviewUrlsRef.current = next.map(({ preview }) => preview);
     markEditingDirty();
     setMedia(next);
-    setActiveMediaIndex(Math.max(0, Math.min(index, next.length - 1)));
+    setActiveMediaId(next[Math.max(0, Math.min(index, next.length - 1))]?.localId);
+  }
+
+  function moveMedia(sourceId: string, targetId: string) {
+    if (lock.current || recoveryRef.current || sourceId === targetId) return;
+    const sourceIndex = media.findIndex(item => item.localId === sourceId);
+    const targetIndex = media.findIndex(item => item.localId === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const next = [...media];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved!);
+    markEditingDirty();
+    setActiveMediaId(media[activeMediaIndex]?.localId);
+    setMedia(Object.freeze(next));
   }
 
   function setCover(index: number) {
-    if (recoveryRef.current) return;
+    if (lock.current || recoveryRef.current) return;
     const selected = media[index];
     if (!selected || index === 0) return;
     markEditingDirty();
     setMedia(Object.freeze([selected, ...media.filter((_, position) => position !== index)]));
-    setActiveMediaIndex(0);
+    setActiveMediaId(selected.localId);
   }
 
   function updateRecovery(value: ProductCreationRecovery) {
@@ -482,6 +513,7 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
     event.preventDefault();
     if (lock.current || (!editing && (pendingBarcodeCountRef.current > 0 || attributeSavingRef.current))) return;
     if (!editing && variantBuilderOpen) { setError("Varyant seçimlerini ekleyin veya kapatın."); return; }
+    if (variantEntry && (kind !== "variant" || !variants.length)) { setError("En az bir varyant seçin ve fiyatını girin."); openVariantBuilder(); return; }
     if (!categoryHierarchy.valid) { setError("Kategori seçenekleri şu anda kullanılamıyor."); return; }
     const data = new FormData(event.currentTarget);
     const publish = true;
@@ -602,10 +634,18 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
             <div className={createStyles.mediaColumn}>
               <input ref={mediaInputRef} className={createStyles.fileInput} type="file" multiple accept="image/jpeg,image/png,image/webp" aria-label="Ürün görsellerini seç" onChange={selectMedia} />
               <button className={createStyles.cover} type="button" onClick={() => mediaInputRef.current?.click()} aria-label={media.length ? "Ürün görseli ekle" : "Ürün görsellerini seç"} disabled={media.length >= 16}>
-                {media[activeMediaIndex] ? <><img src={media[activeMediaIndex].preview} alt={media[activeMediaIndex].altText || `${activeMediaIndex + 1}. ürün görseli`} /><span className={createStyles.coverTag}>{activeMediaIndex === 0 ? "Kapak" : `${activeMediaIndex + 1}. görsel`}</span></> : <span className={createStyles.emptyPhoto}><ImagePlus aria-hidden="true" /><span>Görsel ekle</span></span>}
+                {media[activeMediaIndex] ? <><img src={media[activeMediaIndex].preview} alt={media[activeMediaIndex].altText || `${activeMediaIndex + 1}. ürün görseli`} draggable={false} /><span className={createStyles.coverTag}>{activeMediaIndex === 0 ? "Kapak" : `${activeMediaIndex + 1}. görsel`}</span></> : <span className={createStyles.emptyPhoto}><ImagePlus aria-hidden="true" /><span>Görsel ekle</span></span>}
               </button>
               <div className={createStyles.mediaFoot}><span>{media.length}/16 görsel</span>{media.length ? <button className={createStyles.iconButton} type="button" onClick={() => removeMedia(activeMediaIndex)} aria-label="Seçili görseli kaldır"><Trash2 aria-hidden="true" /></button> : null}</div>
-              {media.length > 1 ? <div className={createStyles.thumbnails} aria-label="Seçili görseller">{media.map((selected, index) => <button key={selected.preview} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeMediaIndex === index} onClick={() => setActiveMediaIndex(index)}><img src={selected.preview} alt="" /></button>)}</div> : null}
+              {media.length > 1 ? <CatalogSortArea ids={media.map(item => item.localId)} onMove={moveMedia} disabled={busy || Boolean(creationRecovery)} layout="grid" label="Görsel sırası" getLabel={id => `${media.findIndex(item => item.localId === id) + 1}. görsel`}><div className={createStyles.thumbnails} aria-label="Seçili görseller">{media.map((selected, index) => <CatalogSortItem id={selected.localId} key={selected.localId} className={createStyles.mediaThumbnail}>{drag => <>
+                <button {...drag.pointerProps} className={createStyles.thumbnailSelect} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeMediaIndex === index} onClick={() => setActiveMediaId(selected.localId)}><img src={selected.preview} alt="" draggable={false} />{index === 0 ? <span className={createStyles.thumbnailCover}>Kapak</span> : null}</button>
+                <div className={createStyles.mediaOrderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
+                  <button {...drag.handleProps} title="Sürükleyerek sırala"><GripVertical aria-hidden="true" /></button>
+                  <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" disabled={busy || Boolean(creationRecovery) || index === 0} onClick={() => moveMedia(selected.localId, media[index - 1]!.localId)}><ArrowLeft aria-hidden="true" /></button>
+                  <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" disabled={busy || Boolean(creationRecovery) || index === media.length - 1} onClick={() => moveMedia(selected.localId, media[index + 1]!.localId)}><ArrowRight aria-hidden="true" /></button>
+                </div>
+
+              </>}</CatalogSortItem>)}</div></CatalogSortArea> : null}
               <button className={createStyles.upload} type="button" onClick={() => mediaInputRef.current?.click()} disabled={media.length >= 16}><Plus aria-hidden="true" />Görsel ekle</button>
               <small className={createStyles.mediaHint}>JPG, PNG, WebP · en fazla 5 MB</small>
               {media[activeMediaIndex] ? <details className={createStyles.mediaDetails}><summary>Görsel bilgileri<ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}><label className={createStyles.field}><span>Alt metin</span><input value={media[activeMediaIndex].altText} maxLength={500} onChange={(event) => changeMediaAlt(activeMediaIndex, event.target.value)} /></label>{activeMediaIndex > 0 ? <button className={createStyles.inlineAction} type="button" onClick={() => setCover(activeMediaIndex)}>Kapak yap</button> : null}</div></details> : null}
@@ -613,22 +653,22 @@ export function ProductAdvancedEditor({ options, aiAvailable = true, onCancel, p
             </div>
             <div className={createStyles.coreFields}>
               <label className={createStyles.field}><span>Ürün adı <span aria-hidden="true">*</span></span><input className={createStyles.titleInput} ref={titleRef} name="title" required maxLength={200} autoFocus value={titleValue} onChange={(event) => setTitleValue(event.target.value)} aria-invalid={showValidation && !titleValue.trim()} />{showValidation && !titleValue.trim() ? <small className={createStyles.fieldError}>Ürün adı gerekli.</small> : null}</label>
-              {kind === "simple" ? <fieldset id="product-commerce" className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} /></fieldset> : <div className={createStyles.variantSummary}><fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><SkuInput label="Ürün SKU" skuPrefix={options.skuPrefix} value={simpleVariantRef.current.sku} onChange={changeProductSku} labelClassName={createStyles.field} /></fieldset><strong>{variants.length} varyant</strong><span>Fiyat, stok, SKU ve barkod aşağıda.</span><a href="#product-commerce">Varyantlara git</a></div>}
-              <ProductTaxFields value={taxChoice} onChange={value=>{setTaxChoice(value);markEditingDirty();}} required/><label className={createStyles.field}><span>Ürün türü</span><select value={productType} onChange={(event) => setProductType(event.target.value as "physical" | "digital")}><option value="physical">Fiziksel ürün</option><option value="digital">Dijital ürün</option></select></label>
+              {kind === "simple" && !variantEntry ? <fieldset id="product-commerce" className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} /></fieldset> : <div className={createStyles.variantSummary}><fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><SkuInput label="Ürün SKU" skuPrefix={options.skuPrefix} value={simpleVariantRef.current.sku} onChange={changeProductSku} labelClassName={createStyles.field} /></fieldset><strong>{kind === "variant" ? variants.length : 0} varyant</strong><span>Seçenekleri, fiyatı ve stoku aşağıda belirleyin.</span><a href="#product-commerce">Varyantlara git</a></div>}
+              <div className={createStyles.fieldGrid}><ProductTaxFields value={taxChoice} onChange={value=>{setTaxChoice(value);markEditingDirty();}} required/><label className={createStyles.field}><span>Ürün türü</span><select value={productType} onChange={(event) => setProductType(event.target.value as "physical" | "digital")}><option value="physical">Fiziksel ürün</option><option value="digital">Dijital ürün</option></select></label></div>
             </div>
           </section>
           {showValidation && validVariantCount < variants.length ? <p className={createStyles.fieldError} role="alert">Fiyat, stok ve zorunlu varyant alanlarını kontrol edin.</p> : null}
-          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField aiAvailable={aiAvailable} compact className={createStyles.description} rows={4} readOnly={busy || Boolean(creationRecovery)} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,canApplyField:canApplyAuthoringField,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
-          <section id={kind === "variant" ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
+          <section id={kind === "variant" || variantEntry ? "product-commerce" : "product-variants"} className={createStyles.section} aria-labelledby="create-variants-title">
             <div className={createStyles.sectionHeader}><h2 id="create-variants-title">Varyantlar{kind === "variant" ? <span className={createStyles.count}>{variants.length}</span> : null}</h2><button ref={variantAddRef} type="button" className={createStyles.inlineAction} disabled={createBlocked || variantBuilderOpen} onClick={openVariantBuilder} aria-expanded={variantBuilderOpen} aria-controls="create-variant-builder"><Plus aria-hidden="true" />Varyant ekle</button></div>
             {kind === "variant" ? <fieldset className={createStyles.variantFieldset} disabled={variantBuilderOpen}><ProductVariantGalleryEditor media={media.map(item=>({id:item.localId!,url:item.preview,altText:item.altText}))} variants={galleryTargets} assignments={variants.flatMap((variant,index)=>variant.mediaIds === undefined?[]:[{variantId:galleryTargets[index]!.id,mediaIds:variant.mediaIds}])} onAssignmentsChange={changeDraftGalleries} canManage={!createBlocked && !creationRecovery}>
-              {({thumbnail})=><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createPending} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
+              {({thumbnail})=><ProductVariantBuilder productTax={safeTaxChoice(taxChoice)} presentation="create" showValidation={showValidation} variants={variants} onChange={changeCreateVariants} allowMultiple allowManualAdd={false} showShipping={productType === "physical"} skuPrefix={options.skuPrefix} onBarcodeBusyChange={trackBarcodeBusy} disableStructureChanges={createBlocked || Boolean(creationRecovery) || variantBuilderOpen} renderGallery={(_variant,index)=>thumbnail(galleryTargets[index]!.id)} />}
               </ProductVariantGalleryEditor></fieldset> : !variantBuilderOpen ? <p className={createStyles.quiet}>Renk, beden veya diğer seçenekler.</p> : null}
             {variantBuilderOpen ? <div ref={variantBuilderRef} id="create-variant-builder" className={createStyles.builder} tabIndex={-1} role="group" aria-label="Varyant seçimi" onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented && !attributeSavingRef.current) { event.preventDefault(); closeVariantBuilder(); } }}>
               <AttributeVariantPicker presentation="create" baseSku={kind === "simple" ? variants[0]?.sku : simpleVariantRef.current.sku} value={pendingVariants} onChange={changePendingVariants} onAttributeIdsChange={setPendingAttributeIds} initialPrice={kind === "simple" ? variants[0]?.price : simpleVariantRef.current.price} initialStock={kind === "simple" ? variants[0]?.stockQuantity : simpleVariantRef.current.stockQuantity} disabled={busy} onBusyChange={trackAttributeBusy} />
               <div className={createStyles.builderActions}><button type="button" className={createStyles.secondary} onClick={closeVariantBuilder} disabled={attributeSaving}>Vazgeç</button><button type="button" className={createStyles.secondary} onClick={applyPendingVariants} disabled={attributeSaving || !pendingVariants.length}>Seçilenleri ekle{pendingVariants.length ? ` (${pendingVariants.length})` : ""}</button></div>
             </div> : null}
           </section>
+          <section className={createStyles.section} aria-label="Ürün açıklaması"><ProductDescriptionField aiAvailable={aiAvailable} compact className={createStyles.description} rows={4} readOnly={busy || Boolean(creationRecovery)} defaultValue={descriptionValue} initialOrigin={contentOrigins.description} onOriginChange={(origin)=>setContentOrigins(current=>({...current,description:origin}))} authoring={{capture:captureAuthoring,canApplyField:canApplyAuthoringField,applyField:applyAuthoringField}} onValueChange={(next) => { setDescriptionValue(next); markEditingDirty(); }} /></section>
           <div className={createStyles.additionalSettings}>
             <details className={createStyles.details}><summary><span>SEO</span><ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}>{seoAuthoringControls}<div className={createStyles.fieldGrid}><label className={`${createStyles.field} ${createStyles.wide}`}><span>SEO başlığı</span><ContentAuthoringTextField name="seoTitle" maxLength={200} defaultValue={draftSession?.current.seoTitle ?? ""} initialOrigin={contentOrigins.seoTitle} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoTitle:origin}))} onValueChange={markEditingDirty} /></label><label className={`${createStyles.field} ${createStyles.wide}`}><span>SEO açıklaması</span><ContentAuthoringTextField name="seoDescription" multiline maxLength={500} rows={3} defaultValue={draftSession?.current.seoDescription ?? ""} initialOrigin={contentOrigins.seoDescription} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoDescription:origin}))} onValueChange={markEditingDirty} /></label></div></div></details>
             <details ref={salesLimitsRef} className={createStyles.details}><summary><span>Sipariş sınırları ve Google kategori</span><ChevronDown aria-hidden="true" /></summary><div className={createStyles.detailsBody}><div className={createStyles.fieldGrid}><label className={createStyles.field}><span>Minimum sipariş</span><input name="minimumPurchaseQuantity" inputMode="numeric" defaultValue={draftSession?.current.minimumOrderQuantity || "1"} /></label><label className={createStyles.field}><span>Maksimum sipariş</span><input name="maximumPurchaseQuantity" inputMode="numeric" defaultValue={draftSession?.current.maximumOrderQuantity ?? ""} /></label><label className={`${createStyles.field} ${createStyles.wide}`}><span>Google ürün kategori kimliği</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={draftSession?.current.googleProductCategoryId ?? ""} /></label></div></div></details>

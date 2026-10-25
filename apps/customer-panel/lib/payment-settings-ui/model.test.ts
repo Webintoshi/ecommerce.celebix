@@ -912,3 +912,51 @@ test("connection callback accepts only one canonical durable storefront hostname
     storefrontHostname,
   }), /payment_provider_connection_invalid/);
 });
+
+const akbankDescriptor: MerchantProviderDescriptor = {
+  providerCode: "akbank_json", capability: "payment_processing", label: "Akbank · JSON",
+  publicFields: [], credentialFields: ["merchantSafeId", "terminalSafeId", "secretKey"].map((key) => ({ key, label: key, secret: true })),
+  adapterVersion: 1, environments: ["test", "live"], executionAuthority: null,
+};
+const akbankProfile = (status: MerchantProviderProfile["status"], environment: "test" | "live" = "live"): MerchantProviderProfile => ({
+  ...profile(status), providerCode: "akbank_json", publicConfig: { environment }, maskedAccountReference: "Akbank hesabı",
+});
+const akbankMethod: MerchantPaymentMethod = { ...method("40000000-0000-4000-8000-000000000275", "active", 0),
+  providerCode: "akbank_json", config: { environment: "live", locale: "tr", threeDSecure: "provider_managed", installmentMode: "single_payment", maxInstallment: 0 } };
+
+test("Akbank connection only claims active after the exact durable method is active", () => {
+  const build = (status: MerchantProviderProfile["status"], methods: readonly MerchantPaymentMethod[] = []) => buildPaymentProviderConnectionViewModel({
+    descriptor: akbankDescriptor, environment: "live", profile: akbankProfile(status), storefrontHostname: "shop.example.test", methods,
+  });
+  assert.equal(build("pending_validation").statusLabel, "Kontrol ediliyor");
+  assert.equal(build("active").statusLabel, "Ödeme yöntemi henüz etkinleşmedi");
+  assert.equal(build("active", [akbankMethod]).statusLabel, "Aktif - Canlı");
+  assert.notEqual(build("active", [{ ...akbankMethod, profileId: "40000000-0000-4000-8000-000000000099" }]).statusLabel, "Aktif - Canlı");
+  assert.equal(build("rotation_required").statusLabel, "Akbank bilgileri doğrulanamadı");
+  const view = build("active", [akbankMethod]);
+  assert.equal(view.kind, "generic");
+  if (view.kind === "generic") { assert.deepEqual(view.publicFields, []); assert.equal(view.credentialFields.length, 3); assert.ok(view.credentialFields.every((field) => field.secret && field.initialValue === "")); }
+});
+
+test("Akbank catalog offers one setup lifecycle with active-method environment priority", () => {
+  const entry = { ...PAYMENT_PROVIDER_CATALOG.find(({ providerCode }) => providerCode === "akbank_json")!, readiness: "verification" as const,
+    environments: ["test", "live"] as const, executionAuthority: null };
+  const card = (profiles: readonly MerchantProviderProfile[], methods: readonly MerchantPaymentMethod[]) => buildPaymentSettingsViewModel([entry], [akbankDescriptor], profiles, methods, "", noFilters).catalog.cards[0]!;
+  assert.equal(card([], []).actionLabel, "Kur");
+  assert.equal(card([akbankProfile("pending_validation")], []).lifecycleLabel, "Kontrol ediliyor");
+  const active = card([akbankProfile("active"), { ...akbankProfile("pending_validation", "test"), id: "40000000-0000-4000-8000-000000000099" }], [akbankMethod]);
+  assert.equal(active.connectionEnvironment, "live");
+  assert.equal(active.lifecycleLabel, "Aktif - Canlı");
+  assert.equal(active.actionLabel, "Yapılandırıldı");
+  assert.notEqual(card([akbankProfile("active")], []).actionLabel, "Etkinleştir");
+});
+
+test("Akbank switching environments reports the working connection conflict explicitly", () => {
+  const working = { ...akbankMethod, profileId: "40000000-0000-4000-8000-000000000099", label: "Akbank Test",
+    config: { ...akbankMethod.config, environment: "test" } };
+  const view = buildPaymentProviderConnectionViewModel({ descriptor: akbankDescriptor, environment: "live",
+    profile: akbankProfile("pending_validation"), storefrontHostname: "shop.example.test", methods: [working] });
+  assert.equal(view.kind, "generic");
+  if (view.kind === "generic") assert.equal(view.anotherActiveProviderLabel, "Akbank Test");
+  assert.equal(view.statusLabel, "Başka bir ödeme sağlayıcısı etkin");
+});

@@ -1,0 +1,31 @@
+.section { scroll-margin-top: 96px; padding-block: 32px; color: var(--store-text, #2b2b2b); }
+.card { border: 1px solid var(--store-border, #e5e5e5); border-radius: 12px; padding: 32px; background: var(--store-surface, #fff); }
+.card header { margin-bottom: 24px; }
+.card h2 { margin: 0 0 8px; color: inherit; font-family: inherit; font-size: 24px; font-weight: 600; line-height: 1.3; }
+.card p { margin: 0; line-height: 1.6; }
+.card header p, .help, .verification, .ratingValue, .card small, .actions span { color: var(--store-muted, #666); }
+.card form { display: grid; gap: 20px; }
+.card label { display: grid; gap: 8px; font-size: 14px; }
+.fields { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card input:not([type=radio]), .card textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--store-border, #dedede); border-radius: 8px; padding: 12px; background: var(--store-surface, #fff); color: inherit; font: inherit; }
+.card textarea { resize: vertical; }
+.card small, .help, .verification, .ratingValue, .actions span { font-size: 12px; }
+.card button, .primary { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 12px 20px; border: 1px solid var(--store-text, #2b2b2b); border-radius: 8px; background: var(--store-surface, #fff); color: inherit; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
+.card .primary { background: var(--store-text, #2b2b2b); color: var(--store-surface, #fff); }
+.card button:disabled { opacity: .55; cursor: default; }
+.card :is(input,textarea,button,a):focus-visible { outline: 2px solid var(--brand-primary, #2b2b2b); outline-offset: 3px; }
+.rating { border: 0; padding: 0; margin: 0; min-width: 0; }
+.rating legend { font-size: 14px; margin-bottom: 8px; }
+.rating > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.rating label { display: flex; align-items: center; justify-content: center; position: relative; width: 44px; height: 44px; font-size: 28px; cursor: pointer; }
+.rating input { position: absolute; opacity: 0; }
+.rating label:hover { background: var(--store-background, #f7f7f7); border-radius: 8px; }
+.rating .selectedStar { color: var(--brand-primary, var(--store-text, #2b2b2b)); }
+.card .ratingValue { margin-top: 8px; }
+.card .verification { max-width: 68ch; }
+.rating label:has(input:focus-visible) { outline: 2px solid var(--brand-primary, #2b2b2b); outline-offset: 2px; border-radius: 8px; }
+.feedback { border: 1px solid var(--store-border, #e5e5e5); border-radius: 8px; padding: 12px; }
+.feedback button { margin-top: 12px; }
+.actions { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
+@media(max-width: 600px) { .section { padding-block: 24px; } .card { padding: 24px 16px; } .fields { grid-template-columns: 1fr; } .card h2 { font-size: 20px; } .actions { align-items: stretch; flex-direction: column; } .actions button { width: 100%; } }

@@ -3,16 +3,16 @@ import type { TrustedStorefrontHostAuthority } from "./trusted-host-authority.ts
 
 export type StorefrontSetupPaymentAvailability = Readonly<{
   kind: "ready" | "disabled" | "unavailable";
-  providers: readonly Readonly<{ providerCode: "paytr_iframe" | "iyzico_iframe"; environment: "test" | "live"; adapterVersion: number; evidenceDigest: string }>[];
+  providers: readonly Readonly<{ providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json"; environment: "test" | "live"; adapterVersion: number; evidenceDigest: string }>[];
 }>;
 const UNAVAILABLE = Object.freeze({ kind: "unavailable" as const, providers: Object.freeze([]) });
 const HEADERS = Object.freeze({"cache-control":"no-store", "referrer-policy":"no-referrer", "x-content-type-options":"nosniff"});
 
 function safeAvailability(value: StorefrontSetupPaymentAvailability): StorefrontSetupPaymentAvailability {
-  if (!value || !["ready","disabled","unavailable"].includes(value.kind) || !Array.isArray(value.providers) || value.providers.length > 3) return UNAVAILABLE;
+  if (!value || !["ready","disabled","unavailable"].includes(value.kind) || !Array.isArray(value.providers) || value.providers.length > 5) return UNAVAILABLE;
   const pairs = new Set<string>();
   for (const entry of value.providers) {
-    if (!entry || !["paytr_iframe","iyzico_iframe"].includes(entry.providerCode) || !["test","live"].includes(entry.environment)
+    if (!entry || !["paytr_iframe","iyzico_iframe","akbank_json"].includes(entry.providerCode) || !["test","live"].includes(entry.environment)
       || (entry.providerCode === "iyzico_iframe" && entry.environment === "live") || pairs.has(`${entry.providerCode}:${entry.environment}`)
       || !Number.isSafeInteger(entry.adapterVersion) || entry.adapterVersion < 1 || typeof entry.evidenceDigest !== "string" || !/^sha256:[a-f0-9]{64}$/.test(entry.evidenceDigest)) return UNAVAILABLE;
     pairs.add(`${entry.providerCode}:${entry.environment}`);

@@ -27,16 +27,19 @@
     "verify:tenant-wildcard": "node ./scripts/verify-tenant-wildcard-readiness.mjs",
     "verify:signup-edge": "node ./scripts/verify-signup-edge.mjs",
     "verify:custom-domains": "node ./scripts/verify-cloudflare-saas-readiness.mjs",
-    "build:coolify:customer-panel": "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run build --workspace @celebix/customer-panel",
-    "build:coolify:owner": "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run build --workspace @celebix/owner",
-    "build:coolify:storefront-shared": "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run build --workspace @celebix/storefront-shared",
+    "build:coolify:customer-panel": "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run generate:akbank-build && npm run build --workspace @celebix/customer-panel",
+    "build:coolify:owner": "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run generate:akbank-build && npm run build --workspace @celebix/owner",
+    "build:coolify:storefront-shared": "npm run generate:iyzico-sandbox-build && npm run generate:paytr-build && npm run generate:akbank-build && npm run build --workspace @celebix/storefront-shared",
     "create:store": "node ./scripts/create-store.mjs",
     "migrate:selfhosted-store-db": "node ./apps/owner/scripts/migrate-store-db-selfhosted.mjs",
     "migrate:selfhosted-owner-db": "node ./apps/owner/scripts/migrate-owner-db-selfhosted.mjs",
     "check:signup-release": "node ./scripts/signup-release-proof.mjs",
     "test:signup-release-guard": "node --test ./scripts/signup-release-proof.test.mjs",
     "rehearse:signup-release": "node ./scripts/rehearse-signup-release.mjs",
-    "refresh:signup-release": "node ./scripts/rehearse-signup-release.mjs --refresh-proof"
+    "refresh:signup-release": "node ./scripts/rehearse-signup-release.mjs --refresh-proof",
+    "generate:akbank-build": "node --experimental-strip-types ./scripts/generate-akbank-build.mjs",
+    "check:akbank-build": "node --experimental-strip-types ./scripts/generate-akbank-build.mjs --check",
+    "test:akbank-build": "node --experimental-strip-types --test ./scripts/generate-akbank-build.test.mjs"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",

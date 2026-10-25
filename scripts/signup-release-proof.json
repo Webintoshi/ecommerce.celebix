@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "d41e2f527f9de7cfe6faa78884278cef83a04b30b3a6f202479c90511f145953",
+  "inputDigest": "c79773c28a75d4c9abf31b27ddb8fc62d16edc91dbe1629e7ef618f41fc61881",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -105,7 +105,7 @@
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/runtime.ts",
-      "sha256": "0450549abc47b9ffdc744915ce6565bff1190d9346ba6c4d0be8c3163c0daace"
+      "sha256": "d0e93d9f0b659461bf1cafe9eba520529523fd6162341ea69bf67c34271f7ce9"
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/transport.ts",
@@ -121,11 +121,11 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-http.ts",
-      "sha256": "61199bbeb09f3468981e38ee647e152ec8bf14d6fe8740ebc1176d71265edca7"
+      "sha256": "3536dde4283fb95036fd0524f38e6d777ff79a276e1977263b0761c1f70350ff"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-session-handoff/postgres-repository.ts",
-      "sha256": "634fc60a34271261184a7a1b2973cc3b96c9b8c31e6cd14ce5a0e8e36404dcf3"
+      "sha256": "b5e9ee3623f0b9969593d063fc7a5ded606ddf76ec9aa5039ed9a2f252b1da5a"
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/handler.ts",
@@ -193,11 +193,11 @@
     },
     {
       "path": "apps/customer-panel/lib/panel-session-completion/completion.ts",
-      "sha256": "d177729d3da0acda142317a29b89e55d09302b38ba5529e970c54125223ee299"
+      "sha256": "e789a74979c5e3e71ca1f1c5de34a6c850bfc4ae207365150dcdde8fef6f7151"
     },
     {
       "path": "apps/customer-panel/lib/panel-session-completion/cookie.ts",
-      "sha256": "0f3127f3c97f587f337b91c138b1e80a0524d475fa1c9931e33254cee4b4d083"
+      "sha256": "1d2ebe44759a16cc36d7988b81e29742f10666f914b85c1092b6b0500e0e9cd4"
     },
     {
       "path": "apps/customer-panel/lib/panel-session-completion/transport.ts",
@@ -213,7 +213,7 @@
     },
     {
       "path": "apps/customer-panel/lib/panel-session-handoff/postgres-handoff-redeemer.ts",
-      "sha256": "236126cdef1d8d5eb5cd7373888b42fecaa57af7b238af1bcc252634dac71594"
+      "sha256": "6e4965931b65fc43027aae64b01b711b4c52f4774c39510e16fafed3bb580ba9"
     },
     {
       "path": "apps/customer-panel/lib/panel-session-persistence/activation.ts",
@@ -225,7 +225,7 @@
     },
     {
       "path": "apps/customer-panel/lib/panel-session-persistence/postgres-panel-session-repository.ts",
-      "sha256": "3fa5e72623c7982934575826b50d2c9cddb33fa04c427c153642c05f06cf7a26"
+      "sha256": "ef21faa32f561f12affb83172feb60cb72333c4792edbe803c3b94c63b7ee40e"
     },
     {
       "path": "apps/customer-panel/lib/platform-invitations/handlers.ts",
@@ -249,7 +249,7 @@
     },
     {
       "path": "apps/customer-panel/lib/server-panel-session-controls/handler.ts",
-      "sha256": "cd1454f9ca059c483b6f4b51fe40ec7f6b55e64e4e5bfcd33f6b7d59975e52e5"
+      "sha256": "7e5e3d5f0878d77b2633bfd5cbcc85997a8fb7b592c48a66e247a7d7c5f080d7"
     },
     {
       "path": "apps/customer-panel/lib/server-panel-session-controls/mutation.ts",
@@ -265,11 +265,11 @@
     },
     {
       "path": "apps/customer-panel/lib/session.ts",
-      "sha256": "ef4ba151cd3872200ddc0ed3378c9868ce0338b4bd518eed1e6c60b0d14b187d"
+      "sha256": "cac6660daec9a9c271104a29e318695c5d16114f8a8dad0f955dbdde275f3b2c"
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "6f4f6b865a0a768f35a8f3f68c62b60ca88cb673e7c0049f61f9bd954f924a66"
+      "sha256": "8ed2caf2b2541d3d4e3df0020d5d0b24e11abbcb110207f7f4adb7e18e6ac5c4"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -912,6 +912,10 @@
       "sha256": "4175487c2fc6e09514f00b80100e0a422f9a51d0140fb350ae3e34dc770d4b32"
     },
     {
+      "path": "apps/owner/lib/merchant-provider-execution/akbank-validation-adapter.ts",
+      "sha256": "18ed06b6c4369fc52e535e633cdc88bdf857cbdab816c725bc0e1c0e6b59f0c3"
+    },
+    {
       "path": "apps/owner/lib/merchant-provider-execution/default.ts",
       "sha256": "65af82bfb88ffd192133a9fd1be47946b8c06db296b2cce8581fa1d0709a843d"
     },
@@ -925,7 +929,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production-config.ts",
-      "sha256": "d66f477e9b3a7d3d99831bc267a085252afd66da96b40f847f08d78861cd74a5"
+      "sha256": "56fdf8a025b56826142dac32b068bdfef56c902a897adee2c5955ccbaedead9b"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production.ts",
@@ -933,7 +937,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/registry.ts",
-      "sha256": "211aed6707a168d450b8065544632991945c1b7db5594fae1243ca6576427032"
+      "sha256": "81c8d9c21e0193615df043902d63f66739be644ff55ec933fe32738457994335"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/types.ts",
@@ -949,7 +953,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/completion.ts",
-      "sha256": "da3fcb932a0b0cc2ea9e4fcafc30e3ed1009f67f756765ad394428d56a048e2c"
+      "sha256": "219e23d570a78bdd42495931a6311600e898b24da47a19c6ad6feae2be526ff5"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/config.ts",
@@ -977,7 +981,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/service.ts",
-      "sha256": "1c339c26c4fba46e2f67edc67697430578d786ea3b805c89dcbee27f5099a99f"
+      "sha256": "0678cd0682b2bfce682598363163896033be05a757c94f155ba115bb6bd7755c"
     },
     {
       "path": "apps/owner/lib/native-marketing/config.ts",
@@ -2800,6 +2804,30 @@
       "sha256": "20e6845956233d7ef94142cf8cf4a22a25d0081df8d7dabff2754ab8bbf8433e"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610240271_catalog_variant_order.up.sql",
+      "sha256": "8fa58bb4f98fc8e43161e1758a92fd0306d29797de037509a32783d21490b056"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610240272_panel_session_30_days.up.sql",
+      "sha256": "d7007cbfb253893ed62ed5469aa0a867436c85cb8e6280dbd5dc34e913b55bf0"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610240273_cart_catalog_lifecycle.up.sql",
+      "sha256": "c925326dd808f533794c5c13a0d58879bf276555cf5ef0684f1904eec816db00"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610240274_product_page_reviews.up.sql",
+      "sha256": "be8d96bf73c6b08ad1c84acbd9879dd5b3d2afede0de99a4be0cae47234d16fd"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610250275_akbank_hosted_pos.up.sql",
+      "sha256": "bc3f97f4b6ba3e0e74647d97160b8e35e6978f67eda230171694077b419a8292"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
+      "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/build-native253-stage.mjs",
       "sha256": "b74bca27e0d1cd181daea4e9885e08713288b387c48799863ebe2fd3ef8a7ca4"
     },
@@ -3305,27 +3333,27 @@
     },
     {
       "path": "nixpacks.toml",
-      "sha256": "3b5c2c5d07447f78439dc8adbf772024117c9778466795fcde84a3e91be52bff"
+      "sha256": "e5f48a7b6250607ad0572351ab65f2c46f442fefd6813467a13df74f9676c1a5"
     },
     {
       "path": "package-lock.json",
-      "sha256": "8abb73ebb2ea6d12035ca37acfa8683dedf40672c9f0d3751ddf89d9461e3734"
+      "sha256": "b5ca8769a7e0bb74034cb8c167b0622f878ea3a8aef608487d935211820421fa"
     },
     {
       "path": "package.json",
-      "sha256": "2bdbfb44163686f867eb92e286557562544d0c299bec3412ff427bdac49b9f8c"
+      "sha256": "e6858688a718ea6f6acb86bb14ffd6500e7ba86a14ffd1c7997358094b1265f7"
     },
     {
       "path": "packages/payment-adapters/package.json",
-      "sha256": "5c86abadf684e79adc39dabd2c1671a504fff54c367c0fef11ac49676e65bb57"
+      "sha256": "25c2d23e9da5a11deea04cdd1858d58048fe32cf18f7059441eb52ec6914ec43"
     },
     {
       "path": "packages/payment-adapters/src/contracts.ts",
-      "sha256": "37e099cb0f8c9cb368748b7e73129adf048e65f886e5c8eb71a9e9cc49c32a8d"
+      "sha256": "8bc844978436a091dd176a56964cce623f3cd3b21c9a2d4354d8aad2895aaf2d"
     },
     {
       "path": "packages/payment-adapters/src/index.ts",
-      "sha256": "8380da4a706de1dc5c4a3fc2b21926dc26cae547044a86b873056a040b0ef74d"
+      "sha256": "0a7199eb6247eb408282572906971ea783deb9b288b0fa364487f20a34aa4d5f"
     },
     {
       "path": "packages/payment-adapters/src/packets/plugin-inventory.ts",
@@ -3334,6 +3362,22 @@
     {
       "path": "packages/payment-adapters/src/packets/source-types.ts",
       "sha256": "8e2679606c9c051da7f1537e8046f3ffbc3c27b78f6972faeca2293dcc10536c"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/adapter.ts",
+      "sha256": "906a3b9f60211800afaaf831b4836c3b28b228c033cf3b2b07589c5f066ac0fe"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/build-binding.ts",
+      "sha256": "278ff2651bf65164f6158911518d1ac28967e82e4b0416e249222112a5958624"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/config.ts",
+      "sha256": "16f7abfb90f9674e671be3310461d4b8be39e25764fc78e971efacaa2b0ce52f"
+    },
+    {
+      "path": "packages/payment-adapters/src/providers/akbank/packet.ts",
+      "sha256": "b8b23c9dd1c3e4b4691a03dcad002941814c113052230f2d1ae4914ee273bda4"
     },
     {
       "path": "packages/payment-adapters/src/providers/iyzico/adapter.ts",
@@ -3357,7 +3401,7 @@
     },
     {
       "path": "packages/payment-adapters/src/providers/paytr/build-binding.ts",
-      "sha256": "312cf3c0958e4b96b6b22479d52644f40b8f2f86054cbaaad2133658f5e2e815"
+      "sha256": "9c1eb8cf344ddd0c9752e466244884d2e127c330c3ae882a17dbce7a18c52883"
     },
     {
       "path": "packages/payment-adapters/src/providers/paytr/config.ts",
@@ -3369,15 +3413,15 @@
     },
     {
       "path": "packages/payment-adapters/src/registry.ts",
-      "sha256": "ee233d96b2f0f20dd99927610703fb8a621a3cf0a2ad9cbf2516bda5c24dbf6f"
+      "sha256": "8526b117a176d218fdedfc4b7a00396aa735a1196f828c5c019c43e85e4a8e50"
     },
     {
       "path": "packages/payment-adapters/src/transport.ts",
-      "sha256": "01e11f5edf16d6d52da6bd70602e10e29540f33c118668b50b0640795331b71f"
+      "sha256": "a34d612e5294014fea78843b2193658be4c071fbd5f9ab74ce32f202dfed956d"
     },
     {
       "path": "packages/payment-adapters/src/validation.ts",
-      "sha256": "ceba45fd7b83365c37b61a1eba23be5aa59c3186c1cf209f5a529f2528765dc7"
+      "sha256": "53e5721a9d5e9629b348fdabaf2b167e501cac6afb513945d42c10c0a4c48ba5"
     },
     {
       "path": "packages/payment-adapters/tsconfig.json",
@@ -3657,7 +3701,7 @@
     },
     {
       "path": "packages/saas-contracts/src/catalog/index.ts",
-      "sha256": "62350874da8ad0c2d086d58111741e08016cd57e91a9bfde75d4bea03c3a6c67"
+      "sha256": "2f66fb354ed697d6c244d26ad1e8667fd23f32563bff60d214add307a6b25dff"
     },
     {
       "path": "packages/saas-contracts/src/catalog/types.ts",
@@ -3666,6 +3710,10 @@
     {
       "path": "packages/saas-contracts/src/catalog/validation.ts",
       "sha256": "fbdb84a6d2ffa17b4250476d1bde1bee70a45dfae956d70388a4522d6ca8b228"
+    },
+    {
+      "path": "packages/saas-contracts/src/catalog/variant-order.ts",
+      "sha256": "a2170216f92c0d7a1a9b80cf1539881295a0894761e5859c4314b5a059e29084"
     },
     {
       "path": "packages/saas-contracts/src/commercial-packages/catalog.ts",
@@ -3785,7 +3833,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "6ad6f3708b06cb440b53b2ecb0f7a377238e99b351808b0b7d8c9af1c00b0d91"
+      "sha256": "e1e85e5d8e7616a417e061aabb6873250c747de39d54f043e09014e9d2c56534"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -3897,7 +3945,7 @@
     },
     {
       "path": "packages/saas-contracts/src/payment-providers/provider-method-config.ts",
-      "sha256": "9e7bc300f831e6d6121bee5f9b818cc732723caab408d966a1b57058dd79c2d3"
+      "sha256": "7865186b410bef514e0c24cd2d2580fe0f352a722b8c464e729640938921393c"
     },
     {
       "path": "packages/saas-contracts/src/payment-providers/types.ts",
@@ -3930,6 +3978,10 @@
     {
       "path": "packages/saas-contracts/src/pricing/validation.ts",
       "sha256": "82a30d92341ccba7307baaf55150235b683b19017c8575342150d71794c309ad"
+    },
+    {
+      "path": "packages/saas-contracts/src/product-page-reviews/index.ts",
+      "sha256": "26dd674c3501bcc773c7ec7d767c0e71021ddfd5d74f13579e7a1a4da822b5cf"
     },
     {
       "path": "packages/saas-contracts/src/product-tax/index.ts",
@@ -4012,6 +4064,10 @@
       "sha256": "70b6287642bdbc92880d7ecb3995cad4975b717fdacafceb23d16268fa72735b"
     },
     {
+      "path": "packages/saas-contracts/src/store-admin-session-policy.ts",
+      "sha256": "f89de22756ae506942089419f7ae2b95ffbfd683e070d1abde5537e9569a17ad"
+    },
+    {
       "path": "packages/saas-contracts/src/store-engagement/index.ts",
       "sha256": "20775a8f88767ff30929d5f06a1fb55db112650ea5c61323dc2069cc7464ace4"
     },
@@ -4065,7 +4121,7 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/commerce.ts",
-      "sha256": "1a0d6edd033e2c643c0d5fc4af8023b572a2b42039a5415831ea4ebcbde34935"
+      "sha256": "c6707efbb9edf858c52c1b6100131bb4618f3ef1ec075c51cf374993c4d113b8"
     },
     {
       "path": "packages/saas-contracts/src/storefront/index.ts",
@@ -4401,19 +4457,19 @@
     },
     {
       "path": "packages/saas-data/src/catalog/errors.ts",
-      "sha256": "cd526902fc9bf532dc7cf3b8a31c94aef34dcbda889c933c02314d2535aeb67e"
+      "sha256": "2b2164bd29f53c41df06ae5bae95fcb4698e10743119d502b154e4386a595369"
     },
     {
       "path": "packages/saas-data/src/catalog/index.ts",
-      "sha256": "065c0e9a9e87781aaa1c07a71cbafe1d6e1450d74ad8e70230a96c1bf5642ff3"
+      "sha256": "d41a7efe0417bf3e9ba91655346d32c9d08a4b2c051a4fc231b7c883290b3b43"
     },
     {
       "path": "packages/saas-data/src/catalog/repository.ts",
-      "sha256": "534a7106e72d7e4d3090471a08ae3ce48185260f5f2a3d5c96c42f1e5f2d6fa4"
+      "sha256": "2074b0b0bec542d10242d7acc01f1e543c1ab63d96a700c4637db9423defc6d5"
     },
     {
       "path": "packages/saas-data/src/catalog/types.ts",
-      "sha256": "188226f7366f10c8cea05d4397af795fb91fd992ed4851e6530c5e7a197e327a"
+      "sha256": "59c958c3beb440f6c646f8c6ea05b84655153f7dd1e5934be5aecd60d639708c"
     },
     {
       "path": "packages/saas-data/src/catalog/validation.ts",
@@ -4649,7 +4705,7 @@
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "9832e94298633740a2cba483575051b4f76eab0bc2d611a78a6990f18416ffa4"
+      "sha256": "9aadc552239fd83a28c1c30902fa0adcee57f6fa3dcc1e8b01753b9f3c673140"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -5000,6 +5056,14 @@
       "sha256": "4ffffd60c1edb5e89f837e77018ef83553ac6fda5f9fc30ad83f58edf7448a7e"
     },
     {
+      "path": "packages/saas-data/src/product-page-reviews/index.ts",
+      "sha256": "8efbd83918fbcc96243a1f4cc8d91697b72e009cdf7cf9bbc0542a512166221c"
+    },
+    {
+      "path": "packages/saas-data/src/product-page-reviews/repository.ts",
+      "sha256": "ed756fc8ebbb2c78d847b006d0d4d9051746d6cc513024bd23dfcf728dcca620"
+    },
+    {
       "path": "packages/saas-data/src/product-tax/repository.ts",
       "sha256": "6e0b228546b5d76057618c9679681c64b774789b2fb40bc372aa6861400f047c"
     },
@@ -5045,7 +5109,7 @@
     },
     {
       "path": "packages/saas-data/src/provider-execution/errors.ts",
-      "sha256": "3d2ede135e654dcb825a4923d9eaba26a3da164b73b61329928f473347937708"
+      "sha256": "49e9ab20eb4d7f89fb10e7246c5799e65a64899f2438c038688d696eaabced12"
     },
     {
       "path": "packages/saas-data/src/provider-execution/index.ts",
@@ -5065,7 +5129,7 @@
     },
     {
       "path": "packages/saas-data/src/provider-execution/workflow-repository.ts",
-      "sha256": "24747abc072c29e99ec47d00c34bb6c9c9d9507cdac8ce8107807ee1400f2cf0"
+      "sha256": "96f257554b4b1611578274fdc24be6cc4278eca242c6a252056953809525a00e"
     },
     {
       "path": "packages/saas-data/src/quick-orders/canonical.ts",
@@ -5301,15 +5365,15 @@
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/types.ts",
-      "sha256": "40da3de326b7906520aab3dbd888f90b6b57599321a7d4180d0890728401d745"
+      "sha256": "34220a8590aed6f60a3a9725fa97f46e7091432680a556d487a559e3726641b7"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/validation.ts",
-      "sha256": "56d2c5a0cd922a89cca50333362e554454859cb476d865a774e0b8f7859e275a"
+      "sha256": "81862fdd11ad527162a060d0155d01312307fe97bae5f851b758e13650b02141"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/worker-repository.ts",
-      "sha256": "18474ccd7c6c031b450feb33994d54f04545f2ec819a622cc71a88440b6fa5fa"
+      "sha256": "e6d3ff2af1d0aafc4fe69cd054bf5c4ddfe240a2c26b269a51232a7f8646c762"
     },
     {
       "path": "packages/saas-data/src/storefront-identity/index.ts",
@@ -5612,6 +5676,18 @@
       "sha256": "198dfb367de488fe0d8a5c99c73c43afac12c0c55ecb53fdd48796d705b47305"
     },
     {
+      "path": "scripts/generate-akbank-build.mjs",
+      "sha256": "262b05faf0803c9e93f228ca48961d2d053a3b597f84dab5e36b4dab338ec13d"
+    },
+    {
+      "path": "scripts/generate-iyzico-sandbox-build.mjs",
+      "sha256": "ad47fff4085d97a582ffa1d3614976859a676ce44221766532f2fd730cc5a4fa"
+    },
+    {
+      "path": "scripts/generate-paytr-build.mjs",
+      "sha256": "f9731d23bb7e42f1511b5ebc6920e90217bf49d8f666e91494d241c95c65632a"
+    },
+    {
       "path": "scripts/rehearse-signup-release.mjs",
       "sha256": "d13b44be4d7d5ad279a206b74a178b10a1e662ac30f03c56faff1ab98564a2e3"
     },
@@ -5621,11 +5697,11 @@
     },
     {
       "path": "scripts/signup-release-proof.mjs",
-      "sha256": "4828563b358550fdf90d04aa635af065e26f3a846774a660eec5fdee0e499eb2"
+      "sha256": "8aee96febee974b13e40b92256f9c2b25941abc7aea22ad267d24cb51fc581c1"
     },
     {
       "path": "scripts/signup-release-proof.test.mjs",
-      "sha256": "db211f07e062a1cd33d95345fa510ad39d6dbf704847bcd804844fd4bd4a4d63"
+      "sha256": "b3f9558d9e46b9c4f84d44c714ae34c76e2ab03c679a5a2a8f344435f6b3c48d"
     },
     {
       "path": "scripts/tenant-wildcard-certificates.py",

@@ -95,13 +95,13 @@ function text(value: unknown, minimum: number, maximum: number, pattern?: RegExp
 }
 function provider(value: unknown): HostedCheckoutProviderCode {
   const parsed = paymentAttemptProviderCode(value);
-  if (parsed !== "paytr_iframe" && parsed !== "iyzico_iframe") invalid();
+  if (parsed !== "paytr_iframe" && parsed !== "iyzico_iframe" && parsed !== "akbank_json") invalid();
   return parsed;
 }
 function requiredFields(value: unknown, providerCode: HostedCheckoutProviderCode): readonly "identity_number"[] {
   const selected = plain(value);
   if (!Array.isArray(selected) || selected.some((entry) => entry !== "identity_number")) invalid();
-  if ((providerCode === "iyzico_iframe") !== (selected.length === 1)) invalid();
+  if (selected.length !== (providerCode === "iyzico_iframe" ? 1 : 0)) invalid();
   return Object.freeze(selected as "identity_number"[]);
 }
 function basket(value: unknown) {
@@ -192,14 +192,9 @@ export function parseHostedAuthority(value: unknown): HostedCheckoutAuthority {
     subtotalCents: subtotalMinor, shippingCents: shippingMinor, totalCents: totalMinor,
     checkoutReady: true, checkoutBlocker: null, items: safeItems,
   }));
-  let presentation: "iframe" | "redirect";
-  if (providerCode === "paytr_iframe") {
-    if (parsed.presentation !== "iframe") invalid();
-    presentation = "iframe";
-  } else {
-    if (parsed.presentation !== "redirect") invalid();
-    presentation = "redirect";
-  }
+  const presentation = providerCode === "paytr_iframe" ? "iframe"
+    : providerCode === "iyzico_iframe" ? "redirect" : "form_post";
+  if (parsed.presentation !== presentation) invalid();
   const postalCode = parsed.postalCode === null ? undefined : text(parsed.postalCode, 1, 20);
   return Object.freeze({
     authorityDigest: paymentAttemptDigest(parsed.authorityDigest), storeId: paymentAttemptUuid(parsed.storeId),
@@ -305,14 +300,9 @@ export function parseHostedAuthorityV2(value: unknown): HostedCheckoutAuthorityV
       ? [PROMOTION_CART_LINE_LIMIT_MESSAGE]
       : [],
   }));
-  let presentation: "iframe" | "redirect";
-  if (providerCode === "paytr_iframe") {
-    if (parsed.presentation !== "iframe") invalid();
-    presentation = "iframe";
-  } else {
-    if (parsed.presentation !== "redirect") invalid();
-    presentation = "redirect";
-  }
+  const presentation = providerCode === "paytr_iframe" ? "iframe"
+    : providerCode === "iyzico_iframe" ? "redirect" : "form_post";
+  if (parsed.presentation !== presentation) invalid();
   const postalCode = parsed.postalCode === null ? undefined : text(parsed.postalCode, 1, 20);
   const safeBasket = allocatedBasket(parsed.basket, cart.items, shippingMinor - shippingDiscountMinor, totalMinor);
   return Object.freeze({

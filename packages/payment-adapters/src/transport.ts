@@ -9,6 +9,7 @@ const REQUEST_CONTENT_TYPES = Object.freeze([
   "application/json; charset=utf-8",
 ]);
 const REQUEST_HEADER_KEYS = Object.freeze([
+  "auth-hash",
   "authorization",
   "content-type",
   "x-iyzi-rnd",
@@ -54,6 +55,7 @@ export type ProviderTransportResult =
       status: number;
       contentType: string;
       body: Uint8Array;
+      headers?: Readonly<{ "auth-hash": string }>;
     }>
   | Readonly<{ kind: "unknown"; code: "transport_outcome_unknown" }>;
 
@@ -73,6 +75,7 @@ type ProviderTransportContentType =
   | "application/json; charset=utf-8";
 
 export type ProviderTransportRequestHeaders =
+  | Readonly<{ "content-type": "application/json"; "auth-hash": string; authorization?: never; "x-iyzi-rnd"?: never }>
   | Readonly<{
       "content-type": ProviderTransportContentType;
       authorization?: never;
@@ -236,7 +239,7 @@ function exactHeaders(
   const keys = Reflect.ownKeys(descriptors);
   if (
     keys.length < 1 ||
-    keys.length > REQUEST_HEADER_KEYS.length ||
+    keys.length > 3 ||
     keys.some((key) => typeof key !== "string" || !REQUEST_HEADER_KEYS.includes(key)) ||
     !Object.hasOwn(descriptors, "content-type")
   ) invalid();
@@ -264,16 +267,26 @@ function exactHeaders(
   const randomKey = selected["x-iyzi-rnd"];
   if (providerCode === IYZICO_PROVIDER_CODE) {
     if (
-      keys.length !== REQUEST_HEADER_KEYS.length ||
+      keys.length !== 3 ||
       contentType !== IYZICO_CONTENT_TYPE ||
+      selected["auth-hash"] !== undefined ||
       authorization === undefined ||
       randomKey === undefined ||
       randomKey.length > 256 ||
       !/^[A-Za-z0-9_-]{16,256}$/.test(randomKey)
     ) invalid();
     exactIyzicoAuthorization(authorization, randomKey);
+  } else if (providerCode === "akbank_json") {
+    if (keys.length !== 2 || contentType !== "application/json" || authorization !== undefined || randomKey !== undefined || !canonicalSha512Mac(selected["auth-hash"])) invalid();
   } else if (keys.length !== 1 || authorization !== undefined || randomKey !== undefined) invalid();
   return selected;
+}
+
+function canonicalSha512Mac(value: unknown): value is string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9+/]{86}==$/.test(value)) return false;
+  const bytes = Buffer.from(value, "base64");
+  try { return bytes.length === 64 && bytes.toString("base64") === value; }
+  finally { bytes.fill(0); }
 }
 
 function exactBody(value: unknown): Uint8Array {
@@ -584,18 +597,26 @@ export function createBoundedProviderTransport(options: {
           response.headers.has("set-cookie2")
         ) invalid();
         const contentType = response.headers.get("content-type");
-        if (
-          contentType === null ||
-          !acceptedResponseContentType(contentType, packet.providerCode, endpoint)
-        ) invalid();
-        responseBody = await boundedBytes(response, maximumResponseBytes, aborted);
-        validateJson(responseBody);
+        const akbankUnauthorized = packet.providerCode === "akbank_json" && response.status === 401;
+        if (!akbankUnauthorized && (contentType === null || !acceptedResponseContentType(contentType, packet.providerCode, endpoint))) invalid();
+        responseBody = akbankUnauthorized && response.body === null
+          ? new Uint8Array(0) : await boundedBytes(response, maximumResponseBytes, aborted);
+        const authHash = response.headers.get("auth-hash");
+        if (akbankUnauthorized) {
+          if (responseBody.byteLength !== 0) invalid();
+        } else {
+          if (packet.providerCode === "akbank_json" && !canonicalSha512Mac(authHash)) invalid();
+          // Akbank authenticates these exact bytes before any JSON interpretation in its adapter.
+          if (packet.providerCode !== "akbank_json") validateJson(responseBody);
+        }
         const resultBody = new Uint8Array(responseBody);
         return Object.freeze({
           kind: "response" as const,
           status: response.status,
-          contentType,
+          contentType: contentType ?? "",
           body: resultBody,
+          ...(packet.providerCode === "akbank_json" && authHash !== null && canonicalSha512Mac(authHash)
+            ? {headers: Object.freeze({"auth-hash": authHash})} : {}),
         });
       } catch {
         discardResponse(providerResponse, controller);

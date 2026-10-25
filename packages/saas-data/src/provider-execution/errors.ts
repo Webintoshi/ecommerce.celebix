@@ -34,6 +34,7 @@ export const MERCHANT_PROVIDER_WORKFLOW_ERROR_CODES = Object.freeze([
   "record_not_found",
   "profile_not_found",
   "provider_disabled",
+  "provider_already_active",
   "lease_lost",
   "invalid_transition",
   "version_conflict",

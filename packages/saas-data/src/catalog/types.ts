@@ -1,4 +1,5 @@
 import type {
+  CatalogVariantOrder, CatalogVariantOrderIntent,
   ProductTaxChoice,
   CatalogProductSort,
   CatalogProductStockFilter,
@@ -158,6 +159,9 @@ export interface UpdateVariantInput extends CatalogAuthorityInput {
   readonly variant: CatalogVariantFields;
 }
 
+export interface ReorderVariantsInput extends CatalogAuthorityInput, CatalogVariantOrderIntent { readonly operationId:string; readonly productId:string; }
+export type VariantOrderResult = CatalogVariantOrder & Readonly<{replayed:boolean}>;
+
 export interface ArchiveVariantInput extends CatalogAuthorityInput {
   readonly operationId: string;
   readonly productId: string;
@@ -225,6 +229,8 @@ export interface CatalogRepository {
   getProductPreview(input: GetProductInput): Promise<CatalogProductPreviewProjection>;
   removeProduct(input: RemoveProductInput): Promise<RemoveProductResult>;
   bulkMutateProducts(input: BulkMutateProductsInput): Promise<BulkMutateProductsResult>;
+  getVariantOrder(input:GetProductInput):Promise<CatalogVariantOrder>;
+  reorderVariants(input:ReorderVariantsInput):Promise<VariantOrderResult>;
   createVariant(input: CreateVariantInput): Promise<VariantMutationResult>;
   createVariantBatch(input: CreateVariantBatchInput): Promise<VariantBatchMutationResult>;
   updateVariant(input: UpdateVariantInput): Promise<VariantMutationResult>;

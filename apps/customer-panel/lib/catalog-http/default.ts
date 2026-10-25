@@ -100,3 +100,6 @@ export async function handleDefaultCatalogArchiveVariant(
   const { productId, variantId } = await context.params;
   return handlers.archiveVariant(request, productId, variantId);
 }
+
+export async function handleDefaultCatalogGetVariantOrder(request:Request,context:ProductRouteContext){return handlers.getVariantOrder(request,(await context.params).productId);}
+export async function handleDefaultCatalogReorderVariants(request:Request,context:ProductRouteContext){return handlers.reorderVariants(request,(await context.params).productId);}

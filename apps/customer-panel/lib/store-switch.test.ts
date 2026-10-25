@@ -63,6 +63,30 @@ test("future store switch treats browser store ID as a hint and returns the shar
   assert.equal(response.status, 204);
   assert.match(response.headers.get("set-cookie") ?? "", /^__Host-celebix_panel=/);
   assert.match(response.headers.get("set-cookie") ?? "", /Secure/);
+  assert.match(response.headers.get("set-cookie") ?? "", /Max-Age=28740$/);
   assert.equal(persisted.has(session.id), false);
   assert.equal([...persisted.values()][0]?.activeStoreId, "store_2");
+});
+
+test("store switch on day twenty-nine keeps one day on the persistent cookie", async () => {
+  assert.ok(switches.createPanelStoreSwitchHandler);
+  const current = { ...session, expiresAt: "2026-08-10T10:00:00.000Z" };
+  let rotated: PanelSession | undefined;
+  const handler = switches.createPanelStoreSwitchHandler({
+    resolveSession: async () => current,
+    getMemberships: async () => [membership("store_2")],
+    sessionStore: {
+      async create() {}, async read() { return current; }, async destroy() {},
+      async rotate(_previous: string, value: PanelSession) { rotated = value; },
+    },
+    cookiePolicy: { kind: "production" },
+    now: () => new Date("2026-08-09T10:00:00.000Z"),
+  });
+  const response = await handler(new Request("https://panel.celebix.site/api/session/active-store", {
+    method: "POST", headers: { origin: "https://panel.celebix.site", "content-type": "application/json" },
+    body: JSON.stringify({ storeId: "store_2" }),
+  }));
+  assert.equal(response.status, 204);
+  assert.equal(rotated?.expiresAt, "2026-08-10T10:00:00.000Z");
+  assert.match(response.headers.get("set-cookie") ?? "", /Max-Age=86400$/);
 });

@@ -1,3 +1,4 @@
+import { resolveAkbankCompiledExecutionAuthority } from "@celebix/payment-adapters";
 import {
   parsePaymentProviderCatalog,
   type PaymentProviderCatalogEntry,
@@ -54,9 +55,15 @@ export function createPaymentProviderCatalog(
 ): readonly PaymentProviderCatalogEntry[] {
   const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
   const paytrAuthority = resolvePaytrCompiledExecutionAuthority();
-  const selected = iyzicoAuthority === null && paytrAuthority === null
+  const akbankAuthority = resolveAkbankCompiledExecutionAuthority("live") ?? resolveAkbankCompiledExecutionAuthority("test");
+  const selected = iyzicoAuthority === null && paytrAuthority === null && akbankAuthority === null
     ? RAW_PAYMENT_PROVIDER_CATALOG
     : RAW_PAYMENT_PROVIDER_CATALOG.map((entry) => {
+      if (entry.providerCode === "akbank_json" && akbankAuthority !== null) {
+        return Object.freeze({...entry, readiness: akbankAuthority.environment === "live" ? "production_ready" as const : "sandbox_ready" as const,
+          environments: Object.freeze([akbankAuthority.environment]), executionAuthority: akbankAuthority,
+          support: Object.freeze({threeDSecure:"yes" as const, installments:"no" as const, refund:"no" as const, cancel:"no" as const, capture:"no" as const})});
+      }
       if (entry.providerCode === "paytr_iframe" && paytrAuthority !== null) {
         return Object.freeze({
           ...entry,

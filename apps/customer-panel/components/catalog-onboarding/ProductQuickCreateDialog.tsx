@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ImagePlus, Package, X } from "lucide-react";
+import { CatalogSortArea, CatalogSortItem } from "@/components/catalog/CatalogSortArea";
+import { ArrowLeft, ArrowRight, GripVertical, ImagePlus, Package, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -61,7 +62,7 @@ type Recovery = Readonly<{
   publish: boolean;
 }>;
 
-type SelectedImage = Readonly<{ file: File; altText: string; preview: string }>;
+type SelectedImage = Readonly<{ localId: string; file: File; altText: string; preview: string }>;
 
 const ACCEPTED_MEDIA = new Set(["image/jpeg", "image/png", "image/webp"]);
 
@@ -93,7 +94,10 @@ export function ProductQuickCreateDialog({
 }: ProductQuickCreateDialogProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [images, setImages] = useState<readonly SelectedImage[]>(draftSession?.current.media ?? []);
+  const [images, setImages] = useState<readonly SelectedImage[]>(() => (draftSession?.current.media ?? []).map(image => ({ ...image, localId: image.localId ?? crypto.randomUUID() })));
+  const [activeImageId, setActiveImageId] = useState<string | undefined>(images[0]?.localId);
+  const activeImageIndex = Math.max(0, images.findIndex(image => image.localId === activeImageId));
+  const activeImage = images[activeImageIndex];
   const [progress, setProgress] = useState(0);
   const [recovery, setRecovery] = useState<Recovery>();
   const [createdProductId, setCreatedProductId] = useState<string>();
@@ -159,6 +163,7 @@ export function ProductQuickCreateDialog({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (mode === "page") return;
     if (event.key === "Escape") {
+      if (dialogRef.current?.querySelector('[data-sort-dragging="true"]')) return;
       event.preventDefault();
       requestClose();
       return;
@@ -188,13 +193,26 @@ export function ProductQuickCreateDialog({
       setError("En fazla 16 adet PNG, JPEG veya WebP görsel seçin; her dosya en fazla 5 MB olabilir.");
       return;
     }
-    const next = Object.freeze([...images, ...files.map((file) => Object.freeze({ file, altText: "", preview: URL.createObjectURL(file) }))]);
+    const next = Object.freeze([...images, ...files.map((file) => Object.freeze({ localId: crypto.randomUUID(), file, altText: "", preview: URL.createObjectURL(file) }))]);
     previewUrlsRef.current = Object.freeze(next.map(({ preview }) => preview));
     setImages(next);
+    if (!images.length) setActiveImageId(next[0]?.localId);
   }
 
   function changeAltText(index: number, altText: string) {
     setImages((current) => Object.freeze(current.map((image, position) => position === index ? Object.freeze({ ...image, altText }) : image)));
+  }
+
+  function moveImage(sourceId: string, targetId: string) {
+    if (submittingRef.current || createdProductIdRef.current || options === null || sourceId === targetId) return;
+    const sourceIndex = images.findIndex(image => image.localId === sourceId);
+    const targetIndex = images.findIndex(image => image.localId === targetId);
+    if (sourceIndex < 0 || targetIndex < 0) return;
+    const next = [...images];
+    const [moved] = next.splice(sourceIndex, 1);
+    next.splice(targetIndex, 0, moved!);
+    setActiveImageId(activeImage?.localId);
+    setImages(Object.freeze(next));
   }
 
   async function completeMedia(created: CatalogOnboardingResult, files: readonly ProductMediaSelection[], publish: boolean) {
@@ -313,22 +331,29 @@ export function ProductQuickCreateDialog({
         {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
         <fieldset disabled={submitting || options === null || Boolean(createdProductId)} className={workspace.layout}>
           <div className={workspace.mediaColumn}>
-            <div className={workspace.cover}>{images[0] ? <img src={images[0].preview} alt={images[0].altText || "Ürün görseli"} /> : <Package aria-hidden="true" />}</div>
+            <div className={workspace.cover}>{activeImage ? <><img src={activeImage.preview} alt={activeImage.altText || `${activeImageIndex + 1}. ürün görseli`} draggable={false} /><span className={workspace.coverTag}>{activeImageIndex === 0 ? "Kapak" : `${activeImageIndex + 1}. görsel`}</span></> : <Package aria-hidden="true" />}</div>
             <span>Görseller · {images.length}</span>
             <button type="button" className={workspace.mediaButton} onClick={() => imageInputRef.current?.click()}><ImagePlus aria-hidden="true" />Görsel ekle</button>
             <input ref={imageInputRef} type="file" tabIndex={-1} className={workspace.srOnly} multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} aria-label="Ürün görselleri seç" />
             <small>JPG, PNG, WebP · 5 MB · en fazla 16</small>
-            {images.length > 1 ? <div className={workspace.thumbnails}>{images.slice(1).map((image, index) => <img key={`${image.file.name}-${index}`} src={image.preview} alt={image.altText || `${index + 2}. ürün görseli`} />)}</div> : null}
+            {images.length > 1 ? <CatalogSortArea ids={images.map(item => item.localId)} onMove={moveImage} disabled={submitting || Boolean(createdProductId) || options === null} layout="grid" label="Görsel sırası" getLabel={id => `${images.findIndex(item => item.localId === id) + 1}. görsel`}><div className={workspace.thumbnails} aria-label="Seçili görseller">{images.map((image, index) => <CatalogSortItem id={image.localId} key={image.localId} className={workspace.mediaThumbnail}>{drag => <>
+                <button {...drag.pointerProps} className={workspace.thumbnailSelect} type="button" aria-label={`${index + 1}. görseli seç`} aria-pressed={activeImageIndex === index} onClick={() => setActiveImageId(image.localId)}><img src={image.preview} alt="" draggable={false} />{index === 0 ? <span className={workspace.thumbnailCover}>Kapak</span> : null}</button>
+              <div className={workspace.mediaOrderControls} role="group" aria-label={`${index + 1}. görselin sırası`}>
+                  <button {...drag.handleProps} title="Sürükleyerek sırala"><GripVertical aria-hidden="true" /></button>
+                <button type="button" aria-label={`${index + 1}. görseli öne taşı`} title="Öne taşı" disabled={submitting || Boolean(createdProductId) || index === 0} onClick={() => moveImage(image.localId, images[index - 1]!.localId)}><ArrowLeft aria-hidden="true" /></button>
+                <button type="button" aria-label={`${index + 1}. görseli arkaya taşı`} title="Arkaya taşı" disabled={submitting || Boolean(createdProductId) || index === images.length - 1} onClick={() => moveImage(image.localId, images[index + 1]!.localId)}><ArrowRight aria-hidden="true" /></button>
+              </div>
+
+              </>}</CatalogSortItem>)}</div></CatalogSortArea> : null}
           </div>
           <div className={workspace.fields}>
           <label className={styles.wide}><span>Ürün adı <b>*</b></span><input ref={titleRef} name="title" required maxLength={200} autoFocus placeholder="Ürün adı" autoComplete="off" value={title} onChange={(event) => setTitle(event.currentTarget.value)} /></label>
           {hasVariantDraft ? <div className={workspace.variantSummary}><strong>{draftSession?.current.variants.length ?? 0} varyant</strong><button type="button" onClick={onAdvanced}>Varyantları düzenle</button></div> : <>
           <label><span>Satış fiyatı <b>*</b></span><div className={styles.money}><input ref={priceRef} name="price" required inputMode="decimal" placeholder="0,00" value={price} onChange={(event) => setPrice(event.currentTarget.value)} /><span>₺</span></div></label>
+          <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
           <ProductTaxFields value={taxChoice} onChange={setTaxChoice} required/>
           <ProductPriceBasis value={priceBasis} onChange={setPriceBasis} price={price} tax={safeTaxChoice(taxChoice)}/>
-          <label><span>Stok adedi</span><input name="stockQuantity" inputMode="numeric" pattern="(?:0|[1-9][0-9]*)" value={stockQuantity} onChange={(event) => setStockQuantity(event.currentTarget.value)} /></label>
           <div className={workspace.identifiers}><SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} /><BarcodeInput value={barcode} onChange={setBarcode} reservationIdentity={barcodeIdentityRef.current} actionLabel="Oluştur" onBusyChange={setBarcodeBusy} /></div>
-          <ProductMeasurementFields value={measurements} onChange={setMeasurements} showValidation={showMeasurementValidation} />
           </>}
           <label className={styles.wide}>
             <span>Kategori</span>
@@ -337,7 +362,8 @@ export function ProductQuickCreateDialog({
             </select>
             <small id="quick-category-hint" className={styles.fieldHint}>Satışa açmak için gerekli</small>
           </label>
-          {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={`${image.file.name}-${index}`}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
+          {!hasVariantDraft ? <ProductMeasurementFields value={measurements} onChange={setMeasurements} showValidation={showMeasurementValidation} /> : null}
+          {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={image.localId}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} draggable={false} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
           {submitting && images.length ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görseller yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}
           </div>
         </fieldset>

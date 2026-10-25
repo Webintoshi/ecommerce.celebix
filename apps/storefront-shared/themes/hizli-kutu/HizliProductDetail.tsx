@@ -5,7 +5,8 @@ import { ProductVariantMediaProvider } from "../../components/ProductVariantMedi
 import { ProductInformationDisclosures, ProductSizeGuide } from "../../components/ProductInformationDisclosures";
 import { ProductGrid } from "../../components/ProductGrid";
 import { ProductApprovedReviews } from "../../components/ProductApprovedReviews";
-import { categoryPath, productIndexPath } from "../../lib/storefront-routes.ts";
+import { ProductPageReviewForm } from "../../components/ProductPageReviewForm";
+import { productPath, categoryPath, productIndexPath } from "../../lib/storefront-routes.ts";
 import { HizliProductPurchase } from "./HizliProductPurchase";
 
 export function HizliProductDetail({ product, initialVariantId, locale, relatedProducts, publishedPolicies, options, cardStyle, imageRatio, showQuantitySelector }: {
@@ -22,6 +23,7 @@ export function HizliProductDetail({ product, initialVariantId, locale, relatedP
       </div>
     </section></ProductVariantMediaProvider>
     {options.showApprovedReviews && product.reviews?.length ? <ProductApprovedReviews reviews={product.reviews} /> : null}
+    <ProductPageReviewForm key={product.id} productId={product.id} returnTo={productPath(locale, product.slug)} />
     {options.showRelatedProducts && relatedProducts.length ? <section className="hk-container hk-section"><div className="hk-section-heading"><h2>Birlikte keşfedin</h2><Link href={productIndexPath(locale)}>Tüm ürünler</Link></div><ProductGrid products={relatedProducts} locale={locale} cardStyle={cardStyle} imageRatio={imageRatio} /></section> : null}
   </>;
 }

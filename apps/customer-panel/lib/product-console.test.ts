@@ -213,6 +213,7 @@ async function createMountedProductConsole(
     if (specifier === "next/link") return Link;
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@celebix/saas-contracts") return { catalogProductListQueryDigest: (value: unknown) => JSON.stringify(value) };
+    if (specifier === "@/components/shared/PermanentDeleteDialog") return { PermanentDeleteDialog: () => null };
     if (specifier === "@/components/panel/PanelTopbarChrome") {
       return { PanelTopbarBridge: ({ actions }: { actions?: ReactNode }) => createElement("aside", { "data-topbar": true }, actions) };
     }

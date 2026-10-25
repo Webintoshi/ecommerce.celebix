@@ -389,6 +389,10 @@ export function PaymentSettingsConsole(props: Readonly<{
     const requiresMethodAuthority = card.actionLabel === "Etkinleştir";
     if (!props.canManage || !providerConfigurationAvailable || busyProviderCode || !card.configurable || !card.configurableDescriptor) return;
     if (requiresMethodAuthority && !methodsMutationAvailable) return;
+    if (card.providerCode === "akbank_json") {
+      setSelectedCard(card);
+      return;
+    }
     const descriptor = card.executableDescriptor;
     const profile = descriptor?.environments === undefined
       ? card.configurableDescriptor?.environments === undefined ? null : selectPaymentProviderConnectionProfile(
@@ -666,7 +670,10 @@ export function PaymentSettingsConsole(props: Readonly<{
           try { return buildProviderCheckoutPreferenceView(method).environment === environment; }
           catch { return false; }
         });
-        return Object.freeze({ profile, methodActive });
+        const anotherActiveProviderLabel = selectedCard.providerCode === "akbank_json"
+          ? outcome.sources.methods.value.find((method) => method.kind === "provider" && (method.providerCode !== "akbank_json" || method.profileId !== profileId) && method.state === "active")?.label ?? null
+          : null;
+        return Object.freeze({ profile, methodActive, anotherActiveProviderLabel });
       }} /> : null}
       {selectedBuiltIn ? <BuiltInPaymentMethodDrawer kind={selectedBuiltIn.kind} method={selectedBuiltIn.method} canManage={props.canManage} busy={busyBuiltInKind !== null} mutationAvailable={methodsMutationAvailable} submitError={builtInSubmitError} onSubmit={saveBuiltIn} onClose={closeBuiltIn} /> : null}
       {selectedCheckoutMethod ? <ProviderCheckoutSettingsDrawer method={selectedCheckoutMethod} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} busy={busyCheckoutMethodId !== null} submitError={checkoutSubmitError} openerRef={checkoutOpenerRef} onSubmit={saveProviderCheckout} onClose={closeProviderCheckout} /> : null}

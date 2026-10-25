@@ -98,7 +98,7 @@ function wallet(
 
 export const RAW_PAYMENT_PROVIDER_CATALOG = Object.freeze([
   bank("akbank", "akbank", "Akbank"),
-  bank("akbank-json", "akbank", "Akbank", "json", "JSON API"),
+  define({sourceSlug:"akbank-json", familyCode:"akbank", label:"Akbank", modeCode:"json", modeLabel:"3D Pay Hosting", category:"bank_pos", interactionMode:"redirect", readiness:"verification", environments:TEST_AND_LIVE}),
   hosted("akode", "akode", "AkÖde", "hosted", "Hosted Ödeme", ["ak ode"]),
   bank("albaraka", "albaraka_turk", "Albaraka Türk", "virtual_pos", "Sanal POS", "direct_pos", ["albaraka"]),
   tokenized("craftgate", "craftgate", "Craftgate", "orchestration", "Ödeme Orkestrasyonu"),

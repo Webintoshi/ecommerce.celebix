@@ -2,6 +2,9 @@ import { createHash } from "node:crypto";
 import { types as nodeTypes } from "node:util";
 
 import {
+  AKBANK_JSON_PACKET,
+  createAkbankHostedAdapter,
+  resolveAkbankCompiledExecutionAuthority,
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
   IYZICO_IFRAME_PACKET,
   IYZICO_GENERATED_BUILD_METADATA,
@@ -24,7 +27,7 @@ import {
   type MerchantProviderRegistryEntry,
 } from "../server-provider-execution/registry.ts";
 
-const DEFAULT_PROVIDER_CODES = Object.freeze(["iyzico_iframe", "paytr_iframe"] as const);
+const DEFAULT_PROVIDER_CODES = Object.freeze(["akbank_json", "iyzico_iframe", "paytr_iframe"] as const);
 const PUBLIC_KEYS = Object.freeze(["environment", "merchantId"] as const);
 const CREDENTIAL_KEYS = Object.freeze(["merchantKey", "merchantSalt"] as const);
 const ENCODER = new TextEncoder();
@@ -188,7 +191,7 @@ function exactRecord(value: unknown, keys: readonly string[]): Record<string, un
 
 function wipeCredential(value: unknown): void {
   if (typeof value !== "object" || value === null) return;
-  for (const key of ["merchantId", "merchantKey", "merchantSalt", "apiKey", "secretKey"]) {
+  for (const key of ["merchantId", "merchantKey", "merchantSalt", "apiKey", "secretKey", "merchantSafeId", "terminalSafeId"]) {
     try { Reflect.set(value, key, ""); } catch { /* best effort */ }
   }
 }
@@ -375,14 +378,48 @@ function iyzicoEntry(
   });
 }
 
+function akbankEntry(
+  adapter: HostedPaymentAdapter<object>,
+  executionAuthority: Readonly<PaymentProviderExecutionAuthority> | null,
+): MerchantProviderRegistryEntry {
+  if (adapter.packet !== AKBANK_JSON_PACKET) invalid();
+  function parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> {
+    const selected = exactRecord(value, ["environment"]);
+    if ((selected.environment !== "test" && selected.environment !== "live") || (executionAuthority !== null && selected.environment !== executionAuthority.environment)) invalid();
+    return Object.freeze({environment: selected.environment});
+  }
+  function parseCredential(value: unknown, publicConfig: Readonly<Record<string, MerchantAdminJson>>): Uint8Array {
+    let credential: object | undefined;
+    try {
+      parsePublicConfig(publicConfig);
+      const selected = exactRecord(value, ["merchantSafeId", "terminalSafeId", "secretKey"]);
+      credential = adapter.parseCredential({merchantSafeId: selected.merchantSafeId, terminalSafeId: selected.terminalSafeId, secretKey: selected.secretKey});
+      return ENCODER.encode(JSON.stringify({merchantSafeId: selected.merchantSafeId, terminalSafeId: selected.terminalSafeId, secretKey: selected.secretKey}));
+    } catch { return invalid(); }
+    finally { wipeCredential(credential); }
+  }
+  return Object.freeze({
+    providerCode: "akbank_json", capability: "payment_processing" as const, label: "Akbank · 3D Pay Hosting",
+    publicFields: Object.freeze([]),
+    credentialFields: Object.freeze(adapter.packet.credentialFields.map(({key,label}) => Object.freeze({key,label,secret:true as const}))),
+    adapterVersion: 1,
+    environments: executionAuthority === null ? Object.freeze(["test", "live"] as const) : Object.freeze([executionAuthority.environment]),
+    executionAuthority,
+    profileSaveMode: executionAuthority === null ? "verification" as const : "execution_authority" as const,
+    parsePublicConfig, parseCredential,
+    maskAccountReference(value: Readonly<Record<string, MerchantAdminJson>>) { return `Akbank ${parsePublicConfig(value).environment === "live" ? "canlı" : "test"} hesabı`; },
+  });
+}
+
 export function createDefaultHostedPaymentAdapterRegistry(
   transport: ProviderTransport,
 ): PaymentAdapterRegistry {
   const paytr = createPaytrIframeAdapter(transport);
   const iyzico = createIyzicoCheckoutFormAdapter(transport);
+  const akbank = createAkbankHostedAdapter(transport);
   return createPaymentAdapterRegistry(
-    [PAYTR_IFRAME_PACKET, IYZICO_IFRAME_PACKET],
-    [paytr, iyzico],
+    [PAYTR_IFRAME_PACKET, IYZICO_IFRAME_PACKET, AKBANK_JSON_PACKET],
+    [paytr, iyzico, akbank],
   );
 }
 
@@ -394,12 +431,14 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
   iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
 ): MerchantProviderRegistry {
   try {
-    if (hosted.size !== 2) invalid();
+    if (hosted.size !== 3) invalid();
     const adapter = hosted.adapter("paytr_iframe");
     const iyzico = hosted.adapter("iyzico_iframe");
+    const akbank = hosted.adapter("akbank_json");
     if (
       adapter === null || hosted.packet("paytr_iframe") !== PAYTR_IFRAME_PACKET ||
-      iyzico === null || hosted.packet("iyzico_iframe") !== IYZICO_IFRAME_PACKET
+      iyzico === null || hosted.packet("iyzico_iframe") !== IYZICO_IFRAME_PACKET ||
+      akbank === null || hosted.packet("akbank_json") !== AKBANK_JSON_PACKET
     ) invalid();
     if (executionAuthority !== null && (
       executionAuthority.environment !== "test" ||
@@ -414,6 +453,7 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
     return createCustomerPanelProviderRegistry([
       paytrEntry(adapter, paytrAuthority),
       iyzicoEntry(iyzico, iyzicoAuthority),
+      akbankEntry(akbank, resolveAkbankCompiledExecutionAuthority("live") ?? resolveAkbankCompiledExecutionAuthority("test")),
     ]);
   } catch {
     return invalid();
@@ -433,6 +473,7 @@ export function createDefaultCustomerPanelCredentialProviderRegistry(
   const execution = createDefaultCustomerPanelPaymentProviderRegistry(hosted, executionAuthority, activationMode, iyzicoApproval, iyzicoBuild);
   const credentials = createCustomerPanelProviderRegistry([
     paytrEntry(hosted.adapter("paytr_iframe")!, null),
+    akbankEntry(hosted.adapter("akbank_json")!, null),
     execution.get("iyzico_iframe", "payment_processing")!,
   ]);
   CREDENTIAL_EXECUTION_REGISTRIES.set(credentials, execution);

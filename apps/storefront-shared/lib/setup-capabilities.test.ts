@@ -51,3 +51,17 @@ test("read failures stay unavailable and no raw dependency error is projected",a
   assert.equal(JSON.stringify(dto).includes("private_dependency_detail"),false);
   assert.equal((await route(new Request("https://shop.saas-staging.celebix.net/api/setup-capabilities?storeId=other"))).status,404);
 });
+
+test("setup reports modern Akbank test and live tuples and leaves classic bank unavailable", async () => {
+  for (const providerCode of ["akbank_json", "akbank"] as const) {
+    const providers = ["test", "live"].map((environment) => ({ providerCode, environment, adapterVersion: 1, evidenceDigest: `sha256:${"a".repeat(64)}` }));
+    const route = createStorefrontSetupCapabilitiesRoute({
+      selectAuthority: () => ({ kind: "trusted", hostname: "shop.saas-staging.celebix.net" }),
+      resolveRepository: async () => ({ get: async () => ({ schemaVersion: 1, status: "ok", storeId: "fixture-store", hostname: "shop.saas-staging.celebix.net" }) }),
+      paymentAvailability: async () => ({ kind: "ready", providers }) as never,
+      now: () => new Date(),
+    });
+    const dto = await (await route(new Request("https://shop.saas-staging.celebix.net/api/setup-capabilities"))).json();
+    assert.deepEqual(dto.payment, providerCode === "akbank_json" ? { kind: "ready", providers } : { kind: "unavailable", providers: [] });
+  }
+});

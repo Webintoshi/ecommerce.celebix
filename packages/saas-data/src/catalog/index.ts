@@ -2,6 +2,7 @@ export { CATALOG_ERROR_CODES, CatalogRepositoryError } from "./errors.ts";
 export type { CatalogErrorCode } from "./errors.ts";
 export { PostgresCatalogRepository } from "./repository.ts";
 export type {
+  ReorderVariantsInput, VariantOrderResult,
   ArchiveProductInput,
   ArchiveVariantInput,
   BulkMutateProductsInput,

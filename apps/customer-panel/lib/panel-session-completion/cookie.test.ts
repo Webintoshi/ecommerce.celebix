@@ -17,6 +17,30 @@ test("serializes only the exact secure __Host persistent-session cookie with exp
   assert.doesNotMatch(cookie, /Domain|SameSite=None|%|"/);
 });
 
+test("keeps a new thirty-day login across browser restarts and writes only its remaining lifetime", () => {
+  const input = {
+    credential: CREDENTIAL,
+    issuedAt: "2026-07-14T12:00:00.000Z",
+    expiresAt: "2026-08-13T12:00:00.000Z",
+    now: NOW,
+  };
+  assert.equal(cookies.serializePersistentPanelSessionCookie(input),
+    `__Host-celebix_panel=${CREDENTIAL}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`);
+  assert.equal(cookies.serializePersistentPanelSessionCookie({ ...input, now: new Date("2026-08-12T12:00:00.000Z") }),
+    `__Host-celebix_panel=${CREDENTIAL}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=86400`);
+  assert.throws(() => cookies.serializePersistentPanelSessionCookie({ ...input, now: new Date(input.expiresAt) }),
+    /persistent_panel_session_cookie_invalid/);
+});
+
+test("keeps an existing eight-hour login bounded to its original expiry", () => {
+  assert.match(cookies.serializePersistentPanelSessionCookie({
+    credential: CREDENTIAL,
+    issuedAt: "2026-07-14T10:00:00.000Z",
+    expiresAt: "2026-07-14T18:00:00.000Z",
+    now: NOW,
+  }), /Max-Age=21600$/);
+});
+
 test("rejects malformed, expired, subsecond, excessive, insecure, alternate, and caller-option cookie authority", () => {
   const base = {
     credential: CREDENTIAL,
@@ -29,7 +53,7 @@ test("rejects malformed, expired, subsecond, excessive, insecure, alternate, and
     { ...base, credential: `v1.panel.active.${"a".repeat(43)}=` },
     { ...base, expiresAt: NOW.toISOString() },
     { ...base, expiresAt: new Date(NOW.getTime() + 999).toISOString() },
-    { ...base, expiresAt: new Date(NOW.getTime() + 28_800_001).toISOString() },
+    { ...base, expiresAt: new Date(NOW.getTime() + 2_592_000_001).toISOString() },
     { ...base, cookieName: "celebix_panel_local" },
     { ...base, secure: false },
     { ...base, domain: "panel.celebix.site" },

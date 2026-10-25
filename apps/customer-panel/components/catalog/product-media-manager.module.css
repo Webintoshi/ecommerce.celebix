@@ -91,9 +91,9 @@ section.root:global(.product-detail-section) {
   border-radius: 9px;
   background: var(--catalog-canvas, #f8f7f5);
 }
-.thumbnail[draggable="true"] { cursor: grab; }
-.thumbnail[draggable="true"]:active { cursor: grabbing; }
-.thumbnail.dragOver { outline: 2px solid var(--catalog-accent, #fe6100); outline-offset: 2px; }
+.imageButton { display: block; width: 100%; height: 100%; border: 0; background: transparent; padding: 0; }
+.dragHandle { position: absolute; top: 8px; left: 8px; display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--catalog-border, #e7e2dd); border-radius: 7px; background: var(--catalog-surface, #fffdfc); color: var(--catalog-text, #2b2b2b); }
+.dragHandle svg { width: 18px; height: 18px; }
 .thumbnail img { width: 100%; height: 100%; object-fit: cover; object-position: center 35%; }
 .coverBadge, .positionBadge {
   position: absolute;

@@ -3,6 +3,9 @@ import { createHash } from "node:crypto";
 import { types as nodeTypes } from "node:util";
 
 import {
+  AKBANK_JSON_PACKET,
+  createAkbankHostedAdapter,
+  resolveAkbankCompiledExecutionAuthority,
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
   IYZICO_IFRAME_PACKET,
   IYZICO_GENERATED_BUILD_METADATA,
@@ -29,7 +32,7 @@ import {
 } from "./runtime.ts";
 
 type Environment = Readonly<Record<string, string | undefined>>;
-type HostedProviderCode = "paytr_iframe" | "iyzico_iframe";
+type HostedProviderCode = "paytr_iframe" | "iyzico_iframe" | "akbank_json";
 
 export type StorefrontHostedPaymentActivationMode =
   | "disabled"
@@ -39,13 +42,14 @@ export type StorefrontHostedPaymentActivationMode =
 
 export type StorefrontHostedPaymentCompiledAuthorities = Readonly<{
   paytr_iframe: PaytrExecutionAuthorityMap;
+  akbank_json?: PaytrExecutionAuthorityMap;
   iyzico_iframe: Readonly<PaymentProviderExecutionAuthority> | null;
 }>;
 export type StorefrontHostedPaymentCompiledAuthoritySelector = (
   providerCode: string,
   environment: "test" | "live",
 ) => Readonly<{
-  providerCode: "paytr_iframe" | "iyzico_iframe";
+  providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json";
   environment: "test" | "live";
   adapterVersion: number;
   evidenceDigest: string;
@@ -65,12 +69,14 @@ export function resolveStorefrontHostedPaymentActivationMode(
   source: Environment,
   providerCode: HostedProviderCode = "paytr_iframe",
 ): StorefrontHostedPaymentActivationMode {
+  if (!["paytr_iframe", "iyzico_iframe", "akbank_json"].includes(providerCode)) return "disabled";
   const value = providerCode === "paytr_iframe"
     ? source.CELEBIX_PAYTR_IFRAME_STOREFRONT_MODE
+    : providerCode === "akbank_json" ? source.CELEBIX_AKBANK_JSON_STOREFRONT_MODE
     : source.CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE;
   if (value === "approved_test_sandbox") return value;
   if (
-    providerCode === "paytr_iframe"
+    (providerCode === "paytr_iframe" || providerCode === "akbank_json")
     && (value === "approved_live" || value === "approved_test_and_live")
   ) return value;
   return "disabled";
@@ -162,10 +168,12 @@ export function createDefaultStorefrontHostedPaymentCompiledAuthorities(
   iyzicoApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
   iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
   paytrApprovals: unknown = PAYTR_APPROVED_EXECUTION_AUTHORITIES,
+  akbankApprovals: unknown = Object.freeze({ test: resolveAkbankCompiledExecutionAuthority("test"), live: resolveAkbankCompiledExecutionAuthority("live") }),
 ): StorefrontHostedPaymentCompiledAuthorities {
   const paytr = paytrAuthoritySnapshot(paytrApprovals) ?? Object.freeze({ test: null, live: null });
   return Object.freeze({
     paytr_iframe: paytr,
+    akbank_json: paytrAuthoritySnapshot(akbankApprovals, "akbank_json") ?? Object.freeze({ test: null, live: null }),
     iyzico_iframe: resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild),
   });
 }
@@ -175,18 +183,19 @@ export function createDefaultHostedPaymentAdapterRegistry(
 ): PaymentAdapterRegistry {
   const paytr = createPaytrIframeAdapter(transport);
   const iyzico = createIyzicoCheckoutFormAdapter(transport);
+  const akbank = createAkbankHostedAdapter(transport);
   return createPaymentAdapterRegistry(
-    [PAYTR_IFRAME_PACKET, IYZICO_IFRAME_PACKET],
-    [paytr, iyzico],
+    [PAYTR_IFRAME_PACKET, IYZICO_IFRAME_PACKET, AKBANK_JSON_PACKET],
+    [paytr, iyzico, akbank],
   );
 }
 
 function exactCompiledAuthority(
-  providerCode: "paytr_iframe" | "iyzico_iframe",
+  providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json",
   environment: "test" | "live",
   value: unknown,
 ): value is Readonly<PaymentProviderExecutionAuthority> {
-  const packet = providerCode === "paytr_iframe" ? PAYTR_IFRAME_PACKET : IYZICO_IFRAME_PACKET;
+  const packet = providerCode === "paytr_iframe" ? PAYTR_IFRAME_PACKET : providerCode === "akbank_json" ? AKBANK_JSON_PACKET : IYZICO_IFRAME_PACKET;
   const descriptors = value !== null
     && typeof value === "object"
     && !Array.isArray(value)
@@ -204,7 +213,7 @@ function exactCompiledAuthority(
     && /^sha256:[a-f0-9]{64}$/.test(descriptors.evidenceDigest.value);
 }
 
-function paytrAuthoritySnapshot(value: unknown): PaytrExecutionAuthorityMap | null {
+function paytrAuthoritySnapshot(value: unknown, providerCode: "paytr_iframe" | "akbank_json" = "paytr_iframe"): PaytrExecutionAuthorityMap | null {
   try {
     if (
       typeof value !== "object"
@@ -222,8 +231,8 @@ function paytrAuthoritySnapshot(value: unknown): PaytrExecutionAuthorityMap | nu
     const test = descriptors.test!.value;
     const live = descriptors.live!.value;
     if (
-      (test !== null && !exactCompiledAuthority("paytr_iframe", "test", test))
-      || (live !== null && !exactCompiledAuthority("paytr_iframe", "live", live))
+      (test !== null && !exactCompiledAuthority(providerCode, "test", test))
+      || (live !== null && !exactCompiledAuthority(providerCode, "live", live))
     ) return null;
     return Object.freeze({
       test: test === null ? null : Object.freeze({
@@ -254,19 +263,21 @@ function compiledAuthoritySnapshot(
       || Object.getPrototypeOf(value) !== Object.prototype
     ) return null;
     const descriptors = Object.getOwnPropertyDescriptors(value);
-    const keys = ["paytr_iframe", "iyzico_iframe"];
+    const keys = ["paytr_iframe", "iyzico_iframe", ...(Object.hasOwn(descriptors, "akbank_json") ? ["akbank_json"] : [])];
     if (
       Reflect.ownKeys(descriptors).length !== keys.length
       || !keys.every((key) => descriptors[key]?.enumerable === true && "value" in descriptors[key]!)
     ) return null;
     const paytr = paytrAuthoritySnapshot(descriptors.paytr_iframe!.value);
+    const akbank = descriptors.akbank_json ? paytrAuthoritySnapshot(descriptors.akbank_json.value, "akbank_json") : Object.freeze({ test: null, live: null });
     const iyzico = descriptors.iyzico_iframe!.value as Readonly<PaymentProviderExecutionAuthority> | null;
     if (
-      paytr === null
+      paytr === null || akbank === null
       || (iyzico !== null && !exactCompiledAuthority("iyzico_iframe", "test", iyzico))
     ) return null;
     return Object.freeze({
       paytr_iframe: paytr,
+      akbank_json: akbank,
       iyzico_iframe: iyzico === null ? null : Object.freeze({
         environment: iyzico.environment,
         adapterVersion: iyzico.adapterVersion,
@@ -279,7 +290,7 @@ function compiledAuthoritySnapshot(
 }
 
 function executableInCurrentPacket(
-  providerCode: "paytr_iframe" | "iyzico_iframe",
+  providerCode: "paytr_iframe" | "iyzico_iframe" | "akbank_json",
   environment: "test" | "live",
   authority: Readonly<PaymentProviderExecutionAuthority> | null,
 ): boolean {
@@ -293,11 +304,12 @@ export function createStorefrontHostedPaymentCompiledAuthoritySelector(
   if (authorities === null) return null;
   return Object.freeze((providerCode: string, environment: "test" | "live") => {
     if (
-      (providerCode !== "paytr_iframe" && providerCode !== "iyzico_iframe")
+      (providerCode !== "paytr_iframe" && providerCode !== "iyzico_iframe" && providerCode !== "akbank_json")
       || (environment !== "test" && environment !== "live")
     ) return null;
     const authority = providerCode === "paytr_iframe"
       ? authorities.paytr_iframe[environment]
+      : providerCode === "akbank_json" ? authorities.akbank_json?.[environment] ?? null
       : environment === "test" ? authorities.iyzico_iframe : null;
     return authority === null ? null : Object.freeze({ providerCode, ...authority });
   });
@@ -320,7 +332,12 @@ export function createDefaultHostedPaymentRuntime(input: Readonly<{
   const authorities = compiledAuthoritySnapshot(input.compiledAuthorities);
   if (authorities === null) return null;
   const paytrMode = resolveStorefrontHostedPaymentActivationMode(input.source, "paytr_iframe");
+  const akbankMode = resolveStorefrontHostedPaymentActivationMode(input.source, "akbank_json");
   const activeAuthorities = Object.freeze({
+    akbank_json: Object.freeze({
+      test: paytrEnvironmentEnabled(akbankMode, "test") ? authorities.akbank_json?.test ?? null : null,
+      live: paytrEnvironmentEnabled(akbankMode, "live") ? authorities.akbank_json?.live ?? null : null,
+    }),
     paytr_iframe: Object.freeze({
       test: paytrEnvironmentEnabled(paytrMode, "test") ? authorities.paytr_iframe.test : null,
       live: paytrEnvironmentEnabled(paytrMode, "live") ? authorities.paytr_iframe.live : null,
@@ -335,7 +352,9 @@ export function createDefaultHostedPaymentRuntime(input: Readonly<{
     selectCompiledAuthority === null
     || (!executableInCurrentPacket("paytr_iframe", "test", activeAuthorities.paytr_iframe.test)
       && !executableInCurrentPacket("paytr_iframe", "live", activeAuthorities.paytr_iframe.live)
-      && !executableInCurrentPacket("iyzico_iframe", "test", activeAuthorities.iyzico_iframe))
+      && !executableInCurrentPacket("iyzico_iframe", "test", activeAuthorities.iyzico_iframe)
+      && !executableInCurrentPacket("akbank_json", "test", activeAuthorities.akbank_json.test)
+      && !executableInCurrentPacket("akbank_json", "live", activeAuthorities.akbank_json.live))
   ) return null;
   const dependencies = input.dependencies;
   const adapters = createDefaultHostedPaymentAdapterRegistry(dependencies.transport);

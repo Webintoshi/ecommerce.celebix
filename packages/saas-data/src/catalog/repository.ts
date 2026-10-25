@@ -1,4 +1,5 @@
 import {
+  parseCatalogVariantOrder, parseCatalogVariantOrderIntent,
   isCatalogProductOperationAllowed,
   parseCatalogProductListVariantSummary,
   parseCatalogBulkProductIntent,
@@ -22,6 +23,7 @@ import { catalogFingerprint } from "./canonical.ts";
 import { decodeCursor, encodeCursor } from "./cursor.ts";
 import { CATALOG_ERROR_CODES, CatalogRepositoryError, type CatalogErrorCode } from "./errors.ts";
 import type {
+  ReorderVariantsInput, VariantOrderResult,
   ArchiveProductInput,
   ArchiveVariantInput,
   BulkMutateProductsInput,
@@ -68,7 +70,7 @@ import {
 } from "./validation.ts";
 
 type MutationParser<T> = (payload: unknown, replayed: boolean) => T;
-type CatalogRecoveryFunction = "catalog_recover_operation" | "delete_product_recover";
+type CatalogRecoveryFunction = "catalog_recover_operation" | "delete_product_recover" | "catalog_recover_variant_order";
 type QuerySpec = Readonly<{ text: string; values: unknown[] }>;
 const ERROR_CODES = new Set<string>(CATALOG_ERROR_CODES);
 
@@ -672,13 +674,9 @@ export class PostgresCatalogRepository implements CatalogRepository {
         (!includeArchivedVariants && variant.status !== "active")
       ))
     ) throw unavailable();
-    for (let index = 1; index < variants.length; index += 1) {
-      const previous = variants[index - 1]!;
-      const current = variants[index]!;
-      if (previous.createdAt > current.createdAt || (previous.createdAt === current.createdAt && previous.id >= current.id)) {
-        throw unavailable();
-      }
-    }
+    // The native catalog authority returns merchant-defined display order.
+    // Identity uniqueness remains mandatory; creation chronology is not display order.
+    if (new Set(variants.map((variant) => variant.id)).size !== variants.length) throw unavailable();
     return Object.freeze({ product, variants });
   }
 
@@ -912,6 +910,27 @@ export class PostgresCatalogRepository implements CatalogRepository {
         }
       }
     } : undefined);
+  }
+
+  async getVariantOrder(input:GetProductInput) {
+    const exact=exactInput(input,["tenantContext","now","productId"]);
+    const authority=catalogAuthority(exact.tenantContext as GetProductInput["tenantContext"],exact.now as Date);authorizeOperation(authority,"read");
+    const productId=catalogUuid(exact.productId);
+    const result=await this.read(authority,{text:"SELECT outcome,result_payload FROM saas.catalog_get_variant_order($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid)",values:[...authorityValues(authority),productId]});
+    if(result.outcome!=="found")throw unavailable();
+    try {const order=parseCatalogVariantOrder(result.resultPayload);if(order.productId!==productId)throw unavailable();return order;} catch {throw unavailable();}
+  }
+
+  async reorderVariants(input:ReorderVariantsInput):Promise<VariantOrderResult> {
+    const exact=exactInput(input,["tenantContext","now","operationId","productId","expectedVersion","orderedVariantIds"]);
+    const authority=catalogAuthority(exact.tenantContext as ReorderVariantsInput["tenantContext"],exact.now as Date);authorizeOperation(authority,"update_variant");
+    const productId=catalogUuid(exact.productId),operationId=catalogUuid(exact.operationId);
+    let intent;try{intent=parseCatalogVariantOrderIntent({expectedVersion:exact.expectedVersion,orderedVariantIds:exact.orderedVariantIds});}catch{throw new CatalogRepositoryError("invalid_input");}
+    const fingerprint=catalogFingerprint("reorder_variants",authority.storeId,{productId,...intent});
+    return this.mutate(authority,operationId,fingerprint,{text:"SELECT outcome,result_payload FROM saas.catalog_reorder_variants($1::uuid,$2::uuid,$3::uuid,$4::uuid,$5::text,$6::bigint,$7::bigint,$8::timestamptz,$9::uuid,$10::text,$11::uuid,$12::bigint,$13::uuid[])",values:[...authorityValues(authority),operationId,fingerprint,productId,intent.expectedVersion,intent.orderedVariantIds]},["reordered"],(value,replayed)=>{
+      const body=payload(value,["productId","version","orderedVariantIds","replayed"]);const {replayed:marker,...snapshot}=body;
+      try{const order=parseCatalogVariantOrder(snapshot);if(marker!==replayed||order.productId!==productId||order.version!==intent.expectedVersion+1||order.orderedVariantIds.length!==intent.orderedVariantIds.length||order.orderedVariantIds.some((id,index)=>id!==intent.orderedVariantIds[index]))throw unavailable();return Object.freeze({...order,replayed});}catch{throw unavailable();}
+    },undefined,"catalog_recover_variant_order");
   }
 
   async createVariant(input: CreateVariantInput): Promise<VariantMutationResult> {

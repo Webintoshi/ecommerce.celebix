@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import {
+  AKBANK_JSON_PACKET,
   IYZICO_IFRAME_PACKET,
   PAYTR_APPROVED_EXECUTION_AUTHORITIES,
   PAYTR_IFRAME_PACKET,
@@ -47,7 +48,7 @@ const PAYTR_AUTHORITIES = Object.freeze({
   live: PAYTR_LIVE_AUTHORITY,
 });
 
-test("default storefront registry contains only the immutable PayTR and iyzico packets with their own adapters", () => {
+test("default storefront registry contains the immutable hosted packets with their own adapters", () => {
   const transport = Object.freeze({
     request: Object.freeze(async () => {
       throw new Error("provider_transport_must_not_run_during_composition");
@@ -56,12 +57,15 @@ test("default storefront registry contains only the immutable PayTR and iyzico p
   const registry = createDefaultHostedPaymentAdapterRegistry(transport);
 
   assert.equal(Object.isFrozen(registry), true);
-  assert.equal(registry.size, 2);
+  assert.equal(registry.size, 3);
   assert.strictEqual(registry.packet("paytr_iframe"), PAYTR_IFRAME_PACKET);
   assert.strictEqual(registry.packet("iyzico_iframe"), IYZICO_IFRAME_PACKET);
   assert.strictEqual(registry.adapter("paytr_iframe")?.packet, PAYTR_IFRAME_PACKET);
   assert.strictEqual(registry.adapter("iyzico_iframe")?.packet, IYZICO_IFRAME_PACKET);
   assert.notStrictEqual(registry.adapter("paytr_iframe"), registry.adapter("iyzico_iframe"));
+  assert.strictEqual(registry.packet("akbank_json"), AKBANK_JSON_PACKET);
+  assert.strictEqual(registry.adapter("akbank_json")?.packet, AKBANK_JSON_PACKET);
+  assert.equal(registry.adapter("akbank"), null);
   assert.equal(registry.packet("iyzico"), null);
   assert.equal(registry.adapter("paytr"), null);
 });
@@ -156,7 +160,9 @@ test("default compiled authority map keeps PayTR test and live bindings distinct
   const createAuthorities = candidate.createDefaultStorefrontHostedPaymentCompiledAuthorities!;
   assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.test, "PayTR test execution authority must be generated");
   assert.ok(PAYTR_APPROVED_EXECUTION_AUTHORITIES.live, "PayTR live execution authority must be generated");
+  const defaultAkbank = storefrontPaymentDefaults.createDefaultStorefrontHostedPaymentCompiledAuthorities().akbank_json;
   assert.deepEqual(createAuthorities(), {
+    akbank_json: defaultAkbank,
     paytr_iframe: {
       test: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
       live: PAYTR_APPROVED_EXECUTION_AUTHORITIES.live,
@@ -165,6 +171,7 @@ test("default compiled authority map keeps PayTR test and live bindings distinct
   });
   const selected = createAuthorities(IYZICO_AUTHORITY, IYZICO_CANDIDATE);
   assert.deepEqual(selected, {
+    akbank_json: defaultAkbank,
     paytr_iframe: {
       test: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test,
       live: PAYTR_APPROVED_EXECUTION_AUTHORITIES.live,
@@ -172,7 +179,7 @@ test("default compiled authority map keeps PayTR test and live bindings distinct
     iyzico_iframe: IYZICO_AUTHORITY,
   });
   const paytr = createAuthorities(undefined, undefined, PAYTR_AUTHORITIES);
-  assert.deepEqual(paytr, { paytr_iframe: PAYTR_AUTHORITIES, iyzico_iframe: null });
+  assert.deepEqual(paytr, { paytr_iframe: PAYTR_AUTHORITIES, iyzico_iframe: null, akbank_json: defaultAkbank });
   assert.notStrictEqual(paytr.paytr_iframe, PAYTR_AUTHORITIES);
   assert.equal(Object.isFrozen(paytr.paytr_iframe), true);
   assert.equal(Object.isFrozen(paytr.paytr_iframe.test), true);
@@ -465,4 +472,26 @@ test("default storefront call site stages the real repository keyring and transp
     /finally\s*\{[\s\S]*!runtimeOwnsKeyring[\s\S]*key[.]fill\(0\)/,
   );
   assert.doesNotMatch(source, /CELEBIX_PAYTR_EXECUTION_EVIDENCE_DIGEST/);
+});
+
+
+test("Akbank execution uses its exact flag and environment authority without enabling legacy bank or iyzico live", () => {
+  const testAuthority = { environment: "test" as const, adapterVersion: AKBANK_JSON_PACKET.adapterVersion, evidenceDigest: `sha256:${"c".repeat(64)}` };
+  const liveAuthority = { ...testAuthority, environment: "live" as const, evidenceDigest: `sha256:${"d".repeat(64)}` };
+  const authorities = { paytr_iframe: { test: null, live: null }, iyzico_iframe: null,
+    akbank_json: { test: testAuthority, live: liveAuthority } };
+  const select = createStorefrontHostedPaymentCompiledAuthoritySelector(authorities);
+  assert.ok(select);
+  assert.deepEqual(select("akbank_json", "test"), { providerCode: "akbank_json", ...testAuthority });
+  assert.deepEqual(select("akbank_json", "live"), { providerCode: "akbank_json", ...liveAuthority });
+  assert.equal(select("akbank", "test"), null);
+  for (const mode of ["approved_test_sandbox", "approved_live", "approved_test_and_live"] as const) {
+    assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: mode }, "akbank_json"), mode);
+    assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: mode }, "paytr_iframe"), "disabled");
+    assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: mode }, "iyzico_iframe"), "disabled");
+  }
+  assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_live" }, "iyzico_iframe"), "disabled");
+  assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: "enabled" }, "akbank_json"), "disabled");
+  assert.equal(createStorefrontHostedPaymentCompiledAuthoritySelector({ ...authorities, akbank_json: { test: { ...testAuthority, adapterVersion: 999 }, live: null } }), null);
+  assert.equal(createStorefrontHostedPaymentCompiledAuthoritySelector({ ...authorities, akbank_json: { test: null, live: { ...liveAuthority, environment: "test" } } } as never), null);
 });

@@ -141,7 +141,7 @@ test("catalog preserves the approved family and mode normalization", () => {
       entry.readiness,
       entry.providerCode === "paytr_iframe"
         ? "sandbox_ready"
-        : entry.providerCode === "iyzico_iframe"
+        : (entry.providerCode === "iyzico_iframe" || entry.providerCode === "akbank_json")
         ? "verification"
         : "planned",
     );

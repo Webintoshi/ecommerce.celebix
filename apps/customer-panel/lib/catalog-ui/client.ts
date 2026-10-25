@@ -11,6 +11,8 @@ import {
   parseProduct,
   parseProductVariant,
   parseProductTaxRead,
+  parseCatalogVariantOrder, parseCatalogVariantOrderIntent,
+  type CatalogVariantOrder, type CatalogVariantOrderIntent,
   type ProductTaxRead,
   type CatalogProductListVariantSummary,
   type CatalogProductListQuery,
@@ -33,6 +35,7 @@ const API_CODES = Object.freeze([
   "barcode_conflict",
   "variant_combination_conflict",
   "variant_limit_reached",
+  "order_membership_changed",
   "version_conflict", "dynamic_pricing_not_ready", "dynamic_price_unavailable", "operation_mismatch", "unavailable",
   "removal_not_eligible",
   "invalid_confirmation", "cleanup_pending", "cleanup_failed",
@@ -51,6 +54,7 @@ const TURKISH_MESSAGES: Readonly<Record<CatalogApiErrorCode, string>> = Object.f
   barcode_conflict: "Bu barkod mağazada başka bir varyantta kullanılıyor. Alanı temizleyip yeni bir barkod oluşturun.",
   variant_combination_conflict: "Bu nitelik kombinasyonu ürünün varyantlarında zaten var.",
   variant_limit_reached: "Bir üründe en fazla 100 aktif varyant olabilir.",
+  order_membership_changed: "Varyantlar değişti. Güncel sırayı yükleyip yeniden deneyin.",
   version_conflict: "Bu kayıt sizden önce başka bir işlem tarafından güncellendi.",
   dynamic_pricing_not_ready: "Ürün satışa açılamadı: dinamik fiyatlandırma bu mağazada henüz etkin değil. Fiyat yöntemini Sabit TL olarak ayarlayın.",
   dynamic_price_unavailable: "Ürün satışa açılamadı: dinamik fiyat için gerekli güncel referans değeri bulunamadı. Referans ve fiyat politikasını kontrol edin.",
@@ -507,6 +511,21 @@ export function createCatalogApiClient(options?: Readonly<{ fetch?: Fetch; rando
 
     async bulkMutateProducts(input: CatalogBulkProductIntent): Promise<Readonly<{ products: readonly Product[]; replayed: boolean }>> {
       return bulkProductMutation(input);
+    },
+
+    async getVariantOrder(id: string): Promise<CatalogVariantOrder> {
+      const order=parseCatalogVariantOrder(await request(`/api/catalog/products/${productId(id)}/variant-order`, {method:"GET",credentials:"same-origin",cache:"no-store"}));
+      if(order.productId!==id)throw new CatalogApiError("unavailable",503);return order;
+    },
+
+    async reorderVariants(id: string, input: CatalogVariantOrderIntent & Readonly<{operationId:string}>): Promise<CatalogVariantOrder & Readonly<{replayed:boolean}>> {
+      if(!UUID.test(input.operationId))throw new TypeError("catalog_client_invalid");
+      const intent=parseCatalogVariantOrderIntent({expectedVersion:input.expectedVersion,orderedVariantIds:input.orderedVariantIds});
+      const body=record(await request(`/api/catalog/products/${productId(id)}/variant-order`,{method:"POST",credentials:"same-origin",cache:"no-store",headers:{"content-type":"application/json","idempotency-key":input.operationId},body:JSON.stringify(intent)}));
+      if(!body||Object.keys(body).sort().join(",")!=="orderedVariantIds,productId,replayed,version")throw new CatalogApiError("unavailable",503);
+      const {replayed:wasReplayed,...snapshot}=body;const order=parseCatalogVariantOrder(snapshot);
+      if(order.productId!==id||order.version!==intent.expectedVersion+1||order.orderedVariantIds.length!==intent.orderedVariantIds.length||order.orderedVariantIds.some((value,index)=>value!==intent.orderedVariantIds[index]))throw new CatalogApiError("unavailable",503);
+      return Object.freeze({...order,replayed:replayed(wasReplayed)});
     },
 
     async createVariant(id: string, input: Readonly<{ variant: CatalogVariantFields }>): Promise<VariantMutationResult> {

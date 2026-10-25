@@ -26,6 +26,8 @@ import {
   type PaytrExecutionValidationAdapterOptions,
 } from "./paytr-validation-adapter.ts";
 
+import { createAkbankValidationAdapter, createAkbankExecutionValidationAdapter } from "./akbank-validation-adapter.ts";
+
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
 const ADAPTER_KEYS = Object.freeze([
   "providerCode", "capability", "executionAuthority", "validateCredential", "execute", "reconcile",
@@ -220,8 +222,8 @@ export function createProductionMerchantProviderRegistry(
 }
 
 export type ProductionMerchantProviderRegistriesOptions = Readonly<{
-  executionAuthorities: MerchantProviderExecutionAuthorityMap;
-  verificationIdentities: MerchantProviderVerificationIdentityMap;
+  executionAuthorities: MerchantProviderExecutionAuthorityMap | Omit<MerchantProviderExecutionAuthorityMap, "akbank_json">;
+  verificationIdentities: MerchantProviderVerificationIdentityMap | Omit<MerchantProviderVerificationIdentityMap, "akbank_json">;
   transport: ProviderTransport;
   paytrValidation: Readonly<{
     userIp: string;
@@ -240,8 +242,8 @@ export function createProductionMerchantProviderRegistries(
   verification: MerchantProviderVerificationAdapterRegistry;
 }> {
   const selected = frozenRecord(options, PRODUCTION_OPTION_KEYS);
-  const authorities = frozenRecord(selected.executionAuthorities, ["iyzico_iframe", "paytr_iframe"]);
-  const identities = frozenRecord(selected.verificationIdentities, ["iyzico_iframe", "paytr_iframe"]);
+  const authorities = frozenRecord(selected.executionAuthorities, Object.hasOwn(selected.executionAuthorities as object, "akbank_json") ? ["iyzico_iframe", "paytr_iframe", "akbank_json"] : ["iyzico_iframe", "paytr_iframe"]);
+  const identities = frozenRecord(selected.verificationIdentities, Object.hasOwn(selected.verificationIdentities as object, "akbank_json") ? ["iyzico_iframe", "paytr_iframe", "akbank_json"] : ["iyzico_iframe", "paytr_iframe"]);
   if (!Object.isFrozen(identities.iyzico_iframe) || !Object.isFrozen(identities.paytr_iframe)) invalid();
   const iyzicoIdentities = dense(identities.iyzico_iframe);
   const paytrIdentities = dense(identities.paytr_iframe);
@@ -314,6 +316,22 @@ export function createProductionMerchantProviderRegistries(
       validationUserIp: paytrValidation.userIp as string,
       validationSuccessUrl: paytrValidation.successUrl as string,
       validationFailureUrl: paytrValidation.failureUrl as string,
+    })));
+  }
+  const akbankAuthority = authorities.akbank_json as MerchantProviderExecutionAuthorityMap["akbank_json"] | undefined;
+  const akbankOptions = {
+    transport: selected.transport as ProviderTransport,
+    validationReference: selected.validationReference as () => string,
+    validationRandomKey: selected.validationRandomKey as () => string,
+    validationTimeoutMs: selected.validationTimeoutMs as number,
+  };
+  if (akbankAuthority) execution.push(createAkbankExecutionValidationAdapter(Object.freeze({
+    ...akbankOptions, executionAuthority: akbankAuthority as Readonly<{environment: "test" | "live"; adapterVersion: 1; evidenceDigest: string}>,
+  })));
+  for (const validationIdentity of dense(identities.akbank_json ?? Object.freeze([]))) {
+    if (!Object.isFrozen(validationIdentity)) invalid();
+    verification.push(createAkbankValidationAdapter(Object.freeze({
+      ...akbankOptions, validationIdentity: validationIdentity as Readonly<{environment: "test" | "live"; adapterVersion: 1}>,
     })));
   }
   return Object.freeze({

@@ -693,3 +693,17 @@ test("summary maps repository and driver failures to stable unavailable", async 
     assert.doesNotMatch(body ?? "", /postgres|secret|driver|sql/i);
   }
 });
+
+
+test("variant order route binds only the current cookie authority and refuses foreign origins or malformed identities",async()=>{
+ const calls:unknown[]=[];const order={productId:PRODUCT_ID,version:0,orderedVariantIds:[VARIANT_ID,SECOND_VARIANT_ID]};
+ const handlers=handlersModule.createCatalogHttpHandlers!(dependencies(repository({getVariantOrder:async input=>{calls.push(input);return order;},reorderVariants:async input=>{calls.push(input);return {...order,version:1,orderedVariantIds:input.orderedVariantIds,replayed:false};}})));
+ assert.equal((await handlers.getVariantOrder(request(`${PRODUCTS}/${PRODUCT_ID}/variant-order`),PRODUCT_ID)).status,200);
+ const body={expectedVersion:0,orderedVariantIds:[SECOND_VARIANT_ID,VARIANT_ID]};
+ assert.equal((await handlers.reorderVariants(request(`${PRODUCTS}/${PRODUCT_ID}/variant-order`,{method:"POST",body}),PRODUCT_ID)).status,200);
+ assert.deepEqual((calls[1]as any).tenantContext,tenantContext());assert.equal((calls[1]as any).operationId,OPERATION_ID);
+ for(const options of [{origin:"https://evil.example"},{cookie:null},{body:{...body,orderedVariantIds:[VARIANT_ID,VARIANT_ID]}},{body:{...body,storeId:STORE_ID}}])assert.notEqual((await handlers.reorderVariants(request(`${PRODUCTS}/${PRODUCT_ID}/variant-order`,{method:"POST",body,...options}),PRODUCT_ID)).status,200);
+ assert.equal(calls.length,2);
+ const denied=handlersModule.createCatalogHttpHandlers!(dependencies(repository({reorderVariants:async()=>{throw Error("not reached");}}),access("authenticated","analyst")));
+ assert.equal((await denied.reorderVariants(request(`${PRODUCTS}/${PRODUCT_ID}/variant-order`,{method:"POST",body}),PRODUCT_ID)).status,403);
+});

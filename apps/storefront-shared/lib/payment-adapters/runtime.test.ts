@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
+
+import { AKBANK_JSON_PACKET, createAkbankHostedAdapter } from "@celebix/payment-adapters";
+import { fixtureAkbankForm } from "../checkout/akbank-form-post.fixture.ts";
 
 import type {
   HostedPaymentAdapter,
@@ -226,6 +229,7 @@ function deferred<T>(): Readonly<{
 
 function fixture(options: Readonly<{
   initialization?: HostedPaymentInitialization | Error;
+  credential?: Readonly<Record<string, string>>;
   initializeAdapter?: (
     input: Parameters<HostedPaymentAdapter<object>["initialize"]>[0],
   ) => Promise<HostedPaymentInitialization>;
@@ -371,7 +375,7 @@ function fixture(options: Readonly<{
     };
   }
   const parseCredential = Object.freeze((value: unknown) => {
-    assert.deepEqual(value, {
+    assert.deepEqual(value, options.credential ?? {
       merchantId: "merchant_fixture",
       merchantKey: "credential_secret",
     });
@@ -427,13 +431,13 @@ function fixture(options: Readonly<{
     attempts,
     adapters: Object.freeze({
       size: options.adapterPresent === false ? 0 : 1,
-      packet: (providerCode: string) => providerCode === PROVIDER && options.adapterPresent !== false ? packet : null,
-      adapter: (providerCode: string) => providerCode === PROVIDER && options.adapterPresent !== false ? adapter : null,
+      packet: (providerCode: string) => providerCode === packet.providerCode && options.adapterPresent !== false ? packet : null,
+      adapter: (providerCode: string) => providerCode === packet.providerCode && options.adapterPresent !== false ? adapter : null,
     }),
     keyring: KEYRING,
     openCredential(input) {
       calls.opens.push(input);
-      opened = new TextEncoder().encode("{\"merchantKey\":\"credential_secret\"}");
+      opened = new TextEncoder().encode(options.credential ? JSON.stringify(options.credential) : "{\"merchantKey\":\"credential_secret\"}");
       return opened;
     },
     selectAuthority: () => options.trusted === false
@@ -443,7 +447,7 @@ function fixture(options: Readonly<{
     randomBytes: (size) => new Uint8Array(size).fill(7),
     selectCompiledAuthority: (providerCode, environment) => {
       calls.compiledAuthoritySelections.push(Object.freeze({ providerCode, environment }));
-      return providerCode === PROVIDER
+      return providerCode === packet.providerCode
         ? options.compiledAuthority === undefined
           ? COMPILED_AUTHORITY
           : options.compiledAuthority
@@ -2236,5 +2240,81 @@ test("customer callback route redirects only to fixed same-origin relative resul
     assert.equal(response.headers.get("location")?.includes("attacker.example"), false);
     assert.equal(response.headers.get("cache-control"), "no-store");
     assert.equal(await response.text(), "");
+  }
+});
+
+
+test("Akbank form initialization is bound to durable attempt, callback, amount and environment", async () => {
+  const form = fixtureAkbankForm();
+  form.fields.orderId = ATTEMPT_ID;
+  form.fields.okUrl = form.fields.failUrl = `https://${HOSTNAME}/api/payments/akbank_json/callback/${Buffer.alloc(32, 7).toString("base64url")}`;
+  const packet = AKBANK_JSON_PACKET;
+  const credential = { merchantSafeId: "1".repeat(32), terminalSafeId: "2".repeat(32), secretKey: "fixture-only-secret" };
+  const begin = beginResult({ providerCode: "akbank_json", publicConfig: { environment: "test" }, methodConfig: Object.freeze({ environment: "test", locale: "tr", threeDSecure: "provider_managed", installmentMode: "single_payment", maxInstallment: 0 }) });
+  const compiledAuthority = Object.freeze({ ...COMPILED_AUTHORITY, providerCode: "akbank_json" });
+  const selected = fixture({ packet, begin, compiledAuthority, credential, initialization: { ...form, providerReference: ATTEMPT_ID } });
+  assert.deepEqual(await selected.runtime.initialize(initializeInput()), form);
+  assert.equal(selected.calls.initialized.length, 1);
+  assert.equal(selected.calls.initialized[0]!.status, "awaiting_customer");
+  assert.equal(selected.calls.initialized[0]!.providerReference, ATTEMPT_ID);
+  assert.equal(selected.calls.queries.length, 0);
+  assert.equal(selected.calls.unknown.length, 0);
+  for (const invalid of [
+    { ...form, fields: { ...form.fields, amount: "123.46" } },
+    { ...form, fields: { ...form.fields, orderId: "another-attempt" } },
+    { ...form, fields: { ...form.fields, merchantSafeId: "9".repeat(32) } },
+    { ...form, fields: { ...form.fields, terminalSafeId: "9".repeat(32) } },
+    { ...form, fields: { ...form.fields, okUrl: form.fields.okUrl!.replace(HOSTNAME, "evil.example") } },
+    { ...form, fields: { ...form.fields, lang: "EN" } },
+    { ...form, url: fixtureAkbankForm("live").url },
+    { ...form, fields: { ...form.fields, creditCard: "secret" } },
+  ]) {
+    const rejected = fixture({ packet, begin, compiledAuthority, credential, initialization: { ...invalid, providerReference: ATTEMPT_ID } });
+    assert.deepEqual(await rejected.runtime.initialize(initializeInput()), { kind: "processing" });
+    assert.equal(rejected.calls.initialized.length, 0);
+    assert.equal(rejected.calls.unknown.length, 1);
+    assert.equal(rejected.calls.queries.length, 0);
+  }
+});
+
+
+test("Akbank authenticated return captures only after signed matching inquiry and never sends another sale", async () => {
+  // Synthetic bank protocol fixtures, with a local test secret and no bank requests.
+  const credential = { merchantSafeId: "1".repeat(32), terminalSafeId: "2".repeat(32), secretKey: "celebix-integration-fixture-only" };
+  const callbackFields = { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId,
+    orderId: ATTEMPT_ID, amount: "123.45", txnCode: "1000", responseCode: "VPS-0000", currencyCode: "949" };
+  const hashParams = Object.keys(callbackFields).join("+");
+  const hash = createHmac("sha512", credential.secretKey).update(Object.values(callbackFields).join("")).digest("base64");
+  const body = new URLSearchParams({ ...callbackFields, hashParams, hash }).toString();
+  for (const scenario of ["paid", "wrong_amount", "unsigned_inquiry", "pending"] as const) {
+    const sent: Array<Record<string, unknown>> = [];
+    const adapter = createAkbankHostedAdapter({ request: async (input) => {
+      assert.equal(selected.calls.hostedCallbacks.length, 0, "inquiry must finish before capture");
+      sent.push(JSON.parse(Buffer.from(input.body).toString("utf8")));
+      const responseBody = new TextEncoder().encode(JSON.stringify({ txnCode: "1010", responseCode: "VPS-0000",
+        terminal: { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId },
+        txnDetailList: [{ txnCode: scenario === "pending" ? "3000" : "1000", responseCode: "VPS-0000", hostResponseCode: "00",
+          txnStatus: "N", orderId: ATTEMPT_ID, orgOrderId: ATTEMPT_ID, amount: scenario === "wrong_amount" ? "123.46" : "123.45", currencyCode: 949, installCount: 1 }] }));
+      return { kind: "response", status: 200, contentType: "application/json", body: responseBody,
+        ...(scenario === "unsigned_inquiry" ? {} : { headers: { "auth-hash": createHmac("sha512", credential.secretKey).update(responseBody).digest("base64") } }) };
+    } });
+    const selected = fixture({ packet: AKBANK_JSON_PACKET, credential,
+      compiledAuthority: { ...COMPILED_AUTHORITY, providerCode: "akbank_json" },
+      callbackAuthority: authority({ providerCode: "akbank_json", providerReference: ATTEMPT_ID, status: "awaiting_customer",
+        publicConfig: { environment: "test" }, methodConfig: { environment: "test", locale: "tr", threeDSecure: "provider_managed", installmentMode: "single_payment", maxInstallment: 0 } }),
+      callbackAdapter: (input) => adapter.verifyCallback(input as never),
+    });
+    const binding = Buffer.alloc(32, 7).toString("base64url");
+    const result = await selected.runtime.callback({ providerCode: "akbank_json", binding,
+      request: new Request(`https://${HOSTNAME}/api/payments/akbank_json/callback/${binding}`, {
+        method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://virtualpospaymentgatewaypre.akbank.com" }, body,
+      }) });
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0]!.txnCode, "1010");
+    assert.deepEqual(sent[0]!.order, { orderId: ATTEMPT_ID });
+    assert.deepEqual(sent[0]!.terminal, { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId });
+    assert.deepEqual(result, { kind: "customer_return", outcome: scenario === "paid" ? "success" : "processing" });
+    assert.equal(selected.calls.hostedCallbacks.some((input) => input.status === "captured"), scenario === "paid");
+    assert.equal(selected.calls.initializedAdapter.length, 0);
   }
 });

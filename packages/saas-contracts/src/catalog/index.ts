@@ -35,3 +35,6 @@ export {
   parseProductVariant,
   parseProductMeasurements,
 } from "./validation.ts";
+
+export {parseCatalogVariantOrder,parseCatalogVariantOrderIntent} from "./variant-order.ts";
+export type {CatalogVariantOrder,CatalogVariantOrderIntent} from "./variant-order.ts";
