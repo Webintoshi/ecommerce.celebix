@@ -8,6 +8,7 @@ import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
 import type { Shipment, ShippingQuoteSession } from "@celebix/saas-contracts";
+import { ShippingFulfillmentApiError } from "../../lib/shipping-ui/client.ts";
 
 type Api = typeof import("../../lib/shipping-ui/client.ts").shippingFulfillmentApi;
 const ID = "9f000000-0000-4000-8000-000000000001";
@@ -41,7 +42,7 @@ async function mounted(client: Api, verify: (container: HTMLElement, browser: Wi
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });
     if (name === "@/components/orders/OrderActionDialog") return { OrderActionDialog: ({ open, title, children, footer }: { open: boolean; title: string; children: React.ReactNode; footer: React.ReactNode }) => createElement("section", { "aria-label": title, hidden: !open, "data-dialog": true }, children, footer) };
-    if (name === "@/lib/shipping-ui/client") return { shippingFulfillmentApi: client, ShippingFulfillmentApiError: class extends Error {} };
+    if (name === "@/lib/shipping-ui/client") return { shippingFulfillmentApi: client, ShippingFulfillmentApiError };
     if (name === "./order-shipment.module.css") return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };
     throw new Error(`unexpected_import:${name}`);
   }, compiled, compiled.exports);
@@ -102,6 +103,25 @@ test("package precision, entered values and complete COD quote price survive a f
     await fill(container, "heightCm", "11");
     assert.equal(button(container, "Gönderiyi oluştur"), undefined);
     assert.ok(button(container, "Kargo teklifi al"));
+  });
+});
+
+test("an unavailable quote offers an explicit manual retry while retaining package measurements", async () => {
+  let quotes = 0, creates = 0;
+  await mounted(api({ quote: async () => { if (++quotes === 1) throw new ShippingFulfillmentApiError("quote_not_ready", 409); return quote(); }, createShipment: async () => { creates++; return shipment(); } }), async (container, browser) => {
+    await open(container);
+    await fill(container, "weightKg", "0.015");
+    await submit(container, browser);
+    assert.match(container.textContent ?? "", /Kargo teklifi alınamadı\. Biraz sonra yeniden deneyin\./);
+    assert.equal(container.querySelector<HTMLInputElement>('input[name="weightKg"]')?.value, "0.015");
+    assert.equal(button(container, "Kargo teklifi al")?.disabled, false);
+    assert.equal(button(container, "Gönderiyi oluştur"), undefined);
+    assert.equal(quotes, 1);
+    assert.equal(creates, 0);
+    await submit(container, browser);
+    assert.equal(quotes, 2);
+    assert.equal(creates, 0);
+    assert.ok(button(container, "Gönderiyi oluştur"));
   });
 });
 

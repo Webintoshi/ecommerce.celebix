@@ -133,6 +133,50 @@ function freeze<T>(value: T): Readonly<T> {
   return value;
 }
 
+// These documented order-detail containers are checked for bounded JSON, then discarded.
+function validateShipmentMetadata(value: unknown, array: boolean): void {
+  if (value === null) return;
+  if (typeof value !== "object" || Array.isArray(value) !== array) invalidResponse();
+  let nodes = 0, bytes = 0;
+  function account(size: number): void {
+    bytes += size;
+    if (bytes > 65_536) invalidResponse();
+  }
+  function visit(entry: unknown, depth: number): void {
+    if (++nodes > 4096 || depth > 6) invalidResponse();
+    account(2);
+    if (entry === null || typeof entry === "boolean") { account(5); return; }
+    if (typeof entry === "number") {
+      if (!Number.isFinite(entry)) invalidResponse();
+      account(24);
+      return;
+    }
+    if (typeof entry === "string") {
+      const length = ENCODER.encode(entry).byteLength;
+      if (length > 4096) invalidResponse();
+      account(ENCODER.encode(JSON.stringify(entry)).byteLength);
+      return;
+    }
+    if (typeof entry !== "object" || utilTypes.isProxy(entry)) invalidResponse();
+    if (Array.isArray(entry)) {
+      for (const nested of denseArray(entry, 0, 1000)) visit(nested, depth + 1);
+      return;
+    }
+    if (Object.getPrototypeOf(entry) !== Object.prototype) invalidResponse();
+    const descriptors = Object.getOwnPropertyDescriptors(entry);
+    const keys = Reflect.ownKeys(descriptors);
+    if (keys.length > 100) invalidResponse();
+    for (const key of keys) {
+      if (typeof key !== "string" || ENCODER.encode(key).byteLength > 200) invalidResponse();
+      account(ENCODER.encode(JSON.stringify(key)).byteLength + 1);
+      const descriptor = descriptors[key];
+      if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) invalidResponse();
+      visit(descriptor.value, depth + 1);
+    }
+  }
+  visit(value, 0);
+}
+
 export function parseBasitKargoCredential(value: unknown): BasitKargoCredential {
   try {
     const parsed = dataObject(value, ["token"]);
@@ -202,7 +246,15 @@ export function parseBasitKargoAddresses(value: unknown): readonly ProviderShipp
 
 export function parseBasitKargoQuotes(value: unknown): readonly ProviderShippingQuote[] {
   const options = denseArray(value, 1, 100).map((entry) => {
-    const row = dataObject(entry, ["desiKg", "handlerCode", "price"], ["codFee"]);
+    const row = dataObject(entry, ["desiKg", "handlerCode", "price"], [
+      "codFee", "inCityPrice", "minDesiKg", "maxDesiKg", "cashOnDelivery", "creditCardOnDelivery",
+    ]);
+    if (Object.hasOwn(row, "inCityPrice") && row.inCityPrice !== null) majorToCents(row.inCityPrice);
+    const minimum = Object.hasOwn(row, "minDesiKg") && row.minDesiKg !== null ? finite(row.minDesiKg, 0, 10_000) : null;
+    const maximum = Object.hasOwn(row, "maxDesiKg") && row.maxDesiKg !== null ? finite(row.maxDesiKg, 0, 10_000) : null;
+    if (minimum !== null && maximum !== null && minimum > maximum) invalidResponse();
+    if (Object.hasOwn(row, "cashOnDelivery")) boolean(row.cashOnDelivery);
+    if (Object.hasOwn(row, "creditCardOnDelivery")) boolean(row.creditCardOnDelivery);
     const code = handlerCode(row.handlerCode);
     const codFee = Object.hasOwn(row, "codFee") && row.codFee !== null ? majorToCents(row.codFee) : undefined;
     return freeze({
@@ -221,11 +273,14 @@ export function parseBasitKargoQuotes(value: unknown): readonly ProviderShipping
 export function parseBasitKargoShipment(value: unknown): ProviderShipment {
   const row = dataObject(
     value,
-    ["id", "barcode", "type", "status", "validationFailed", "createdTime"],
-    ["handler", "handlerShipmentCode", "priceInfo"],
+    ["id", "barcode", "type", "status"],
+    ["validationFailed", "createdTime", "handler", "handlerShipmentCode", "shipmentInfo", "priceInfo", "orderTotal", "orderPaymentType", "orderPaymentStatus", "codInfo", "content", "sender", "recipient", "traces"],
   );
-  if (boolean(row.validationFailed)) invalidResponse();
-  text(row.createdTime, 19, 32);
+  for (const key of ["content", "sender", "recipient", "traces"] as const) {
+    if (Object.hasOwn(row, key)) validateShipmentMetadata(row[key], key === "traces");
+  }
+  if (Object.hasOwn(row, "validationFailed") && boolean(row.validationFailed)) invalidResponse();
+  if (Object.hasOwn(row, "createdTime")) text(row.createdTime, 19, 32);
   if (row.type !== "OUTGOING" && row.type !== "INCOMING") invalidResponse();
   if (typeof row.status !== "string" || !BASIT_KARGO_STATUSES.includes(row.status as BasitKargoStatus)) invalidResponse();
   const barcode = row.barcode === null ? undefined : opaque(row.barcode);
@@ -236,14 +291,46 @@ export function parseBasitKargoShipment(value: unknown): ProviderShipment {
     code = handlerCode(handler.code);
     name = handlerName(code, handler.name);
   }
-  const trackingNumber = Object.hasOwn(row, "handlerShipmentCode") && row.handlerShipmentCode !== null
+  let trackingNumber = Object.hasOwn(row, "handlerShipmentCode") && row.handlerShipmentCode !== null
     ? opaque(row.handlerShipmentCode)
     : undefined;
+  if (Object.hasOwn(row, "shipmentInfo")) {
+    const info = dataObject(row.shipmentInfo, ["handler", "handlerShipmentCode"], ["lastState"]);
+    if (Object.hasOwn(info, "lastState")) nullableText(info.lastState, 200);
+    const handler = dataObject(info.handler, ["name", "code"]);
+    const nestedCode = handlerCode(handler.code), nestedName = handlerName(nestedCode, handler.name);
+    const nestedTracking = info.handlerShipmentCode === null ? undefined : opaque(info.handlerShipmentCode);
+    if ((code !== undefined && (code !== nestedCode || name !== nestedName)) ||
+      (Object.hasOwn(row, "handlerShipmentCode") && trackingNumber !== nestedTracking)) invalidResponse();
+    code = nestedCode;
+    name = nestedName;
+    trackingNumber = nestedTracking;
+  }
   let priceCents: number | undefined;
   if (Object.hasOwn(row, "priceInfo")) {
-    const price = dataObject(row.priceInfo, ["shipmentFee", "totalCost"]);
+    const price = dataObject(row.priceInfo, ["shipmentFee", "totalCost"], ["paymentMethod", "extraFee", "returnFee", "extraServicesFee"]);
+    if (Object.hasOwn(price, "paymentMethod") && !["ADVANCE", "CASH", "RECIPIENT"].includes(text(price.paymentMethod, 1, 20))) invalidResponse();
+    if (Object.hasOwn(price, "extraFee") && price.extraFee !== null) {
+      majorToCents(Math.abs(finite(price.extraFee, -Number.MAX_SAFE_INTEGER / 100, Number.MAX_SAFE_INTEGER / 100)));
+    }
+    if (Object.hasOwn(price, "returnFee") && price.returnFee !== null) majorToCents(price.returnFee);
+    if (Object.hasOwn(price, "extraServicesFee") && price.extraServicesFee !== null) majorToCents(price.extraServicesFee);
     majorToCents(price.totalCost);
+    // extraFee is already included in shipmentFee; totalCost also includes return and service fees.
     priceCents = majorToCents(price.shipmentFee);
+  }
+  if (Object.hasOwn(row, "orderTotal")) majorToCents(row.orderTotal);
+  if (Object.hasOwn(row, "orderPaymentType") && row.orderPaymentType !== null &&
+    !["CREDIT_CARD", "BANK_TRANSFER", "COLLECT_ON_DELIVERY", "OTHER"].includes(text(row.orderPaymentType, 1, 40))) invalidResponse();
+  if (Object.hasOwn(row, "orderPaymentStatus")) nullableText(row.orderPaymentStatus, 40);
+  if (Object.hasOwn(row, "codInfo") && row.codInfo !== null) {
+    const cod = dataObject(row.codInfo, ["collectOnDelivery"], ["type", "amount", "fee", "collectionStatus", "collectionStatusText", "releaseDate"]);
+    boolean(cod.collectOnDelivery);
+    if (Object.hasOwn(cod, "type") && cod.type !== null && !["CASH", "CREDIT_CARD"].includes(text(cod.type, 1, 20))) invalidResponse();
+    for (const key of ["amount", "fee"] as const) if (Object.hasOwn(cod, key) && cod[key] !== null) majorToCents(cod[key]);
+    if (Object.hasOwn(cod, "collectionStatus")) nullableText(cod.collectionStatus, 64);
+    if (Object.hasOwn(cod, "collectionStatusText")) nullableText(cod.collectionStatusText, 200);
+    if (Object.hasOwn(cod, "releaseDate") && cod.releaseDate !== null && !/^\d{4}-\d{2}-\d{2}$/u.test(text(cod.releaseDate, 10, 10))) invalidResponse();
   }
   return freeze({
     providerReference: opaque(row.id),

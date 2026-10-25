@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "be9f2fbf800bf2395722e2ac519c941fdf20309fc6e3adfc9c50e19b5c0d2502",
+  "inputDigest": "59a89b503d18ed11f3f2ecae24c6924da1e527393131ba6037078517c1f9535e",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2824,6 +2824,10 @@
       "sha256": "bc3f97f4b6ba3e0e74647d97160b8e35e6978f67eda230171694077b419a8292"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610250276_order_edit_address.up.sql",
+      "sha256": "6a35b791a9d2970fdc14dbc1f1848deabec836078a48a7e103fdfeae982afc52"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -2854,6 +2858,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/email-marketing-connections.up.sql",
       "sha256": "9ca7571f3cb877b13c4bb0e9516687772afa6650bd67c74076ab5e97255b8fbf"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/order-edit-address276-manifest.json",
+      "sha256": "1bab8c276aecd0aa56be5cffbce63075235846c9667cb2ca0b5d487be6a749ce"
     },
     {
       "path": "apps/owner/scripts/sql/saas/phase-admin-login-security-manifest.json",
@@ -5609,7 +5617,7 @@
     },
     {
       "path": "packages/shipping-adapters/src/providers/basit-kargo/validation.ts",
-      "sha256": "2d357a35b2d22c67f4a8c8603489931b25f7d1e8be7652c56eac24c406f2c8f8"
+      "sha256": "53eb8664c2d6f607e2302fc50da45dec5050c0965365ba155c0d3b1e9e30f243"
     },
     {
       "path": "packages/shipping-adapters/src/registry.ts",
