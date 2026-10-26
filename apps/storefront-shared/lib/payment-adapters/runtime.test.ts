@@ -939,6 +939,13 @@ test("fails closed before provider execution for untrusted host, missing adapter
   const untrusted = fixture({ trusted: false });
   assert.deepEqual(await untrusted.runtime.initialize(initializeInput()), { kind: "rejected" });
   assert.equal(untrusted.calls.begin.length, 0);
+  const binding = Buffer.alloc(32, 7).toString("base64url");
+  assert.deepEqual(await untrusted.runtime.callback({ providerCode: PROVIDER, binding,
+    request: new Request(`https://localhost:3450/api/payments/${PROVIDER}/callback/${binding}`, {
+      method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "event_id=fixture",
+    }),
+  }), { kind: "rejected" });
+  assert.equal(untrusted.calls.opens.length, 0);
 
   const missing = fixture({ adapterPresent: false });
   assert.deepEqual(await missing.runtime.initialize(initializeInput()), { kind: "rejected" });
@@ -2306,7 +2313,7 @@ test("Akbank authenticated return captures only after signed matching inquiry an
     });
     const binding = Buffer.alloc(32, 7).toString("base64url");
     const result = await selected.runtime.callback({ providerCode: "akbank_json", binding,
-      request: new Request(`https://${HOSTNAME}/api/payments/akbank_json/callback/${binding}`, {
+      request: new Request(`https://localhost:3450/api/payments/akbank_json/callback/${binding}`, {
         method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://virtualpospaymentgatewaypre.akbank.com" }, body,
       }) });
     assert.equal(sent.length, 1);

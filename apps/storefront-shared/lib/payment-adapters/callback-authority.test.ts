@@ -97,6 +97,49 @@ test("rejects noncanonical provider codes, bindings, origins, and callback paths
   }
 });
 
+test("accepts Next's internal callback URL after the runtime has authenticated the storefront host", async () => {
+  const providerCode = "akbank_json";
+  const pathname = `/api/payments/${providerCode}/callback/${BINDING}`;
+  for (const origin of ["http://localhost:3450", "https://localhost:3450", "http://0.0.0.0:3450"]) {
+    const selected = await readExactHostedPaymentCallback({
+      request: request(`${origin}${pathname}`, { headers: {
+        origin: "https://virtualpospaymentgateway.akbank.com",
+      } }),
+      providerCode,
+      binding: BINDING,
+      trustedHostname: HOSTNAME,
+    });
+    assert.ok(selected, origin);
+    assert.equal(selected.callbackBindingDigest, DIGEST);
+    selected.body.fill(0);
+  }
+});
+
+test("internal transport compatibility preserves the exact callback target and header checks", async () => {
+  const providerCode = "akbank_json";
+  const target = `http://localhost:3450/api/payments/${providerCode}/callback/${BINDING}`;
+  for (const value of [
+    `${target}/`, `${target}?x=1`, `${target}#x`,
+    target.replace("localhost", "other.example"),
+    target.replace("localhost", "localhost.evil.example"),
+    target.replace("http:", "ftp:"),
+    target.replace("/callback/", "/callback/%2F"),
+  ]) {
+    assert.equal(await readExactHostedPaymentCallback({
+      request: request(value), providerCode, binding: BINDING, trustedHostname: HOSTNAME,
+    }), null, value);
+  }
+  assert.throws(() => request(target.replace("localhost", "user:pass@localhost")), TypeError);
+  for (const headers of [
+    { cookie: "unrelated=fixture" }, { authorization: "Bearer fixture" },
+    { origin: "https://virtualpospaymentgateway.akbank.com.evil.example" },
+  ]) {
+    assert.equal(await readExactHostedPaymentCallback({
+      request: request(target, { headers }), providerCode, binding: BINDING, trustedHostname: HOSTNAME,
+    }), null);
+  }
+});
+
 test("rejects forbidden headers, invalid content types, duplicate fields, and announced or streamed overflow", async () => {
   const invalidRequests = [
     request(CALLBACK_URL, { method: "GET" }),

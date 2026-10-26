@@ -62,15 +62,23 @@ function canonicalBinding(value: unknown): Buffer | null {
 function exactTarget(request: Request, providerCode: string, binding: string, hostname: string): boolean {
   try {
     const target = new URL(request.url);
-    return target.protocol === "https:"
+    // Next constructs Request.url from its listening host/port, even when the
+    // edge has authenticated the external HTTPS hostname. The caller verifies
+    // that authority before this parser; never derive it from this internal URL.
+    const nextTransport = (target.protocol === "http:" || target.protocol === "https:")
+      && (target.hostname === "localhost" || target.hostname === "0.0.0.0")
+      && /^[1-9][0-9]{0,4}$/.test(target.port)
+      && Number(target.port) <= 65_535;
+    const externalTarget = target.protocol === "https:"
+      && !target.port
+      && target.hostname === hostname;
+    return (externalTarget || nextTransport)
       && !target.username
       && !target.password
-      && !target.port
-      && target.hostname === hostname
       && target.pathname === `/api/payments/${providerCode}/callback/${binding}`
       && !target.search
       && !target.hash
-      && target.toString() === `https://${hostname}/api/payments/${providerCode}/callback/${binding}`;
+      && target.toString() === `${target.origin}/api/payments/${providerCode}/callback/${binding}`;
   } catch {
     return false;
   }
