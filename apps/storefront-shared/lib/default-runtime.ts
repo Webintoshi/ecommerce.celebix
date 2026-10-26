@@ -333,14 +333,24 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
         AND to_regprocedure('saas.public_storefront_hosted_checkout_begin(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text)') IS NOT NULL
         AND to_regprocedure('saas.public_storefront_hosted_checkout_presentation(text,timestamp with time zone,jsonb)') IS NOT NULL AS migration_091,
       to_regprocedure('saas.storefront_hosted_checkout_settlement_preflight()') IS NOT NULL
-        AND saas.storefront_hosted_checkout_settlement_preflight() AS migration_092`);
+        AND saas.storefront_hosted_checkout_settlement_preflight() AS migration_092,
+      to_regprocedure('saas.public_storefront_hosted_checkout_begin_v4(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text,text)') IS NOT NULL
+        AND COALESCE(has_function_privilege('celebix_saas_host_resolver',to_regprocedure('saas.public_storefront_hosted_checkout_begin_v4(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text,text)'),'EXECUTE'),false)
+        AND to_regprocedure('saas.storefront_checkout_context279_for_attempt(uuid,uuid,timestamp with time zone)') IS NOT NULL
+        AND to_regprocedure('saas.public_storefront_checkout_prepare_quote_v4(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb)') IS NOT NULL
+        AND to_regprocedure('saas.public_storefront_hosted_checkout_authority_v4(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,uuid,uuid,uuid,text)') IS NOT NULL
+        AND to_regprocedure('saas.public_storefront_hosted_checkout_begin_v5(text,timestamp with time zone,text,jsonb,bigint,jsonb,uuid,text,uuid,text,uuid,text,uuid,uuid,uuid,uuid,uuid,uuid,text,text,text,text,text,text,jsonb,jsonb,text,text)') IS NOT NULL
+        AND to_regprocedure('saas.public_checkout_complete_v4(text,timestamp with time zone,text,jsonb,jsonb,uuid,text,bigint,jsonb,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamp with time zone,uuid,text,text,timestamp with time zone,text[],text)') IS NOT NULL AS migration_279`);
     const hostedReady = hostedMigration.rowCount === 1
       && hostedMigration.rows[0]?.migration_090 === true
       && hostedMigration.rows[0]?.migration_091 === true
-      && hostedMigration.rows[0]?.migration_092 === true;
+      && hostedMigration.rows[0]?.migration_092 === true
+      && hostedMigration.rows[0]?.migration_279 === true;
     const presentationInfrastructure = hostedReady ? await resolveDefaultCheckoutPaymentRuntime() : null;
     const hostedCheckout = hostedReady && presentationInfrastructure !== null
       ? createStandardHostedCheckoutRuntime({
+          checkoutContexts: true,
+          contactAwareCheckout: true,
           repository: new PostgresStorefrontHostedCheckoutRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined }),
           commerceKeyring,
           presentationKeyring: presentationInfrastructure.keyring,
@@ -364,7 +374,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       const setting = await whatsappOrders.getForHost({ hostname, now: new Date() });
       return resolveStorefrontCommercePolicy(setting?.config ?? createDefaultWhatsAppOrderConfig(), setting?.version ?? 0);
     };
-    const cart = protectCommerceRuntime(createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, bindCartIdentity, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
+    const cart = protectCommerceRuntime(createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, bindCartIdentity, contactAwareCheckout: true, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
       hostedPaymentAvailable: async (method) => hostedCheckout !== null && activeHostedProviders.has(method.providerCode) }), commercePolicy);
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
@@ -584,7 +594,12 @@ async function initializeHostedPaymentInfrastructure(
       timeoutMs: 5_000,
       maximumResponseBytes: 262_144,
     });
+    const contextRepository = new PostgresStorefrontHostedCheckoutRepository({
+      pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined,
+    });
     const sharedDependencies = Object.freeze({
+        isStandardCheckoutContext: async (input: Readonly<{ attemptId: string; storeId: string; now: Date }>) =>
+          contextRepository.isContext({ storeId: input.storeId, operationId: input.attemptId, now: input.now }),
         keyring,
         transport,
         selectAuthority: (headers: Headers) =>

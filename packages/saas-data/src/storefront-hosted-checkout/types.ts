@@ -185,6 +185,10 @@ export interface StorefrontHostedCheckoutRepository {
   begin(input: HostedCheckoutBeginInput): Promise<HostedCheckoutBeginResult>;
   beginV2(input: HostedCheckoutBeginV2Input): Promise<HostedCheckoutBeginV2Result>;
   beginV3(input: HostedCheckoutBeginV3Input): Promise<HostedCheckoutBeginV2Result>;
+  authorityV4?(input: HostedCheckoutAuthorityV3Input): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]>;
+  beginV5?(input: HostedCheckoutBeginV3Input): Promise<HostedCheckoutBeginV2Result>;
+  beginV4?(input: HostedCheckoutBeginV3Input): Promise<HostedCheckoutBeginV2Result>;
+  isContext?(input: Readonly<{ storeId: string; operationId: string; now: Date }>): Promise<boolean>;
   savePresentation(input: HostedCheckoutPresentationSaveInput): Promise<HostedCheckoutPresentationState>;
   presentation(input: HostedCheckoutPresentationInput): Promise<HostedCheckoutPresentationState>;
   status(input: HostedCheckoutStatusInput): Promise<HostedCheckoutPublicStatus>;

@@ -104,6 +104,11 @@ export function protectCommerceRuntime(
       requireOnlineCheckout(await resolvePolicy(hostname));
       return source.quote(hostname, ...args);
     },
+    async prepareCheckout(hostname, ...args) {
+      requireOnlineCheckout(await resolvePolicy(hostname));
+      if (!source.prepareCheckout) throw new StorefrontCommercePolicyError();
+      return source.prepareCheckout(hostname, ...args);
+    },
     async complete(hostname, ...args) {
       // Native258 checks new writes under the policy lock and still permits durable operation replay.
       return source.complete(hostname, ...args);

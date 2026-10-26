@@ -30,10 +30,14 @@ class FixtureCartClientError extends Error {
   readonly code: string;
   constructor(code: string) { super(code); this.code = code; }
 }
-function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<unknown>, options: Readonly<{ getCart?: () => typeof cart; startHosted?: StorefrontCartClient["startHosted"]; clientError?: typeof StorefrontCartClientError; bumpOffers?: unknown; add?: StorefrontCartClient["add"]; resolve?: StorefrontCartClient["resolve"]; replaceCart?: (value: unknown) => void }> = {}) {
+function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<unknown>, options: Readonly<{ getCart?: () => typeof cart; startHosted?: StorefrontCartClient["startHosted"]; prepareCheckoutQuote?: StorefrontCartClient["prepareCheckoutQuote"]; clientError?: typeof StorefrontCartClientError; bumpOffers?: unknown; add?: StorefrontCartClient["add"]; resolve?: StorefrontCartClient["resolve"]; replaceCart?: (value: unknown) => void }> = {}) {
+  let displayedQuote: unknown;
+  const quoteWithSnapshot = async (intent: string, codes: readonly string[]) => {
+    const selected = await quote(intent, codes); displayedQuote = selected; return selected;
+  };
   const load = componentLoader({
     "next/link": { __esModule: true, default: ({ children, ...props }: { children: React.ReactNode }) => React.createElement("a", props, children) },
-    "@/lib/cart/client.ts": { StorefrontCartClientError: options.clientError ?? FixtureCartClientError, storefrontCartClient: { quotePromotionsWithDigest: quote, startHosted: options.startHosted } },
+    "@/lib/cart/client.ts": { StorefrontCartClientError: options.clientError ?? FixtureCartClientError, storefrontCartClient: { quotePromotionsWithDigest: quoteWithSnapshot, prepareCheckoutQuote: options.prepareCheckoutQuote ?? (async () => displayedQuote), startHosted: options.startHosted } },
     "@/lib/checkout-form.ts": deliveryValidation,
     "@/lib/format.ts": { formatTry: (cents: number) => `₺${cents / 100}` },
     "@/lib/promotions/model.ts": promotionModel,
@@ -159,7 +163,8 @@ for (const paymentKind of ["bank_transfer", "cash_on_delivery"] as const) {
       const quote = { ...selected.quote, ...(updated ? { cart: { ...selected.quote.cart, ...next, items: next.items.map(line => ({ ...line, discountCents: 0, payableCents: line.lineTotalCents })) } } : {}), paymentMethods: [{ kind: paymentKind, label: "Ödeme", instructions: "Teslimatta ödeme", ...(paymentKind === "bank_transfer" ? { bankName: "Celebix Bank", accountHolder: "Mağaza", iban: "TR330006100519786457841326" } : {}) }] };
       return { quote, quoteDigest: digest(quote) };
     };
-    const Form = loadForm(async () => projected(), { bumpOffers: bumpProjection, add: async input => { additions.push(input); return next as never; }, replaceCart() { updated = true; } });
+    const preparedDigest = () => createHash("sha256").update(`prepared:${projected().quoteDigest}`).digest("hex");
+    const Form = loadForm(async () => projected(), { prepareCheckoutQuote: async () => ({ ...projected(), quoteDigest: preparedDigest() }) as never, bumpOffers: bumpProjection, add: async input => { additions.push(input); return next as never; }, replaceCart() { updated = true; } });
     const previousFetch = globalThis.fetch;
     globalThis.fetch = async (path, init) => {
       assert.equal(path, "/api/checkout/complete");
@@ -170,6 +175,7 @@ for (const paymentKind of ["bank_transfer", "cash_on_delivery"] as const) {
       await withProductBrowser(async ({ container, render, click, change }) => {
         await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
         await click(".checkout-submit");
+        assert.equal(submissions[0].expectedQuoteDigest, preparedDigest(), "offline submission uses the contact-aware quote seal");
         assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, false, "known rejection permits correcting the contact");
         assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-delivery fieldset")?.disabled, false);
         assert.equal(container.querySelector<HTMLButtonElement>(".order-bump-add")?.disabled, false);
@@ -180,7 +186,7 @@ for (const paymentKind of ["bank_transfer", "cash_on_delivery"] as const) {
         assert.equal(submissions.length, 2);
         assert.notEqual(submissions[0].operationId, submissions[1].operationId);
         assert.equal(submissions[1].cartVersion, 2);
-        assert.equal(submissions[1].expectedQuoteDigest, projected().quoteDigest);
+        assert.equal(submissions[1].expectedQuoteDigest, preparedDigest());
         assert.equal((submissions[1].shippingAddress as Record<string, unknown>).addressLine1, "Cadde 12");
       });
     } finally { globalThis.fetch = previousFetch; }
@@ -433,5 +439,121 @@ test("hosted HTTP 400 keeps delivery fields, the quote and the same operation fo
     assert.deepEqual(submissions[0]?.shippingAddress, { addressLine1: "Cadde 12", city: draft.city, district: draft.district, postalCode: draft.postalCode });
     assert.equal(submissions[0]?.note, draft.note);
     assert.deepEqual(navigations, []);
+  });
+});
+
+function cardResponse(codes: readonly string[] = []) {
+  const selected = response(codes);
+  const quote = { ...selected.quote, paymentMethods: [{
+    id: "30000000-0000-4000-8000-000000000001", kind: "hosted_card" as const, label: "Kart", instructions: "Güvenli ödeme ekranı.",
+    providerCode: "paytr_iframe" as const, presentation: "iframe" as const, requiredCustomerFields: [],
+  }] };
+  return { quote, quoteDigest: digest(quote) };
+}
+
+test("contact preflight shows a changed price and requires another explicit click on the same operation", async () => {
+  const prepared = cardResponse(["SAVE"]), preparations: Record<string, unknown>[] = [], submissions: Record<string, unknown>[] = [];
+  const Form = loadForm(async () => cardResponse(), {
+    prepareCheckoutQuote: async input => { preparations.push(input); return prepared as never; },
+    startHosted: async input => { submissions.push(input); throw new FixtureCartClientError("invalid_input"); },
+  });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    assert.equal(preparations.length, 0, "contact quote runs only on explicit payment submit");
+    await click(".checkout-submit");
+    assert.equal(preparations.length, 1); assert.equal(submissions.length, 0);
+    assert.match(container.querySelector(".checkout-summary")?.textContent ?? "", /₺90/u);
+    assert.match(container.querySelector(".checkout-status")?.textContent ?? "", /yeniden onaylayın/u);
+    assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, false);
+    await click(".checkout-submit");
+    assert.equal(preparations.length, 2); assert.equal(submissions.length, 1);
+    assert.equal(preparations[1]?.operationId, preparations[0]?.operationId);
+    assert.equal(submissions[0]?.operationId, preparations[0]?.operationId);
+    assert.equal(submissions[0]?.expectedQuoteDigest, prepared.quoteDigest);
+    assert.deepEqual(preparations[0]?.contact, { name: `${validDraft.firstName} ${validDraft.lastName}`, email: validDraft.email, phone: validDraft.phone });
+  });
+});
+
+test("a digest-only preflight refresh uses the already confirmed click without another charge request", async () => {
+  const initial = cardResponse(), sealed = { ...initial, quoteDigest: "d".repeat(64) };
+  const submissions: Record<string, unknown>[] = [];
+  let preparations = 0;
+  const Form = loadForm(async () => initial, { prepareCheckoutQuote: async () => { preparations++; return sealed as never; }, startHosted: async input => { submissions.push(input); throw new FixtureCartClientError("invalid_input"); } });
+  await withProductBrowser(async ({ render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    await click(".checkout-submit");
+    assert.equal(preparations, 1); assert.equal(submissions.length, 1);
+    assert.equal(submissions[0]?.expectedQuoteDigest, sealed.quoteDigest);
+  });
+});
+
+test("preflight failure remains editable and form edits select a new operation before payment starts", async () => {
+  const preparations: Record<string, unknown>[] = [];
+  let starts = 0;
+  const Form = loadForm(async () => cardResponse(), { prepareCheckoutQuote: async input => { preparations.push(input); throw new FixtureCartClientError("invalid_input"); }, startHosted: async () => { starts++; throw new Error("unused"); } });
+  await withProductBrowser(async ({ container, render, change, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    await click(".checkout-submit");
+    assert.equal(starts, 0);
+    assert.equal(container.querySelector<HTMLFieldSetElement>(".checkout-contact fieldset")?.disabled, false);
+    await change('input[name="addressLine1"]', "Different street 12");
+    await click(".checkout-submit");
+    assert.equal(preparations.length, 2);
+    assert.notEqual(preparations[1]?.operationId, preparations[0]?.operationId);
+    assert.equal(starts, 0);
+  });
+});
+
+test("an uncertain payment retry skips contact preflight and keeps the exact financial payload", async () => {
+  const initial = cardResponse(), submissions: Record<string, unknown>[] = [];
+  let preparations = 0;
+  const Form = loadForm(async () => initial, { prepareCheckoutQuote: async () => { preparations++; return initial as never; }, startHosted: async input => { submissions.push(input); throw new FixtureCartClientError(submissions.length === 1 ? "request_failed" : "invalid_input"); } });
+  await withProductBrowser(async ({ render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    await click(".checkout-submit"); await click(".checkout-submit");
+    assert.equal(preparations, 1);
+    assert.equal(submissions.length, 2);
+    assert.deepEqual(submissions[1], submissions[0]);
+  });
+});
+
+test("preflight payment eligibility changes require confirmation even when the total is unchanged", async () => {
+  const initial = cardResponse();
+  const prepared = { quote: { ...initial.quote, paymentMethods: response([]).quote.paymentMethods }, quoteDigest: "e".repeat(64) };
+  const preparations: Record<string, unknown>[] = [];
+  let submissions = 0;
+  const Form = loadForm(async () => initial, { prepareCheckoutQuote: async input => { preparations.push(input); return prepared as never; }, startHosted: async () => { submissions++; throw new Error("unused"); } });
+  const previousFetch = globalThis.fetch;
+  globalThis.fetch = (async () => { submissions++; return Response.json({ code: "invalid_input" }, { status: 400 }); }) as typeof fetch;
+  try {
+    await withProductBrowser(async ({ container, render, click }) => {
+      await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+      await click(".checkout-submit");
+      assert.equal(submissions, 0);
+      assert.match(container.querySelector(".checkout-submit")?.textContent ?? "", /Siparişi tamamla/u);
+      await click(".checkout-submit");
+      assert.equal(submissions, 1);
+      assert.equal(preparations[1]?.operationId, preparations[0]?.operationId, "server eligibility update preserves the confirmed operation");
+    });
+  } finally { globalThis.fetch = previousFetch; }
+});
+
+test("a newer cart quote fences a pending contact preflight before any financial request", async () => {
+  let currentCart = cart;
+  let finishPreparation: ((value: unknown) => void) | undefined;
+  let submissions = 0;
+  const projected = () => { const selected = cardResponse(); const quote = { ...selected.quote, cart: { ...selected.quote.cart, version: currentCart.version } }; return { quote, quoteDigest: digest(quote) }; };
+  const Form = loadForm(async () => projected(), { getCart: () => currentCart, prepareCheckoutQuote: async () => (await new Promise<unknown>(resolve => { finishPreparation = resolve; })) as never, startHosted: async () => { submissions++; throw new Error("unused"); } });
+  await withProductBrowser(async ({ container, render, click }) => {
+    const props = { intentKind: "cart", initialDraft: validDraft };
+    await render(React.createElement(Form, props));
+    const stale = projected();
+    await click(".checkout-submit");
+    currentCart = { ...cart, version: 2 };
+    await render(React.createElement(Form, props));
+    await React.act(async () => finishPreparation?.(stale));
+    assert.equal(submissions, 0);
+    assert.equal(container.querySelector<HTMLButtonElement>(".checkout-submit")?.disabled, false);
+    assert.match(container.querySelector(".checkout-status")?.textContent ?? "", /Sipariş özeti güncel/u);
   });
 });

@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "e468f53ae09581e0e0c1e4060bc84417597eb573fb7bff491d34a64c37197318",
+  "inputDigest": "e6d8a73e70ff22857a920bd405b16c72393ab39406feab5f276c45a0c98196ee",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2836,6 +2836,14 @@
       "sha256": "face721efbe2cbf00691c4428b97ed8315443afaedcdb6168a11b5128654a0e9"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610260279_checkout_contexts.up.sql",
+      "sha256": "02363af7d665007774e383afaa191904f57176c7215d20f5a3a121ef47cad76d"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610260280_checkout_pricing_contexts.up.sql",
+      "sha256": "433cbe50e6c11973ef8cd7cb50d4498eb3aab68150eac8e075d25b2a7bb9e4e6"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -5329,11 +5337,11 @@
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/repository.ts",
-      "sha256": "792d661e0f527f1d432e020a9118193dea126f37b182998f4f8e71eeb331e8e9"
+      "sha256": "34a7b2d5ec5e30193ea6d1497c02f6f85d348b3d80509cc7cbc53bc6b5d6bf9f"
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/types.ts",
-      "sha256": "7bbc2e05b8fafdb05792e052892602f0545b7fa27cfb1fb8b2c3d7f999b4d754"
+      "sha256": "ad5ef4dbdfac9df29cb7094326ac7f6b4a7214e4bd448b49aee28f5d22864c90"
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/validation.ts",
@@ -5385,11 +5393,11 @@
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/repository.ts",
-      "sha256": "6b510aaf947f5de0771e3d9555a9542938f63553007d27503d45849959941d4b"
+      "sha256": "513f8662347ff407094faaefbf43ec59281e32f4d9d216db3b998e49dda6cc7f"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/types.ts",
-      "sha256": "34220a8590aed6f60a3a9725fa97f46e7091432680a556d487a559e3726641b7"
+      "sha256": "12c00ba13375ab3c9f05c9ce028200511c1eec4c1a6ee3b4fa396e07e38dfd6a"
     },
     {
       "path": "packages/saas-data/src/storefront-hosted-checkout/validation.ts",

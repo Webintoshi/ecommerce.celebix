@@ -266,6 +266,7 @@ function fixture(options: Readonly<{
     evidenceDigest: string;
   }> | null;
   authorityMatches?: boolean | Error;
+  isStandardCheckoutContext?: HostedPaymentRuntimeDependencies["isStandardCheckoutContext"];
 }> = {}) {
   const calls: Calls = {
     begin: [], initialized: [], unknown: [], callbackAuthority: [], reconciliationAuthority: [], settled: [],
@@ -459,6 +460,7 @@ function fixture(options: Readonly<{
       return options.authorityMatches ?? true;
     },
     providerTimeoutMs: options.providerTimeoutMs,
+    ...(options.isStandardCheckoutContext ? { isStandardCheckoutContext: options.isStandardCheckoutContext } : {}),
   });
   return { runtime, calls, get opened() { return opened; } };
 }
@@ -2211,6 +2213,71 @@ test("callback route maps only stable acknowledgements and fails closed without 
   });
   assert.equal(rejected.status, 400);
   assert.equal(await rejected.text(), "INVALID");
+});
+
+test("authenticated standard callbacks retain their exact attempt context after settlement", async () => {
+  for (const standard of [true, false]) {
+    const contexts: unknown[] = [];
+    const selected = fixture({ packet: callbackPacket("customer_return"), isStandardCheckoutContext: async input => {
+      contexts.push(input); return standard;
+    } });
+    const result = await selected.runtime.callback({ request: callbackRequest(), providerCode: PROVIDER,
+      binding: Buffer.alloc(32, 7).toString("base64url") });
+    assert.deepEqual(result, { kind: "customer_return", outcome: "success", ...(standard ? { contextId: ATTEMPT_ID } : {}) });
+    assert.deepEqual(contexts, [{ attemptId: ATTEMPT_ID, storeId: STORE_ID, now: NOW }]);
+    assert.equal(selected.calls.hostedCallbacks.length, 1);
+  }
+});
+
+test("context lookup uncertainty retries without selecting a different payment or repeating settlement", async () => {
+  const selected = fixture({ packet: callbackPacket("customer_return"), isStandardCheckoutContext: async () => {
+    throw Error("synthetic context lookup unavailable");
+  } });
+  assert.deepEqual(await selected.runtime.callback({ request: callbackRequest(), providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url") }), { kind: "retry" });
+  assert.equal(selected.calls.hostedCallbacks.length, 1);
+  assert.equal(selected.calls.initializedAdapter.length, 0);
+  let lookups = 0;
+  const rejected = fixture({ callback: Error("invalid synthetic signature"), packet: callbackPacket("customer_return"),
+    isStandardCheckoutContext: async () => { lookups++; return true; } });
+  assert.deepEqual(await rejected.runtime.callback({ request: callbackRequest(), providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url") }), { kind: "rejected" });
+  assert.equal(lookups, 0);
+});
+
+test("a callback verification deadline does not select a context before authentication", async () => {
+  let lookups = 0;
+  const selected = fixture({
+    packet: callbackPacket("customer_return"), providerTimeoutMs: 5,
+    callbackAdapter: async () => new Promise<VerifiedProviderCallback>(() => {}),
+    isStandardCheckoutContext: async () => { lookups++; return true; },
+  });
+  assert.deepEqual(await selected.runtime.callback({ request: callbackRequest(), providerCode: PROVIDER,
+    binding: Buffer.alloc(32, 7).toString("base64url") }), { kind: "retry" });
+  assert.equal(lookups, 0);
+  assert.equal(selected.calls.initializedAdapter.length, 0);
+});
+
+test("standard return redirects keep the authenticated context and reject malformed selectors", async () => {
+  const binding = Buffer.alloc(32, 7).toString("base64url");
+  for (const outcome of ["success", "failure", "processing"] as const) {
+    const runtime: HostedPaymentRuntime = Object.freeze({
+      initialize: async () => Object.freeze({ kind: "rejected" }),
+      reconcile: async () => Object.freeze({ kind: "rejected" }),
+      callbackByDigest: async () => Object.freeze({ kind: "rejected" }),
+      callback: async () => Object.freeze({ kind: "customer_return", outcome, contextId: ATTEMPT_ID }),
+    });
+    const route = createHostedPaymentCallbackRoute({ resolveRuntime: async () => runtime });
+    const response = await route(callbackRequest(), { params: Promise.resolve({ providerCode: PROVIDER, binding }) });
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), `/checkout/payment/${ATTEMPT_ID}/result`);
+    const invalidRoute = createHostedPaymentCallbackRoute({ resolveRuntime: async () => ({ ...runtime,
+      callback: async () => ({ kind: "customer_return", outcome, contextId: "//attacker.example" }),
+    }) });
+    const invalid = await invalidRoute(callbackRequest(), { params: Promise.resolve({ providerCode: PROVIDER, binding }) });
+    assert.equal(invalid.status, 400);
+    assert.equal(invalid.headers.get("location"), null);
+  }
 });
 
 test("customer callback route redirects only to fixed same-origin relative result paths", async () => {

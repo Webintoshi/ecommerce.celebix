@@ -51,6 +51,15 @@ const EMPTY: CheckoutFormDraft = Object.freeze({
 });
 
 const COMPLETE_FAILURE_CODES = ["invalid_input", "price_changed", "sales_paused", "cart_empty", "stock_unavailable", "shipping_unavailable", "payment_unavailable"] as const;
+function publicQuoteSignature(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(publicQuoteSignature).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${publicQuoteSignature(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
 async function completeCheckoutFailure(response: Response): Promise<StorefrontCartClientError | null> {
   const maximum = 2048;
   if (![400, 409].includes(response.status) || !response.body || response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return null;
@@ -116,6 +125,7 @@ export function CheckoutForm({
   const [attemptedDelivery, setAttemptedDelivery] = useState(false);
   const [status, setStatus] = useState("Sipariş özeti yükleniyor.");
   const formRef = useRef<HTMLFormElement>(null);
+  const submissionBusy = useRef(false);
   const operation = useRef<string | null>(null);
   const quoteSequence = useRef(0);
   const quoteBusy = useRef(true);
@@ -200,7 +210,7 @@ export function CheckoutForm({
 
   useEffect(() => {
     if (!uncertainPayment.current) operation.current = null;
-  }, [appliedCodes]);
+  }, [draft, appliedCodes, identityNumber, intentKind, quoteCartVersion]);
 
   const beforeBumpAdd = () => {
     if (pending || quoteBusy.current || bumpBusy.current || uncertainPayment.current || intentKind !== "cart") return false;
@@ -366,7 +376,7 @@ export function CheckoutForm({
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (pending || bumpBusy.current || quotePending || quoteBusy.current) return;
+    if (pending || submissionBusy.current || bumpBusy.current || quotePending || quoteBusy.current) return;
     const retryingUncertainPayment = uncertainPayment.current;
     setAttemptedDelivery(true);
     if (!validation.ok) {
@@ -401,6 +411,8 @@ export function CheckoutForm({
       return;
     }
     const delivery = validation.value;
+    let submissionQuote = quote;
+    let submissionDigest = quoteDigest;
     for (const line of quote.cart.items) {
       if (line.lineTotalCents === null) continue;
       const cohort = {
@@ -425,33 +437,63 @@ export function CheckoutForm({
       });
     }
     setPending(true);
-    // Retain this operation until a known rejection or its exact retry resolves it.
-    uncertainPayment.current = true;
-    setStatus(
-      selectedMethod.kind === "hosted_card"
-        ? "Güvenli ödeme ekranı hazırlanıyor."
-        : "Siparişiniz güvenle oluşturuluyor.",
-    );
+    submissionBusy.current = true;
+    let financialStarted = false;
     try {
+      operation.current ??= crypto.randomUUID();
+      if (!retryingUncertainPayment) {
+        const selectedOperation = operation.current;
+        const sequence = quoteSequence.current;
+        setStatus("Bilgileriniz ve güncel toplam kontrol ediliyor.");
+        const prepared = await storefrontCartClient.prepareCheckoutQuote({
+          operationId: selectedOperation,
+          cartVersion: quote.cart.version,
+          intentKind,
+          contact: delivery.contact,
+          shippingAddress: delivery.shippingAddress,
+          shippingMethod: "standard",
+          normalizedCodes: appliedCodes,
+          ...(delivery.note ? { note: delivery.note } : {}),
+        });
+        if (sequence !== quoteSequence.current || operation.current !== selectedOperation) {
+          setPending(false);
+          return;
+        }
+        const changed = publicQuoteSignature(quote) !== publicQuoteSignature(prepared.quote);
+        setQuote(prepared.quote);
+        setQuoteDigest(prepared.quoteDigest);
+        setQuoteSettled(true);
+        submissionQuote = prepared.quote;
+        submissionDigest = prepared.quoteDigest;
+        if (changed) {
+          setPaymentKind(kind => prepared.quote.paymentMethods.some(method => method.kind === kind) ? kind : prepared.quote.paymentMethods[0]?.kind ?? "");
+          setStatus("Sipariş özeti güncellendi. Lütfen yeni toplamı ve ödeme seçeneğini kontrol edip yeniden onaylayın.");
+          setPending(false);
+          return;
+        }
+      }
+      // Only a financial request creates uncertainty. Its exact operation and
+      // payload remain unchanged while its outcome is unknown.
+      financialStarted = true;
+      uncertainPayment.current = true;
+      setStatus(selectedMethod.kind === "hosted_card" ? "Güvenli ödeme ekranı hazırlanıyor." : "Siparişiniz güvenle oluşturuluyor.");
       if (selectedMethod.kind === "hosted_card") {
-        operation.current ??= crypto.randomUUID();
         const result = await storefrontCartClient.startHosted({
           operationId: operation.current,
-          cartVersion: quote.cart.version,
+          cartVersion: submissionQuote.cart.version,
           intentKind,
           contact: delivery.contact,
           shippingAddress: delivery.shippingAddress,
           shippingMethod: "standard",
           paymentMethodId: selectedMethod.id,
           normalizedCodes: appliedCodes,
-          expectedQuoteDigest: quoteDigest,
+          expectedQuoteDigest: submissionDigest,
           ...(identityRequired ? { identityNumber } : {}),
           ...(delivery.note ? { note: delivery.note } : {}),
         });
         window.location.assign(result.destination);
         return;
       }
-      operation.current ??= crypto.randomUUID();
       const response = await fetch("/api/checkout/complete", {
         method: "POST",
         credentials: "same-origin",
@@ -459,14 +501,14 @@ export function CheckoutForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           operationId: operation.current,
-          cartVersion: quote.cart.version,
+          cartVersion: submissionQuote.cart.version,
           intentKind,
           contact: delivery.contact,
           shippingAddress: delivery.shippingAddress,
           shippingMethod: "standard",
           paymentKind: selectedMethod.kind,
           normalizedCodes: appliedCodes,
-          expectedQuoteDigest: quoteDigest,
+          expectedQuoteDigest: submissionDigest,
           ...(delivery.note ? { note: delivery.note } : {}),
         }),
       });
@@ -487,6 +529,17 @@ export function CheckoutForm({
         throw new Error("checkout_failed");
       window.location.assign("/checkout/success");
     } catch (error: unknown) {
+      if (!financialStarted) {
+        if (error instanceof StorefrontCartClientError && error.code === "price_changed") {
+          await refreshAfterPriceChange();
+          return;
+        }
+        setStatus(selectedMethod.kind === "hosted_card"
+          ? hostedCheckoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null)
+          : checkoutFailureMessage(error instanceof StorefrontCartClientError ? error.code : null));
+        setPending(false);
+        return;
+      }
       if (!retryingUncertainPayment && error instanceof StorefrontCartClientError && error.code === "price_changed") {
         await refreshAfterPriceChange();
         return;
@@ -503,6 +556,8 @@ export function CheckoutForm({
             : "Sipariş tamamlanamadı. Lütfen bilgilerinizi kontrol edip yeniden deneyin.",
       );
       setPending(false);
+    } finally {
+      submissionBusy.current = false;
     }
   };
 
@@ -685,7 +740,10 @@ export function CheckoutForm({
                   <input
                     checked={paymentKind === method.kind}
                     name="paymentMethod"
-                    onChange={() => setPaymentKind(method.kind)}
+                    onChange={() => {
+                      if (!uncertainPayment.current) operation.current = null;
+                      setPaymentKind(method.kind);
+                    }}
                     type="radio"
                     value={method.kind}
                   />

@@ -133,6 +133,7 @@ function fixture(
     providerCode?: "iyzico_iframe" | "paytr_iframe" | "akbank_json";
     resume?: NonNullable<StorefrontHostedCheckoutRepository["resume"]>;
     assertNewCheckoutAllowed?: (hostname: string) => Promise<void>;
+    checkoutContexts?: true;
   }> = {},
 ) {
   const providerCode = options.providerCode ?? "iyzico_iframe";
@@ -206,6 +207,7 @@ function fixture(
       const { pricingDigest: _pricingDigest, requiresQuoteConfirmation: _requiresConfirmation, ...durableAuthority } = preparedV3;
       return Object.freeze({ ...begun, authority: Object.freeze(durableAuthority), promotionReservation: null });
     },
+    beginV4: async (input) => repository.beginV3(input),
     savePresentation: async (input) => {
       if (options.savePresentationError) throw options.savePresentationError;
       savedInput = input; stored = input;
@@ -219,6 +221,7 @@ function fixture(
   };
   const dependencies: Parameters<typeof createStandardHostedCheckoutRuntime>[0] = {
     repository,
+    checkoutContexts: options.checkoutContexts,
     assertNewCheckoutAllowed: options.assertNewCheckoutAllowed,
     commerceKeyring,
     presentationKeyring,
@@ -662,6 +665,37 @@ function lineLimitPreparedAuthority(value: PreparedAuthority): PreparedAuthority
 const headers = new Headers({ host: HOST, "x-forwarded-for": "8.8.8.8" });
 const cookie = `__Host-celebix_cart=${cart.value}`;
 const v2Cookie = `${cookie}; __Host-celebix_customer=${authenticatedCustomer.value}`;
+
+test("new tab contexts do not adopt another pending payment and do not overwrite guest identity cookies", async () => {
+  let resumes = 0;
+  const selected = fixture({ kind: "iframe", url: "https://sandbox-cpp.iyzipay.com/?token=abcdefghijklmnopqrstuvwxyzABCDEFGHIJ&lang=tr", token: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJ" }, "created", {
+    checkoutContexts: true,
+    resume: async () => { resumes++; return { status: { sessionId: ATTEMPT, status: "processing", safeCode: "provider_confirmation_pending", version: 3, paymentSessionExpiresAt: new Date(NOW.getTime() + 86_400_000).toISOString() }, presentation: null, createdAt: NOW.toISOString() }; },
+  });
+  const result = await selected.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request });
+  assert.equal(resumes, 0);
+  assert.equal(result.destination, `/checkout/payment/${OPERATION}`);
+  assert.equal(result.setCookies.length, 1);
+  assert.match(result.setCookies[0]!, new RegExp(`^__Secure-celebix_hosted_checkout=.+; Path=/checkout/payment/${OPERATION};`));
+  assert.equal(selected.getBegin()?.customerCandidates.length, 1);
+  const scopedCookie = result.setCookies[0]!.split(";")[0]!;
+  const status = await selected.runtime.status({ hostname: HOST, contextId: OPERATION, cookieHeader: `${v2Cookie}; ${scopedCookie}` });
+  assert.equal(status.sessionId, selected.getBegin()!.sessionId);
+  assert.equal(resumes, 0);
+  await assert.rejects(() => selected.runtime.status({ hostname: HOST, contextId: "30000000-0000-4000-8000-000000000002", cookieHeader: scopedCookie }));
+  await assert.rejects(() => selected.runtime.status({ hostname: HOST, contextId: OPERATION, cookieHeader: v2Cookie }));
+});
+
+test("an exact context replay with an unavailable short form opens only that operation's result", async () => {
+  const selected = fixture({ kind: "processing" }, "replayed", { checkoutContexts: true, providerCode: "paytr_iframe" });
+  const result = await selected.runtime.start({ hostname: HOST, cookieHeader: v2Cookie, headers, request });
+  assert.equal(result.destination, `/checkout/payment/${OPERATION}/result`);
+  assert.equal(result.state, "processing");
+  assert.equal(result.setCookies.length, 1);
+  assert.match(result.setCookies[0]!, new RegExp(`Path=/checkout/payment/${OPERATION};`));
+  await assert.rejects(selected.runtime.presentation({ hostname: HOST, contextId: OPERATION,
+    cookieHeader: result.setCookies[0]!.split(";")[0]!.replace("__Secure-", "__Host-") }));
+});
 
 test("a new checkout operation resumes its own pending cart without another provider initialization", async () => {
   let resumes = 0;

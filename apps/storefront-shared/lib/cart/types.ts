@@ -1,3 +1,4 @@
+import type { CheckoutPaymentDestination } from "../checkout/checkout-context.ts";
 import type {
   PublicCart,
   PublicCheckoutQuoteV2,
@@ -54,7 +55,19 @@ export type CheckoutShippingAddress = Readonly<{
   district: string;
   postalCode?: string;
 }>;
+export type CheckoutPrepareRequest = Readonly<{
+  kind: "prepare";
+  operationId: string;
+  cartVersion: number;
+  intentKind: CheckoutIntentKind;
+  contact: CheckoutContact;
+  shippingAddress: CheckoutShippingAddress;
+  shippingMethod: "standard";
+  normalizedCodes?: readonly string[];
+  note?: string;
+}>;
 export type CheckoutRequest =
+  | CheckoutPrepareRequest
   | Readonly<{
       kind: "quote";
       intentKind: CheckoutIntentKind;
@@ -128,7 +141,8 @@ export type StorefrontCartClient = Readonly<{
     intentKind: CheckoutIntentKind,
     normalizedCodes: readonly string[],
   ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; quoteDigest: string }>>;
+  prepareCheckoutQuote(input: Omit<CheckoutPrepareRequest, "kind">): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; quoteDigest: string }>>;
   startHosted(
     input: HostedCheckoutStartClientInput,
-  ): Promise<Readonly<{ destination: "/checkout/payment" | "/checkout/payment/result" }>>;
+  ): Promise<Readonly<{ destination: CheckoutPaymentDestination }>>;
 }>;

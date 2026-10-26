@@ -585,6 +585,33 @@ test("V3 hosted begin binds the authority proof at final argument while preservi
   assert.equal(call?.values?.length, 28);
 });
 
+test("V4 context begin preserves all 28 immutable pricing and customer arguments", async () => {
+  const payload = { ...beginPayload(), amountMinor: 13_700, authority: authorityV2(), promotionReservation: promotionReservation() };
+  const client = new Client((text) => text.includes("public_storefront_hosted_checkout_begin_v4")
+    ? row("created", payload) : []);
+  const selected = repository(new Pool([client]));
+  assert.equal(typeof selected.beginV4, "function");
+  const result = await selected.beginV4({ ...beginV2Input(), expectedPricingDigest: PRICING_DIGEST });
+  assert.equal(result.authority.totalMinor, 13_700);
+  const call = client.calls.find(({ text }) => text.includes("public_storefront_hosted_checkout_begin_v4"));
+  assert.equal(call?.values?.length, 28);
+  assert.equal(call?.values?.[27], PRICING_DIGEST);
+  assert.equal(call?.values?.[24], JSON.stringify(beginV2Input().customerCandidates));
+});
+
+test("context routing reads only an exact store/attempt boolean and rejects malformed projections", async () => {
+  for (const value of [true, false]) {
+    const client = new Client((text) => text.includes("storefront_checkout_context279_for_attempt") ? row("found", value) : []);
+    const selected = repository(new Pool([client]));
+    assert.equal(typeof selected.isContext, "function");
+    assert.equal(await selected.isContext({ storeId: STORE, operationId: OPERATION, now: NOW }), value);
+    const call = client.calls.find(({ text }) => text.includes("storefront_checkout_context279_for_attempt"));
+    assert.deepEqual(call?.values, [STORE, OPERATION, NOW]);
+  }
+  const selected = repository(new Pool([new Client(() => row("found", { value: true }))]));
+  await assert.rejects(() => selected.isContext({ storeId: STORE, operationId: OPERATION, now: NOW }), /unavailable/);
+});
+
 test("beginV2 admits an exact null reservation for a gross no-campaign authority", async () => {
   const gross = grossAuthorityV2();
   const payload = {

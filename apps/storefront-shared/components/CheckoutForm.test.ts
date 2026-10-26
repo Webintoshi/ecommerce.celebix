@@ -7,7 +7,10 @@ const [form, summary, checkout, success, hostedResult, account, readiness, css] 
   readFile(new URL("./CheckoutSummary.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/checkout/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("../app/checkout/success/page.tsx", import.meta.url), "utf8"),
-  readFile(new URL("../app/checkout/payment/result/page.tsx", import.meta.url), "utf8").catch(() => ""),
+  Promise.all([
+    readFile(new URL("../app/checkout/payment/result/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./HostedCheckoutResult.tsx", import.meta.url), "utf8"),
+  ]).then(parts => parts.join("\n")),
   readFile(new URL("../app/account/page.tsx", import.meta.url), "utf8"),
   readFile(new URL("./checkout-readiness.ts", import.meta.url), "utf8"),
   readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
@@ -39,7 +42,9 @@ test("checkout submission contains only the exact server-owned contract and fixe
 
 test("checkout carries the opaque quote seal and requires a fresh customer submit after price drift", () => {
   assert.match(form, /quotePromotionsWithDigest/u);
-  assert.match(form, /expectedQuoteDigest: quoteDigest/u);
+  assert.match(form, /prepareCheckoutQuote/u);
+  assert.match(form, /submissionDigest = prepared[.]quoteDigest/u);
+  assert.match(form, /expectedQuoteDigest: submissionDigest/u);
   // The complete endpoint now validates the exact bounded failure envelope before typing price drift.
   assert.match(form, /completeCheckoutFailure\(response\)/u);
   assert.match(form, /response[.]status !== \(code === "invalid_input" \? 400 : 409\)/u);

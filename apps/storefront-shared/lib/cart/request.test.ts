@@ -283,3 +283,20 @@ test("checkout contact phone remains canonical bounded E164 instead of arbitrary
     }
   }
 });
+
+
+test("contact-aware checkout preparation binds one operation and rejects cross-origin or extra authority", async () => {
+  const body = { operationId: "30000000-0000-4000-8000-000000000001", cartVersion: 1, intentKind: "cart",
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard", normalizedCodes: [] };
+  const origin = "https://shop.example.test";
+  const request = (value: unknown, selectedOrigin = origin) => new Request(`${origin}/api/checkout/prepare`, {
+    method: "POST", headers: { origin: selectedOrigin, "content-type": "application/json" }, body: JSON.stringify(value),
+  });
+  assert.deepEqual(await readCheckoutRequest(request(body), origin), { kind: "prepare", ...body });
+  await assert.rejects(readCheckoutRequest(request(body, "https://evil.example"), origin));
+  await assert.rejects(readCheckoutRequest(request({ ...body, customerId: "10000000-0000-4000-8000-000000000001" }), origin));
+  await assert.rejects(readCheckoutRequest(request({ ...body, operationId: "wrong" }), origin));
+  await assert.rejects(readCheckoutRequest(request({ ...body, contact: { ...body.contact, phone: "invalid" } }), origin));
+});

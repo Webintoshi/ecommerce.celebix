@@ -1,3 +1,4 @@
+import { isCheckoutContextDestination } from "../checkout/checkout-context.ts";
 import {
   StorefrontCommerceRepositoryError,
   StorefrontHostedCheckoutRepositoryError,
@@ -375,7 +376,7 @@ export function createHostedCheckoutStartRoute(
         headers: new Headers(request.headers),
         request: input,
       });
-      if (result.destination !== "/checkout/payment" && result.destination !== "/checkout/payment/result") {
+      if (!isCheckoutContextDestination(result.destination)) {
         hostedAudit(dependencies, "destination_invalid");
         return json({ code: "unavailable" }, 503);
       }
@@ -385,6 +386,35 @@ export function createHostedCheckoutStartRoute(
       return json({ destination: result.destination }, 200, headers);
     } catch (error) {
       hostedAudit(dependencies, "runtime_failure", safeErrorCode(error));
+      return failure(error);
+    }
+  };
+}
+
+
+export function createCheckoutPrepareRoute(dependencies: Readonly<{
+  selectAuthority(headers: Headers): TrustedStorefrontHostAuthority;
+  resolveRuntime(): Promise<Pick<StorefrontCommerceRuntime, "prepareCheckout"> | null>;
+}>) {
+  return async function POST(request: Request): Promise<Response> {
+    const selected = authority(dependencies, request);
+    if (!selected) return json({ code: "unavailable" }, 503);
+    let input;
+    try { input = await readCheckoutRequest(request, selected.origin); }
+    catch { return json({ code: "invalid_input" }, 400); }
+    if (input.kind !== "prepare") return json({ code: "invalid_input" }, 400);
+    try {
+      const selectedRuntime = await dependencies.resolveRuntime();
+      if (!selectedRuntime?.prepareCheckout) return json({ code: "unavailable" }, 503);
+      const result = await selectedRuntime.prepareCheckout(selected.hostname, request.headers.get("cookie"), input);
+      if (!/^[a-f0-9]{64}$/.test(result.quoteDigest)) throw new StorefrontCommerceRuntimeError("unavailable");
+      return json({ quote: parsePublicCheckoutQuoteV2(result.quote), quoteDigest: result.quoteDigest }, 200);
+    } catch (error) {
+      // No financial request has started: a stale source or expired operation
+      // must refresh the displayed quote and use a new operation, not loop.
+      if (error instanceof StorefrontCommerceRepositoryError
+        && ["version_conflict", "operation_mismatch"].includes(error.code))
+        return json({ code: "price_changed" }, 409);
       return failure(error);
     }
   };

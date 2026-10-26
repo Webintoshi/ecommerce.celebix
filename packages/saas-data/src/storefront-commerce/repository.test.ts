@@ -983,3 +983,37 @@ test("repository rejects more than sixteen candidates before pool acquisition", 
     /invalid_input/u,
   );
 });
+
+
+test("V4 uncertain commit recovers one exact context in READ ONLY and never repeats completion", async () => {
+  const payload = { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_REUSED };
+  const first = new Client(async text => {
+    if (text.includes("saas.public_checkout_complete_v4")) return [{ outcome: "committed", result_payload: payload }];
+    if (text === "COMMIT") throw Error("socket lost");
+    return [];
+  });
+  const second = new Client(responder("operation_replayed", payload));
+  const result = await repository(new Pool([first, second])).completeV4({ ...completeV2Input(), expectedQuoteDigest: QUOTE_DIGEST });
+  assert.deepEqual(result, payload);
+  const original = first.calls.find(call => call.text.includes("saas.public_checkout_complete_v4"))!;
+  const recovery = second.calls.find(call => call.text.includes("saas.public_checkout_recover_v4"))!;
+  assert.equal(recovery.text, original.text.replace("complete_v4(", "recover_v4("));
+  assert.deepEqual(recovery.values, original.values);
+  assert.equal(recovery.values.length, 24);
+  assert.equal(second.calls[0]?.text, "BEGIN READ ONLY");
+  assert.equal([first, second].flatMap(client => client.calls).filter(call => call.text.includes("saas.public_checkout_complete_v4")).length, 1);
+  assert.deepEqual(first.releases, [true]);
+});
+
+test("contact-aware prepare writes a native quote without accepting browser customer authority", async () => {
+  const client = new Client(responder("quoted", { quote: QUOTE_V2, authorityDigest: AUTHORITY_DIGEST, quoteDigest: QUOTE_DIGEST }));
+  const source = completeV2Input();
+  const result = await repository(new Pool([client])).prepareQuoteV4({ hostname: HOST, now: NOW, intentKind: "cart",
+    candidates: CANDIDATES, operationId: OPERATION, cartVersion: 1, delivery: source.delivery, normalizedCodes: [] });
+  assert.equal(result.quoteDigest, QUOTE_DIGEST);
+  const call = client.calls.find(call => call.text.includes("saas.public_storefront_checkout_prepare_quote_v4"))!;
+  assert.equal(call.values.length, 9);
+  assert.equal(call.values[6], OPERATION);
+  assert.equal(call.values[4], 1);
+  assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
+});

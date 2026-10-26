@@ -34,6 +34,7 @@ import {
 } from "./callback-authority.ts";
 
 import { validateAkbankFormPost, type AkbankFormPostPresentation } from "../checkout/akbank-form-post.ts";
+import { checkoutContextResultPath, parseCheckoutContextId } from "../checkout/checkout-context.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const PROVIDER_CODE = /^[a-z][a-z0-9_]{0,63}$/;
@@ -89,6 +90,7 @@ export type HostedPaymentCallbackResult =
   | Readonly<{
       kind: "customer_return";
       outcome: "success" | "failure" | "processing";
+      contextId?: string;
     }>;
 
 export type HostedPaymentDigestCallbackResult =
@@ -179,6 +181,11 @@ export type HostedPaymentRuntimeDependencies = Readonly<{
   now: () => Date;
   randomBytes: (size: number) => Uint8Array;
   providerTimeoutMs?: number;
+  isStandardCheckoutContext?: (input: Readonly<{
+    attemptId: string;
+    storeId: string;
+    now: Date;
+  }>) => Promise<boolean>;
 }>;
 
 const PRESENTATION_PROCESSING = Object.freeze({ kind: "processing" as const });
@@ -1375,13 +1382,28 @@ async function settleExactCallback(
           now,
         );
         return persisted === "persisted"
-          ? callbackProjection(adapter, "processing")
+          ? dependencies.isStandardCheckoutContext && adapter.packet.callbackResponse === "customer_return"
+            ? CALLBACK_RETRY
+            : callbackProjection(adapter, "processing")
           : persisted === "retry"
             ? CALLBACK_RETRY
             : CALLBACK_REJECTED;
       }
       const verified = parseVerifiedCallback(providerResult, authority);
       if (verified === null) return CALLBACK_REJECTED;
+      const projectVerifiedReturn = async (outcome: "success" | "failure" | "processing"): Promise<HostedPaymentCallbackResult> => {
+        const projected = callbackProjection(adapter, outcome);
+        if (projected.kind !== "customer_return" || !dependencies.isStandardCheckoutContext) return projected;
+        try {
+          const standard = await dependencies.isStandardCheckoutContext({
+            attemptId: authority.attemptId,
+            storeId: authority.storeId,
+            now: new Date(now),
+          });
+          if (typeof standard !== "boolean") return CALLBACK_RETRY;
+          return standard ? Object.freeze({ ...projected, contextId: authority.attemptId }) : projected;
+        } catch { return CALLBACK_RETRY; }
+      };
       if (verified.status === "pending" || verified.status === "retry") {
         const persisted = await persistCallbackUnknown(
           dependencies,
@@ -1394,7 +1416,7 @@ async function settleExactCallback(
           now,
         );
         return persisted === "persisted"
-          ? callbackProjection(adapter, "processing")
+          ? projectVerifiedReturn("processing")
           : persisted === "retry"
             ? CALLBACK_RETRY
             : CALLBACK_REJECTED;
@@ -1443,7 +1465,7 @@ async function settleExactCallback(
             && verified.providerReference === authority.providerReference
             && settled.replayed
             && settled.version < authority.version
-          ) return callbackProjection(adapter, verified.status === "succeeded" ? "success" : "failure");
+          ) return projectVerifiedReturn(verified.status === "succeeded" ? "success" : "failure");
           if (typeof verified.providerReference === "string" && await reconcileVerifiedCallbackObservation(
             dependencies, authority, selectedAdapter, Object.freeze({
               providerCode: authority.providerCode,
@@ -1454,14 +1476,13 @@ async function settleExactCallback(
               amountMinor: verified.paidAmountMinor, currency: verified.currency,
               safeCode: verified.safeCode,
             }), now,
-          )) return callbackProjection(adapter, verified.status === "succeeded" ? "success" : "failure");
-          return callbackProjection(adapter, "processing");
+          )) return projectVerifiedReturn(verified.status === "succeeded" ? "success" : "failure");
+          return projectVerifiedReturn("processing");
         }
       } catch (error) {
         return retryableCallbackError(error) ? CALLBACK_RETRY : CALLBACK_REJECTED;
       }
-      return callbackProjection(
-        adapter,
+      return projectVerifiedReturn(
         verified.status === "succeeded" ? "success" : "failure",
       );
     } catch {
@@ -1857,7 +1878,12 @@ export function createHostedPaymentCallbackRoute(dependencies: Readonly<{
         binding: params.binding,
       });
       if (result.kind === "customer_return") {
-        const location = result.outcome === "success"
+        if (result.contextId !== undefined && parseCheckoutContextId(result.contextId) === null) {
+          return new Response("INVALID", { status: 400, headers });
+        }
+        const location = result.contextId !== undefined
+          ? checkoutContextResultPath(result.contextId)
+          : result.outcome === "success"
           ? SUCCESS_PATH
           : result.outcome === "failure"
             ? FAILURE_PATH

@@ -590,3 +590,31 @@ test("an explicit add replaces an invalid or expired cart credential", async () 
   assert.match(expired.setCookie ?? "", /^__Host-celebix_cart=c1[.]current_01[.]/u);
   assert.equal(created, 2);
 });
+
+
+
+
+test("contact preflight binds source, operation and submitted delivery while offline completion uses V4", async () => {
+  const cart = createStorefrontCredential("cart", keyring, size => new Uint8Array(size).fill(4));
+  const guest = createStorefrontCredential("customer", keyring, size => new Uint8Array(size).fill(5));
+  let prepared: unknown, completed = false;
+  const selected = createStorefrontCommerceRuntime({ keyring, contactAwareCheckout: true,
+    now: () => new Date(NOW), randomBytes: size => new Uint8Array(size).fill(9), randomUuid: randomUUID,
+    repository: fake({
+      prepareQuoteV4: async input => { prepared = input; return quoted(FEATURE_OFF_QUOTE_V2); },
+      completeV3: async () => { throw Error("old_completion_not_expected"); },
+      completeV4: async input => { completed = true; assert.equal(input.expectedQuoteDigest, QUOTE_DIGEST); return { receipt: RECEIPT_V2, credentialPersistence: PERSISTED_CREATED }; },
+    }),
+  });
+  const cookies = `__Host-celebix_cart=${cart.value}; __Host-celebix_customer=${guest.value}`;
+  const { paymentKind: _, ...deliveryInput } = COMPLETE_REQUEST;
+  const quote = await selected.prepareCheckout!(HOST, cookies, { ...deliveryInput, kind: "prepare", normalizedCodes: [] });
+  assert.deepEqual(prepared, { hostname: HOST, now: NOW, intentKind: "cart", candidates: [{ keyId: cart.keyId, digest: cart.digest }],
+    operationId: OPERATION, cartVersion: 1, normalizedCodes: [], delivery: {
+      contact: { firstName: "Güzide", lastName: "Elif", email: "info@example.com", phone: "+905551112233" },
+      shippingAddress: { line1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", country: "TR" },
+    } });
+  assert.equal(Object.hasOwn(prepared as object, "customerCandidates"), false);
+  await selected.complete(HOST, cookies, { ...COMPLETE_REQUEST, expectedQuoteDigest: quote.quoteDigest });
+  assert.equal(completed, true);
+});

@@ -228,7 +228,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
   }
 
-  async authorityV3(input: HostedCheckoutAuthorityV3Input): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]> {
+  private async authorityVersioned(input: HostedCheckoutAuthorityV3Input, version: 3 | 4): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]> {
     try {
       const parsed = hostedExact(input, [
         "hostname", "now", "intentKind", "candidates", "cartVersion", "delivery", "paymentMethodId",
@@ -250,7 +250,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         orderId, hostedInput.uuid(parsed.prospectiveCustomerId), hostedInput.uuid(parsed.operationId),
         parsed.expectedQuoteDigest === undefined ? null : hostedInput.digest(parsed.expectedQuoteDigest),
       ];
-      const text = "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid,$13::text)";
+      const text = `SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_authority_v${version}($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb,$10::uuid,$11::uuid,$12::uuid,$13::text)`;
       const client = await this.acquire(); let began = false; let terminal = false;
       try {
         await client.query("BEGIN ISOLATION LEVEL READ COMMITTED"); began = true; await this.configure(client);
@@ -269,6 +269,14 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         if (isTrusted(error)) throw error; return unavailable();
       }
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
+  }
+
+  async authorityV3(input: HostedCheckoutAuthorityV3Input): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]> {
+    return this.authorityVersioned(input, 3);
+  }
+
+  async authorityV4(input: HostedCheckoutAuthorityV3Input): ReturnType<StorefrontHostedCheckoutRepository["authorityV3"]> {
+    return this.authorityVersioned(input, 4);
   }
 
   async begin(input: HostedCheckoutBeginInput): ReturnType<StorefrontHostedCheckoutRepository["begin"]> {
@@ -319,7 +327,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
     } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
   }
 
-  private async beginVersioned(input: HostedCheckoutBeginV2Input | HostedCheckoutBeginV3Input, version: 2 | 3): ReturnType<StorefrontHostedCheckoutRepository["beginV2"]> {
+  private async beginVersioned(input: HostedCheckoutBeginV2Input | HostedCheckoutBeginV3Input, version: 2 | 3 | 4 | 5): ReturnType<StorefrontHostedCheckoutRepository["beginV2"]> {
     try {
       const parsed = hostedExact(input, [
         "hostname", "now", "intentKind", "candidates", "cartVersion", "delivery", "paymentMethodId",
@@ -327,7 +335,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         "orderId", "customerId", "addressId", "eventId", "receiptId", "customerCredentialId",
         "paymentSession", "receipt", "customer", "customerCandidates", "normalizedCodes",
         "expectedEvaluatorAuthorityDigest",
-        ...(version === 3 ? ["expectedPricingDigest"] : []),
+        ...(version >= 3 ? ["expectedPricingDigest"] : []),
       ]);
       const base = this.authorityValues({
         hostname: parsed.hostname as string,
@@ -349,7 +357,7 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
       const customerCandidates = hostedInput.candidates(parsed.customerCandidates, true);
       const normalizedCodes = hostedPromotionCodes(parsed.normalizedCodes);
       const expectedEvaluatorAuthorityDigest = hostedInput.digest(parsed.expectedEvaluatorAuthorityDigest);
-      const expectedPricingDigest = version === 3 ? hostedInput.digest(parsed.expectedPricingDigest) : undefined;
+      const expectedPricingDigest = version >= 3 ? hostedInput.digest(parsed.expectedPricingDigest) : undefined;
       const values = [
         ...base.values,
         expectedAuthorityDigest,
@@ -372,10 +380,10 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
         JSON.stringify(customerCandidates),
         JSON.stringify(normalizedCodes),
         expectedEvaluatorAuthorityDigest,
-        ...(version === 3 ? [expectedPricingDigest] : []),
+        ...(version >= 3 ? [expectedPricingDigest] : []),
       ];
-      const text = version === 3
-        ? "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_begin_v3($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::text,$9::uuid,$10::text,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::uuid,$16::uuid,$17::uuid,$18::uuid,$19::text,$20::text,$21::text,$22::text,$23::text,$24::text,$25::jsonb,$26::jsonb,$27::text,$28::text)"
+      const text = version >= 3
+        ? `SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_begin_v${version}($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::text,$9::uuid,$10::text,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::uuid,$16::uuid,$17::uuid,$18::uuid,$19::text,$20::text,$21::text,$22::text,$23::text,$24::text,$25::jsonb,$26::jsonb,$27::text,$28::text)`
         : "SELECT outcome,result_payload FROM saas.public_storefront_hosted_checkout_begin_v2($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::text,$9::uuid,$10::text,$11::uuid,$12::text,$13::uuid,$14::uuid,$15::uuid,$16::uuid,$17::uuid,$18::uuid,$19::text,$20::text,$21::text,$22::text,$23::text,$24::text,$25::jsonb,$26::jsonb,$27::text)";
       const client = await this.acquire(); let began = false; let terminal = false;
       try {
@@ -416,6 +424,25 @@ export class PostgresStorefrontHostedCheckoutRepository implements StorefrontHos
 
   async beginV3(input: HostedCheckoutBeginV3Input): ReturnType<StorefrontHostedCheckoutRepository["beginV3"]> {
     return this.beginVersioned(input, 3);
+  }
+
+  async beginV5(input: HostedCheckoutBeginV3Input): Promise<Awaited<ReturnType<StorefrontHostedCheckoutRepository["beginV3"]>>> {
+    return this.beginVersioned(input, 5);
+  }
+
+  async beginV4(input: HostedCheckoutBeginV3Input): Promise<Awaited<ReturnType<StorefrontHostedCheckoutRepository["beginV3"]>>> {
+    return this.beginVersioned(input, 4);
+  }
+
+  async isContext(input: Readonly<{ storeId: string; operationId: string; now: Date }>): Promise<boolean> {
+    try {
+      const parsed = hostedExact(input, ["storeId", "operationId", "now"]);
+      return await this.read(
+        "SELECT 'found'::text AS outcome,pg_catalog.to_jsonb(saas.storefront_checkout_context279_for_attempt($1::uuid,$2::uuid,$3::timestamptz)) AS result_payload",
+        [hostedInput.uuid(parsed.storeId), hostedInput.uuid(parsed.operationId), hostedInput.date(parsed.now)],
+        "found", (value) => typeof value === "boolean" ? value : unavailable(),
+      );
+    } catch (error) { throw new StorefrontHostedCheckoutRepositoryError(isTrusted(error) ? error.code : "invalid_input"); }
   }
 
   async savePresentation(input: HostedCheckoutPresentationSaveInput): Promise<HostedCheckoutPresentationState> {

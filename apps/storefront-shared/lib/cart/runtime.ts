@@ -27,6 +27,7 @@ import type {
   CartCommand,
   CheckoutIntentKind,
   CheckoutRequest,
+  CheckoutPrepareRequest,
 } from "./types.ts";
 
 const EMPTY_CART: PublicCart = Object.freeze({
@@ -96,6 +97,9 @@ export type StorefrontCommerceRuntime = Readonly<{
       setCookies: readonly string[];
     }>
   >;
+  prepareCheckout?(
+    hostname: string, cookieHeader: string | null, request: CheckoutPrepareRequest,
+  ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; quoteDigest: string }>>;
   getReceipt(
     hostname: string,
     cookieHeader: string | null,
@@ -114,6 +118,7 @@ type Dependencies = Readonly<{
   randomBytes(size: number): Uint8Array;
   randomUuid(): string;
   bindCartIdentity?: BindStorefrontCartIdentity;
+  contactAwareCheckout?: true;
   hostedPaymentAvailable?(
     method: Extract<PublicPaymentMethod, { kind: "hosted_card" }>,
   ): Promise<boolean>;
@@ -262,7 +267,7 @@ function optionalCandidates(
   if (cookie.kind !== "present") return Object.freeze([]);
   return credentialDigestCandidates(selectedPurpose, cookie.value, keyring);
 }
-function delivery(request: Extract<CheckoutRequest, { kind: "complete" }>) {
+function delivery(request: Pick<Extract<CheckoutRequest, { kind: "complete" }>, "contact" | "shippingAddress" | "note">) {
   const normalizedName = request.contact.name.trim().replace(/ +/gu, " ");
   const split = normalizedName.lastIndexOf(" ");
   const firstName = split > 0 ? normalizedName.slice(0, split) : normalizedName;
@@ -583,6 +588,24 @@ export function createStorefrontCommerceRuntime(
         quoteDigest: selected.quoteDigest,
       });
     },
+    async prepareCheckout(hostname, cookieHeader, request) {
+      if (!dependencies.contactAwareCheckout || !dependencies.repository.prepareQuoteV4)
+        throw new StorefrontCommerceRuntimeError("unavailable");
+      const result = await dependencies.repository.prepareQuoteV4({
+        hostname, now: date(dependencies), intentKind: request.intentKind,
+        candidates: candidates(purpose(request.intentKind), cookieHeader, dependencies.keyring),
+        operationId: request.operationId, cartVersion: request.cartVersion,
+        delivery: delivery(request), normalizedCodes: promotionCodes(request.normalizedCodes ?? []),
+      });
+      const methods: PublicPaymentMethod[] = [];
+      for (const method of result.quote.paymentMethods) {
+        if (method.kind !== "hosted_card" || await dependencies.hostedPaymentAvailable?.(method).catch(() => false)) methods.push(method);
+      }
+      const cart = methods.length === 0 && result.quote.cart.checkoutBlocker === null
+        ? Object.freeze({ ...result.quote.cart, checkoutReady: false, checkoutBlocker: "payment_unavailable" as const })
+        : result.quote.cart;
+      return Object.freeze({ quote: Object.freeze({ ...result.quote, cart, paymentMethods: Object.freeze(methods) }), quoteDigest: result.quoteDigest });
+    },
     async complete(hostname, cookieHeader, request) {
       const selectedCodes = promotionCodes(request.normalizedCodes ?? []);
       const now = date(dependencies);
@@ -613,7 +636,9 @@ export function createStorefrontCommerceRuntime(
         delivery: delivery(request),
         paymentKind: request.paymentKind,
       });
-      const result = await dependencies.repository.completeV3({
+      const complete = dependencies.contactAwareCheckout ? dependencies.repository.completeV4 : dependencies.repository.completeV3;
+      if (!complete) throw new StorefrontCommerceRuntimeError("unavailable");
+      const result = await complete.call(dependencies.repository, {
         ...common,
         generated: Object.freeze({
           orderId: derivedV2Uuid("order", hostname, request.operationId),

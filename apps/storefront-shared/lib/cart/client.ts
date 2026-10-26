@@ -1,5 +1,7 @@
 "use client";
 
+import { isCheckoutContextDestination } from "../checkout/checkout-context.ts";
+
 import {
   parsePublicCart,
   parsePublicCheckoutQuoteV2,
@@ -221,6 +223,9 @@ export function createStorefrontCartClient(
     async quotePromotionsWithDigest(intentKind, normalizedCodes) {
       return quote(intentKind, normalizedCodes);
     },
+    async prepareCheckoutQuote(input) {
+      return confirmedQuote(await call("/api/checkout/prepare", input));
+    },
     async startHosted(input) {
       const root = exact(
         await call("/api/checkout/payment/start", {
@@ -229,7 +234,7 @@ export function createStorefrontCartClient(
         }),
         ["destination"],
       );
-      if (!root || (root.destination !== "/checkout/payment" && root.destination !== "/checkout/payment/result"))
+      if (!root || !isCheckoutContextDestination(root.destination))
         throw new StorefrontCartClientError("invalid_response");
       return Object.freeze({ destination: root.destination });
     },

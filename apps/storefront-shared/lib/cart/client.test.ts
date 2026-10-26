@@ -291,3 +291,39 @@ test('WhatsApp-only refusal preserves its safe policy code for stale purchase an
  const client=createStorefrontCartClient(async()=>Response.json({code:'whatsapp_only'},{status:409}),()=>OPERATION);
  await assert.rejects(client.add({productId:PRODUCT,variantId:VARIANT,quantity:1}),(error:unknown)=>error instanceof StorefrontCartClientError && error.code==='whatsapp_only');
 });
+
+
+test("hosted handoff accepts exact tab context paths and rejects lookalikes", async () => {
+  const body = { cartVersion: 1, intentKind: "cart" as const,
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Örnek Sokak 1", city: "İstanbul", district: "Kadıköy" },
+    shippingMethod: "standard" as const, paymentMethodId: PAYMENT_METHOD };
+  for (const destination of [`/checkout/payment/${OPERATION}`, `/checkout/payment/${OPERATION}/result`]) {
+    const client = createStorefrontCartClient(async () => new Response(JSON.stringify({ destination }), { headers: { "content-type": "application/json" } }), () => OPERATION);
+    assert.deepEqual(await client.startHosted(body), { destination });
+  }
+  for (const destination of [`//evil.test/checkout/payment/${OPERATION}`, `/checkout/payment/${OPERATION}?next=evil`,
+    `/checkout/payment/${OPERATION}/result/`, "/checkout/payment/not-an-operation"] ) {
+    const client = createStorefrontCartClient(async () => new Response(JSON.stringify({ destination }), { headers: { "content-type": "application/json" } }), () => OPERATION);
+    await assert.rejects(client.startHosted(body));
+  }
+});
+
+
+test("checkout preparation sends contact and one operation only to the same-origin native quote boundary", async () => {
+  let observed: unknown;
+  const QUOTE_V2 = { cart: { version: 1, currency: "TRY", itemCount: 0, subtotalCents: 0, shippingCents: 0, lineDiscountCents: 0, shippingDiscountCents: 0, discountCents: 0, totalCents: 0, checkoutReady: false, checkoutBlocker: "empty_cart", items: [] }, paymentMethods: [], promotionStatus: { kind: "evaluated" }, appliedPromotions: [], rejectedPromotions: [], gifts: [], progressMessages: [] };
+  const client = createStorefrontCartClient(async (input, init) => {
+    assert.equal(String(input), "/api/checkout/prepare");
+    assert.equal(init?.credentials, "same-origin");
+    assert.equal(init?.cache, "no-store");
+    observed = JSON.parse(String(init?.body));
+    return new Response(JSON.stringify({ quote: QUOTE_V2, quoteDigest: "a".repeat(64) }), { headers: { "content-type": "application/json" } });
+  }, () => OPERATION);
+  const body = { operationId: OPERATION, cartVersion: 1, intentKind: "cart" as const,
+    contact: { name: "Ada Lovelace", email: "ada@example.com", phone: "+905551112233" },
+    shippingAddress: { addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy" }, shippingMethod: "standard" as const, normalizedCodes: [] };
+  const result = await client.prepareCheckoutQuote(body);
+  assert.deepEqual(observed, body);
+  assert.equal(result.quoteDigest, "a".repeat(64));
+});

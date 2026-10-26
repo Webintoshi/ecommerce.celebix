@@ -9,6 +9,7 @@ import { selectTrustedStorefrontHostAuthority } from "./lib/trusted-host-authori
 import { createCanonicalStorefrontLocation } from "./lib/custom-domain-canonicalization.ts";
 import { hostedPaymentFrameSources } from "./lib/checkout/paytr-frame-policy.ts";
 import { googleMarketingCspSources } from "./lib/google-marketing.ts";
+import { isCheckoutContextPaymentPath } from "./lib/checkout/checkout-context.ts";
 
 const FALLBACK_CSP = "default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'; object-src 'none'";
 const SECURITY_HEADERS = Object.freeze({ "cache-control": "private, no-store, no-transform", "referrer-policy": "strict-origin-when-cross-origin", "x-content-type-options": "nosniff", "x-frame-options": "DENY", "permissions-policy": "camera=(), microphone=(), geolocation=()", "strict-transport-security": "max-age=31536000; includeSubDomains" });
@@ -216,7 +217,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
         if (await dependencies.resolveCollectionAvailability({ hostname: authority.hostname, slug, now: dependencies.now() }) !== true) return collectionNotFound();
       } catch { return unavailable(); }
     }
-    if (exactTarget && pathname === "/checkout/payment") return NextResponse.next();
+    if (exactTarget && (pathname === "/checkout/payment" || isCheckoutContextPaymentPath(pathname))) return NextResponse.next();
     let mediaOrigin: string;
     try {
       mediaOrigin = dependencies.resolveMediaOrigin();
@@ -238,7 +239,7 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     const defaultCsp = pageCsp("'none'");
     const paytrHostedReturnBridge = request.method === "GET" && isPaytrHostedReturnBridge(pathname, request.nextUrl.search, request.nextUrl.hash);
     let iframeAuthorized = false;
-    if ((exactTarget && pathname === "/odeme/hizli/odeme") || (paytrHostedReturnBridge && !dependencies.authorizePaytrReturn)) {
+    if (exactTarget && pathname === "/odeme/hizli/odeme") {
       try {
         iframeAuthorized = await dependencies.authorizePaytrIframe({ hostname: authority.hostname,
           cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
@@ -253,13 +254,9 @@ export function createStorefrontProxy(dependencies: StorefrontProxyDependencies)
     }
     const accountVerificationForm = pathname === "/account/verify";
     const quickOrderForm = exactTarget && pathname === "/odeme/hizli";
-    let hostedReturnBridgeAuthorized = paytrHostedReturnBridge && iframeAuthorized;
-    if (paytrHostedReturnBridge && dependencies.authorizePaytrReturn) {
-      try {
-        hostedReturnBridgeAuthorized = await dependencies.authorizePaytrReturn({ hostname: authority.hostname,
-          cookieHeader: request.headers.get("cookie"), now: dependencies.now() }) === true;
-      } catch { hostedReturnBridgeAuthorized = false; }
-    }
+    // This exact return document sends only an inert navigation marker. Scoped
+    // payment cookies are unavailable here; the parent reads its own status.
+    const hostedReturnBridgeAuthorized = paytrHostedReturnBridge;
     const csp = hostedReturnBridgeAuthorized
       ? paytrHostedReturnBridgeCsp(nonce)
       : standardIframeAuthorized

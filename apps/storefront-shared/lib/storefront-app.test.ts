@@ -544,6 +544,8 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
     "lib/default-runtime.ts\u0000./checkout/standard-hosted-payment.ts\u0000from",
     "lib/default-runtime.ts\u0000@celebix/payment-adapters\u0000from",
     "lib/checkout/paytr.ts\u0000@celebix/payment-adapters\u0000from",
+    "lib/checkout/akbank-form-post.ts\u0000@celebix/payment-adapters\u0000from",
+    "lib/checkout/checkout-context-route.ts\u0000../payment-adapters/runtime.ts\u0000from",
     "lib/checkout/hosted-payment.ts\u0000../payment-adapters/runtime.ts\u0000from",
     "lib/checkout/standard-hosted-payment.ts\u0000../payment-adapters/runtime.ts\u0000from",
     "lib/cart/route.ts\u0000../checkout/standard-hosted-payment.ts\u0000from",
@@ -686,12 +688,25 @@ test("application configuration defines baseline security headers", async () => 
     assert.match(config, new RegExp(header));
   }
   const checkoutPaymentHeaderStart = config.indexOf('source: "/checkout/payment"');
-  const baselineHeaderStart = config.indexOf('source: "/((?!checkout/payment$).*)"');
+  const baselineHeaderStart = config.indexOf("source: `/((?!checkout/payment");
   assert.ok(checkoutPaymentHeaderStart >= 0);
   assert.ok(baselineHeaderStart > checkoutPaymentHeaderStart);
   const checkoutPaymentHeader = config.slice(checkoutPaymentHeaderStart, baselineHeaderStart);
   assert.match(config, /source: "\/checkout\/payment"[\s\S]*headers: \[\.\.\.BASE_SECURITY_HEADERS\]/);
-  assert.match(config, /source: "\/\(\(\?!checkout\/payment\$\)\.\*\)"/);
+  const configured = (await import("../next.config.ts")).default;
+  const rules = await configured.headers!();
+  const { tryToParsePath } = await import("next/dist/lib/try-to-parse-path.js");
+  const rulesFor = (pathname: string) => rules.filter(rule => {
+    const parsed = tryToParsePath(rule.source);
+    assert.equal(parsed.error, undefined);
+    return new RegExp(parsed.regexStr!).test(pathname);
+  });
+  for (const pathname of ["/checkout/payment", "/checkout/payment/11111111-1111-4111-8111-111111111111"]) {
+    assert.equal(rulesFor(pathname).some(rule => rule.headers.some(header => header.key === "Content-Security-Policy")), false);
+  }
+  for (const pathname of ["/checkout/payment/result", "/checkout/payment/bad", "/checkout/payment/11111111-1111-4111-8111-111111111111/result", "/checkout/payment/11111111-1111-4111-8111-111111111111/", "/account"]) {
+    assert.equal(rulesFor(pathname).some(rule => rule.headers.some(header => header.key === "Content-Security-Policy")), true, pathname);
+  }
   assert.doesNotMatch(checkoutPaymentHeader, /Content-Security-Policy/);
   const claimRoute = await readFile(new URL("../app/odeme/hizli/[token]/route.ts", import.meta.url), "utf8");
   const quotePage = await readFile(new URL("../app/odeme/hizli/page.tsx", import.meta.url), "utf8");
@@ -931,14 +946,17 @@ test("proxy grants legacy PayTR frame authority while standard checkout payment 
   assert.match(quickReturnBridge.headers.get("content-security-policy") ?? "", /frame-ancestors 'self' https:\/\/www[.]paytr[.]com/);
   assert.equal(quickReturnBridge.headers.get("x-frame-options"), null);
   for (const deniedBridge of [
-    request("/odeme/hizli/sonuc?durum=basarili"),
-    request("/odeme/hizli/sonuc?durum=basarili", "__Host-celebix_quick=wrong"),
     request("/odeme/hizli/sonuc?durum=basarili&x=1", "__Host-celebix_quick=ready"),
     request("/odeme/hizli/sonuc/", "__Host-celebix_quick=ready"),
   ]) {
     const response = await handler(deniedBridge);
     assert.equal(response.headers.get("x-frame-options"), "DENY");
     assert.doesNotMatch(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'self' https:\/\/www[.]paytr[.]com/);
+  }
+  for (const publicBridge of [request("/odeme/hizli/sonuc?durum=basarili"), request("/odeme/hizli/sonuc?durum=basarisiz", "__Host-celebix_quick=wrong")]) {
+    const response = await handler(publicBridge);
+    assert.match(response.headers.get("content-security-policy") ?? "", /frame-ancestors 'self' https:\/\/www[.]paytr[.]com/);
+    assert.equal(response.headers.get("x-frame-options"), null);
   }
   for (const denied of [
     request("/odeme/hizli/odeme"),
@@ -952,12 +970,12 @@ test("proxy grants legacy PayTR frame authority while standard checkout payment 
     assert.doesNotMatch(csp ?? "", /frame-src https:\/\/www[.]paytr[.]com/);
   }
   assert.ok(calls.some((call) => call.cookieHeader === "__Host-celebix_quick=ready"));
-  assert.ok(calls.some((call) => call.cookieHeader === "__Host-celebix_hosted_checkout=ready"));
   assert.ok(calls.some((call) => call.cookieHeader === null));
   assert.ok(calls.some((call) => call.cookieHeader === "__Host-celebix_quick=wrong"));
   for (const routeOwned of [
     request("/checkout/payment"),
     request("/checkout/payment", "__Host-celebix_hosted_checkout=wrong"),
+    request("/checkout/payment/11111111-1111-4111-8111-111111111111"),
   ]) {
     const response = await handler(routeOwned);
     assert.equal(response.headers.get("content-security-policy"), null);
@@ -965,8 +983,13 @@ test("proxy grants legacy PayTR frame authority while standard checkout payment 
   for (const denied of [
     request("/checkout/payment?x=1", "__Host-celebix_hosted_checkout=ready"),
     request("/checkout/payment/", "__Host-celebix_hosted_checkout=ready"),
+    request("/checkout/payment/11111111-1111-4111-8111-111111111111?x=1"),
+    request("/checkout/payment/11111111-1111-4111-8111-111111111111/result"),
+    request("/checkout/payment/11111111-1111-4111-8111-111111111111/"),
+    request("/checkout/payment/invalid"),
   ]) {
     const response = await handler(denied);
+    assert.ok(response.headers.get("content-security-policy"));
     assert.doesNotMatch(response.headers.get("content-security-policy") ?? "", /frame-src https:\/\/www[.]paytr[.]com/);
   }
   assert.deepEqual(standardCalls, []);
@@ -988,7 +1011,10 @@ test("standard checkout payment route uses the bounded provider frame policy and
 });
 
 test("standard hosted PayTR return page top-navigates out of the provider iframe without confirming an order", async () => {
-  const source = await readFile(new URL("../app/odeme/hizli/sonuc/page.tsx", import.meta.url), "utf8");
+  const source = (await Promise.all([
+    readFile(new URL("../app/odeme/hizli/sonuc/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("./checkout/checkout-return-bridge.ts", import.meta.url), "utf8"),
+  ])).join("\n");
   assert.match(source, /HOSTED_RESULT_TARGET = "\/checkout\/payment\/result"/);
   assert.match(source, /window[.]top[.]location[.]replace/);
   assert.match(source, /target="_top"/);

@@ -3,6 +3,14 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 import { validateAkbankFormPost } from "./akbank-form-post.ts";
+import {
+  checkoutContextPaymentPath,
+  checkoutContextResultPath,
+  parseCheckoutContextId,
+  readCheckoutContextCookie,
+  serializeCheckoutContextCookie,
+  type CheckoutPaymentDestination,
+} from "./checkout-context.ts";
 
 import { normalizePromotionCode } from "@celebix/saas-contracts";
 
@@ -55,7 +63,7 @@ export type StandardHostedCheckoutExecution = Readonly<{
 }>;
 
 export type StandardHostedCheckoutStartResult = Readonly<{
-  destination: "/checkout/payment" | "/checkout/payment/result";
+  destination: CheckoutPaymentDestination;
   state: "ready" | "processing";
   setCookies: readonly string[];
 }>;
@@ -67,12 +75,14 @@ export type StandardHostedCheckoutRuntime = Readonly<{
     headers: Headers;
     request: HostedCheckoutStartRequest;
   }>): Promise<StandardHostedCheckoutStartResult>;
-  presentation(input: Readonly<{ hostname: string; cookieHeader: string | null }>): Promise<HostedPaymentPresentation>;
-  status(input: Readonly<{ hostname: string; cookieHeader: string | null }>): ReturnType<StorefrontHostedCheckoutRepository["status"]>;
+  presentation(input: Readonly<{ hostname: string; cookieHeader: string | null; contextId?: string }>): Promise<HostedPaymentPresentation>;
+  status(input: Readonly<{ hostname: string; cookieHeader: string | null; contextId?: string }>): ReturnType<StorefrontHostedCheckoutRepository["status"]>;
 }>;
 
 type Dependencies = Readonly<{
   repository: StorefrontHostedCheckoutRepository;
+  checkoutContexts?: true;
+  contactAwareCheckout?: true;
   commerceKeyring: StorefrontCommerceCredentialKeyring;
   presentationKeyring: QuickLinkKeyring;
   resolveExecution(): Promise<StandardHostedCheckoutExecution | null>;
@@ -292,6 +302,8 @@ function scopedAttemptsV2(input: Readonly<{
   sessionId: string;
   generated: Readonly<{ orderId: string; customerId: string; addressId: string; eventId: string; receiptId: string; customerCredentialId: string }>;
   delivery: ReturnType<typeof delivery>;
+  checkoutContexts?: true;
+  contactAwareCheckout?: true;
   recordPersistence(value: Readonly<{ paymentSessionKeyId: string; receiptKeyId: string; customerKeyId: string }>): void;
   recordPersistenceFailure(code: StorefrontHostedCheckoutErrorCode): void;
   recordBeginOutcome(value: "created" | "replayed"): void;
@@ -320,7 +332,10 @@ function scopedAttemptsV2(input: Readonly<{
           input.authority.evaluatorAuthorityDigest,
           input.authority.pricingDigest,
         );
-        begun = await input.repository.beginV3({
+        const begin = input.contactAwareCheckout ? input.repository.beginV5
+          : input.checkoutContexts ? input.repository.beginV4 : input.repository.beginV3;
+        if (!begin) return unavailable();
+        begun = await begin.call(input.repository, {
           hostname: input.hostname,
           // Evaluator seals include the evaluation clock. Revalidate the live
           // source with that same clock; presentation persistence uses fresh time.
@@ -417,10 +432,9 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       if (!HOSTNAME.test(input.hostname) || input.hostname !== input.hostname.toLowerCase() || !(input.headers instanceof Headers)) return invalid();
       const selectedNow = now(dependencies);
       const candidates = sourceCandidates(input.request, input.cookieHeader, dependencies.commerceKeyring);
-      const resumed = await resumeFromSource(dependencies, input, selectedNow);
+      const resumed = dependencies.checkoutContexts ? null : await resumeFromSource(dependencies, input, selectedNow);
       if (resumed && ["active", "provider_ready", "processing", "captured"].includes(resumed.status.status)) {
-        // Review the existing frozen payment before continuing; a different
-        // form, quote or operation cannot silently create another charge.
+        // Legacy in-flight operations retain their existing resume contract.
         return Object.freeze({ destination: "/checkout/payment/result" as const,
           state: "processing" as const, setCookies: Object.freeze([]) });
       }
@@ -433,9 +447,13 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         normalizedCodes: readonly string[];
       }>;
       try {
+        // The contact-aware native wrapper selects the operation's private
+        // pricing proof. Legacy callers retain their existing identity contract.
         const selectedCustomerCandidates = customerCandidates(input.cookieHeader, dependencies.commerceKeyring);
+        const prepareAuthority = dependencies.contactAwareCheckout ? dependencies.repository.authorityV4 : dependencies.repository.authorityV3;
+        if (!prepareAuthority) return unavailable();
         const preparedOrderId = derivedV2Uuid("order", input.hostname, input.request.operationId);
-        const authority = await dependencies.repository.authorityV3({
+        const authority = await prepareAuthority.call(dependencies.repository, {
           hostname: input.hostname, now: selectedNow, intentKind: input.request.intentKind,
           candidates, cartVersion: input.request.cartVersion, delivery: selectedDelivery,
           paymentMethodId: input.request.paymentMethodId,
@@ -484,6 +502,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       const recordBeginOutcome = (value: "created" | "replayed") => { beginOutcome = value; };
       const scoped = scopedAttemptsV2({
           base: execution.attempts, repository: dependencies.repository, hostname: input.hostname,
+          checkoutContexts: dependencies.checkoutContexts, contactAwareCheckout: dependencies.contactAwareCheckout,
           sourceCandidates: candidates, customerCandidates: selectedAuthority.customerCandidates,
           normalizedCodes: selectedAuthority.normalizedCodes, request: input.request,
           authority: selectedAuthority.authority, paymentSession, receipt, customer, sessionId,
@@ -534,6 +553,9 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       let browserCookies: readonly string[];
       try {
         persistedPaymentSession = createStorefrontOperationCredential("hosted_checkout", input.request.operationId, dependencies.commerceKeyring, persistedKeys.paymentSessionKeyId);
+        if (dependencies.checkoutContexts) {
+          browserCookies = Object.freeze([serializeCheckoutContextCookie(input.request.operationId, persistedPaymentSession.value)]);
+        } else {
         const persistedReceipt = createStorefrontOperationCredential("receipt", input.request.operationId, dependencies.commerceKeyring, persistedKeys.receiptKeyId);
         const persistedCustomer = createStorefrontOperationCredential("customer", input.request.operationId, dependencies.commerceKeyring, persistedKeys.customerKeyId);
         browserCookies = Object.freeze([
@@ -541,7 +563,12 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
           serializeStorefrontCredentialCookie("receipt", persistedReceipt.value),
           serializeStorefrontCredentialCookie("customer", persistedCustomer.value),
         ]);
+        }
       } catch { audit(dependencies, "browser_credential_reconstruction_failed"); return unavailable(); }
+      const paymentDestination = dependencies.checkoutContexts
+        ? checkoutContextPaymentPath(input.request.operationId) : "/checkout/payment";
+      const resultDestination = dependencies.checkoutContexts
+        ? checkoutContextResultPath(input.request.operationId) : "/checkout/payment/result";
       if (providerPresentation.kind === "processing") {
         if (authority.providerCode === "paytr_iframe" || authority.providerCode === "akbank_json") {
           if (beginOutcome !== "replayed") {
@@ -563,12 +590,20 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
             }));
           } catch { /* missing or non-ready durable presentation is not recoverable */ }
           if (recovered === null) {
+            // Replays never initialize another charge. An exact scoped status
+            // remains useful after the short provider form has expired.
+            if (dependencies.checkoutContexts) {
+              const state = await dependencies.repository.status({ hostname: input.hostname, now: now(dependencies),
+                candidates: Object.freeze([{ keyId: persistedPaymentSession.keyId, digest: persistedPaymentSession.digest }]) });
+              if (state.sessionId !== sessionId) return unavailable();
+              return Object.freeze({ destination: resultDestination, state: "processing" as const, setCookies: browserCookies });
+            }
             audit(dependencies, "provider_initialization_unknown");
             return unavailable();
           }
-          return Object.freeze({ destination: "/checkout/payment" as const, state: "ready" as const, setCookies: browserCookies });
+          return Object.freeze({ destination: paymentDestination, state: "ready" as const, setCookies: browserCookies });
         }
-        return Object.freeze({ destination: "/checkout/payment" as const, state: "processing" as const, setCookies: browserCookies });
+        return Object.freeze({ destination: paymentDestination, state: "processing" as const, setCookies: browserCookies });
       }
       const presentation = exactPresentation(authority.providerCode, authority.environment, providerPresentation, input.hostname);
       if (presentation === null || (presentation.kind === "form_post"
@@ -602,10 +637,21 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
         audit(dependencies, "presentation_persistence_failed", error instanceof StorefrontHostedCheckoutRepositoryError ? error.code : "unavailable");
         return unavailable();
       }
-      return Object.freeze({ destination: "/checkout/payment" as const, state: "ready" as const, setCookies: browserCookies });
+      return Object.freeze({ destination: paymentDestination, state: "ready" as const, setCookies: browserCookies });
     },
     async presentation(input) {
       const selectedNow = now(dependencies);
+      if (input.contextId !== undefined) {
+        if (!HOSTNAME.test(input.hostname) || input.hostname !== input.hostname.toLowerCase()
+          || parseCheckoutContextId(input.contextId) === null) return invalid();
+        const selected = readCheckoutContextCookie(input.cookieHeader);
+        if (selected.kind !== "present") return invalid();
+        const candidates = standardHostedCheckoutDigestCandidates(selected.value, dependencies.commerceKeyring);
+        if (!candidates.length) return invalid();
+        const state = await dependencies.repository.presentation({ hostname: input.hostname, now: selectedNow, candidates });
+        if (state.sessionId !== derivedUuid("session", input.hostname, input.contextId)) return invalid();
+        return openedPersistedPresentation(dependencies, state, selectedNow, input.hostname) ?? unavailable();
+      }
       const credential = readStandardHostedCheckoutCookie(input.cookieHeader);
       if (credential.kind === "invalid") return invalid();
       // Source ownership identifies the current checkout even when a browser
@@ -627,6 +673,17 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
     },
     async status(input) {
       const selectedNow = now(dependencies);
+      if (input.contextId !== undefined) {
+        if (!HOSTNAME.test(input.hostname) || input.hostname !== input.hostname.toLowerCase()
+          || parseCheckoutContextId(input.contextId) === null) return invalid();
+        const selected = readCheckoutContextCookie(input.cookieHeader);
+        if (selected.kind !== "present") return invalid();
+        const candidates = standardHostedCheckoutDigestCandidates(selected.value, dependencies.commerceKeyring);
+        if (!candidates.length) return invalid();
+        const state = await dependencies.repository.status({ hostname: input.hostname, now: selectedNow, candidates });
+        if (state.sessionId !== derivedUuid("session", input.hostname, input.contextId)) return invalid();
+        return state;
+      }
       const credential = readStandardHostedCheckoutCookie(input.cookieHeader);
       if (credential.kind === "invalid") return invalid();
       const resumed = await resumeFromSource(dependencies, input, selectedNow);

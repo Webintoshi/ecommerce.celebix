@@ -133,7 +133,7 @@ test("internal transport compatibility preserves the exact callback target and h
   for (const headers of [
     { cookie: "unrelated=fixture" }, { authorization: "Bearer fixture" },
     { origin: "https://virtualpospaymentgateway.akbank.com.evil.example" },
-  ]) {
+  ] as Readonly<Record<string, string>>[]) {
     assert.equal(await readExactHostedPaymentCallback({
       request: request(target, { headers }), providerCode, binding: BINDING, trustedHostname: HOSTNAME,
     }), null);

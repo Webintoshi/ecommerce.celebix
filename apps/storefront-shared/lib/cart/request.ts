@@ -400,6 +400,7 @@ export async function readCheckoutRequest(
       request,
       [
         "/api/checkout/quote",
+        "/api/checkout/prepare",
         "/api/checkout/complete",
         "/api/checkout/payment/start",
       ],
@@ -427,6 +428,17 @@ export async function readCheckoutRequest(
       ...(Object.hasOwn(row, "attribution")
         ? { attribution: parseCommerceAttribution(row.attribution) }
         : {}),
+    });
+  }
+  if (selected.path === "/api/checkout/prepare") {
+    const row = exact(selected.body, ["operationId", "cartVersion", "intentKind", "contact", "shippingAddress", "shippingMethod"],
+      ["normalizedCodes", "note"], checkoutInvalid);
+    if ((row.intentKind !== "cart" && row.intentKind !== "buy_now") || row.shippingMethod !== "standard") checkoutInvalid();
+    return Object.freeze({ kind: "prepare", operationId: uuid(row.operationId, checkoutInvalid),
+      cartVersion: integer(row.cartVersion, 1, Number.MAX_SAFE_INTEGER, checkoutInvalid), intentKind: row.intentKind,
+      contact: contact(row.contact), shippingAddress: address(row.shippingAddress), shippingMethod: "standard",
+      ...(Object.hasOwn(row, "normalizedCodes") ? { normalizedCodes: promotionCodes(row.normalizedCodes) } : {}),
+      ...(Object.hasOwn(row, "note") ? { note: text(row.note, 1, 500, checkoutInvalid) } : {}),
     });
   }
   if (selected.path === "/api/checkout/payment/start") {

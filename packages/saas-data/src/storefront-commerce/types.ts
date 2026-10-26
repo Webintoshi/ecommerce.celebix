@@ -135,6 +135,12 @@ export interface StorefrontCommerceRepository {
   quoteV3(
     input: Parameters<StorefrontCommerceRepository["quoteV2"]>[0],
   ): Promise<Readonly<{ quote: PublicCheckoutQuoteV2; authorityDigest: string; quoteDigest: string }>>;
+  prepareQuoteV4?(input: Readonly<{
+    hostname: string; now: Date; intentKind: "cart" | "buy_now";
+    candidates: readonly StorefrontCredentialCandidate[]; operationId: string; cartVersion: number;
+    delivery: StorefrontDelivery; normalizedCodes: readonly string[];
+  }>): ReturnType<StorefrontCommerceRepository["quoteV3"]>;
+  completeV4?(input: Parameters<StorefrontCommerceRepository["completeV3"]>[0]): ReturnType<StorefrontCommerceRepository["completeV3"]>;
   complete(
     input: Readonly<{
       hostname: string;
