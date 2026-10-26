@@ -73,50 +73,56 @@ export function CustomerDetailPresentation({
   return (
     <PanelPageShell>
       <PanelPageHeader title="Müşteri ayrıntısı" />
-      <header className={styles.customerDetailTopbar}>
-        <Link className={styles.detailBack} href="/customers" aria-label="Müşteri listesine dön">←</Link>
-        <div className={styles.detailIdentity}>
-          <p>Müşteriler / {data.displayName}</p>
-          <div className={styles.detailTitleRow}>
-            <h1 className="sr-only">{data.displayName} müşteri kaydı</h1>
-            <strong className={styles.detailName}>{data.displayName}</strong>
-            <PanelStatusBadge tone={data.status === "active" ? "success" : "neutral"}>
-              {data.status === "active" ? "Aktif" : "Arşiv"}
-            </PanelStatusBadge>
+      <section className={styles.profileSurface} aria-label="Müşteri profili">
+        <header className={styles.customerDetailTopbar}>
+          <Link className={styles.detailBack} href="/customers" aria-label="Müşteri listesine dön">←</Link>
+          <div className={styles.detailIdentity}>
+            <div className={styles.detailTitleRow}>
+              <h1 className="sr-only">{data.displayName} müşteri kaydı</h1>
+              <strong className={styles.detailName}>{data.displayName}</strong>
+              <PanelStatusBadge tone={data.status === "active" ? "success" : "neutral"}>
+                {data.status === "active" ? "Aktif" : "Arşiv"}
+              </PanelStatusBadge>
+            </div>
           </div>
-          <span>Oluşturulma {dateTime(data.createdAt)} · sürüm {data.version}</span>
-        </div>
-        <nav className={styles.detailNavigation} aria-label="Müşteriler arasında gezinme">
-          {workspace.neighbors.previous ? (
-            <Link href={`/customers/${encodeURIComponent(workspace.neighbors.previous.id)}`} title={workspace.neighbors.previous.displayName}>← Önceki</Link>
-          ) : <span aria-hidden="true">← Önceki</span>}
-          {workspace.neighbors.next ? (
-            <Link href={`/customers/${encodeURIComponent(workspace.neighbors.next.id)}`} title={workspace.neighbors.next.displayName}>Sonraki →</Link>
-          ) : <span aria-hidden="true">Sonraki →</span>}
-        </nav>
-        {canManage && data.status === "active" ? (
-          <Link className={styles.primary} href={`/customers/${encodeURIComponent(data.id)}/edit`}>Düzenle</Link>
-        ) : null}
-      </header>
+          <nav className={styles.detailNavigation} aria-label="Müşteriler arasında gezinme">
+            {workspace.neighbors.previous ? (
+              <Link href={`/customers/${encodeURIComponent(workspace.neighbors.previous.id)}`} title={workspace.neighbors.previous.displayName}>← Önceki</Link>
+            ) : <span aria-hidden="true">← Önceki</span>}
+            {workspace.neighbors.next ? (
+              <Link href={`/customers/${encodeURIComponent(workspace.neighbors.next.id)}`} title={workspace.neighbors.next.displayName}>Sonraki →</Link>
+            ) : <span aria-hidden="true">Sonraki →</span>}
+          </nav>
+          {canManage && data.status === "active" ? (
+            <Link className={styles.primary} href={`/customers/${encodeURIComponent(data.id)}/edit`}>Düzenle</Link>
+          ) : null}
+        </header>
+        <section className={styles.profileContact} aria-label="Müşteri iletişim bilgileri">
+          <dl className={styles.contactGrid}>
+            <div><dt>E-posta</dt><dd>{data.email ? <a href={`mailto:${data.email}`}>{data.email}</a> : "—"}</dd></div>
+            <div><dt>Telefon</dt><dd>{data.phone ? <a href={`tel:${data.phone}`}>{data.phone}</a> : "—"}</dd></div>
+          </dl>
+        </section>
+        <dl className={styles.profileFacts} aria-label="Müşteri özeti">
+          <div><dt>Sipariş</dt><dd>{data.orderCount}</dd></div>
+          <div><dt>Toplam harcama</dt><dd>{money(data.totalSpentCents, data.currency)}</dd></div>
+          <div><dt>Etiket</dt><dd>{data.tags.length}</dd></div>
+          <div><dt>Segment</dt><dd>{data.segments.length}</dd></div>
+        </dl>
+        <dl className={styles.profileMetadata}>
+          <div><dt>Oluşturulma</dt><dd>{dateTime(data.createdAt)}</dd></div>
+          <div><dt>Son güncelleme</dt><dd>{dateTime(data.updatedAt)}</dd></div>
+          <div><dt>Son sipariş</dt><dd>{data.lastOrderAt ? dateTime(data.lastOrderAt) : "Henüz yok"}</dd></div>
+          <div><dt>Sürüm</dt><dd>{data.version}</dd></div>
+        </dl>
+      </section>
 
       {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
 
       <div className={styles.customerWorkspace}>
-        <div className={styles.customerWorkspaceMain}>
-          <section className={styles.detail} aria-label="Müşteri iletişim bilgileri">
-            <div className={styles.heading}>
-              <div><h2>İletişim bilgileri</h2></div>
-            </div>
-            <dl className={styles.contactGrid}>
-              <div><dt>E-posta</dt><dd>{data.email ? <a href={`mailto:${data.email}`}>{data.email}</a> : "—"}</dd></div>
-              <div><dt>Telefon</dt><dd>{data.phone ? <a href={`tel:${data.phone}`}>{data.phone}</a> : "—"}</dd></div>
-              <div><dt>Son sipariş</dt><dd>{data.lastOrderAt ? dateTime(data.lastOrderAt) : "Henüz yok"}</dd></div>
-              <div><dt>Son güncelleme</dt><dd>{dateTime(data.updatedAt)}</dd></div>
-            </dl>
-          </section>
-
-          <section className={styles.detail} aria-label="Sipariş geçmişi">
+        <div className={styles.activitySurface}>
+          <section className={styles.detailSection} aria-label="Sipariş geçmişi">
             <div className={styles.heading}>
               <div>
                 <h2>Sipariş geçmişi</h2>
@@ -140,24 +146,7 @@ export function CustomerDetailPresentation({
             ) : <p className={styles.inlineEmpty}>{data.orderCount > 0 ? "Sipariş geçmişi şu anda alınamadı. Kayıtlı sipariş toplamı müşteri özetinde gösteriliyor." : "Bu müşteriye bağlı sipariş bulunmuyor."}</p>}
           </section>
 
-          <section className={styles.detail} aria-label="Müşteri adresleri">
-            <div className={styles.heading}>
-              <div><h2>Adresler</h2><p>{data.addresses.length} kayıt</p></div>
-              {canManage && data.status === "active" ? <Link className={styles.linkButton} href={`/customers/${encodeURIComponent(data.id)}/edit`}>Adresleri düzenle</Link> : null}
-            </div>
-            <div className={styles.addressList}>
-              {data.addresses.length ? data.addresses.map((address) => (
-                <article key={address.id}>
-                  <div className={styles.addressTitle}><strong>{address.label}</strong>{address.isDefault ? <span>Varsayılan</span> : null}</div>
-                  <p>{address.recipientName}</p>
-                  <p>{address.line1}{address.line2 ? `, ${address.line2}` : ""}</p>
-                  <p>{address.district ? `${address.district}, ` : ""}{address.city} {address.postalCode ?? ""} · {address.country}</p>
-                </article>
-              )) : <p className={styles.inlineEmpty}>Adres kaydı yok.</p>}
-            </div>
-          </section>
-
-          <section className={styles.detail} aria-label="Dahili notlar">
+          <section className={styles.detailSection} aria-label="Dahili notlar">
             <div className={styles.heading}><div><h2>Dahili notlar</h2><p>Yalnızca mağaza ekibi görür</p></div></div>
             {canManage && data.status === "active" ? (
               <form className={styles.noteForm} onSubmit={onAddNote}>
@@ -172,20 +161,24 @@ export function CustomerDetailPresentation({
             </div>
           </section>
         </div>
-
-        <aside className={styles.customerSummaryRail} aria-label="Müşteri özeti ve işlemleri">
-          <section className={styles.summaryCard} aria-label="Müşteri özeti">
-            <span>Müşteri durumu</span>
-            <PanelStatusBadge tone={data.status === "active" ? "success" : "neutral"}>{data.status === "active" ? "Aktif" : "Arşiv"}</PanelStatusBadge>
-            <dl className={styles.summaryFacts}>
-              <div><dt>Sipariş</dt><dd>{data.orderCount}</dd></div>
-              <div><dt>Toplam harcama</dt><dd>{money(data.totalSpentCents, data.currency)}</dd></div>
-              <div><dt>Etiket</dt><dd>{data.tags.length}</dd></div>
-              <div><dt>Segment</dt><dd>{data.segments.length}</dd></div>
-            </dl>
+        <aside className={styles.customerInfoSurface} aria-label="Müşteri bilgileri ve işlemleri">
+          <section className={styles.infoSection} aria-label="Müşteri adresleri">
+            <div className={styles.heading}>
+              <div><h2>Adresler</h2><p>{data.addresses.length} kayıt</p></div>
+            </div>
+            <div className={styles.addressList}>
+              {data.addresses.length ? data.addresses.map((address) => (
+                <article key={address.id}>
+                  <div className={styles.addressTitle}><strong>{address.label}</strong>{address.isDefault ? <span>Varsayılan</span> : null}</div>
+                  <p>{address.recipientName}</p>
+                  <p>{address.line1}{address.line2 ? `, ${address.line2}` : ""}</p>
+                  <p>{address.district ? `${address.district}, ` : ""}{address.city} {address.postalCode ?? ""} · {address.country}</p>
+                </article>
+              )) : <p className={styles.inlineEmpty}>Adres kaydı yok.</p>}
+            </div>
           </section>
 
-          <section className={styles.summaryCard} aria-label="İletişim izinleri">
+          <section className={styles.infoSection} aria-label="İletişim izinleri">
             <div className={styles.summaryHeading}><h2>İletişim izinleri</h2><span>Güncel kayıt</span></div>
             <div className={styles.consentList}>
               {data.consents.length ? data.consents.map((consent) => (
@@ -198,7 +191,7 @@ export function CustomerDetailPresentation({
             </div>
           </section>
 
-          <section className={styles.summaryCard} aria-label="Müşteri sınıflandırması">
+          <section className={styles.infoSection} aria-label="Müşteri sınıflandırması">
             <div className={styles.summaryHeading}><h2>Etiketler</h2><Link href="/customers/tags">Yönet</Link></div>
             {tags.length ? <div className={styles.taxonomyChecks}>{tags.map((tag) => (
               <label key={tag.id}><input type="checkbox" disabled={!canManage || busy || data.status !== "active"} checked={data.tags.some((item) => item.id === tag.id)} onChange={(event) => onAssign("tags", event.target.checked ? [...data.tags.map((item) => item.id), tag.id] : data.tags.filter((item) => item.id !== tag.id).map((item) => item.id))} /><span className={styles.color} style={{ background: tag.color }} />{tag.name}</label>
@@ -209,9 +202,7 @@ export function CustomerDetailPresentation({
             ))}</div> : <p className={styles.inlineEmpty}>Segment yok.</p>}
           </section>
 
-          <section className={styles.summaryCard} aria-label="Müşteri işlemleri">
-            <div className={styles.summaryHeading}><h2>İşlemler</h2><span>Yetkiye göre</span></div>
-            {canManage && data.status === "active" ? <Link className={styles.button} href={`/customers/${encodeURIComponent(data.id)}/edit`}>Müşteri bilgilerini düzenle</Link> : null}
+          <footer className={styles.customerArchiveFooter}>
             {canArchive && data.status === "active" ? (
               <details className={styles.archiveConfirm}>
                 <summary>Müşteriyi Arşivle</summary>
@@ -219,7 +210,7 @@ export function CustomerDetailPresentation({
                 <button className={styles.danger} disabled={busy} type="button" onClick={onArchive}>{busy ? "İşleniyor…" : "Arşivlemeyi onayla"}</button>
               </details>
             ) : null}
-          </section>
+          </footer>
         </aside>
       </div>
     </PanelPageShell>

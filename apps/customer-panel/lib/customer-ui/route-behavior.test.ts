@@ -811,7 +811,7 @@ test("customer route matrix invokes actual list detail edit and new pages throug
     let detailView = await detailHooks.flush(renderDetail);
     assert.ok(repositoryCalls.includes(`get:${CUSTOMER_ID}`), "detail-exact-read");
     assert.ok(repositoryCalls.includes("workspace"), "detail-workspace-read");
-    assert.match(textOf(detailView), /Müşteri bilgilerini düzenle/u);
+    assert.match(textOf(detailView), /Düzenle/u);
     findElement(detailView, (element) => element.props.href === `/customers/${CUSTOMER_ID}/edit`);
     assert.equal(repositoryCalls.includes("update"), false, "detail-does-not-own-profile-update");
 

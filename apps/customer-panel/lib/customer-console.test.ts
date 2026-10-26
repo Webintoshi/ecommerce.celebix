@@ -202,7 +202,7 @@ test("customer console exposes truthful loaded empty error export and responsive
     "customer header must defer its primary/secondary variant to the shared action");
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /position:\s*sticky/);
-  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+320px/);
+  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+360px/);
   const compactCustomerStyles = styles.slice(
     styles.indexOf("@media (max-width: 1024px)"),
     styles.indexOf("@media (max-width: 760px)"),
@@ -241,7 +241,7 @@ test("customer detail presentation exposes linked orders navigation and truthful
     tags: [], segments: [], canManage: true, canArchive: true, busy: false, notice: "", error: "",
     onAddNote() {}, onAssign() {}, onArchive() {},
   }));
-  assert.match(markup, /aria-label="Müşteri özeti ve işlemleri"/);
+  assert.match(markup, /aria-label="Müşteri bilgileri ve işlemleri"/);
   assert.match(markup, new RegExp(`/orders/${ORDER_ID}`));
   assert.match(markup, new RegExp(`/customers/${CUSTOMER_B}`));
   assert.match(markup, /Son 1 sipariş/);
