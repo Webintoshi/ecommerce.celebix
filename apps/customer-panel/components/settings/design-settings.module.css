@@ -513,6 +513,12 @@
 .canvasResolvedSections { display: grid; gap: 0; }
 .canvasThemeFrame { --ink: var(--store-text); --muted: color-mix(in srgb, var(--store-text) 68%, var(--store-background)); --paper: var(--store-background); --white: var(--store-background); --line: color-mix(in srgb, var(--store-text) 16%, var(--store-background)); --dark: var(--store-primary); --accent: var(--store-accent); --accent-ink: var(--store-background); --media-surface: color-mix(in srgb, var(--store-text) 6%, var(--store-background)); --campaign-width: 1440px; --jewelry-gold: #8a6534; --jewelry-ink: #171717; --jewelry-muted: #716f6a; color: var(--ink); font-family: var(--store-body-font); font-size: var(--store-body-size, 16px); font-weight: var(--store-body-weight, 400); }
 .canvasThemeFrame :where(p, a, button, input, label, span, li, small) { font-family: var(--store-body-font); font-weight: var(--store-body-weight, 400); }
+.canvasThemeFrame :where(select, textarea, td) { font-weight: var(--store-body-weight, 400); }
+.canvasThemeFrame :where(th) { font-weight: 700; }
+.canvasThemeFrame :where(strong, b) { font-weight: bolder; }
+.canvasThemeFrame :global(.product-description-rich-text) { font-weight: var(--store-body-weight, 400); }
+.canvasThemeFrame :global(.product-description-rich-text td) { font-weight: inherit; }
+.previewViewport :where(:global(.celebix-store-nav-summary), :global(.celebix-store-mobile-nav > summary)) { font-weight: var(--store-body-weight, 400); }
 .canvasThemeFrame :where(h1, h2, h3, h4, h5, h6) { font-family: var(--store-heading-font); font-weight: var(--store-heading-weight, 600); }
 .canvasSharedProductGrid :global(.product-card) { position: relative; display: grid; gap: 16px; min-width: 0; }
 .canvasSharedProductGrid :global(.product-card-link) { display: grid; gap: inherit; min-width: 0; color: inherit; text-decoration: none; }

@@ -96,7 +96,7 @@
 }
 .filterGrid button { grid-column: 1 / -1; align-self: end; border-color: var(--analytics-action); background: var(--analytics-action); color: var(--analytics-inverse); }
 .filterGrid button:hover { border-color: var(--analytics-action-hover); background: var(--analytics-action-hover); }
-.clearFilters { margin-top: 8px; padding: 8px 4px; color: var(--analytics-ink); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
+.clearFilters { margin-top: 8px; padding: 8px 4px; color: var(--analytics-ink); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; font-weight: var(--cp-font-weight-control); }
 .advancedControls { display: grid; gap: 12px; margin-top: 16px; border-top: 1px solid var(--analytics-line); padding-top: 16px; }
 .advancedControls form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 12px; }
 .advancedControls form button, .rangeHint, .dateError { grid-column: 1 / -1; }
