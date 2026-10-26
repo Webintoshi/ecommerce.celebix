@@ -36,6 +36,12 @@ Publication order: compatible native support, owner NET→SITE, panel NET→SITE
 
 Live merchant verification, bank-hosted page acceptance and an actual card/3DS transaction must be recorded separately. Local synthetic MAC fixtures are not live bank acceptance evidence.
 
+## Documented not-found responses
+
+The official Akbank error table defines `VPS-1123` as transaction not found. It is recognized only through the existing authenticated `1010` response path: HTTP200 JSON, a valid HMAC over the original bytes, and the expected merchant/terminal identity. Credential verification additionally requires an absent or empty transaction list. Missing or invalid signatures, malformed lists and unrelated error codes remain inconclusive. In payment inquiry/callback handling, not-found remains pending and never authorizes paid settlement.
+
+Changing merchant, terminal or secret values requires a fresh encrypted credential version and normal worker verification. An active terminal in the bank portal alone is not proof of successful hosted payment.
+
 ## Primary protocol sources
 
 - https://www.akbank.com/kurumsal/uye-isyeri-pos/pos-cozumleri/akbank-sanal-pos

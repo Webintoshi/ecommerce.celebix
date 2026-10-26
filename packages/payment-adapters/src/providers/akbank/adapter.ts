@@ -19,7 +19,7 @@ const DECODER = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const ORDER = /^[A-Za-z0-9_-]{1,36}$/;
 const CONTROL = /[\u0000-\u001f\u007f-\u009f]/;
-const NOT_FOUND = new Set(["VPS-1007", "VPS-2160"]);
+const NOT_FOUND = new Set(["VPS-1007", "VPS-1123", "VPS-2160"]);
 const DEFAULT_OPTIONS = Object.freeze({ now: () => new Date(), randomBytes: (size: number) => new Uint8Array(cryptoRandomBytes(size)) });
 const INITIALIZE_KEYS = ["environment","preferences","credential","attemptId","orderReference","amountMinor","currency","callbackUrl","successUrl","failureUrl","customer","basket","signal"];
 const QUERY_KEYS = ["environment","credential","attemptId","orderReference","providerReference","amountMinor","currency","signal"];

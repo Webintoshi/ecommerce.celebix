@@ -156,6 +156,54 @@ test("credential check sends only signed read-only inquiry and accepts terminal-
   }
 });
 
+test("LIVE credential check accepts authenticated VPS-1123 with an absent or empty transaction list", async () => {
+  // Synthetic response using the bank's documented not-found code; no merchant data.
+  const notFound = {txnCode:"1010",responseCode:"VPS-1123",terminal:{merchantSafeId:credential.merchantSafeId,terminalSafeId:credential.terminalSafeId}};
+  for (const value of [notFound,{...notFound,txnDetailList:[]}]) {
+    const result = await validateAkbankCredentialWithTransport(transport(request => {
+      assert.equal(request.url,"https://api.akbank.com/api/v1/payment/virtualpos/transaction/process");
+      assert.equal(request.method,"POST");
+      assert.equal(JSON.parse(new TextDecoder().decode(request.body)).txnCode,"1010");
+      assert.equal("auth-hash" in request.headers ? request.headers["auth-hash"] : undefined,mac(request.body));
+      return signedResponse(value);
+    }),{environment:"live",credential,validationReference:ATTEMPT,signal:new AbortController().signal},options);
+    assert.deepEqual(result,{kind:"validated",maskedAccountReference:"Akbank…1111/2222",outcomeCode:"provider_validated"});
+  }
+});
+
+test("authenticated VPS-1123 remains pending rather than paid for query and callback", async () => {
+  const notFound = {txnCode:"1010",responseCode:"VPS-1123",terminal:{merchantSafeId:credential.merchantSafeId,terminalSafeId:credential.terminalSafeId}};
+  for (const value of [notFound,{...notFound,txnDetailList:[]}]) {
+    const adapter = createAkbankHostedAdapter(transport(() => signedResponse(value)),options);
+    assert.deepEqual(await adapter.query(queryInput({environment:"live"})),{kind:"pending",providerReference:ATTEMPT});
+    assert.equal((await adapter.verifyCallback(callbackInput({environment:"live"}))).status,"pending");
+  }
+});
+
+test("VPS-1123 cannot bypass authentication scope transaction-list or HTTP checks", async () => {
+  const notFound = {txnCode:"1010",responseCode:"VPS-1123",terminal:{merchantSafeId:credential.merchantSafeId,terminalSafeId:credential.terminalSafeId}};
+  const input = {environment:"live" as const,credential,validationReference:ATTEMPT,signal:new AbortController().signal};
+  const cases: readonly [string,() => ProviderTransportResult][] = [
+    ["unsigned",() => { return {kind:"response",status:200,contentType:"application/json",body:encoder.encode(JSON.stringify(notFound))} as ProviderTransportResult; }],
+    ["tampered",() => signedResponse(notFound,mac(encoder.encode(JSON.stringify({...notFound,responseCode:"VPS-1007"}))))],
+    ["wrong merchant",() => signedResponse({...notFound,terminal:{...notFound.terminal,merchantSafeId:"3".repeat(32)}})],
+    ["wrong terminal",() => signedResponse({...notFound,terminal:{...notFound.terminal,terminalSafeId:"3".repeat(32)}})],
+    ["wrong transaction",() => signedResponse({...notFound,txnCode:"1000"})],
+    ["nonempty transaction list",() => signedResponse({...notFound,txnDetailList:[detail()]})],
+    ["null transaction list",() => signedResponse({...notFound,txnDetailList:null})],
+    ["object transaction list",() => signedResponse({...notFound,txnDetailList:{}})],
+    ["HTTP 401",() => ({...signedResponse(notFound),status:401} as ProviderTransportResult)],
+    ["date error is not not-found",() => signedResponse({...notFound,responseCode:"VPS-1073"})],
+  ];
+  for (const [label,response] of cases) {
+    const selected = transport(response);
+    assert.deepEqual(await validateAkbankCredentialWithTransport(selected,input,options),{kind:"rejected",outcomeCode:"validation_unavailable"},label);
+    const adapter = createAkbankHostedAdapter(selected,options);
+    assert.notEqual((await adapter.query(queryInput({environment:"live"}))).kind,"succeeded",label);
+    assert.notEqual((await adapter.verifyCallback(callbackInput({environment:"live"}))).status,"succeeded",label);
+  }
+});
+
 test("credential check treats documented empty 401 as denial and missing MAC as inconclusive", async () => {
   const input = {environment:"test" as const,credential,validationReference:ATTEMPT,signal:new AbortController().signal};
   assert.deepEqual(await validateAkbankCredentialWithTransport(transport(() => ({kind:"response",status:401,contentType:"",body:new Uint8Array()})),input,options),{kind:"rejected",outcomeCode:"provider_rejected"});
