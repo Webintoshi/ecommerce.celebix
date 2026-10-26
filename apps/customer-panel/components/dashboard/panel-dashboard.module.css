@@ -309,7 +309,7 @@
   .recentOrdersBody[data-empty="true"] { min-height: 200px; }
   .recentOrdersViewport { overflow: visible; }
   .recentOrdersTable, .recentOrdersTable tbody { display: grid; width: 100%; min-width: 0; gap: 12px; }
-  .recentOrdersTable thead { display: none; }
+  .recentOrdersTable thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
   .recentOrdersTable tr { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border: 1px solid var(--dash-line); border-radius: 8px; padding: 12px; }
   .recentOrdersTable th, .recentOrdersTable td { min-width: 0; border: 0; padding: 0; }
   .recentOrdersTable td { display: grid; align-content: start; gap: 4px; }
@@ -339,7 +339,7 @@
   .cashierQuickActions .quickAction { border-left: 0; border-top: 1px solid var(--dash-line); }
 }
 
-.operationsGrid.singleColumn, .detailGrid.singleColumn, .insightGrid.singleColumn { grid-template-columns: minmax(0, 1fr); }
+.operationsGrid.singleColumn, .detailGrid.singleColumn, .insightGrid.singleColumn, .quickActions.singleColumn { grid-template-columns: minmax(0, 1fr); }
 
 @media (prefers-reduced-motion: reduce) {
   .dashboardPage *, .dashboardTopbarContext * { animation: none; transition: none; scroll-behavior: auto; }

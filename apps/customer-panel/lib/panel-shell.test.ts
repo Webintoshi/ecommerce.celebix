@@ -3260,6 +3260,14 @@ test("dashboard focus and mobile order links retain accessible indicators and ta
     const declarations = parseApplicableCss(css, viewport);
     const orderLink = winningDeclaration(declarations, { tagName: "a", classNames: ["orderLink"] }, ["min-height"]);
     assert.ok(orderLink && lengthInPixels(orderLink.value) >= 44, "canonical order links remain touchable at " + viewport);
+    const singleAction = winningDeclaration(declarations, { tagName: "div", classNames: ["quickActions", "singleColumn"] }, ["grid-template-columns"]);
+    assert.equal(singleAction?.value, "minmax(0, 1fr)", "a sole permitted cashier action uses the full row");
+    if (viewport === 390) {
+      const header = { tagName: "thead", parent: { tagName: "table", classNames: ["recentOrdersTable"] } };
+      assert.notEqual(winningDeclaration(declarations, header, ["display"])?.value, "none", "mobile column headers remain in the accessibility tree");
+      assert.equal(winningDeclaration(declarations, header, ["position"])?.value, "absolute");
+      assert.equal(winningDeclaration(declarations, header, ["clip"])?.value, "rect(0, 0, 0, 0)");
+    }
   }
 });
 
