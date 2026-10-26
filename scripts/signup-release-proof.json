@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "e6d8a73e70ff22857a920bd405b16c72393ab39406feab5f276c45a0c98196ee",
+  "inputDigest": "a966d62fd19f41e48852df2fe3319a3d850ae71b3db308307b968fefd81f9a3e",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -318,6 +318,10 @@
     {
       "path": "apps/owner/app/api/internal/onboarding/operations/route.ts",
       "sha256": "aebb7d375c4f02e7495bf133710cb45f95f7014e863eae0b13af1a0c113baec3"
+    },
+    {
+      "path": "apps/owner/app/api/internal/platform-commerce/route.ts",
+      "sha256": "82efcefa69863e7381de49f8b63e24e0dbb9301619e7d4a514f345fb20cb8e8d"
     },
     {
       "path": "apps/owner/app/api/internal/platform-invitations/route.ts",
@@ -1170,6 +1174,34 @@
     {
       "path": "apps/owner/lib/panel-session-handoff/postgres-handoff-issuer.ts",
       "sha256": "9106308fe523a01c67f06bf4d1e1eb700a0848eb763aa203f582998154b00dcf"
+    },
+    {
+      "path": "apps/owner/lib/platform-commerce/config.ts",
+      "sha256": "4f9d4089821bf646470ae9b214705c6a4d0b0351b71c09ab9b78a6cb5d98c3eb"
+    },
+    {
+      "path": "apps/owner/lib/platform-commerce/http.ts",
+      "sha256": "ee206b9627339e2b498d30d333c27ef9ea87b552cada333a3d070abb21515d73"
+    },
+    {
+      "path": "apps/owner/lib/platform-commerce/iyzico.ts",
+      "sha256": "02fb5cc5dbf116ee04e525c6570b4192dc2f3b47aea26b78f017a14672a7c8ad"
+    },
+    {
+      "path": "apps/owner/lib/platform-commerce/runtime.ts",
+      "sha256": "e85733a8ed4bb8c5caaf0a0d290e75ff540f52933a376528ee8754109ae23047"
+    },
+    {
+      "path": "apps/owner/lib/platform-commerce/security.ts",
+      "sha256": "fb2862579fde951b65be49669f9c6522baa2a327de5e3ecd9c96d2d157bf14dc"
+    },
+    {
+      "path": "apps/owner/lib/platform-commerce/service.ts",
+      "sha256": "8c7e24411bdc308eb1f7572f11ed95609ea9cbed33844f781b00df846e7b83fe"
+    },
+    {
+      "path": "apps/owner/lib/platform-commerce/webhook.ts",
+      "sha256": "c1068fbae289f77c0096c2604f123acff55b6fd049895e7f7e993cc590470c1c"
     },
     {
       "path": "apps/owner/lib/platform-invitation-recovery/recovery.ts",
@@ -2842,6 +2874,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/202610260280_checkout_pricing_contexts.up.sql",
       "sha256": "433cbe50e6c11973ef8cd7cb50d4498eb3aab68150eac8e075d25b2a7bb9e4e6"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610260281_platform_commerce.up.sql",
+      "sha256": "f244830aef10e97c4e2925ba23bea31abdb7321849f08cd000ab4b98e0b6c7f9"
     },
     {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",

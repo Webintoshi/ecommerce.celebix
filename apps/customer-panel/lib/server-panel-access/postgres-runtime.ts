@@ -1,4 +1,6 @@
 import { registerServerStoreToolsRepository } from '../server-store-tools/runtime.ts';
+import {registerServerPlatformCommerceRepository} from '../server-platform-commerce/runtime.ts';
+import {createPostgresPlatformCommerceRepository} from '../server-platform-commerce/repository.ts';
 import {PostgresOrderEditRepository} from '@celebix/saas-data';
 import {registerServerOrderEditRepository} from '../server-order-edit/runtime.ts';
 import {createPostgresEmailMarketingConnectionRepository,createPostgresEmailMarketingWebhookRepository,createEmailMarketingProviders} from '@celebix/saas-data';
@@ -1123,6 +1125,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     }));
     registerServerStoreToolsRepository(access,new PostgresStoreToolsRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}));
     registerServerCommercialPlanRepository(access,new PostgresCommercialPlanRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}));
+    registerServerPlatformCommerceRepository(access,createPostgresPlatformCommerceRepository({pool,timeouts:TIMEOUTS,handoffKey:new Uint8Array(config.keys.handoff)}));
     registerServerAccountingRepository(access, createPostCommitInvalidatingRepository(new PostgresAccountingRepository({
       pool,role:'celebix_saas_app',timeouts:TIMEOUTS,
     }),{returnCredit:['catalog']}));

@@ -6,6 +6,7 @@ import { PanelPageHeader, PanelPageShell } from '@/components/panel/PanelPageShe
 import { clearPendingPurchase, persistPendingPurchase, purchaseMatchesPending, readPendingPurchase, storeToolsUi, StoreToolsUiError, type PendingToolPurchase } from '@/lib/store-tools-ui/client';
 import type { EngagementPermissions } from '../promotions/PopupStudio';
 import { StoreToolsConsole, ToolArtwork } from './StoreToolsConsole';
+import {PlatformCheckoutButton} from '../commercial-packages/PlatformCheckoutButton';
 import styles from './store-tools.module.css';
 import local from './store-tools-purchasing.module.css';
 
@@ -18,9 +19,9 @@ const descriptions: Readonly<Record<StoreToolKey, string>> = {
 };
 const money = (cents: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(cents / 100);
 const failureMessage = (error: unknown) => error instanceof StoreToolsUiError ? error.message : 'Araçların güncel durumu yüklenemedi. Yeniden deneyin.';
-type Props = EngagementPermissions & Readonly<{ storeId: string }>;
+type Props = EngagementPermissions & Readonly<{ storeId: string; checkoutEnabled?:boolean }>;
 
-export function StoreToolsPurchasingConsole({ storeId, canManage, canReadCoupons, canCreateCoupon }: Props) {
+export function StoreToolsPurchasingConsole({ storeId, canManage, canReadCoupons, canCreateCoupon, checkoutEnabled=false }: Props) {
   const [workspace, setWorkspace] = useState<StoreToolWorkspace | null>(null);
   const [pending, setPending] = useState<PendingToolPurchase | null>(null);
   const [busy, setBusy] = useState(false), [refreshing, setRefreshing] = useState(false);
@@ -109,14 +110,14 @@ export function StoreToolsPurchasingConsole({ storeId, canManage, canReadCoupons
         {offer.toolKeys.includes('restock') ? <small className={local.delivery}>E-posta gönderimi hizmetin gönderim koşullarına tabidir; sınırsız gönderim içermez.</small> : null}
         {requested ? <p className={local.requestState} role="status">{requested.status === 'settled' ? 'Ödeme doğrulandı. Araçların güncel durumunu yenileyin.' : 'Talep alındı · Ödeme doğrulaması bekleniyor.'}<span>Talep tutarı: {money(requested.totalCents)} (KDV dahil)</span></p> : !workspace!.canRequestPurchase ? <p className={local.requestState}>Talebi mağaza sahibi veya yöneticisi oluşturabilir.</p> : null}
       </div>
-      {!requested && workspace!.canRequestPurchase ? <button className={`button ${bundle ? 'button-primary' : 'button-secondary'}`} type="button" disabled={blocked} onClick={() => void submit(offer)}>Satın alma talebi oluştur<span className={styles.srOnly}> · {offer.name}</span></button> : null}
+      {checkoutEnabled&&workspace!.canRequestPurchase&&requested?.status!=='settled' ? <PlatformCheckoutButton storeId={storeId} kind="tool" offerId={offer.id} term="once" className={`button ${bundle?'button-primary':'button-secondary'}`} disabled={busy||refreshing||journalBlocked||Boolean(pending)||!canManage}/> : !requested && workspace!.canRequestPurchase ? <button className={`button ${bundle ? 'button-primary' : 'button-secondary'}`} type="button" disabled={blocked} onClick={() => void submit(offer)}>Satın alma talebi oluştur<span className={styles.srOnly}> · {offer.name}</span></button> : null}
     </article>;
   }
   const bundle = workspace.offers.find(offer => offer.id === 'all_tools');
-  const showBundle = bundle && workspace.licenses.length === 0 && workspace.purchases.length === 0;
+  const showBundle = bundle && workspace.licenses.length === 0 && (checkoutEnabled||workspace.purchases.length === 0);
   const summary = <div className={local.summary}>
     <div className={local.terms}><p>Tek seferlik ödeme · Yıllık yenileme yok. Araç haklarınız paket değişikliklerinde korunur.</p><button className="button button-secondary" type="button" disabled={busy || refreshing} onClick={() => void load()}>{refreshing ? 'Yenileniyor…' : 'Durumu yenile'}</button></div>
-    <p className={local.activation}>Talep oluşturmak tahsilat yapmaz. Araçlar, ödeme Celebix tarafından doğrulandığında açılır.</p>
+    <p className={local.activation}>{checkoutEnabled?'Ödemenizi Celebix’in güvenli sayfasında tamamlayın. Araçlar ödeme doğrulandığında açılır.':'Talep oluşturmak tahsilat yapmaz. Araçlar, ödeme Celebix tarafından doğrulandığında açılır.'}</p>
     {message ? <p className={styles.status} role="status">{message}</p> : null}
     {error ? <p className={local.error} role="alert">{error}</p> : null}
     {pending ? <div className={local.recovery} role="status"><div><strong>{pending.offer.name} · {money(pending.offer.totalCents)} (KDV dahil)</strong><p>Talebin sonucu henüz doğrulanamadı. Yeni talep oluşturmadan aynı talebi doğrulayın.</p></div><button className="button button-secondary" type="button" disabled={busy || refreshing || journalBlocked || !workspace.canRequestPurchase} onClick={() => void submit()}>{busy ? 'Doğrulanıyor…' : 'Talebi doğrula'}</button></div> : null}
