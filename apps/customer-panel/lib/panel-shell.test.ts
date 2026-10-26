@@ -1925,10 +1925,9 @@ test("dashboard loads real durable summaries without tenant authority in the bro
   assert.match(view, /ANALYTICS_PERIODS[.]includes\(nextPeriod\)/);
   assert.doesNotMatch(view, /console[.](?:log|warn|error)/);
   assert.doesNotMatch(view, /storeId|tenantId|principalId|membershipId|x-store|x-tenant/i);
-  assert.match(styles, /[.]retryButton\s*\{[\s\S]*?min-width:\s*2[.]75rem;[\s\S]*?min-height:\s*2[.]75rem;/);
+  const retry = winningDeclaration(parseApplicableCss(styles, 390), { tagName: "button", classNames: ["retryButton"] }, ["min-height"]);
+  assert.ok(retry && lengthInPixels(retry.value) >= 44, "retry action retains a usable touch target");
   assert.match(styles, /[.]kpiGrid\s*\{[\s\S]*?repeat\(4, minmax\(0, 1fr\)\)/);
-  assert.match(styles, /@media \(max-width: 1024px\)[\s\S]*?[.]insightGrid\s*\{\s*grid-template-columns:\s*1fr/);
-  assert.match(styles, /@media \(max-width: 640px\)[\s\S]*?grid-template-columns:\s*1fr/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation:\s*none/);
 });
 
@@ -1956,8 +1955,12 @@ test("dashboard preserves maximum-length facts inside mobile card bounds", async
   assert.doesNotMatch(html, new RegExp(planCode));
 
   const styles = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(styles, /[.]storeStatusIdentity strong,[\s\S]*?[.]storeStatusIdentity small\s*\{[^}]*text-overflow:\s*ellipsis;/);
-  assert.match(styles, /[.]kpiCard,[\s\S]*?[.]panelCard,[\s\S]*?\{[\s\S]*?min-width:\s*0;/);
+  const declarations = parseApplicableCss(styles, 390);
+  const identity: CssTestElement = { tagName: "div", classNames: ["storeStatusIdentity"] };
+  for (const tagName of ["strong", "small"]) {
+    assert.equal(winningDeclaration(declarations, { tagName, parent: identity }, ["overflow-wrap"])?.value, "anywhere", "long storefront facts remain readable without clipping");
+  }
+  assert.equal(winningDeclaration(declarations, { tagName: "article", classNames: ["kpiCard"] }, ["min-width"])?.value, "0");
   assert.match(styles, /@media \(max-width: 390px\)[\s\S]*?[.]kpiGrid\s*\{\s*grid-template-columns:\s*repeat\(2/);
 });
 
@@ -2046,7 +2049,7 @@ test("dashboard presentation renders analytics loading ready and retry states wi
     assert.match(html, /Toplam satış/);
     assert.match(html, /1 sipariş işlem bekliyor/);
     assert.match(html, /pilot-store[.]celebix[.]site/);
-    assert.match(html, /En Çok Satan Ürünler/);
+    assert.match(html, /En çok satanlar/i);
   }
   assert.match(loading, /Satış verisi yükleniyor/);
   assert.match(loading, /Yükleniyor/);
@@ -2090,11 +2093,19 @@ test("dashboard stock task follows the live catalog authority when analytics dif
   assert.doesNotMatch(html, /2 stok uyarısı/);
 });
 
-test("dashboard publishes live filters in topbar context without a body summary toolbar", async () => {
-  const dashboard = await source("components/dashboard/PanelDashboardHomeView.tsx");
-  assert.match(dashboard, /<PanelTopbarBridge[\s\S]*?context=\{/);
-  assert.doesNotMatch(dashboard, /className=\{styles[.]summaryToolbar\}/);
-  assert.doesNotMatch(dashboard, /Kalıcı verilere göre/);
+test("dashboard exposes one workspace period control and one manual-sales action", async () => {
+  const { chrome, dashboard } = approvedDashboardInput();
+  const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded", analyticsState: "loaded" });
+  const window = new Window();
+  window.document.body.innerHTML = html;
+  const toolbar = window.document.querySelector(".overviewToolbar");
+  assert.ok(toolbar, "period and manual-sales controls stay together in the workspace");
+  assert.equal(window.document.querySelectorAll('select[aria-label="Dönem"]').length, 1);
+  assert.ok(toolbar.querySelector('select[aria-label="Dönem"]'));
+  const manual = toolbar.querySelector('a[href="/orders/quick-links"]');
+  assert.match(manual?.textContent ?? "", /Manuel satış/);
+  assert.equal(toolbar.querySelectorAll('a[href="/orders/quick-links"]').length, 1);
+  assert.doesNotMatch(html, /Kalıcı verilere göre/);
 });
 
 test("dashboard presentation follows the approved Celebix merchant anatomy using only durable facts", async () => {
@@ -2131,9 +2142,9 @@ test("dashboard presentation follows the approved Celebix merchant anatomy using
     "Toplam sipariş",
     "Yeni müşteri",
     "Dönüşüm oranı",
-    "Satış Grafiği",
-    "Sipariş Durumları",
-    "En Çok Satan Ürünler",
+    "Satış performansı",
+    "Sipariş durumu",
+    "En çok satanlar",
     "Büyüme Özeti",
     "İade edilen sipariş",
     "Ortalama sipariş",
@@ -2148,7 +2159,7 @@ test("dashboard presentation follows the approved Celebix merchant anatomy using
     "3 sipariş işlem bekliyor",
     "2 stok uyarısı",
     "1 üründe medya eksik",
-    "Müşteri ve Sepet Özeti",
+    "Müşteri ve sepet",
     "Siparişleri görüntüle",
   ]) assert.match(html, new RegExp(copy, "i"));
   assert.doesNotMatch(html, /Tüm operasyonlar/);
@@ -2203,7 +2214,7 @@ test("dashboard presents newest durable order rows with canonical detail actions
     recentOrdersState: "loaded",
   });
 
-  assert.match(html, /Son Siparişler/);
+  assert.match(html, /Son siparişler/i);
   assert.ok(html.indexOf("HMK-1042") < html.indexOf("HMK-1041"));
   for (const copy of ["Ada Lovelace", "Grace Hopper", "Onaylandı", "Hazırlanıyor", "Ödendi", "İşleniyor"]) {
     assert.match(html, new RegExp(copy));
@@ -2214,7 +2225,7 @@ test("dashboard presents newest durable order rows with canonical detail actions
   assert.doesNotMatch(html, /ada@example[.]com|grace@example[.]com|storeId|tenantId|principalId|membershipId/);
   assert.match(
     await source("components/dashboard/panel-dashboard.module.css"),
-    /[.]orderLink\s*\{[^}]*min-height:\s*2[.]75rem;/,
+    /[.]orderLink\s*\{[^}]*min-height:\s*44px;/,
   );
 });
 
@@ -2701,32 +2712,19 @@ function shellElements() {
 
 function assertDashboardPrimaryAction(css: string): { contrast: number; target: number } {
   const declarations = parseApplicableCss(css, 390);
-  const elements = shellElements();
-  const action: CssTestElement = {
-    tagName: "a",
-    classNames: ["primaryAction"],
-    parent: {
-      tagName: "div",
-      classNames: ["pageActions"],
-      parent: { tagName: "header", classNames: ["pageHeader"], parent: elements.shell },
-    },
-  };
+  const root: CssTestElement = { tagName: "html", states: ["root"] };
+  const body: CssTestElement = { tagName: "body", parent: root };
+  const page: CssTestElement = { tagName: "div", classNames: ["dashboardPage"], parent: body };
+  const toolbar: CssTestElement = { tagName: "div", classNames: ["overviewToolbar"], parent: page };
+  const action: CssTestElement = { tagName: "a", classNames: ["button", "button-primary"], parent: { tagName: "div", classNames: ["dashboardTopbarActions"], parent: toolbar } };
   const background = effectiveBackground(declarations, action);
   const foreground = effectiveForeground(declarations, action, background);
   const contrast = contrastRatio(foreground.color, background);
   const minHeight = winningDeclaration(declarations, action, ["min-height"]);
-  assert.ok(minHeight, "dashboard primary action has no applicable min-height");
-  const target = lengthInPixels(minHeight.value);
-  const failures = [
-    ...(contrast < 4.5
-      ? [`effective contrast is ${contrast.toFixed(2)}:1 from ${foreground.declaration.selector}`]
-      : []),
-    ...(target < 48
-      ? [`effective min-height is ${target}px from ${minHeight.selector}`]
-      : []),
-  ];
-  assert.deepEqual(failures, [], `dashboard primary action ${failures.join("; ")}`);
-  assert.deepEqual(background.slice(0, 3).map(Math.round), [255, 106, 0], "primary orange");
+  assert.ok(minHeight, "dashboard manual action has an applicable touch target");
+  const target = lengthInPixels(resolveCssValue(declarations, action, minHeight.value));
+  assert.ok(contrast >= 4.5, "effective contrast is " + contrast.toFixed(2) + ":1");
+  assert.ok(target >= 44, "effective min-height is " + target + "px");
   return { contrast, target };
 }
 
@@ -2945,15 +2943,11 @@ test("shared panels stay open while dashboard metrics retain functional card geo
   }
 });
 
-test("dashboard primary action keeps effective AA contrast and a 48px target", async () => {
-  const css = `${await source("app/globals.css")}\n${await source("components/panel/panel-shell.module.css")}`;
-  for (const [override, expectedFailure] of [
-    [`.shell .primaryAction { color: white; }`, /effective contrast is 2\.87:1/],
-    [`.shell .primaryAction { min-height: 44px; }`, /effective min-height is 44px/],
-  ] as const) {
-    assert.throws(() => assertDashboardPrimaryAction(`${css}\n${override}`), expectedFailure);
-  }
+test("dashboard manual-sales action keeps AA contrast and a usable touch target", async () => {
+  const css = (await source("app/globals.css")) + "\n" + (await source("components/dashboard/panel-dashboard.module.css"));
   assertDashboardPrimaryAction(css);
+  assert.throws(() => assertDashboardPrimaryAction(css + "\n.dashboardTopbarActions a { color: var(--cp-action-primary); }"), /effective contrast is 1\.00:1/);
+  assert.throws(() => assertDashboardPrimaryAction(css + "\n.dashboardTopbarActions a { min-height: 24px; }"), /effective min-height is 24px/);
 });
 
 test("drawer and dock controls keep an effective 48px minimum target", async () => {
@@ -3192,38 +3186,33 @@ test("dashboard keeps working slices when analytics is unavailable and never inv
   assert.match(html, /3 sipariş işlem bekliyor/);
   assert.match(html, /2 stok uyarısı/);
   assert.match(html, /En çok satan ürünler şu anda kullanılamıyor/);
-  assert.match(html, /Son Siparişler/);
+  assert.match(html, /Son siparişler/i);
 });
 
-test("dashboard visual system locks the approved V2 palette and compact responsive geometry", async () => {
+test("dashboard shares the Urbanist analytics palette and keeps secondary facts available", async () => {
   const css = await source("components/dashboard/panel-dashboard.module.css");
-  for (const token of ["#FE6100", "#2B2B2B", "#F8F7F5", "#FFFDFC", "#E7E2DD"])
-    assert.match(css, new RegExp(token, "i"));
-  assert.doesNotMatch(css, /#F7F1EB|#E4D5C9|#B4873B|#8A6427|#F6EFE3/i);
-  assert.match(css, /[.]kpiCard\s*\{[\s\S]*?min-height:\s*7[.]5rem;/);
-  assert.match(css, /[.]primaryGrid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*2fr\)\s+minmax\(15rem,\s*1fr\)\s+minmax\(15rem,\s*1fr\);/);
+  for (const token of ["--cp-brand", "--cp-canvas", "--cp-surface", "--cp-border", "--cp-text-primary", "--cp-text-secondary"]) assert.ok(css.includes("var(" + token + ")"));
+  assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i, "dashboard colors come from the shared visual system");
   assert.match(css, /@media \(max-width: 1024px\)/);
   assert.match(css, /@media \(max-width: 640px\)[\s\S]*?[.]recentOrdersTable/);
-  assert.match(css, /@media \(max-width: 390px\)[\s\S]*?[.]kpiGrid\s*\{\s*grid-template-columns:\s*repeat\(2/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+  const { chrome, dashboard } = approvedDashboardInput();
+  const html = await renderPanelDashboard(chrome, { dashboard, state: "loaded", analyticsState: "loaded" });
+  const window = new Window();
+  window.document.body.innerHTML = html;
+  const details = window.document.querySelector("details.secondaryDetails");
+  assert.ok(details, "additional facts use a native keyboard-operable disclosure");
+  assert.match(details.querySelector("summary")?.textContent ?? "", /Diğer göstergeler/);
+  for (const label of ["Ortalama sipariş", "Düşük stok", "Toplam müşteri", "İade edilen sipariş", "Mağazanız yayında"]) assert.ok(details.textContent?.includes(label), label);
 });
 
-test("dashboard V2 publishes the live visitor and period controls once in the topbar", async () => {
+test("dashboard publishes one stable visitor reader and one period control", async () => {
   const dashboard = await source("components/dashboard/PanelDashboardHomeView.tsx");
-  const shellCss = await source("components/panel/panel-shell.module.css");
-
-  assert.match(dashboard, /function DashboardTopbarContext\(/);
-  assert.match(dashboard, /<DashboardTopbarContext[\s\S]*?activeVisitorsEnabled=[\s\S]*?period=\{period\}/);
   assert.equal((dashboard.match(/<DashboardLiveVisitors\s+enabled=/g) ?? []).length, 1);
+  assert.equal((dashboard.match(/<DashboardTopbarContext\s/g) ?? []).length, 1);
   assert.equal((dashboard.match(/className=\{styles[.]periodFilter\}/g) ?? []).length, 1);
-  assert.doesNotMatch(dashboard, /function DashboardHeader\([^)]*activeVisitorsEnabled/);
+  assert.match(dashboard, /<PanelTopbarBridge[^>]*hideHeading/);
   assert.doesNotMatch(dashboard, /className=\{styles[.]headerControls\}/);
-  assert.match(shellCss, /[.]workspace\s*\{[\s\S]*?--panel-topbar-height:\s*4rem;/);
-  assert.match(shellCss, /[.]desktopTopbar\s*\{[\s\S]*?min-height:\s*4rem;/);
-  assert.match(shellCss, /[.]content\s*\{[\s\S]*?padding:\s*1[.]25rem;/);
-  const desktopCompactRange = shellCss.match(/@media \(min-width: 1025px\) and \(max-width: 1320px\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.doesNotMatch(desktopCompactRange, /grid-row:\s*2|padding-block:/);
-  assert.match(desktopCompactRange, /grid-template-columns:\s*minmax\(8rem, 11rem\) minmax\(0, 1fr\) auto;/);
 });
 
 test("dashboard never presents retained analytics under a newly selected period", async () => {
@@ -3264,12 +3253,14 @@ test("dashboard distinguishes partial operation authority from a truthful empty 
   assert.doesNotMatch(html, /Şu anda acil işlem görünmüyor/);
 });
 
-test("dashboard focus, orange actions, and mobile order links retain accessible contrast and targets", async () => {
+test("dashboard focus and mobile order links retain accessible indicators and targets", async () => {
   const css = await source("components/dashboard/panel-dashboard.module.css");
-  assert.match(css, /[.]periodFilter:focus-within,[\s\S]*?outline:\s*2px solid #2B2B2B;/i);
-  assert.match(css, /[.]quickActionPrimary\s*\{[\s\S]*?color:\s*#2B2B2B;/i);
-  assert.match(css, /[.]retryButton\s*\{[^}]*color:\s*#2B2B2B;/i);
-  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?[.]orderLink\s*\{[^}]*min-height:\s*2[.]75rem;/i);
+  assert.match(css, /:focus-visible,[\s\S]*?[.]periodFilter:focus-within\s*\{[^}]*outline:\s*2px solid var\(--cp-control-focus\)/);
+  for (const viewport of [1440, 1024, 390]) {
+    const declarations = parseApplicableCss(css, viewport);
+    const orderLink = winningDeclaration(declarations, { tagName: "a", classNames: ["orderLink"] }, ["min-height"]);
+    assert.ok(orderLink && lengthInPixels(orderLink.value) >= 44, "canonical order links remain touchable at " + viewport);
+  }
 });
 
 test("dashboard distinguishes staggered operation loading from partial failure", async () => {

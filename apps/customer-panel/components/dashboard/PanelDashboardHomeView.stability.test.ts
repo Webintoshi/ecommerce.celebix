@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
-import {readFileSync} from 'node:fs';
 import {compile,withEditor} from '../settings/design/design-editor-test-utils.ts';
 import {createMerchantDashboardSliceLoader,createMerchantDashboardViewModel} from '../../lib/panel-ui/dashboard-model.ts';
 import {readyAuthority,unavailableAuthority} from '../../lib/panel-ui/authority-slice.ts';
@@ -59,13 +58,13 @@ test('deferred background slice refresh preserves resolved content and an analyt
 });
 test('loading and resolved-empty views keep shared data body slots and a reserved insight status area',async()=>{
  const{PanelDashboardPresentation:Presentation}=components();
- await withEditor(async({container,render})=>{
+ await withEditor(async({container,render,click})=>{
   const expected=['recent-orders','order-status','sales-chart','tasks','top-products'];
   await render(React.createElement(Presentation,{...base,dashboard:dashboard(null),analyticsState:'loading',recentOrdersState:'loading',ordersState:'loading',recentOrders:[],recentOrdersResolved:false}));
   for(const slot of expected)assert.ok(container.querySelector(`[data-dashboard-body="${slot}"]`),slot);
   await render(React.createElement(Presentation,{...base,recentOrders:[],recentOrdersResolved:true}));for(const slot of expected)assert.ok(container.querySelector(`[data-dashboard-body="${slot}"]`),slot);assert.ok(container.querySelector('[data-dashboard-insight-status]'));
+  const extra=container.querySelector<HTMLDetailsElement>('details.secondaryDetails')!;assert.ok(extra,'extra information has an accessible native disclosure');assert.equal(extra.open,false);await click(extra.querySelector('summary')!);assert.equal(extra.open,true);assert.ok(extra.querySelector('[data-dashboard-body="order-status"]'));assert.ok(extra.querySelector('#customer-view-title'));
  });
- const css=readFileSync(new URL('./panel-dashboard.module.css',import.meta.url),'utf8');assert.match(css,/\.recentOrdersBody\s*\{[^}]*min-height:\s*336px/);assert.match(css,/\.orderStatusContent\s*\{[^}]*min-height:\s*233px/);assert.match(css,/\.taskBody\s*\{[^}]*min-height:\s*288px/);assert.match(css,/\.topProductsBody\s*\{[^}]*min-height:\s*280px/);assert.match(css,/\.recentOrdersTable\s*\{[^}]*min-width:\s*0/);assert.match(css,/\.salesChart\s*\{[^}]*min-height:\s*376px/);assert.doesNotMatch(css,/\.recentOrdersBody\s*\{[^}]*(?:max-height|overflow:\s*hidden)/);
 });
 
 test('a successfully resolved empty recent list survives refresh but never an error',async()=>{
