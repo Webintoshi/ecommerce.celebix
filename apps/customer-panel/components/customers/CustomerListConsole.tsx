@@ -201,7 +201,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
             setSearch(searchInput.trim());
           }}
         >
-          <label className={styles.customerSearch}>
+          <div className={styles.customerSearch}>
             <span className="sr-only">Müşteri ara</span>
             <Search aria-hidden="true" />
             <input
@@ -212,7 +212,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
               maxLength={200}
             />
             <button type="submit">Ara</button>
-          </label>
+          </div>
           <label className={styles.customerFilter}>
             <span className="sr-only">Müşteri durumu</span>
             <SlidersHorizontal aria-hidden="true" />

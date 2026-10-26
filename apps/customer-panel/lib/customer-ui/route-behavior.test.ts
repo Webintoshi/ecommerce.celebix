@@ -42,11 +42,11 @@ function tenant(role: Role): contracts.TenantContext {
     membership: { id: "30000000-0000-4000-8000-000000000001", role, status: "active" },
     entitlements: {
       schemaVersion: 1,
-      planId: "40000000-0000-4000-8000-000000000001",
+      planId: "00000000-0000-4000-8000-000000000009",
       planCode: "growth",
       version: 2,
       status: "active",
-      features: ["customers"],
+      features: ["customers", "promotions"],
       limits: { products: 100, staff: 5, storageBytes: 100 },
       validFrom: "2026-01-01T00:00:00.000Z",
     },
@@ -229,6 +229,9 @@ async function compileComponent(
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
     if (specifier === "next/navigation") return { useRouter: () => ({ push }) };
     if (specifier === "lucide-react") return new Proxy({}, { get: () => (props: Record<string, unknown>) => createElement("svg", props) });
+    if (specifier === "@/components/commercial-packages/CommercialFeatureLink") return {
+      CommercialFeatureLink: ({ capability }: { capability: string }) => createElement("a", { href: `/upgrade?feature=${capability}` }, "İndirimli paketi incele"),
+    };
     if (specifier === "@/components/panel/PanelPageShell") return panelComponents();
     if (specifier === "@/lib/customer-ui/client") return { CustomerApiError, customerApi: api };
     if (specifier.endsWith(".module.css")) return styles;
@@ -245,7 +248,7 @@ async function compilePage(
   Component: (props: Record<string, unknown>) => ReactNode,
   role: Role,
 ) {
-  const source = await readFile(new URL(`../../app${route}/page.tsx`, import.meta.url), "utf8");
+  const source = await readFile(new URL(`../../app/(panel)${route}/page.tsx`, import.meta.url), "utf8");
   const output = ts.transpileModule(source, {
     compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   }).outputText;

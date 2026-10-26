@@ -11,7 +11,7 @@ export default async function CustomerTagsPage() {
     "customers.manage",
   );
   return (
-    <CustomerWorkspace canManage={canManage}>
+    <CustomerWorkspace canManage={canManage} primaryCustomerAction={false}>
       <CustomerTaxonomyConsole kind="tags" canManage={canManage} embedded />
     </CustomerWorkspace>
   );

@@ -11,7 +11,7 @@ export default async function CustomerSegmentsPage() {
     "customers.manage",
   );
   return (
-    <CustomerWorkspace canManage={canManage}>
+    <CustomerWorkspace canManage={canManage} primaryCustomerAction={false}>
       <CustomerTaxonomyConsole kind="segments" canManage={canManage} embedded />
     </CustomerWorkspace>
   );

@@ -10,9 +10,11 @@ import styles from "./customer-console.module.css";
 
 export function CustomerWorkspace({
   canManage,
+  primaryCustomerAction = true,
   children,
 }: Readonly<{
   canManage: boolean;
+  primaryCustomerAction?: boolean;
   children: ReactNode;
 }>) {
   return (
@@ -22,7 +24,7 @@ export function CustomerWorkspace({
       tabs={CUSTOMER_WORKSPACE_TABS}
       actions={canManage ? (
         <span className={styles.workspacePrimaryAction}>
-          <PanelActionButton primary href="/customers/new">
+          <PanelActionButton primary={primaryCustomerAction} href="/customers/new">
             <Plus aria-hidden="true" /> Yeni müşteri
           </PanelActionButton>
         </span>

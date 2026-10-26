@@ -114,6 +114,9 @@ async function compileCustomerDetailPresentation() {
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return React;
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);
+    if (specifier === "@/components/commercial-packages/CommercialFeatureLink") return {
+      CommercialFeatureLink: ({ capability }: { capability: string }) => createElement("a", { href: `/upgrade?feature=${capability}` }, "İndirimli paketi incele"),
+    };
     if (specifier === "@/components/panel/PanelPageShell") return {
       PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children),
       PanelPageHeader: () => null,
@@ -192,12 +195,14 @@ test("customer console exposes truthful loaded empty error export and responsive
   assert.match(taxonomy, /müşteri/);
   assert.match(styles, /@media\s*\(max-width:\s*1024px\)/);
   assert.match(styles, /min-height:\s*44px/);
-  assert.match(styles, /--customer-canvas:\s*var\(--cp-canvas\)/i);
-  assert.match(styles, /--customer-border:\s*var\(--cp-border\)/i);
-  assert.match(styles, /[.]workspacePrimaryAction\s+:global\(a\)[\s\S]*background:\s*var\(--cp-action-primary\)/i);
+  assert.match(styles, /background:\s*var\(--cp-canvas\)/i);
+  assert.match(styles, /border:\s*1px solid var\(--cp-border\)/i);
+  assert.match(styles, /[.]workspacePrimaryAction a\s*\{[^}]*cursor:\s*pointer/);
+  assert.doesNotMatch(styles, /[.]workspacePrimaryAction[^{}]*\{[^}]*background:/i,
+    "customer header must defer its primary/secondary variant to the shared action");
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /position:\s*sticky/);
-  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(18rem,\s*22rem\)/);
+  assert.match(styles, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s+320px/);
   const compactCustomerStyles = styles.slice(
     styles.indexOf("@media (max-width: 1024px)"),
     styles.indexOf("@media (max-width: 760px)"),
@@ -212,11 +217,9 @@ test("customer console exposes truthful loaded empty error export and responsive
     /[.]createCustomerActions,[\s\S]*[.]actions\s*\{[\s\S]*bottom:\s*76px/,
     "tablet customer save bars must clear the fixed shell navigation",
   );
-  assert.match(
-    styles,
-    /@media\s*\(max-width:\s*760px\)[\s\S]*[.]createCustomerActions,[\s\S]*[.]actions\s*\{[\s\S]*bottom:\s*76px/,
-    "mobile customer save bars must clear the fixed shell navigation",
-  );
+  assert.doesNotMatch(styles.slice(styles.indexOf("@media (max-width: 760px)")),
+    /[.]createCustomerActions,[\s\S]*[.]actions\s*\{[^}]*bottom:/,
+    "mobile customer save bars must retain the tablet's 76px shell clearance");
 });
 
 test("customer detail presentation exposes linked orders navigation and truthful operations", async () => {

@@ -81,6 +81,11 @@ function createHookRuntime() {
       };
       return [slots[index] as T, set] as const;
     },
+    useRef<T>(initial: T) {
+      const index = cursor++;
+      if (!(index in slots)) slots[index] = { current: initial };
+      return slots[index] as { current: T };
+    },
     useCallback<T extends (...args: never[]) => unknown>(callback: T, deps: readonly unknown[]) {
       const index = cursor++;
       const prior = slots[index] as { deps: readonly unknown[]; value: T } | undefined;
