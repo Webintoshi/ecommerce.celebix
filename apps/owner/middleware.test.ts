@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire, register } from "node:module";
 import test from "node:test";
@@ -14,6 +15,7 @@ const ownerCookies = await import("./lib/owner-auth-cookies.ts");
 const { createAdminLoginInternalGateway } = await import("../../packages/saas-data/src/admin-login-security/internal.ts");
 const { createAdminLoginInvalidationWebhookHandler } = await import("./lib/admin-login-security/webhook.ts");
 const { createAdminLoginSupportResetHandler } = await import("./lib/admin-login-security/support-reset.ts");
+const { createPlatformCommerceHttpHandler } = await import("./lib/platform-commerce/http.ts");
 
 const OWNER_SUPABASE_ENVIRONMENT = [
   "NEXT_PUBLIC_OWNER_SUPABASE_URL",
@@ -78,6 +80,7 @@ const ownerOrigin = "https://owner.saas-staging.celebix.net";
 const internalPath = "/api/internal/admin-login-security";
 const webhookPath = "/api/security/admin-login/logto-events";
 const resetPath = "/api/security/admin-login/reset";
+const commercePath = "/api/internal/platform-commerce";
 
 function routingFixture(options: { missingAuthority?: boolean; authenticated?: boolean } = {}) {
   const calls = { authorityEnvironment: 0, ownerClient: 0, ownerUser: 0, ownerFetch: 0 };
@@ -133,7 +136,7 @@ function post(path: string, sameOrigin = false) {
   });
 }
 
-for (const path of [internalPath, webhookPath, '/api/internal/merchant-whatsapp']) {
+for (const path of [internalPath, webhookPath, '/api/internal/merchant-whatsapp', commercePath]) {
   test(`signature-owned ${path} reaches its handler without Owner cookies or Origin`, async () => {
     for (const missingAuthority of [false, true]) {
       const fixture = routingFixture({ missingAuthority });
@@ -148,7 +151,7 @@ for (const path of [internalPath, webhookPath, '/api/internal/merchant-whatsapp'
 }
 
 test("signature-owned paths do not make neighboring paths or support reset public", async () => {
-  for (const path of [internalPath + "/", internalPath + "/extra", internalPath + "-extra", webhookPath + "/extra", webhookPath + "-extra", resetPath, '/api/internal/merchant-whatsapp/extra','/api/merchant-signup/state/extra','/api/merchant-signup/unknown']) {
+  for (const path of [internalPath + "/", internalPath + "/extra", internalPath + "-extra", webhookPath + "/extra", webhookPath + "-extra", resetPath, commercePath + "/", commercePath + "/extra", commercePath + "-extra", '/api/internal/merchant-whatsapp/extra','/api/merchant-signup/state/extra','/api/merchant-signup/unknown']) {
     const fixture = routingFixture();
     const response = await fixture.middleware(post(path, true));
     assert.equal(response.status, 401, path);
@@ -165,7 +168,7 @@ test('only the four closed phone signup routes are public without an Owner sessi
 });
 
 test("neighboring mutations and support reset still require the Owner Origin", async () => {
-  for (const path of [internalPath + "/extra", webhookPath + "/extra", resetPath]) {
+  for (const path of [internalPath + "/extra", webhookPath + "/extra", resetPath, commercePath + "/extra"]) {
     const fixture = routingFixture();
     const response = await fixture.middleware(post(path));
     assert.equal(response.status, 403, path);
@@ -199,6 +202,35 @@ test("the forwarded actual internal route rejects an unsigned request before aut
   assert.equal(response.status, 503);
   assert.deepEqual(await response.json(), { code: "admin_login_internal_unavailable" });
   assert.equal(authorityCalls, 0);
+});
+
+test("the forwarded actual commerce route still requires its HMAC before executing", async () => {
+  let executions = 0;
+  const key = Buffer.alloc(32, 41), now = new Date("2026-10-27T12:00:00.000Z");
+  const timestamp = String(Math.floor(now.getTime() / 1000));
+  const body = JSON.stringify({ action: "read", payload: {} });
+  const handler = createPlatformCommerceHttpHandler({ key, now: () => now, execute: async () => {
+    executions++;
+    return { ok: true };
+  } });
+  const endpoint = sourceModule<{ POST(request: Request): Promise<Response> }>(
+    new URL("./app/api/internal/platform-commerce/route.ts", import.meta.url),
+    { "@/lib/platform-commerce/runtime": { handlePlatformCommerceRequest: handler } },
+  );
+  const signature = createHmac("sha256", key).update(`${timestamp}.${body}`).digest("hex");
+  for (const selected of [null, "0".repeat(64), signature]) {
+    const headers = { "content-type": "application/json", ...(selected === null ? {} : {
+      "x-celebix-commerce-timestamp": timestamp, "x-celebix-commerce-signature": selected,
+    }) };
+    const request = new NextRequest(ownerOrigin + commercePath, { method: "POST", headers, body });
+    const fixture = routingFixture({ missingAuthority: true });
+    assert.equal((await fixture.middleware(request)).headers.get("x-middleware-next"), "1");
+    assert.deepEqual(fixture.calls, { authorityEnvironment: 0, ownerClient: 0, ownerUser: 0, ownerFetch: 0 });
+    const response = await endpoint.POST(request);
+    assert.equal(response.status, selected === signature ? 200 : 401);
+    assert.deepEqual(await response.json(), selected === signature ? { ok: true } : { ok: false, error: "unauthorized" });
+  }
+  assert.equal(executions, 1);
 });
 
 test("the forwarded actual Logto route rejects an unsigned request before invalidation", async () => {

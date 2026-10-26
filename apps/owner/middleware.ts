@@ -42,6 +42,7 @@ const INTERNAL_HMAC_PATHS = new Set([
   "/api/internal/platform-invitations",
   "/api/internal/admin-login-security",
   "/api/internal/merchant-whatsapp",
+  "/api/internal/platform-commerce",
   "/api/security/admin-login/logto-events",
 ]);
 const SELF_SERVE_PUBLIC_PREFIXES = [
