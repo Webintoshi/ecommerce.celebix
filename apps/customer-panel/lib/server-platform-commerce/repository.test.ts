@@ -31,7 +31,7 @@ test('browser authority and price fields never enter the database and roles are 
  assert.equal(s.connections(),0);
 });
 test('native conflicts are safe and cross-store receipts cannot commit',async()=>{
- for(const outcome of ['already_owned','purchase_pending','already_covered','operation_mismatch']){const s=setup({outcome});await assert.rejects(()=>s.repository.createCheckout({tenantContext:context,now:NOW,intent}),error=>(error as {code?:string}).code===outcome);assert.equal(s.queries.at(-1)?.text,'ROLLBACK');}
+ for(const outcome of ['already_owned','purchase_pending','already_covered','operation_mismatch','checkout_expired']){const s=setup({outcome});await assert.rejects(()=>s.repository.createCheckout({tenantContext:context,now:NOW,intent}),error=>(error as {code?:string}).code===outcome);assert.equal(s.queries.at(-1)?.text,'ROLLBACK');}
  const s=setup({foreign:true});await assert.rejects(()=>s.repository.createCheckout({tenantContext:context,now:NOW,intent}));assert.equal(s.queries.at(-1)?.text,'ROLLBACK');
 });
 test('ambiguous commit preserves one native call and never returns a handoff',async()=>{const s=setup({loseCommit:true});await assert.rejects(()=>s.repository.createCheckout({tenantContext:context,now:NOW,intent}),error=>(error as {code?:string}).code==='commit_unknown');assert.equal(s.queries.filter(q=>q.text.includes('saas.platform_checkout_create')).length,1);assert.deepEqual(s.released,[true]);});

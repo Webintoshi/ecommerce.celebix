@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "a966d62fd19f41e48852df2fe3319a3d850ae71b3db308307b968fefd81f9a3e",
+  "inputDigest": "dcc0e2eb90c8cada6bb05aeb1778554c91629f5cc222ad8004ab5ba1262a0ae6",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2878,6 +2878,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/202610260281_platform_commerce.up.sql",
       "sha256": "f244830aef10e97c4e2925ba23bea31abdb7321849f08cd000ab4b98e0b6c7f9"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610270282_platform_checkout_expiry.up.sql",
+      "sha256": "351033bc7964784241ca656d2f6a11fcd5e26dbd307c0d2a45262b001f8d946c"
     },
     {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",

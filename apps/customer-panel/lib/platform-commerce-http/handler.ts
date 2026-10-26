@@ -4,7 +4,7 @@ import {approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape}
 import {parsePlatformCheckoutIntent,PlatformCommerceRepositoryError} from '../server-platform-commerce/repository.ts';
 import type {ServerPlatformCommerceRuntime} from '../server-platform-commerce/runtime.ts';
 type Dependencies=Readonly<{resolveRuntime():Promise<ServerPlatformCommerceRuntime|null>;now():Date;requestId():string;enabled():boolean}>;
-const STATUS:Readonly<Record<string,number>>={invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,feature_not_enabled:403,subscription_denied:403,durable_authority_invalid:403,origin_denied:403,operation_mismatch:409,already_owned:409,already_covered:409,purchase_pending:409,unavailable:503,commit_unknown:503};
+const STATUS:Readonly<Record<string,number>>={invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,feature_not_enabled:403,subscription_denied:403,durable_authority_invalid:403,origin_denied:403,operation_mismatch:409,already_owned:409,already_covered:409,purchase_pending:409,checkout_expired:409,unavailable:503,commit_unknown:503};
 function fail(code:string,status=STATUS[code]??503){return Response.json({code},{status,headers:{'cache-control':'no-store','x-content-type-options':'nosniff'}});}
 async function readBody(request:Request):Promise<unknown>{
  if(!/^application\/json(?:\s*;\s*charset=utf-8)?$/i.test(request.headers.get('content-type')??'')||request.headers.has('transfer-encoding')||!request.body)throw Error();

@@ -7,7 +7,7 @@ import {acquirePostgresClient,type PostgresPoolLike,type PostgresTimeoutOptions}
 export type PlatformCheckoutIntent=Readonly<{kind:'package'|'tool';offerId:string;term:'monthly'|'annual'|'once';operationId:string}>;
 export type PlatformCheckoutHandoff=Readonly<{orderId:string;handoff:string;checkoutUrl:'https://celebix.net/api/platform-checkout/handoff'}>;
 export interface PlatformCommerceRepository{createCheckout(input:Readonly<{tenantContext:TenantContext;now:Date;intent:PlatformCheckoutIntent}>):Promise<PlatformCheckoutHandoff>}
-export const PLATFORM_CHECKOUT_ERROR_CODES=['invalid_input','unauthenticated','durable_authority_invalid','membership_denied','store_inactive','feature_not_enabled','subscription_denied','operation_mismatch','already_covered','already_owned','purchase_pending','unavailable','commit_unknown']as const;
+export const PLATFORM_CHECKOUT_ERROR_CODES=['invalid_input','unauthenticated','durable_authority_invalid','membership_denied','store_inactive','feature_not_enabled','subscription_denied','operation_mismatch','already_covered','already_owned','purchase_pending','checkout_expired','unavailable','commit_unknown']as const;
 export class PlatformCommerceRepositoryError extends Error{constructor(readonly code:typeof PLATFORM_CHECKOUT_ERROR_CODES[number]){super(code);this.name='PlatformCommerceRepositoryError';}}
 function fail(code:typeof PLATFORM_CHECKOUT_ERROR_CODES[number]='unavailable'):never{throw new PlatformCommerceRepositoryError(code);}
 export function parsePlatformCheckoutIntent(value:unknown):PlatformCheckoutIntent{

@@ -3,6 +3,7 @@ import test from 'node:test';
 import React from 'react';
 import {compile,withEditor} from '../settings/design/design-editor-test-utils.ts';
 const STORE='11111111-1111-4111-8111-111111111111',OP='22222222-2222-4222-8222-222222222222',ORDER='33333333-3333-4333-8333-333333333333';
+const NEXT_OP='44444444-4444-4444-8444-444444444444';
 test('checkout double click sends one canonical intent and posts handoff through hidden form',async()=>{
  const {PlatformCheckoutButton}=compile<any>(new URL('./PlatformCheckoutButton.tsx',import.meta.url));
  await withEditor(async({window,container,render,click})=>{let release!:(value:Response)=>void;const deferred=new Promise<Response>(resolve=>{release=resolve;}),calls:any[]=[],forms:any[]=[];
@@ -22,5 +23,29 @@ test('uncertain retry and remount retain one operation and reject external check
  await withEditor(async({window,container,render,click})=>{const operations:string[]=[],forms:unknown[]=[];window.HTMLFormElement.prototype.submit=function(){forms.push(this.action);};let ids=0;
  const props={storeId:STORE,kind:'tool',offerId:'restock',term:'once',createOperationId:()=>{ids++;return OP;},fetcher:async(_url:string,init:RequestInit)=>{operations.push(JSON.parse(String(init.body)).operationId);if(operations.length===1)throw Error('private response');return Response.json({orderId:ORDER,handoff:'A'.repeat(43),checkoutUrl:'https://evil.test'});}};
  await render(React.createElement(PlatformCheckoutButton,props));await click(container.querySelector('button')!);await render(null);await render(React.createElement(PlatformCheckoutButton,props));await click(container.querySelector('button')!);assert.deepEqual(operations,[OP,OP]);assert.equal(ids,1);assert.equal(forms.length,0);assert.match(container.textContent??'',/yeniden/i);
+ });
+});
+test('only a structured safe expiry clears the old operation and waits for an explicit fresh purchase',async()=>{
+ const {PlatformCheckoutButton}=compile<any>(new URL('./PlatformCheckoutButton.tsx',import.meta.url));
+ await withEditor(async({window,container,render,click})=>{const operations:string[]=[],forms:string[]=[];let ids=0;
+ const key=`celebix-platform-checkout:v1:${window.location.hostname}:${STORE}:tool:restock:once`;
+ window.sessionStorage.setItem(key,OP);
+ window.HTMLFormElement.prototype.submit=function(){forms.push(this.action);};
+ const props={storeId:STORE,kind:'tool',offerId:'restock',term:'once',createOperationId:()=>{ids++;return NEXT_OP;},fetcher:async(_url:string,init:RequestInit)=>{operations.push(JSON.parse(String(init.body)).operationId);return operations.length===1?Response.json({code:'checkout_expired'},{status:409}):Response.json({orderId:ORDER,handoff:'A'.repeat(43),checkoutUrl:'https://celebix.net/api/platform-checkout/handoff'});}};
+ await render(React.createElement(PlatformCheckoutButton,props));await click(container.querySelector('button')!);
+ assert.deepEqual(operations,[OP]);assert.equal(ids,0);assert.equal(forms.length,0);assert.equal(window.sessionStorage.getItem(key),null);assert.match(container.textContent??'',/süresi doldu/);assert.match(container.querySelector('button')!.textContent??'',/Yeni satın alma oluştur/);
+ await click(container.querySelector('button')!);
+ assert.deepEqual(operations,[OP,NEXT_OP]);assert.equal(ids,1);assert.equal(forms.length,1);assert.equal(window.sessionStorage.getItem(key),NEXT_OP);
+ });
+});
+test('network, uncertain, malformed and unrelated failures preserve the same operation across remounts',async()=>{
+ const {PlatformCheckoutButton}=compile<any>(new URL('./PlatformCheckoutButton.tsx',import.meta.url));
+ const failures=[()=>Promise.reject(Error('transport_unknown')),()=>Promise.resolve(Response.json({code:'commit_unknown'},{status:503})),()=>Promise.resolve(Response.json({code:'purchase_pending'},{status:409})),()=>Promise.resolve(Response.json({code:'checkout_expired'},{status:503})),()=>Promise.resolve(Response.json({code:'checkout_expired',extra:true},{status:409})),()=>Promise.resolve(new Response('{bad',{status:409,headers:{'content-type':'application/json'}})),()=>Promise.resolve(new Response('{"code":"checkout_expired"}',{status:409,headers:{'content-type':'text/plain'}}))];
+ for(const failure of failures)await withEditor(async({window,container,render,click})=>{const operations:string[]=[];let ids=0;
+ const key=`celebix-platform-checkout:v1:${window.location.hostname}:${STORE}:tool:restock:once`;window.sessionStorage.setItem(key,OP);
+ const props={storeId:STORE,kind:'tool',offerId:'restock',term:'once',createOperationId:()=>{ids++;return NEXT_OP;},fetcher:async(_url:string,init:RequestInit)=>{operations.push(JSON.parse(String(init.body)).operationId);return failure();}};
+ await render(React.createElement(PlatformCheckoutButton,props));await click(container.querySelector('button')!);assert.equal(window.sessionStorage.getItem(key),OP);
+ await render(null);await render(React.createElement(PlatformCheckoutButton,props));await click(container.querySelector('button')!);
+ assert.deepEqual(operations,[OP,OP]);assert.equal(ids,0);assert.equal(window.sessionStorage.getItem(key),OP);assert.ok(!container.textContent?.includes('Yeni satın alma oluştur'));
  });
 });
