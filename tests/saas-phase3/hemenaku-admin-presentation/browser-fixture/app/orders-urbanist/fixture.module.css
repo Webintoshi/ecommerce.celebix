@@ -1,0 +1,7 @@
+.surface { min-width: 0; color: var(--cp-text-primary); }
+.card { min-width: 0; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 20px; }
+.card h2 { margin: 0 0 16px; font-size: 15px; font-weight: var(--cp-font-weight-heading); }
+.launcher { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; }
+.launcher strong { font-size: 20px; }
+.launcher button { min-height: 44px; border: 1px solid var(--cp-control-border); border-radius: 8px; background: var(--cp-control-background); padding: 8px 16px; color: var(--cp-text-primary); font: inherit; font-weight: var(--cp-font-weight-control); cursor: pointer; }
+@media (max-width: 640px) { .card { padding: 16px; }.launcher { flex-wrap: wrap; } }

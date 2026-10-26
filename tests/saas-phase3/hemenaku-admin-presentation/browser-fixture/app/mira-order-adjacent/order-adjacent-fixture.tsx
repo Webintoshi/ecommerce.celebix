@@ -28,6 +28,8 @@ function OrderAdjacentSurface({ view }: Readonly<{ view: string }>) {
       return <OrderDraftEditor canManage />;
     case "draft-edit":
       return <OrderDraftEditor draftId={ORDER_ADJACENT_DRAFT_ID} canManage />;
+    case "draft-readonly":
+      return <OrderDraftEditor draftId={ORDER_ADJACENT_DRAFT_ID} canManage={false} legacyReadOnly />;
     case "quick-links":
       return <QuickOrderLinksConsole />;
     case "abandoned-carts":

@@ -10,7 +10,8 @@
   --register-muted: var(--cp-text-secondary);
   color: var(--register-graphite);
 }
-.console { display: grid; min-width: 0; gap: 24px; font-size: 14px; }
+.console { display: grid; min-width: 0; gap: 20px; font-size: 14px; }
+.helper, .identity small, .productIdentity small, .customerInfo small, .priceOverride, .daySummary, .paymentPart small, .staffEntry > small { font-weight: var(--cp-font-weight-helper); }
 .console button, .dialog button { font-family: inherit; line-height: inherit; cursor: pointer; }
 .console [hidden], .dialog [hidden] { display: none !important; }
 .console button:disabled, .dialog button:disabled { cursor: not-allowed; opacity: .45; }
@@ -22,7 +23,7 @@
 .commandbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .location { display: flex; min-width: 0; align-items: center; gap: 8px; }
 .location > svg { color: var(--register-muted); }
-.location select { min-height: 44px; max-width: 240px; border: 0; border-radius: 8px; background: transparent; padding: 8px; color: inherit; font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-control); }
+.location select { min-height: 44px; min-width: 0; max-width: 240px; border: 1px solid var(--register-border); border-radius: 8px; background: var(--register-surface); padding: 8px 12px; color: inherit; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .secondaryActions { display: flex; gap: 8px; flex-wrap: wrap; }
 .registerActions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .saleOptions { display: flex; gap: 8px; }
@@ -46,12 +47,12 @@
 .quiet { border-color: transparent; background: transparent; padding: 8px 12px; }
 .quiet:hover:not(:disabled) { background: var(--register-soft); }
 .iconButton { width: 44px; padding: 0; flex: none; }
-.layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 32px; align-items: start; min-width: 0; }
-.mainColumn { display: grid; min-width: 0; gap: 32px; }
-.card { min-width: 0; border: 0; border-radius: 0; background: transparent; }
-.scanCard { position: relative; min-width: 0; padding: 0; }
+.layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; min-width: 0; }
+.mainColumn { display: grid; min-width: 0; gap: 20px; }
+.card { min-width: 0; border: 1px solid var(--register-border); border-radius: 12px; background: var(--register-surface); padding: 20px; }
+.scanCard { position: relative; min-width: 0; }
 .scanCard > label { display: block; font-size: 14px; font-weight: var(--cp-font-weight-control); margin-bottom: 12px; }
-.scanField { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; border: 1px solid var(--register-border); border-radius: 8px; background: var(--register-surface); }
+.scanField { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 4px 12px; border: 1px solid var(--register-border); border-radius: 8px; background: var(--register-surface); }
 .scanField:focus-within { border-color: var(--register-graphite); outline: 1px solid var(--register-graphite); outline-offset: 0; }
 .scanField input { min-width: 0; flex: 1; width: 100%; min-height: 40px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; font-size: 16px; outline: 0 !important; box-shadow: none !important; font-weight: var(--cp-font-weight-body); }
 .scanField input::placeholder { color: var(--register-muted); }
@@ -67,7 +68,7 @@
 .results b { font-size: 13px; white-space: nowrap; }
 .cardHeader { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 0 0 12px; border-bottom: 1px solid var(--register-border); }
 .cartActions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-.cardHeader h2 { font-size: 18px; font-weight: var(--cp-font-weight-heading); margin: 0; }
+.cardHeader h2 { font-size: 16px; font-weight: var(--cp-font-weight-heading); margin: 0; }
 .cardHeader h2 span { font-size: 12px; font-weight: var(--cp-font-weight-helper); color: var(--register-muted); margin-left: 8px; }
 .cartGrid { display: grid; grid-template-columns: 56px minmax(0,1fr) 104px 44px; gap: 12px; align-items: center; }
 .cartLabels { padding: 16px 0 8px; font-size: 11px; color: var(--register-muted); }
@@ -108,7 +109,7 @@
 .customerInfo small { font-size: 12px; color: var(--register-muted); overflow-wrap: anywhere; }
 .detailBar > span { min-width: 0; font-size: 12px; color: var(--register-muted); overflow-wrap: anywhere; }
 .customerSummary > .quiet { flex: none; }
-.summary { position: sticky; top: 84px; padding: 24px; border: 1px solid var(--register-border); border-radius: 12px; background: var(--register-surface); }
+.summary { position: sticky; top: 84px; padding: 20px; border: 1px solid var(--register-border); border-radius: 12px; background: var(--register-surface); }
 .summaryBody { display: grid; min-width: 0; gap: 20px; }
 .summary > header, .summaryBody > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .summaryBody > header { margin-bottom: 0; }
@@ -144,7 +145,7 @@
 .paymentChoice .segmented { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 8px; padding: 0; border: 0; border-radius: 0; background: transparent; margin-bottom: 0; }
 .paymentChoice .segmented button { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 8px; min-width: 0; min-height: 72px; padding: 12px 4px; border: 1px solid var(--register-border); border-radius: 8px; background: var(--register-surface); font-size: 12px; }
 .paymentChoice .segmented button:hover:not(:disabled) { background: var(--register-soft); }
-.paymentChoice .segmented button[aria-pressed=true] { border-color: var(--register-graphite); background: var(--register-soft); font-weight: var(--cp-font-weight-control); }
+.paymentChoice .segmented button[aria-pressed=true] { border-color: var(--register-brand); background: color-mix(in srgb, var(--register-brand) 6%, var(--register-surface)); font-weight: var(--cp-font-weight-control); }
 .paymentChoice .segmented button[aria-pressed=true]::after { content: ''; position: absolute; top: 8px; right: 8px; width: 4px; height: 4px; border-radius: 50%; background: var(--register-brand); }
 .paymentChoice .helper { font-size: 11px; }
 .paymentMethod { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--register-muted); margin: 0; }
@@ -177,10 +178,10 @@
 .daySummary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; font-size: 12px; color: var(--register-muted); line-height: 1.6; }
 .daySummary strong { color: var(--register-graphite); font-weight: var(--cp-font-weight-heading); }
 .daySummary svg { width: 16px; height: 16px; }
-.dialog { margin: auto; width: min(480px,calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--register-border); border-radius: 16px; background: var(--register-surface); box-shadow: 0 24px 64px rgb(43 43 43 / 16%); }
+.dialog { margin: auto; width: min(480px,calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; border: 1px solid var(--register-border); border-radius: 12px; background: var(--register-surface); box-shadow: 0 16px 40px color-mix(in srgb, var(--register-graphite) 12%, transparent); }
 .dialog::backdrop { background: var(--cp-overlay); }
 .dialogHeader { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--register-border); background: var(--register-surface); }
-.dialogHeader h2 { margin: 0; font-size: 18px; font-weight: var(--cp-font-weight-heading); }
+.dialogHeader h2 { margin: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
 .dialogBody { min-width: 0; padding: 20px; }
 .dialogBody > p { font-size: 13px; line-height: 1.7; }
 .dialogActions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--register-border); padding: 16px 20px; }
@@ -202,7 +203,7 @@
 .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0,1fr); gap: 4px; border: 0; border-radius: 8px; background: var(--register-soft); padding: 4px; margin-bottom: 20px; }
 .segmented button { min-width: 0; min-height: 44px; padding: 8px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: inherit; font-size: 13px; }
 .segmented button:hover:not(:disabled) { background: var(--register-border); }
-.segmented button[aria-pressed=true] { border-color: transparent; background: var(--register-surface); font-weight: var(--cp-font-weight-control); }
+.segmented button[aria-pressed=true] { border-color: var(--register-border); background: var(--register-surface); font-weight: var(--cp-font-weight-control); }
 .preview { display: grid; gap: 12px; padding: 16px 0; border-top: 1px solid var(--register-border); background: transparent; }
 .preview > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
 .preview strong { font-variant-numeric: tabular-nums; }
@@ -261,6 +262,7 @@
   .scanField .scanSubmit { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 44px; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; }
   .scanField .scanSubmit:hover:not(:disabled) { background: var(--register-soft); }
   .mainColumn { gap: 24px; }
+  .card { padding: 16px; }
   .cardHeader { padding-bottom: 12px; }
   .cardHeader h2 { font-size: 16px; }
   .cartLabels { display: none; }
@@ -303,7 +305,7 @@
   .customerFormGrid { grid-template-columns: minmax(0,1fr); }
   .dialog { width: calc(100% - 24px); max-height: calc(100dvh - 24px); }
   .dialogHeader, .dialogBody, .dialogActions { padding: 16px; }
-  .dialogHeader h2 { font-size: 18px; }
+  .dialogHeader h2 { font-size: 16px; }
   .dialogActions .primary { white-space: normal; }
   .drawer { margin: 0 0 0 auto; width: calc(100% - 12px); height: 100dvh; max-height: 100dvh; }
   .empty { min-height: 280px; }

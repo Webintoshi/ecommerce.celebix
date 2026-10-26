@@ -50,7 +50,7 @@ async function orderAdjacentRoute(fallbackGET: (request: Request, context: unkno
   };
 }
 
-test("order-adjacent workspaces use the approved Mira palette and graphite primary actions", async () => {
+test("order-adjacent workspaces use shared Urbanist tokens and graphite primary actions", async () => {
   const styles = await Promise.all([
     panelSource("components/orders/order-drafts.module.css"),
     panelSource("components/orders/quick-order-links.module.css"),
@@ -58,16 +58,22 @@ test("order-adjacent workspaces use the approved Mira palette and graphite prima
   ]);
 
   for (const css of styles) {
-    assert.match(css, /--mira-accent:\s*#FE6100/);
-    assert.match(css, /--mira-text:\s*#2B2B2B/);
-    assert.match(css, /--mira-surface:\s*#FFFDFC/);
-    assert.match(css, /--mira-border:\s*#E7E2DD/);
-    assert.match(css, /background:\s*var\(--mira-text\)/);
+    assert.match(css, /var\(--cp-surface\)/);
+    assert.match(css, /var\(--cp-text-primary\)/);
+    assert.match(css, /var\(--cp-border\)/);
+    assert.match(css, /var\(--cp-font-weight-control\)/);
+    assert.match(css, /var\(--cp-font-weight-value\)/);
   }
 
   const draftAction = declarations(styles[0], ".primaryAction");
-  assert.equal(draftAction.background, "#2B2B2B");
-  assert.equal(draftAction.color, "#FFFDFC");
+  assert.equal(draftAction.background, "var(--cp-graphite)");
+  assert.equal(draftAction.color, "var(--cp-text-inverse)");
+  for (const [css, selector] of [[styles[0], ".formSection"], [styles[1], ".panel"], [styles[2], ".surface"]]) {
+    const surface = declarations(css, selector);
+    assert.equal(surface.background, "var(--cp-surface)");
+    assert.equal(surface.border, "1px solid var(--cp-border)");
+    assert.equal(surface["border-radius"], "12px");
+  }
 });
 
 test("ordinary order-adjacent states stay neutral while outcome states remain semantic", async () => {
@@ -84,33 +90,39 @@ test("ordinary order-adjacent states stay neutral while outcome states remain se
   assert.match(quickLinks, /status === "paid"\) return "success";[\s\S]*status === "cancelled"\) return "danger";[\s\S]*return "neutral";/);
   assert.match(carts, /status === "recovered"[\s\S]*\? "success"[\s\S]*: "neutral"/);
   assert.doesNotMatch(carts, /status === "abandoned"\s*\? "danger"/);
-  assert.equal(declarations(cartCss, ".metric-recovered > strong").color, "var(--mira-text)");
+  assert.equal(declarations(cartCss, ".metrics").color, "var(--cp-text-primary)");
+  assert.equal(declarations(cartCss, ".metric > strong")["font-weight"], "var(--cp-font-weight-value)");
+  assert.equal(declarations(cartCss, ".metric-recovered").background, "transparent");
 });
 
-test("tablet layouts collapse real work grids and keep save-clear actions reachable", async () => {
+test("tablet forms collapse and mobile lists preserve full records with reachable actions", async () => {
   const [draftCss, quickCss, cartCss] = await Promise.all([
     panelSource("components/orders/order-drafts.module.css"),
     panelSource("components/orders/quick-order-links.module.css"),
     panelSource("components/orders/abandoned-cart-console.module.css"),
   ]);
 
-  assert.match(draftCss, /@media \(max-width: 1024px\)[\s\S]*\.editorWorkspace\s*\{\s*grid-template-columns:\s*1fr/);
-  assert.match(quickCss, /@media \(max-width: 1024px\)[\s\S]*\.builderGrid\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
-  assert.match(quickCss, /\.summaryActions\s*\{[^}]*position:\s*sticky;[^}]*bottom:\s*0;/s);
-  assert.equal(declarations(quickCss, ".summaryWorkspace").overflow, "visible");
-  assert.equal(declarations(quickCss, ".summaryActions").position, "sticky");
-  assert.match(cartCss, /@media \(max-width: 1024px\)[\s\S]*\.desktopTable\s*\{\s*display:\s*none/);
-  for (const css of [draftCss, quickCss, cartCss]) assert.match(css, /@media \(max-width: (?:640|700)px\)/);
+  assert.match(draftCss, /@media \(max-width: 1100px\)[\s\S]*\.editorWorkspace\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.match(quickCss, /@media \(max-width: 1100px\)[\s\S]*\.builderGrid\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\)/);
+  assert.equal(declarations(quickCss, ".summaryActions").display, "grid");
+  assert.equal(declarations(quickCss, ".primaryButton")["min-height"], "44px");
+  assert.equal(declarations(quickCss, ".secondaryButton")["min-height"], "44px");
+  assert.equal(declarations(quickCss, ".console[hidden]").display, "none");
+  for (const css of [draftCss, quickCss, cartCss]) {
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.desktopTable\s*\{\s*display:\s*none/);
+    assert.match(css, /@media \(max-width: 760px\)[\s\S]*\.mobileCards\s*\{\s*display:\s*grid/);
+    assert.match(css, /@media \(max-width: 640px\)/);
+  }
 });
 
-test("draft mobile action and focus meet the 44px Mira interaction contract", async () => {
+test("draft actions retain 44px targets and visible shared-token focus", async () => {
   const css = await panelSource("components/orders/order-drafts.module.css");
-  const action = declarations(css, ".listSurface .draftCard > .recordLink");
-  const focus = declarations(css, ".listSurface .recordLink:focus-visible");
+  const action = declarations(css, ".recordLink");
+  const focus = declarations(css, ".listSurface :is(a, button):focus-visible");
 
   assert.equal(action["min-height"], "44px");
-  assert.equal(focus.outline, "2px solid #2B2B2B");
-  assert.equal(focus["outline-offset"], "2px");
+  assert.equal(focus.outline, "2px solid var(--cp-graphite)");
+  assert.equal(focus["outline-offset"], "3px");
 });
 
 test("quick-link recovery focus lands on a visible heading above the sticky action dock", async () => {
