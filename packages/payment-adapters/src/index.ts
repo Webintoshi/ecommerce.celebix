@@ -1,5 +1,6 @@
 export { parsePaymentAdapterPacket } from "./validation.ts";
 export { createBoundedProviderTransport } from "./transport.ts";
+export { createAkbankInquiryCompatibleFetch } from "./akbank-inquiry-compatible-fetch.ts";
 export { createPaymentAdapterRegistry } from "./registry.ts";
 export {
   PAYMENT_ADAPTER_PACKET_INVENTORY,

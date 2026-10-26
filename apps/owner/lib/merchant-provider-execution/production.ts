@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { createBoundedProviderTransport } from "@celebix/payment-adapters";
+import {
+  createAkbankInquiryCompatibleFetch,
+  createBoundedProviderTransport,
+} from "@celebix/payment-adapters";
 import {
   PostgresMerchantProviderWorkflowRepository,
   type PostgresMerchantProviderWorkflowRepositoryOptions,
@@ -127,7 +130,7 @@ export async function initializeMerchantProviderProductionRuntime(
   try {
     await preflight(pool, config.database.name);
     const transport = createBoundedProviderTransport({
-      fetch: createPaytrValidationCompatibleFetch(dependencies.fetch),
+      fetch: createAkbankInquiryCompatibleFetch(createPaytrValidationCompatibleFetch(dependencies.fetch)),
       timeoutMs: 5_000,
       maximumResponseBytes: 16_384,
     });

@@ -7,6 +7,7 @@ import {
   AKBANK_JSON_PACKET,
   IYZICO_IFRAME_PACKET,
   PAYTR_IFRAME_PACKET,
+  createAkbankInquiryCompatibleFetch,
   createBoundedProviderTransport,
 } from "@celebix/payment-adapters";
 import { createDefaultWhatsAppOrderConfig, resolveStorefrontCommercePolicy, type StorefrontCommercePolicy, type PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";
@@ -579,7 +580,7 @@ async function initializeHostedPaymentInfrastructure(
       audit: () => undefined,
     });
     const transport = createBoundedProviderTransport({
-      fetch: (request) => fetch(request),
+      fetch: createAkbankInquiryCompatibleFetch((request) => fetch(request)),
       timeoutMs: 5_000,
       maximumResponseBytes: 262_144,
     });

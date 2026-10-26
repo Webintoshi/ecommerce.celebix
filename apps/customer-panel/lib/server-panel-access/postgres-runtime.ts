@@ -58,6 +58,7 @@ import {
 } from "@celebix/saas-data";
 import {
   IYZICO_GENERATED_BUILD_METADATA,
+  createAkbankInquiryCompatibleFetch,
   createBoundedProviderTransport,
 } from "@celebix/payment-adapters";
 import pg from "pg";
@@ -1033,7 +1034,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     }
     const hostedPaymentAdapters = createDefaultHostedPaymentAdapterRegistry(
       createBoundedProviderTransport({
-        fetch: (request) => fetch(request),
+        fetch: createAkbankInquiryCompatibleFetch((request) => fetch(request)),
         timeoutMs: 5_000,
         maximumResponseBytes: 262_144,
       }),

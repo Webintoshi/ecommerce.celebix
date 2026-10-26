@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "0bd79275b0d2b22bb6db0c1a7f41c8576763d80f2f474780fffcc200f894dfdf",
+  "inputDigest": "e468f53ae09581e0e0c1e4060bc84417597eb573fb7bff491d34a64c37197318",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -933,7 +933,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production.ts",
-      "sha256": "1c320aef675ff8a34cdd45f9047c6b25d267f646026c96112a0fdc9f3865043b"
+      "sha256": "e75a0bf3defa5461549a685d2f9c5ea35073ba8f2d63292f00b9b4d087bee5ed"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/registry.ts",
@@ -3368,12 +3368,16 @@
       "sha256": "25c2d23e9da5a11deea04cdd1858d58048fe32cf18f7059441eb52ec6914ec43"
     },
     {
+      "path": "packages/payment-adapters/src/akbank-inquiry-compatible-fetch.ts",
+      "sha256": "aa0eb8b8f6ad7691cb2e8161085db5c03d8a7c3a6fe94b91aabc18f2ba6fb277"
+    },
+    {
       "path": "packages/payment-adapters/src/contracts.ts",
       "sha256": "8bc844978436a091dd176a56964cce623f3cd3b21c9a2d4354d8aad2895aaf2d"
     },
     {
       "path": "packages/payment-adapters/src/index.ts",
-      "sha256": "0a7199eb6247eb408282572906971ea783deb9b288b0fa364487f20a34aa4d5f"
+      "sha256": "d7eaa6005ed208942a27adf2e40d339d5c02c6960e31b4a02f222661ad494ccb"
     },
     {
       "path": "packages/payment-adapters/src/packets/plugin-inventory.ts",

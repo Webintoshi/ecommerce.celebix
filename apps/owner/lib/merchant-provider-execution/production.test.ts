@@ -405,6 +405,8 @@ test("Akbank production composition opens encrypted credentials, authenticates i
         try {
         assert.equal(request.url, environment === "live" ? "https://api.akbank.com/api/v1/payment/virtualpos/transaction/process" : "https://apipre.akbank.com/api/v1/payment/virtualpos/transaction/process");
         assert.equal(request.method, "POST");
+        assert.equal(request.credentials, "omit");
+        assert.equal(request.headers.has("cookie"), false);
         const raw = await request.text(),body = JSON.parse(raw);
         assert.equal(body.txnCode, "1010", "credential verification must never submit sale or hosting");
         assert.deepEqual(body.terminal, {merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId});
@@ -412,8 +414,8 @@ test("Akbank production composition opens encrypted credentials, authenticates i
         assert.equal(request.headers.get("auth-hash"),createHmac("sha512",credential.secretKey).update(raw).digest("base64"));
         assert.doesNotMatch(raw,/secretKey|creditCard|cvv|amount/);
         // Synthetic authenticated not-found fixture; no bank or merchant account is contacted.
-        const response = JSON.stringify({txnCode: "1010",responseCode: "VPS-1007",terminal: body.terminal,txnDetailList: []});
-        return new Response(response,{status: 200,headers: {"content-type": "application/json",...(signed ? {"auth-hash": createHmac("sha512",credential.secretKey).update(response).digest("base64")} : {})}});
+        const response = JSON.stringify({txnCode: "1010",responseCode: "VPS-1123",terminal: body.terminal,txnDetailList: []});
+        return new Response(response,{status: 200,headers: {"content-type": "application/json","set-cookie":"bank-session=synthetic; Secure; HttpOnly",...(signed ? {"auth-hash": createHmac("sha512",credential.secretKey).update(response).digest("base64")} : {})}});
         } catch(error) { bankFailure=error; throw error; }
       },
       uuid: () => LEASE,now: () => new Date(NOW),audit() {},
