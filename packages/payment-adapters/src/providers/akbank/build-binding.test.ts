@@ -10,6 +10,29 @@ const sourcePaths = ["src/contracts.ts","src/providers/akbank/adapter.ts","src/p
 const sources = sourcePaths.map(path => ({path,bytes:new TextEncoder().encode(`${path}\n`)}));
 const hash = (value: string) => `sha256:${createHash("sha256").update(value).digest("hex")}`;
 
+test("the reviewed VPS-1123 closure keeps its own exact admission across release commits", async () => {
+  const binding = await import("./build-binding.ts");
+  const actualSources = await Promise.all(sourcePaths.map(async path => ({
+    path,
+    bytes: new Uint8Array(await readFile(new URL(`../../../${path}`, import.meta.url))),
+  })));
+  const sourceManifest = binding.createAkbankAdapterSourceManifest(actualSources);
+  assert.equal(sourceManifest.sourceDigest,"sha256:93d45cd3697a0b194de176fe273933d2098a06d527908fbd6316d8a97a75bb22");
+  const expected = {
+    test:"sha256:1713bc35694d8b01024e930db4cd39350493853a95cb6c6f5a27efbccf0b7951",
+    live:"sha256:36e980a6d495c2c4168031399c6f5b2e33b88f3bcbaabae3874f3c5d997533e6",
+  };
+  for (const environment of ["test","live"] as const) {
+    const candidate = binding.createAkbankCandidateBuildMetadata({environment,gitSha:"e".repeat(40),sourceManifest});
+    assert.equal(binding.canonicalAkbankExecutionEvidenceDigest(candidate),expected[environment]);
+  }
+  const changed = binding.createAkbankAdapterSourceManifest(actualSources.map((source,index) => index===0
+    ? {...source,bytes:new Uint8Array([...source.bytes,10])} : source));
+  const unreviewed = binding.createAkbankCandidateBuildMetadata({environment:"live",gitSha:"e".repeat(40),sourceManifest:changed});
+  assert.equal(binding.canonicalAkbankExecutionEvidenceDigest(unreviewed),unreviewed.candidateExecutionDigest);
+  assert.notEqual(binding.canonicalAkbankExecutionEvidenceDigest(unreviewed),expected.live);
+});
+
 test("Akbank manifests bind every exact source and reject incomplete or hostile authority", async () => {
   const binding = await import("./build-binding.ts");
   const manifest = binding.createAkbankAdapterSourceManifest([...sources].reverse());

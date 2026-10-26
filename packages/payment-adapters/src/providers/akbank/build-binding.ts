@@ -44,6 +44,10 @@ const REVIEWED_SOURCE_ADMISSIONS: readonly AkbankSourceAdmission[] = Object.free
     sourceDigest: "sha256:151ecf5c6125d37caa612855c2f0e2fed1ba4758926c107566a72aa2c06981c2",
     gitShas: Object.freeze({test: "f243bed851ca0c831d635f99ce48c13360dc275f", live: "f243bed851ca0c831d635f99ce48c13360dc275f"}),
   }),
+  Object.freeze({
+    sourceDigest: "sha256:93d45cd3697a0b194de176fe273933d2098a06d527908fbd6316d8a97a75bb22",
+    gitShas: Object.freeze({test: "f2ba205328c22f51fdb2142b4a91e96dc240da04", live: "f2ba205328c22f51fdb2142b4a91e96dc240da04"}),
+  }),
 ]);
 
 function sha256(value: string | Uint8Array): string {
