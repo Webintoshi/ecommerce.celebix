@@ -473,6 +473,23 @@ export function writeSafePaytrCallbackDiagnostic(event: PaytrCallbackDiagnosticE
   } else console.warn("paytr_callback_diagnostic", event.stage, event.outcome);
 }
 
+let hostedCallbackDiagnosticWindow = 0;
+let hostedCallbackDiagnosticCount = 0;
+function writeSafeHostedPaymentCallbackDiagnostic(
+  event: Parameters<NonNullable<HostedPaymentRuntimeDependencies["auditCallback"]>>[0],
+): void {
+  const now = Date.now();
+  if (now - hostedCallbackDiagnosticWindow >= 60_000) {
+    hostedCallbackDiagnosticWindow = now;
+    hostedCallbackDiagnosticCount = 0;
+  }
+  if (hostedCallbackDiagnosticCount >= 20) return;
+  hostedCallbackDiagnosticCount += 1;
+  // Runtime projects only fixed classifications: never bank payloads, customer
+  // identifiers, callback URLs, credentials or exception strings.
+  console.warn("hosted_payment_callback_rejected", event.providerCode, event.stage);
+}
+
 export async function resolveDefaultStandardCheckoutReconciliationRuntime(): Promise<DefaultStandardCheckoutReconciliationRuntime | null> {
   const infrastructure = await resolveDefaultHostedPaymentInfrastructure();
   if (infrastructure === null) return null;
@@ -598,6 +615,7 @@ async function initializeHostedPaymentInfrastructure(
       pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined,
     });
     const sharedDependencies = Object.freeze({
+        auditCallback: writeSafeHostedPaymentCallbackDiagnostic,
         isStandardCheckoutContext: async (input: Readonly<{ attemptId: string; storeId: string; now: Date }>) =>
           contextRepository.isContext({ storeId: input.storeId, operationId: input.attemptId, now: input.now }),
         keyring,

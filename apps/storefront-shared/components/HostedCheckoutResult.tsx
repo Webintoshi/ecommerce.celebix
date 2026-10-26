@@ -22,9 +22,9 @@ export function HostedCheckoutResult(props: Readonly<{
     <div className="checkout-result-page store-container">
       {hostedStatus?.status === "captured" ? <article className="checkout-result-state checkout-result-success">
         <span className="checkout-result-mark" aria-hidden="true">✓</span>
-        <h1>Ödemeniz alındı</h1>
-        <p>Siparişiniz oluşturuldu. Ayrıntıları hesabınızdan görebilirsiniz.</p>
-        <Link className="store-button" href="/account">Siparişlerimi gör</Link>
+        <h1>Siparişiniz alındı</h1>
+        <p>Ödemeniz doğrulandı ve siparişiniz oluşturuldu. Ayrıntıları hesabınızdan görebilirsiniz.</p>
+        <Link className="store-button" href="/account/orders">Siparişlerimi gör</Link>
       </article> : terminalFailure ? <article className="checkout-result-state">
         <span className="checkout-result-mark" aria-hidden="true">↩</span>
         <h1>Ödeme tamamlanamadı</h1>

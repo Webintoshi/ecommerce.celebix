@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
 import test from "node:test";
 
-import { AKBANK_JSON_PACKET, createAkbankHostedAdapter } from "@celebix/payment-adapters";
+import { AKBANK_JSON_PACKET, IYZICO_IFRAME_PACKET, createAkbankHostedAdapter } from "@celebix/payment-adapters";
 import { fixtureAkbankForm } from "../checkout/akbank-form-post.fixture.ts";
+import { selectTrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 
 import type {
   HostedPaymentAdapter,
@@ -248,6 +249,8 @@ function fixture(options: Readonly<{
   unknownMutation?: PaymentAttemptMutationResult | Error;
   adapterPresent?: boolean;
   trusted?: boolean;
+  selectAuthority?: HostedPaymentRuntimeDependencies["selectAuthority"];
+  auditCallback?: (event: Readonly<{ providerCode: "akbank_json" | "iyzico_iframe" | "other"; stage: "request_authority" | "request_body" | "attempt_authority" | "execution_authority" | "provider_verification" | "native_settlement" }>) => void;
   freezeCredential?: boolean;
   claim?: Partial<PaymentAttemptReconciliationClaim> | Error;
   claimAdapter?: (
@@ -441,9 +444,9 @@ function fixture(options: Readonly<{
       opened = new TextEncoder().encode(options.credential ? JSON.stringify(options.credential) : "{\"merchantKey\":\"credential_secret\"}");
       return opened;
     },
-    selectAuthority: () => options.trusted === false
+    selectAuthority: options.selectAuthority ?? (() => options.trusted === false
       ? Object.freeze({ kind: "invalid_proxy_authority" })
-      : Object.freeze({ kind: "trusted", hostname: HOSTNAME }),
+      : Object.freeze({ kind: "trusted", hostname: HOSTNAME })),
     now: options.now ?? (() => new Date(NOW)),
     randomBytes: (size) => new Uint8Array(size).fill(7),
     selectCompiledAuthority: (providerCode, environment) => {
@@ -461,6 +464,7 @@ function fixture(options: Readonly<{
     },
     providerTimeoutMs: options.providerTimeoutMs,
     ...(options.isStandardCheckoutContext ? { isStandardCheckoutContext: options.isStandardCheckoutContext } : {}),
+    ...(options.auditCallback ? { auditCallback: options.auditCallback } : {}),
   });
   return { runtime, calls, get opened() { return opened; } };
 }
@@ -2352,43 +2356,133 @@ test("Akbank form initialization is bound to durable attempt, callback, amount a
 });
 
 
-test("Akbank authenticated return captures only after signed matching inquiry and never sends another sale", async () => {
+function realAkbankReturnFixture(options: Readonly<{
+  inquiry?: "paid" | "wrong_amount" | "unsigned_inquiry" | "pending";
+  callback?: "signed" | "forged_mac" | "wrong_amount";
+  auditCallback?: NonNullable<Parameters<typeof fixture>[0]>["auditCallback"];
+}> = {}) {
   // Synthetic bank protocol fixtures, with a local test secret and no bank requests.
   const credential = { merchantSafeId: "1".repeat(32), terminalSafeId: "2".repeat(32), secretKey: "celebix-integration-fixture-only" };
   const callbackFields = { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId,
-    orderId: ATTEMPT_ID, amount: "123.45", txnCode: "1000", responseCode: "VPS-0000", currencyCode: "949" };
+    orderId: ATTEMPT_ID, amount: options.callback === "wrong_amount" ? "123.46" : "123.45", txnCode: "1000", responseCode: "VPS-0000", currencyCode: "949" };
   const hashParams = Object.keys(callbackFields).join("+");
-  const hash = createHmac("sha512", credential.secretKey).update(Object.values(callbackFields).join("")).digest("base64");
+  const hash = createHmac("sha512", options.callback === "forged_mac" ? "forged-fixture-secret" : credential.secretKey).update(Object.values(callbackFields).join("")).digest("base64");
   const body = new URLSearchParams({ ...callbackFields, hashParams, hash }).toString();
+  const scenario = options.inquiry ?? "paid";
+  const sent: Array<Record<string, unknown>> = [];
+  const adapter = createAkbankHostedAdapter({ request: async (input) => {
+    assert.equal(selected.calls.hostedCallbacks.length, 0, "inquiry must finish before capture");
+    assert.equal("auth-hash" in input.headers ? input.headers["auth-hash"] : undefined, createHmac("sha512", credential.secretKey).update(input.body).digest("base64"));
+    sent.push(JSON.parse(Buffer.from(input.body).toString("utf8")));
+    const responseBody = new TextEncoder().encode(JSON.stringify({ txnCode: "1010", responseCode: "VPS-0000",
+      terminal: { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId },
+      txnDetailList: [{ txnCode: scenario === "pending" ? "3000" : "1000", responseCode: "VPS-0000", hostResponseCode: "00",
+        txnStatus: "N", orderId: ATTEMPT_ID, orgOrderId: ATTEMPT_ID, amount: scenario === "wrong_amount" ? "123.46" : "123.45", currencyCode: 949, installCount: 1 }] }));
+    return { kind: "response", status: 200, contentType: "application/json", body: responseBody,
+      ...(scenario === "unsigned_inquiry" ? {} : { headers: { "auth-hash": createHmac("sha512", credential.secretKey).update(responseBody).digest("base64") } }) };
+  } });
+  const proxyToken = Buffer.alloc(32, 0x42).toString("base64url");
+  const selected = fixture({ packet: AKBANK_JSON_PACKET, credential,
+    compiledAuthority: { ...COMPILED_AUTHORITY, providerCode: "akbank_json" },
+    callbackAuthority: authority({ providerCode: "akbank_json", providerReference: ATTEMPT_ID, status: "awaiting_customer",
+      publicConfig: { environment: "test" }, methodConfig: { environment: "test", locale: "tr", threeDSecure: "provider_managed", installmentMode: "single_payment", maxInstallment: 0 } }),
+    callbackAdapter: (input) => adapter.verifyCallback(input as never),
+    selectAuthority: headers => selectTrustedStorefrontHostAuthority(headers, {
+      CELEBIX_DEPLOYMENT_TIER: "staging", CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging", CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: proxyToken,
+    }),
+    ...(options.auditCallback ? { auditCallback: options.auditCallback } : {}),
+  });
+  const binding = Buffer.alloc(32, 7).toString("base64url");
+  const headers = new Headers({ "content-type": "application/x-www-form-urlencoded", origin: "https://virtualpospaymentgatewaypre.akbank.com",
+    host: "localhost:3450", "x-celebix-storefront-proxy": `p1.${proxyToken}`, "x-forwarded-host": HOSTNAME, "x-forwarded-proto": "https" });
+  return { ...selected, sent, headers, binding,
+    request: (selectedHeaders = headers) => new Request(`https://localhost:3450/api/payments/akbank_json/callback/${binding}`, { method: "POST", headers: selectedHeaders, body }),
+  };
+}
+
+test("Akbank authenticated return captures only after signed matching inquiry and never sends another sale", async () => {
   for (const scenario of ["paid", "wrong_amount", "unsigned_inquiry", "pending"] as const) {
-    const sent: Array<Record<string, unknown>> = [];
-    const adapter = createAkbankHostedAdapter({ request: async (input) => {
-      assert.equal(selected.calls.hostedCallbacks.length, 0, "inquiry must finish before capture");
-      sent.push(JSON.parse(Buffer.from(input.body).toString("utf8")));
-      const responseBody = new TextEncoder().encode(JSON.stringify({ txnCode: "1010", responseCode: "VPS-0000",
-        terminal: { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId },
-        txnDetailList: [{ txnCode: scenario === "pending" ? "3000" : "1000", responseCode: "VPS-0000", hostResponseCode: "00",
-          txnStatus: "N", orderId: ATTEMPT_ID, orgOrderId: ATTEMPT_ID, amount: scenario === "wrong_amount" ? "123.46" : "123.45", currencyCode: 949, installCount: 1 }] }));
-      return { kind: "response", status: 200, contentType: "application/json", body: responseBody,
-        ...(scenario === "unsigned_inquiry" ? {} : { headers: { "auth-hash": createHmac("sha512", credential.secretKey).update(responseBody).digest("base64") } }) };
-    } });
-    const selected = fixture({ packet: AKBANK_JSON_PACKET, credential,
-      compiledAuthority: { ...COMPILED_AUTHORITY, providerCode: "akbank_json" },
-      callbackAuthority: authority({ providerCode: "akbank_json", providerReference: ATTEMPT_ID, status: "awaiting_customer",
-        publicConfig: { environment: "test" }, methodConfig: { environment: "test", locale: "tr", threeDSecure: "provider_managed", installmentMode: "single_payment", maxInstallment: 0 } }),
-      callbackAdapter: (input) => adapter.verifyCallback(input as never),
-    });
-    const binding = Buffer.alloc(32, 7).toString("base64url");
-    const result = await selected.runtime.callback({ providerCode: "akbank_json", binding,
-      request: new Request(`https://localhost:3450/api/payments/akbank_json/callback/${binding}`, {
-        method: "POST", headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://virtualpospaymentgatewaypre.akbank.com" }, body,
-      }) });
-    assert.equal(sent.length, 1);
-    assert.equal(sent[0]!.txnCode, "1010");
-    assert.deepEqual(sent[0]!.order, { orderId: ATTEMPT_ID });
-    assert.deepEqual(sent[0]!.terminal, { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId });
+    const selected = realAkbankReturnFixture({ inquiry: scenario });
+    const result = await selected.runtime.callback({ providerCode: "akbank_json", binding: selected.binding, request: selected.request() });
+    assert.equal(selected.sent.length, 1);
+    assert.equal(selected.sent[0]!.txnCode, "1010");
+    assert.deepEqual(selected.sent[0]!.order, { orderId: ATTEMPT_ID });
+    assert.deepEqual(selected.sent[0]!.terminal, { merchantSafeId: "1".repeat(32), terminalSafeId: "2".repeat(32) });
     assert.deepEqual(result, { kind: "customer_return", outcome: scenario === "paid" ? "success" : "processing" });
     assert.equal(selected.calls.hostedCallbacks.some((input) => input.status === "captured"), scenario === "paid");
     assert.equal(selected.calls.initializedAdapter.length, 0);
+  }
+});
+
+function browserAkbankHeaders(headers: Headers, count = 64): Headers {
+  const output = new Headers(headers);
+  output.set("cookie", "__Host-celebix_cart=fixture-browser-cookie; analytics=fixture-private-marker");
+  output.set("x-forwarded-for", "203.0.113.7, 198.51.100.8");
+  for (let index = 0; [...output].length < count; index++) output.set(`x-browser-fixture-${index}`, "bounded");
+  assert.equal([...output].length, count);
+  return output;
+}
+
+test("Akbank signed browser return accepts cookies, proxy IP chains and 64 benign headers without another sale", async (context) => {
+  for (const variant of ["cookie", "proxy_chain", "header_count", "combined"] as const) await context.test(variant, async () => {
+    const selected = realAkbankReturnFixture();
+    const headers = variant === "combined" || variant === "header_count" ? browserAkbankHeaders(selected.headers) : new Headers(selected.headers);
+    if (variant === "header_count") { headers.delete("cookie"); headers.delete("x-forwarded-for"); headers.set("x-browser-fixture-fill1", "bounded"); headers.set("x-browser-fixture-fill2", "bounded"); }
+    if (variant === "cookie") headers.set("cookie", "__Host-celebix_cart=fixture-browser-cookie");
+    if (variant === "proxy_chain") headers.set("x-forwarded-for", "203.0.113.7, 198.51.100.8");
+    const result = await selected.runtime.callback({ providerCode: "akbank_json", binding: selected.binding, request: selected.request(headers) });
+    assert.deepEqual(result, { kind: "customer_return", outcome: "success" });
+    assert.equal(selected.sent.length, 1);
+    assert.equal(selected.sent[0]!.txnCode, "1010");
+    assert.equal(selected.calls.hostedCallbacks.filter(input => input.status === "captured").length, 1);
+    assert.equal(selected.calls.begin.length, 0);
+    assert.equal(selected.calls.initializedAdapter.length, 0);
+  });
+});
+
+test("Akbank browser transport compatibility never permits forged MAC or mismatched payment amounts", async () => {
+  for (const scenario of ["forged_mac", "wrong_amount", "wrong_inquiry_amount"] as const) {
+    const selected = realAkbankReturnFixture(scenario === "wrong_inquiry_amount" ? { inquiry: "wrong_amount" } : { callback: scenario });
+    const result = await selected.runtime.callback({ providerCode: "akbank_json", binding: selected.binding, request: selected.request(browserAkbankHeaders(selected.headers)) });
+    assert.notDeepEqual(result, { kind: "customer_return", outcome: "success" });
+    assert.equal(selected.calls.hostedCallbacks.some(input => input.status === "captured"), false);
+    assert.equal(selected.sent.length, scenario === "wrong_inquiry_amount" ? 1 : 0);
+    assert.equal(selected.calls.begin.length, 0);
+  }
+});
+
+test("callback diagnostics expose only finite provider and rejection stage and cannot turn rejection into settlement", async () => {
+  const events: unknown[] = [];
+  const selected = realAkbankReturnFixture({ auditCallback: event => { events.push(event); throw Error("private-fixture-logger-failure"); } });
+  const headers = new Headers(selected.headers);
+  headers.set("x-celebix-storefront-proxy", "p1.invalid-private-proxy");
+  const result = await selected.runtime.callback({ providerCode: "akbank_json", binding: selected.binding, request: selected.request(headers) });
+  assert.deepEqual(result, { kind: "rejected" });
+  assert.deepEqual(events, [{ providerCode: "akbank_json", stage: "request_authority" }]);
+  assert.equal(selected.calls.opens.length, 0);
+  assert.equal(selected.calls.hostedCallbacks.length, 0);
+  assert.equal(selected.sent.length, 0);
+});
+
+test("callback diagnostics cannot alter verified settlement and never include callback, cookie or credential data", async () => {
+  const events: unknown[] = [];
+  for (const invalid of [false, true]) {
+    const selected = realAkbankReturnFixture({ ...(invalid ? { callback: "forged_mac" } : {}), auditCallback: event => { events.push(event); throw Error("private-fixture-logger-failure"); } });
+    const result = await selected.runtime.callback({ providerCode: "akbank_json", binding: selected.binding, request: selected.request() });
+    assert.deepEqual(result, invalid ? { kind: "rejected" } : { kind: "customer_return", outcome: "success" });
+    assert.equal(selected.calls.hostedCallbacks.filter(input => input.status === "captured").length, invalid ? 0 : 1);
+    assert.equal(selected.sent.length, invalid ? 0 : 1);
+  }
+  assert.deepEqual(events, [{ providerCode: "akbank_json", stage: "provider_verification" }]);
+});
+
+test("untrusted callback diagnostics classify only known customer-return providers and redact arbitrary provider input", async () => {
+  for (const [providerCode, expected] of [[AKBANK_JSON_PACKET.providerCode, "akbank_json"], [IYZICO_IFRAME_PACKET.providerCode, "iyzico_iframe"], ["private-provider-marker-do-not-log", "other"]] as const) {
+    const events: unknown[] = [];
+    const selected = fixture({ trusted: false, auditCallback: event => { events.push(event); } });
+    assert.deepEqual(await selected.runtime.callback({ providerCode, binding: Buffer.alloc(32, 7).toString("base64url"), request: callbackRequest(providerCode) }), { kind: "rejected" });
+    assert.deepEqual(events, [{ providerCode: expected, stage: "request_authority" }]);
+    assert.equal(selected.calls.hostedCallbacks.length, 0);
+    assert.equal(selected.calls.opens.length, 0);
   }
 });

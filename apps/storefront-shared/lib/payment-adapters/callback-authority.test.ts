@@ -131,7 +131,7 @@ test("internal transport compatibility preserves the exact callback target and h
   }
   assert.throws(() => request(target.replace("localhost", "user:pass@localhost")), TypeError);
   for (const headers of [
-    { cookie: "unrelated=fixture" }, { authorization: "Bearer fixture" },
+    { cookie: `unrelated=${"x".repeat(4_096)}` }, { authorization: "Bearer fixture" },
     { origin: "https://virtualpospaymentgateway.akbank.com.evil.example" },
   ] as Readonly<Record<string, string>>[]) {
     assert.equal(await readExactHostedPaymentCallback({
@@ -209,7 +209,7 @@ test("accepts only an exact iyzico customer-return Origin and drops it from prov
     { origin: "https://sandbox-cpp.iyzipay.com.evil.example" },
     { origin: "https://sandbox-cpp.iyzipay.com/" },
     { origin: "https://SANDBOX-CPP.iyzipay.com" },
-    { origin: "https://sandbox-cpp.iyzipay.com", cookie: "session=secret" },
+    { origin: "https://sandbox-cpp.iyzipay.com", cookie: `session=${"x".repeat(4_096)}` },
     { origin: "https://sandbox-cpp.iyzipay.com", authorization: "Bearer secret" },
   ];
   for (const headers of invalidHeaders) {
@@ -330,4 +330,132 @@ test("Akbank alone accepts exact bank Origin and valid raw percent encodings wit
     assert.equal(await readExactHostedPaymentCallback({ request: request(target, { body: invalid }), providerCode, binding: BINDING, trustedHostname: HOSTNAME }), null, invalid);
   }
   assert.equal(await readExactHostedPaymentCallback({ request: request(CALLBACK_URL, { body }), providerCode: PROVIDER, binding: BINDING, trustedHostname: HOSTNAME }), null);
+});
+
+const CUSTOMER_RETURN_PROVIDERS = ["akbank_json", "iyzico_iframe"] as const;
+
+function customerReturnRequest(providerCode: string, headers: HeadersInit = {}, body: BodyInit = "token=fixture"): Request {
+  return new Request(`https://${HOSTNAME}/api/payments/${providerCode}/callback/${BINDING}`, {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", ...Object.fromEntries(new Headers(headers)) },
+    body,
+    duplex: "half",
+  } as RequestInit);
+}
+
+function readCallback(candidate: Request, providerCode: string) {
+  return readExactHostedPaymentCallback({ request: candidate, providerCode, binding: BINDING, trustedHostname: HOSTNAME });
+}
+
+test("only fixed customer returns discard bounded ambient Cookies without projecting or changing body bytes", async () => {
+  for (const providerCode of CUSTOMER_RETURN_PROVIDERS) {
+    const body = "token=fixture%2Bvalue";
+    const selected = await readCallback(customerReturnRequest(providerCode, {
+      cookie: "analytics=incidental_private_fixture; __Host-session=untrusted_fixture",
+      "content-length": String(Buffer.byteLength(body)),
+    }, body), providerCode);
+    assert.ok(selected, providerCode);
+    assert.equal(selected.callbackBindingDigest, DIGEST);
+    assert.deepEqual(selected.headers, { "content-length": String(Buffer.byteLength(body)), "content-type": "application/x-www-form-urlencoded" });
+    assert.equal(new TextDecoder().decode(selected.body), body);
+    assert.equal(JSON.stringify(selected).includes("incidental_private_fixture"), false);
+    selected.body.fill(0);
+    assert.equal(await readCallback(customerReturnRequest(providerCode, { cookie: "x=" + "a".repeat(4_096) }), providerCode), null);
+  }
+  for (const providerCode of [PROVIDER, "paytr_iframe", "akbank_json_other", "iyzico_iframe_other"]) {
+    assert.equal(await readCallback(customerReturnRequest(providerCode, { cookie: "analytics=fixture" }), providerCode), null, providerCode);
+  }
+});
+
+test("customer returns allow at most64 bounded headers while provider acknowledgements retain32", async () => {
+  for (const providerCode of [...CUSTOMER_RETURN_PROVIDERS, PROVIDER, "paytr_iframe"]) {
+    for (const count of [32, 33, 64, 65]) {
+      const headers = new Headers({ "content-type": "application/x-www-form-urlencoded" });
+      for (let index = 1; index < count; index += 1) headers.set(`x-browser-fixture-${index}`, "safe");
+      const selected = await readCallback(customerReturnRequest(providerCode, headers), providerCode);
+      const allowed = count <= (CUSTOMER_RETURN_PROVIDERS.includes(providerCode as typeof CUSTOMER_RETURN_PROVIDERS[number]) ? 64 : 32);
+      assert.equal(selected !== null, allowed, `${providerCode}:${count}`);
+      selected?.body.fill(0);
+    }
+  }
+  for (const providerCode of CUSTOMER_RETURN_PROVIDERS) {
+    for (const headers of [{ ["x".repeat(129)]: "safe" }, { "x-browser-fixture": "x".repeat(4_097) }]) {
+      assert.equal(await readCallback(customerReturnRequest(providerCode, headers), providerCode), null);
+    }
+  }
+});
+
+test("only customer returns accept plain case-insensitive chunked framing with no declared length", async () => {
+  for (const providerCode of CUSTOMER_RETURN_PROVIDERS) {
+    for (const encoding of ["chunked", "CHUNKED", "Chunked"]) {
+      const selected = await readCallback(customerReturnRequest(providerCode, {
+        "transfer-encoding": encoding,
+        cookie: "analytics=fixture",
+      }), providerCode);
+      assert.ok(selected, `${providerCode}:${encoding}`);
+      assert.deepEqual(selected.headers, { "content-type": "application/x-www-form-urlencoded" });
+      assert.equal(new TextDecoder().decode(selected.body), "token=fixture");
+      selected.body.fill(0);
+    }
+  }
+  for (const providerCode of [PROVIDER, "paytr_iframe"]) {
+    assert.equal(await readCallback(customerReturnRequest(providerCode, { "transfer-encoding": "chunked" }), providerCode), null);
+  }
+});
+
+test("customer-return compatibility retains auth, framing, compression, Origin and target rejection", async () => {
+  for (const providerCode of CUSTOMER_RETURN_PROVIDERS) {
+    for (const headers of [
+      { authorization: "Bearer fixture" }, { "proxy-authorization": "Basic fixture" },
+      { "content-encoding": "identity" }, { "content-encoding": "gzip" },
+      { "transfer-encoding": "chunked", "content-length": "13" },
+      { "transfer-encoding": "gzip" }, { "transfer-encoding": "gzip, chunked" },
+      { "transfer-encoding": "chunked, chunked" }, { "transfer-encoding": "chunked", "content-encoding": "gzip" },
+      { origin: "https://foreign.example" }, { origin: "null" },
+    ] as ReadonlyArray<Readonly<Record<string, string>>>) {
+      assert.equal(await readCallback(customerReturnRequest(providerCode, headers), providerCode), null, `${providerCode}:${JSON.stringify(headers)}`);
+    }
+    const wrongPath = customerReturnRequest(providerCode, { cookie: "analytics=fixture" });
+    assert.equal(await readCallback(new Request(`${wrongPath.url}?next=1`, wrongPath), providerCode), null);
+    const wrongProvider = providerCode === "akbank_json" ? "iyzico_iframe" : "akbank_json";
+    assert.equal(await readCallback(customerReturnRequest(providerCode), wrongProvider), null);
+  }
+});
+
+test("overflow rejection never waits for an uncooperative stream cancellation", { timeout: 2_000 }, async () => {
+  let cancelled = false;
+  const overflow = new Uint8Array(65_537).fill(0x61);
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(overflow); },
+    cancel() { cancelled = true; return new Promise<void>(() => {}); },
+  });
+  let guard: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      readCallback(customerReturnRequest("akbank_json", {}, stream), "akbank_json"),
+      new Promise<"rejection_stalled">((resolve) => { guard = setTimeout(() => resolve("rejection_stalled"), 500); }),
+    ]);
+    assert.equal(result, null);
+    assert.equal(cancelled, true);
+    assert.equal(overflow.every((value) => value === 0), true);
+  } finally { clearTimeout(guard); }
+});
+
+test("customer-return body deadline covers a stalled partial body and never waits for cancel", { timeout: 9_000 }, async () => {
+  let cancelled = false;
+  const partial = new TextEncoder().encode("token=private_fixture");
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) { controller.enqueue(partial); },
+    cancel() { cancelled = true; return new Promise<void>(() => {}); },
+  });
+  let guard: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      readCallback(customerReturnRequest("iyzico_iframe", {}, stream), "iyzico_iframe"),
+      new Promise<"body_deadline_missing">((resolve) => { guard = setTimeout(() => resolve("body_deadline_missing"), 7_000); }),
+    ]);
+    assert.equal(result, null);
+    assert.equal(cancelled, true);
+    assert.equal(partial.every((value) => value === 0), true);
+  } finally { clearTimeout(guard); }
 });

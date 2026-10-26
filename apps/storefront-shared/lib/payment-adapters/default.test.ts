@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -8,6 +9,9 @@ import {
   PAYTR_APPROVED_EXECUTION_AUTHORITIES,
   PAYTR_IFRAME_PACKET,
 } from "@celebix/payment-adapters";
+import { sealMerchantProviderCredential, type PaymentAttemptRepository, type ApplyHostedPaymentCallbackInput } from "@celebix/saas-data";
+import { createHostedPaymentCallbackRoute } from "./runtime.ts";
+import { selectTrustedStorefrontHostAuthority } from "../trusted-host-authority.ts";
 
 import {
   createDefaultHostedPaymentAdapterRegistry,
@@ -494,4 +498,93 @@ test("Akbank execution uses its exact flag and environment authority without ena
   assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: "enabled" }, "akbank_json"), "disabled");
   assert.equal(createStorefrontHostedPaymentCompiledAuthoritySelector({ ...authorities, akbank_json: { test: { ...testAuthority, adapterVersion: 999 }, live: null } }), null);
   assert.equal(createStorefrontHostedPaymentCompiledAuthoritySelector({ ...authorities, akbank_json: { test: null, live: { ...liveAuthority, environment: "test" } } } as never), null);
+});
+
+function defaultAkbankReturnFixture(standard: boolean) {
+  const attemptId = "10000000-0000-4000-8000-000000000001";
+  const storeId = "20000000-0000-4000-8000-000000000001";
+  const profileId = "40000000-0000-4000-8000-000000000001";
+  const hostname = "shop.example.test";
+  const credential = { merchantSafeId: "1".repeat(32), terminalSafeId: "2".repeat(32), secretKey: "default-akbank-fixture-only" };
+  const keyring = { activeKeyId: "provider.current", keys: [{ keyId: "provider.current", key: new Uint8Array(32).fill(17) }] };
+  const sealedCredentials = sealMerchantProviderCredential({ plaintext: new TextEncoder().encode(JSON.stringify(credential)),
+    profileId, storeId, providerCode: "akbank_json", capability: "payment_processing", credentialVersion: 1, keyring });
+  const execution = { environment: "test" as const, adapterVersion: AKBANK_JSON_PACKET.adapterVersion, evidenceDigest: `sha256:${"c".repeat(64)}` };
+  const now = new Date("2026-10-27T00:00:00.000Z");
+  const captures: ApplyHostedPaymentCallbackInput[] = [];
+  const contextLookups: unknown[] = [];
+  const diagnostics: unknown[] = [];
+  const queries: Record<string, unknown>[] = [];
+  const unavailable = async () => { throw Error("unexpected_repository_or_sale_call"); };
+  const attempts: PaymentAttemptRepository = {
+    begin: unavailable, markInitialized: unavailable, markUnknown: unavailable, settleCallback: unavailable,
+    getReconciliationAuthority: unavailable, claimReconciliation: unavailable, finalizeReconciliation: unavailable,
+    getCallbackAuthority: async () => ({ attemptId, storeId, profileId, paymentMethodId: "30000000-0000-4000-8000-000000000001",
+      providerCode: "akbank_json", environment: "test", executionAdapterVersion: execution.adapterVersion,
+      executionEvidenceDigest: execution.evidenceDigest, credentialVersion: 1, orderReference: "ORDER-FIXTURE", amountMinor: 12_345,
+      currency: "TRY", status: "awaiting_customer", version: 2, providerReference: attemptId, sealedCredentials,
+      publicConfig: { environment: "test" }, methodConfig: { environment: "test", locale: "tr", threeDSecure: "provider_managed", installmentMode: "single_payment", maxInstallment: 0 } }),
+    applyHostedCallback: async input => {
+      captures.push(input);
+      return { attemptId, status: input.status, version: 4, providerReference: input.providerReference, safeCode: input.safeCode, replayed: false, disposition: "applied" };
+    },
+  };
+  const proxyToken = Buffer.alloc(32, 0x42).toString("base64url");
+  const dependencies = {
+    attempts, keyring,
+    transport: { request: async (input: Parameters<import("@celebix/payment-adapters").ProviderTransport["request"]>[0]) => {
+      assert.equal(captures.length, 0);
+      assert.equal("auth-hash" in input.headers ? input.headers["auth-hash"] : undefined, createHmac("sha512", credential.secretKey).update(input.body).digest("base64"));
+      const query = JSON.parse(Buffer.from(input.body).toString("utf8"));
+      assert.equal(query.txnCode, "1010", "composition may only inquire, never initialize a sale");
+      queries.push(query);
+      const body = new TextEncoder().encode(JSON.stringify({ txnCode: "1010", responseCode: "VPS-0000", terminal: { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId },
+        txnDetailList: [{ txnCode: "1000", responseCode: "VPS-0000", hostResponseCode: "00", txnStatus: "N", orderId: attemptId, orgOrderId: attemptId, amount: "123.45", currencyCode: 949, installCount: 1 }] }));
+      return { kind: "response" as const, status: 200, contentType: "application/json", body, headers: { "auth-hash": createHmac("sha512", credential.secretKey).update(body).digest("base64") } };
+    } },
+    selectAuthority: (headers: Headers) => selectTrustedStorefrontHostAuthority(headers, { CELEBIX_DEPLOYMENT_TIER: "staging", CELEBIX_STOREFRONT_PROXY_MODE: "approved_staging", CELEBIX_STOREFRONT_PROXY_TOKEN_B64URL: proxyToken }),
+    matchesCompiledAuthority: async () => true, now: () => new Date(now), randomBytes: (size: number) => new Uint8Array(size).fill(7),
+    isStandardCheckoutContext: async (input: unknown) => { contextLookups.push(input); return standard; },
+    auditCallback: (event: unknown) => { diagnostics.push(event); },
+  };
+  const runtime = createDefaultHostedPaymentRuntime({ source: { CELEBIX_AKBANK_JSON_STOREFRONT_MODE: "approved_test_sandbox" },
+    compiledAuthorities: { paytr_iframe: { test: null, live: null }, iyzico_iframe: null, akbank_json: { test: execution, live: null } }, dependencies });
+  assert.ok(runtime);
+  const binding = Buffer.alloc(32, 7).toString("base64url");
+  const route = createHostedPaymentCallbackRoute({ resolveRuntime: async () => runtime });
+  const request = (forged = false, untrusted = false) => {
+    const fields = { merchantSafeId: credential.merchantSafeId, terminalSafeId: credential.terminalSafeId, orderId: attemptId, amount: "123.45", txnCode: "1000", responseCode: "VPS-0000", currencyCode: "949" };
+    const hash = createHmac("sha512", forged ? "forged-fixture-secret" : credential.secretKey).update(Object.values(fields).join("")).digest("base64");
+    const body = new URLSearchParams({ ...fields, hashParams: Object.keys(fields).join("+"), hash }).toString();
+    return new Request(`https://localhost:3450/api/payments/akbank_json/callback/${binding}`, { method: "POST", body,
+      headers: { "content-type": "application/x-www-form-urlencoded", origin: "https://virtualpospaymentgatewaypre.akbank.com", host: "localhost:3450",
+        "x-celebix-storefront-proxy": untrusted ? "p1.invalid" : `p1.${proxyToken}`, "x-forwarded-host": hostname, "x-forwarded-proto": "https" } });
+  };
+  return { attemptId, storeId, now, route, request, binding, queries, captures, contextLookups, diagnostics };
+}
+
+test("production default Akbank factory preserves authenticated standard context when redirecting the customer", async (context) => {
+  for (const standard of [true, false]) await context.test(standard ? "standard context" : "legacy quick order", async () => {
+    const selected = defaultAkbankReturnFixture(standard);
+    const response = await selected.route(selected.request(), { params: Promise.resolve({ providerCode: "akbank_json", binding: selected.binding }) });
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), standard ? `/checkout/payment/${selected.attemptId}/result` : "/odeme/hizli/sonuc?durum=basarili");
+    assert.deepEqual(selected.contextLookups, [{ attemptId: selected.attemptId, storeId: selected.storeId, now: selected.now }]);
+    assert.equal(selected.queries.length, 1);
+    assert.equal(selected.captures.length, 1);
+    assert.equal(selected.captures[0]!.status, "captured");
+  });
+});
+
+test("production default factory forwards safe diagnostics and never resolves a context before authenticating the callback", async () => {
+  for (const untrusted of [false, true]) {
+    const selected = defaultAkbankReturnFixture(true);
+    const response = await selected.route(selected.request(true, untrusted), { params: Promise.resolve({ providerCode: "akbank_json", binding: selected.binding }) });
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(selected.contextLookups.length, 0);
+    assert.equal(selected.captures.length, 0);
+    assert.equal(selected.queries.length, 0);
+    assert.deepEqual(selected.diagnostics, [{ providerCode: "akbank_json", stage: untrusted ? "request_authority" : "provider_verification" }]);
+  }
 });

@@ -181,12 +181,29 @@ export type HostedPaymentRuntimeDependencies = Readonly<{
   now: () => Date;
   randomBytes: (size: number) => Uint8Array;
   providerTimeoutMs?: number;
+  auditCallback?: (event: Readonly<{
+    providerCode: "akbank_json" | "iyzico_iframe" | "other";
+    stage: "request_authority" | "request_body" | "attempt_authority" | "execution_authority" | "provider_verification" | "native_settlement";
+  }>) => void;
   isStandardCheckoutContext?: (input: Readonly<{
     attemptId: string;
     storeId: string;
     now: Date;
   }>) => Promise<boolean>;
 }>;
+
+function callbackDiagnostic(
+  dependencies: HostedPaymentRuntimeDependencies,
+  providerCode: string,
+  stage: Parameters<NonNullable<HostedPaymentRuntimeDependencies["auditCallback"]>>[0]["stage"],
+): void {
+  try {
+    dependencies.auditCallback?.(Object.freeze({
+      providerCode: providerCode === "akbank_json" || providerCode === "iyzico_iframe" ? providerCode : "other",
+      stage,
+    }));
+  } catch { /* Diagnostic delivery never changes payment verification. */ }
+}
 
 const PRESENTATION_PROCESSING = Object.freeze({ kind: "processing" as const });
 const PRESENTATION_REJECTED = Object.freeze({ kind: "rejected" as const });
@@ -265,7 +282,9 @@ function trustedHostname(
         || name.startsWith("x-forwarded-");
       if (
         authorityBearing
-        && (value !== value.trim() || value.includes(",") || AUTHORITY_CONTROL.test(value))
+        && (value !== value.trim()
+          || (name !== "x-forwarded-for" && value.includes(","))
+          || AUTHORITY_CONTROL.test(value))
       ) return null;
     }
     const authority = dependencies.selectAuthority(headers);
@@ -1319,6 +1338,7 @@ async function settleExactCallback(
   exposeAuthorityAbsence: boolean,
   providerTimeoutMs: number,
 ): Promise<ExactCallbackResult> {
+  let diagnosticStage: Parameters<NonNullable<HostedPaymentRuntimeDependencies["auditCallback"]>>[0]["stage"] = "attempt_authority";
   try {
     let authority: PaymentAttemptAuthority;
     try {
@@ -1328,6 +1348,7 @@ async function settleExactCallback(
         now: new Date(now),
       });
     } catch (error) {
+      callbackDiagnostic(dependencies, request.providerCode, diagnosticStage);
       if (
         exposeAuthorityAbsence
         && error instanceof PaymentAttemptRepositoryError
@@ -1342,14 +1363,16 @@ async function settleExactCallback(
       || !UUID.test(authority.profileId)
       || !UUID.test(authority.paymentMethodId)
       || !environmentMatches(authority)
-    ) return CALLBACK_REJECTED;
+    ) { callbackDiagnostic(dependencies, request.providerCode, diagnosticStage); return CALLBACK_REJECTED; }
+    diagnosticStage = "execution_authority";
     const selectedAdapter = adapterFor(dependencies, authority, "callback");
-    if (selectedAdapter === null) return CALLBACK_REJECTED;
-    if (!await currentCompiledAuthorityMatches(dependencies, selectedAdapter)) return CALLBACK_REJECTED;
+    if (selectedAdapter === null) { callbackDiagnostic(dependencies, request.providerCode, diagnosticStage); return CALLBACK_REJECTED; }
+    if (!await currentCompiledAuthorityMatches(dependencies, selectedAdapter)) { callbackDiagnostic(dependencies, request.providerCode, diagnosticStage); return CALLBACK_REJECTED; }
     const adapter = selectedAdapter.adapter;
     let opened: OpenedCredential | undefined;
     try {
       opened = openCredential(dependencies, authority, adapter);
+      diagnosticStage = "provider_verification";
       let providerResult: VerifiedProviderCallback;
       try {
         providerResult = await withinProviderDeadline(providerTimeoutMs, (signal) =>
@@ -1369,7 +1392,7 @@ async function settleExactCallback(
             }),
           })));
       } catch (error) {
-        if (error !== PROVIDER_DEADLINE_EXCEEDED) return CALLBACK_REJECTED;
+        if (error !== PROVIDER_DEADLINE_EXCEEDED) { callbackDiagnostic(dependencies, request.providerCode, diagnosticStage); return CALLBACK_REJECTED; }
         const bodyDigest = createHash("sha256").update(request.body).digest("hex");
         const persisted = await persistCallbackUnknown(
           dependencies,
@@ -1390,7 +1413,8 @@ async function settleExactCallback(
             : CALLBACK_REJECTED;
       }
       const verified = parseVerifiedCallback(providerResult, authority);
-      if (verified === null) return CALLBACK_REJECTED;
+      if (verified === null) { callbackDiagnostic(dependencies, request.providerCode, diagnosticStage); return CALLBACK_REJECTED; }
+      diagnosticStage = "native_settlement";
       const projectVerifiedReturn = async (outcome: "success" | "failure" | "processing"): Promise<HostedPaymentCallbackResult> => {
         const projected = callbackProjection(adapter, outcome);
         if (projected.kind !== "customer_return" || !dependencies.isStandardCheckoutContext) return projected;
@@ -1454,7 +1478,7 @@ async function settleExactCallback(
           status,
           providerReference: verified.providerReference,
           safeCode: verified.safeCode,
-        })) return CALLBACK_REJECTED;
+        })) { callbackDiagnostic(dependencies, request.providerCode, diagnosticStage); return CALLBACK_REJECTED; }
         if (settled.disposition === "processing") {
           // A reconciled outcome can outlive its immutable unknown operation snapshot.
           // Fresh verification above still binds the callback to its amount and currency.
@@ -1480,12 +1504,14 @@ async function settleExactCallback(
           return projectVerifiedReturn("processing");
         }
       } catch (error) {
+        callbackDiagnostic(dependencies, request.providerCode, diagnosticStage);
         return retryableCallbackError(error) ? CALLBACK_RETRY : CALLBACK_REJECTED;
       }
       return projectVerifiedReturn(
         verified.status === "succeeded" ? "success" : "failure",
       );
     } catch {
+      callbackDiagnostic(dependencies, request.providerCode, diagnosticStage);
       return CALLBACK_REJECTED;
     } finally {
       if (opened !== undefined) {
@@ -1507,14 +1533,14 @@ async function callback(
     ? trustedHostname(dependencies, input.request.headers)
     : null;
   const now = selectedNow(dependencies);
-  if (hostname === null || now === null) return CALLBACK_REJECTED;
+  if (hostname === null || now === null) { callbackDiagnostic(dependencies, input.providerCode, "request_authority"); return CALLBACK_REJECTED; }
   const request = await readExactHostedPaymentCallback({
     request: input.request,
     providerCode: input.providerCode,
     binding: input.binding,
     trustedHostname: hostname,
   });
-  if (request === null) return CALLBACK_REJECTED;
+  if (request === null) { callbackDiagnostic(dependencies, input.providerCode, "request_body"); return CALLBACK_REJECTED; }
   const result = await settleExactCallback(dependencies, request, now, false, providerTimeoutMs);
   return result.kind === "not_found" ? CALLBACK_REJECTED : result;
 }
@@ -1864,14 +1890,33 @@ export function createHostedPaymentCallbackRoute(dependencies: Readonly<{
     "x-content-type-options": "nosniff",
     "x-robots-tag": "noindex, nofollow",
   });
+  // This page is presentation only. An unverified bank return cannot select an
+  // order, change payment state or offer another charge.
+  const recoveryPage = `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ödeme durumunuzu kontrol edin</title><style>body{margin:0;background:#f8f7f5;color:#292929;font:16px/1.6 system-ui,sans-serif}main{box-sizing:border-box;max-width:620px;margin:10vh auto;padding:32px;background:white;border:1px solid #e6e3df;border-radius:20px}h1{font-size:28px;line-height:1.25}a{display:inline-block;margin-top:16px;padding:12px 20px;background:#292929;color:white;border-radius:10px;text-decoration:none}a:focus-visible{outline:3px solid #ff7600;outline-offset:4px}@media(max-width:680px){main{margin:24px 16px;padding:24px}}</style></head><body><main><h1>Ödeme durumunuzu kontrol edin</h1><p>Bankadan dönüşü henüz doğrulayamadık. Bu, ödemenin başarısız olduğu anlamına gelmez.</p><p>Tekrar ödeme yapmadan önce siparişlerinizi kontrol edin. Kartınızdan tutar çekildiyse ve siparişiniz görünmüyorsa mağazayla iletişime geçin.</p><a href="/account/orders">Siparişlerimi kontrol et</a></main></body></html>`;
+  function rejectedResponse(request: Request, providerCode: string | undefined): Response {
+    const accept = request.headers.get("accept") ?? "";
+    const browserReturn = (providerCode === "akbank_json" || providerCode === "iyzico_iframe")
+      && accept.length <= 1_024
+      && /(?:^|,)\s*(?:text\/html|application\/xhtml\+xml)(?:\s*;|\s*,|\s*$)/i.test(accept);
+    return new Response(browserReturn ? recoveryPage : "INVALID", {
+      status: 400,
+      headers: browserReturn ? {
+        ...headers,
+        "content-type": "text/html; charset=utf-8",
+        "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      } : headers,
+    });
+  }
   return async function POST(
     request: Request,
     context: Readonly<{ params: Promise<Readonly<{ providerCode: string; binding: string }>> }>,
   ): Promise<Response> {
+    let providerCode: string | undefined;
     try {
       const params = await context.params;
+      providerCode = params.providerCode;
       const runtime = await dependencies.resolveRuntime();
-      if (runtime === null) return new Response("INVALID", { status: 400, headers });
+      if (runtime === null) return rejectedResponse(request, providerCode);
       const result = await runtime.callback({
         request,
         providerCode: params.providerCode,
@@ -1879,7 +1924,7 @@ export function createHostedPaymentCallbackRoute(dependencies: Readonly<{
       });
       if (result.kind === "customer_return") {
         if (result.contextId !== undefined && parseCheckoutContextId(result.contextId) === null) {
-          return new Response("INVALID", { status: 400, headers });
+          return rejectedResponse(request, providerCode);
         }
         const location = result.contextId !== undefined
           ? checkoutContextResultPath(result.contextId)
@@ -1897,9 +1942,9 @@ export function createHostedPaymentCallbackRoute(dependencies: Readonly<{
         ? new Response("OK", { status: 200, headers })
         : result.kind === "retry"
           ? new Response("RETRY", { status: 503, headers })
-          : new Response("INVALID", { status: 400, headers });
+          : rejectedResponse(request, providerCode);
     } catch {
-      return new Response("INVALID", { status: 400, headers });
+      return rejectedResponse(request, providerCode);
     }
   };
 }

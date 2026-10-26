@@ -10,7 +10,10 @@ const BASE64URL = /^[A-Za-z0-9_-]{43}$/;
 const CALLBACK_BINDING_DIGEST = /^[a-f0-9]{64}$/;
 const MAXIMUM_CALLBACK_BYTES = 65_536;
 const MAXIMUM_HEADERS = 32;
+const MAXIMUM_CUSTOMER_RETURN_HEADERS = 64;
+const MAXIMUM_CUSTOMER_RETURN_HEADER_NAME = 128;
 const MAXIMUM_HEADER_VALUE = 4_096;
+const CUSTOMER_RETURN_BODY_TIMEOUT_MS = 5_000;
 const CONTROL = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f]/;
 const CONTENT_TYPES = Object.freeze([
   "application/x-www-form-urlencoded",
@@ -44,6 +47,10 @@ const PROVIDER_CALLBACK_HEADERS = Object.freeze([
   "content-type",
   "x-provider-signature",
 ]);
+
+function isCustomerReturn(providerCode: string): boolean {
+  return providerCode === "akbank_json" || providerCode === IYZICO_IFRAME_PACKET.providerCode;
+}
 
 export type ExactHostedPaymentCallback = Readonly<{
   providerCode: string;
@@ -101,20 +108,26 @@ function exactDigestTarget(request: Request, hostname: string): boolean {
   }
 }
 
-async function boundedBody(stream: ReadableStream<Uint8Array> | null): Promise<Uint8Array> {
+async function boundedBody(stream: ReadableStream<Uint8Array> | null, timeoutMs: number): Promise<Uint8Array> {
   if (stream === null) throw new TypeError("hosted_payment_callback_invalid");
   const reader = stream.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  try {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
+  const cancel = (): void => {
+    try { void reader.cancel().catch(() => undefined); } catch { /* rejection remains opaque */ }
+  };
+  const read = async (): Promise<Uint8Array> => {
     while (true) {
       const selected = await reader.read();
+      if (timedOut) throw new TypeError("hosted_payment_callback_invalid");
       if (selected.done) break;
       if (!(selected.value instanceof Uint8Array)) throw new TypeError("hosted_payment_callback_invalid");
       chunks.push(selected.value);
       total += selected.value.byteLength;
       if (total > MAXIMUM_CALLBACK_BYTES) {
-        try { await reader.cancel(); } catch { /* rejection remains opaque */ }
+        cancel();
         throw new TypeError("hosted_payment_callback_invalid");
       }
     }
@@ -126,7 +139,21 @@ async function boundedBody(stream: ReadableStream<Uint8Array> | null): Promise<U
       offset += chunk.byteLength;
     }
     return output;
+  };
+  try {
+    const reading = read();
+    return timeoutMs === 0 ? await reading : await Promise.race([
+      reading,
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          reject(new TypeError("hosted_payment_callback_invalid"));
+          cancel();
+        }, timeoutMs);
+      }),
+    ]);
   } finally {
+    clearTimeout(timer);
     for (const chunk of chunks) {
       try { chunk.fill(0); } catch { /* cleanup is best effort */ }
     }
@@ -276,7 +303,8 @@ function exactHeaders(
   providerCode: string,
 ): Readonly<Record<string, string>> | null {
   const entries = [...headers.entries()];
-  if (entries.length < 1 || entries.length > MAXIMUM_HEADERS) return null;
+  const customerReturn = isCustomerReturn(providerCode);
+  if (entries.length < 1 || entries.length > (customerReturn ? MAXIMUM_CUSTOMER_RETURN_HEADERS : MAXIMUM_HEADERS)) return null;
   const output: Record<string, string> = {};
   for (const [name, value] of entries) {
     if (name === "origin") {
@@ -287,12 +315,20 @@ function exactHeaders(
       continue;
     }
     if (
-      FORBIDDEN_HEADERS.includes(name)
+      (customerReturn && name.length > MAXIMUM_CUSTOMER_RETURN_HEADER_NAME)
       || value.length < 1
       || value.length > MAXIMUM_HEADER_VALUE
       || value !== value.trim()
       || CONTROL.test(value)
     ) return null;
+    // Bank browser returns can carry ambient cookies. They never provide
+    // callback authority and must not reach the provider or repository.
+    if (customerReturn && name === "cookie") continue;
+    if (customerReturn && name === "transfer-encoding") {
+      if (!/^chunked$/i.test(value) || headers.has("content-length") || headers.has("content-encoding")) return null;
+      continue;
+    }
+    if (FORBIDDEN_HEADERS.includes(name)) return null;
     if (PROVIDER_CALLBACK_HEADERS.includes(name)) output[name] = value;
   }
   const contentType = output["content-type"];
@@ -355,7 +391,7 @@ async function readValidatedCallback(
   try {
     const headers = exactHeaders(request.headers, providerCode);
     if (headers === null) return null;
-    body = await boundedBody(request.body);
+    body = await boundedBody(request.body, isCustomerReturn(providerCode) ? CUSTOMER_RETURN_BODY_TIMEOUT_MS : 0);
     const declared = headers["content-length"];
     if (declared !== undefined && Number(declared) !== body.byteLength) return null;
     validateBody(body, headers["content-type"]!, providerCode);

@@ -63,6 +63,8 @@ type ActiveDependencies = Readonly<{
   matchesCompiledAuthority: HostedPaymentRuntimeDependencies["matchesCompiledAuthority"];
   now: HostedPaymentRuntimeDependencies["now"];
   randomBytes: HostedPaymentRuntimeDependencies["randomBytes"];
+  isStandardCheckoutContext?: HostedPaymentRuntimeDependencies["isStandardCheckoutContext"];
+  auditCallback?: HostedPaymentRuntimeDependencies["auditCallback"];
 }>;
 
 export function resolveStorefrontHostedPaymentActivationMode(
@@ -378,5 +380,7 @@ export function createDefaultHostedPaymentRuntime(input: Readonly<{
     matchesCompiledAuthority: dependencies.matchesCompiledAuthority,
     now: dependencies.now,
     randomBytes: dependencies.randomBytes,
+    ...(dependencies.isStandardCheckoutContext ? { isStandardCheckoutContext: dependencies.isStandardCheckoutContext } : {}),
+    ...(dependencies.auditCallback ? { auditCallback: dependencies.auditCallback } : {}),
   });
 }
