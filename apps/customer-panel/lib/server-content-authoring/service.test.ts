@@ -565,7 +565,7 @@ test('AUTO v10 uses enabled writing thinking at low effort for initial and corre
  const f=capturedAutomaticRun([capturedMalformedListJson,JSON.stringify(capturedCorrectedList)]);
  const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.promptVersion,'toshi-product-v10');assert.deepEqual(result.usage,{inputTokens:200,outputTokens:100,totalTokens:300});
  assert.equal(f.sent.length,2);assert.equal(f.sent[0].messages[0].content,TOSHI_PRODUCT_EDITORIAL_PROMPT);assert.equal(f.sent[1].messages[0].content,TOSHI_PRODUCT_EDITORIAL_PROMPT);
- const feedback=JSON.parse(f.sent[1].messages.at(-1).content);assert.equal(feedback.validationFailure,'json_syntax');assert.deepEqual(Object.keys(feedback),['validationFailure','instruction']);
+ const feedback=JSON.parse(f.sent[1].messages.at(-1).content);assert.equal(feedback.validationFailure,'json_syntax');assert.deepEqual(Object.keys(feedback),['validationFailure','selectedFields','instruction']);assert.deepEqual(feedback.selectedFields,['description','seoTitle','seoDescription']);
  const replay=await f.service.generateContent(f.input);assert.deepEqual(replay,result);await f.service.getGeneration({tenantContext:f.input.tenantContext,operationId:id});
  assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
 });
@@ -573,8 +573,33 @@ test('AUTO v10 uses enabled writing thinking at low effort for initial and corre
 test('AUTO correction never accepts unsupported weight values and releases all reserved credits',async()=>{
  const bad=structuredClone(capturedCorrectedList);bad.description[1].items[0][1].value='9999';
  const f=capturedAutomaticRun([JSON.stringify(bad)]),result=await f.service.generateContent(f.input);
- assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).validationFailure,'contract_or_grounding');assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).fieldNote,'seo_product_scope_only');
+ assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).validationFailure,'contract_or_grounding');assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).fieldNote,undefined);
  assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});
+});
+
+test('a shape-valid description grounding failure targets only its offending block before one charged correction',async()=>{
+ const bad=JSON.stringify({descriptionMarkdown:'Organik ürün.\n\n'+expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const good=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const events:unknown[]=[],f=capturedAutomaticRun([bad,good]);f.dependencies.diagnostic=(event:unknown)=>events.push(event);
+ const result=await f.service.generateContent(f.input),feedback=JSON.parse(f.sent[1].messages.at(-1).content);
+ assert.equal(result.status,'completed');assert.deepEqual(feedback.selectedFields,['description','seoTitle','seoDescription']);assert.deepEqual(feedback.issue,{reason:'critical_term',field:'description',blockIndex:0,tokens:['organik']});assert.equal(feedback.fieldNote,undefined);
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
+ assert.ok(!JSON.stringify(result).includes('organik'));assert.ok(!JSON.stringify(events).includes('organik'));assert.deepEqual(await f.service.generateContent(f.input),result);assert.equal(f.state().providerCalls,2);assert.equal(f.state().debits,1);
+});
+
+test('two shape-valid numeric grounding failures remain zero-charge and expose no rejected tokens publicly',async()=>{
+ const bad=JSON.stringify({descriptionMarkdown:'Erişte 99999 g.\n\n'+expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const events:unknown[]=[],f=capturedAutomaticRun([bad,bad]);f.dependencies.diagnostic=(event:unknown)=>events.push(event);
+ const result=await f.service.generateContent(f.input),feedback=JSON.parse(f.sent[1].messages.at(-1).content);
+ assert.deepEqual(feedback.issue,{reason:'numeric',field:'description',blockIndex:0,tokens:['99999']});assert.equal(feedback.fieldNote,undefined);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});assert.ok(!JSON.stringify(result).includes('99999'));assert.ok(!JSON.stringify(events).includes('99999'));
+});
+
+test('SEO grounding raised inside writer decoding keeps the actual SEO target for correction',async()=>{
+ const bad=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:'Organik Erişte',seoDescription:capturedAutomaticPacket.title});
+ const good=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const f=capturedAutomaticRun([bad,good]),result=await f.service.generateContent(f.input),feedback=JSON.parse(f.sent[1].messages.at(-1).content);
+ assert.equal(result.status,'completed');assert.deepEqual(feedback.issue,{reason:'critical_term',field:'seoTitle',blockIndex:null,tokens:['organik']});assert.equal(feedback.fieldNote,'seo_product_scope_only');assert.equal(f.state().debits,1);
 });
 
 for(const stage of ['policy_limits','source_order','render']as const)test(`AUTO correction identifies closed ${stage} feedback without weakening validation`,async()=>{

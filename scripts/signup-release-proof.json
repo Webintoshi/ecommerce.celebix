@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "d4fa917cde47473a224902823e0d635fdd261efbd7424b8da34c986f5087ea0e",
+  "inputDigest": "c2e31f2812b3e7064a1213486ff83eeb117e6faf1b52b5db295d15e52a5e689c",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -3833,7 +3833,7 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/grounding.ts",
-      "sha256": "acfbcf63df2c93b0d248a307f9aec0214077c6f487492dbb1252b5d9f86173fc"
+      "sha256": "30753c7134f6a5984eb32d119159713d61a4b54b854919d58d79c99781a0d297"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/index.ts",

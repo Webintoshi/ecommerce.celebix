@@ -1,6 +1,31 @@
-import type { ContentAuthoringDraft, ContentAuthoringTextNode, ProductFact, ProductFactPacket } from './types.ts';
+import type { ContentAuthoringDraft, ContentAuthoringField, ContentAuthoringTextNode, ProductFact, ProductFactPacket } from './types.ts';
 
-function unsupported(): never { throw new TypeError('content_authoring_contract_invalid'); }
+export type ProductDraftGroundingIssue = Readonly<{
+  reason: 'numeric' | 'critical_term' | 'variant_scope' | 'fact_scope';
+  field: ContentAuthoringField;
+  /** Zero-based enclosing AST block; SEO fields have no block. */
+  blockIndex: number | null;
+  tokens: readonly string[];
+}>;
+const groundingIssues = new WeakMap<object, ProductDraftGroundingIssue>();
+/** Private correction data: never attach rejected text to enumerable error properties. */
+export function getProductDraftGroundingIssue(error: unknown): ProductDraftGroundingIssue | null {
+  return typeof error === 'object' && error !== null ? groundingIssues.get(error) ?? null : null;
+}
+function unsupported(issue?: ProductDraftGroundingIssue): never {
+  const error = new TypeError('content_authoring_contract_invalid');
+  if (issue) groundingIssues.set(error, Object.freeze({ ...issue, tokens: Object.freeze([...new Set(issue.tokens.map(token => [...token].slice(0, 64).join('')))].slice(0, 3)) }));
+  throw error;
+}
+function matchedTokens(text: string, matcher: RegExp): string[] {
+  const tokens: string[] = [];
+  for (const match of text.matchAll(matcher)) {
+    const token = match[0].replace(/^[^\p{L}\p{N}+\-±∓]+/u, '').trim();
+    if (token && !tokens.includes(token)) tokens.push(token);
+    if (tokens.length === 3) break;
+  }
+  return tokens;
+}
 
 /** Lexical comparison only: no float conversion, translation or inferred equivalence. */
 function normalize(text: string): string {
@@ -110,11 +135,12 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     if(expected.size)unsupported();
     return;
   }
-  function check(raw: string, nodes: readonly ContentAuthoringTextNode[] = []): void {
+  function check(raw: string, nodes: readonly ContentAuthoringTextNode[], field: ContentAuthoringField, blockIndex: number | null): void {
+    const location = { field, blockIndex };
     const text = normalize(raw);
     const eligible = packet.facts.filter(f => f.scope === 'product' || variantIsNamed(text, f.variantId, packet));
     for (const node of nodes) {
-      if (node.type === 'fact' && !eligible.some(f => f.ref === node.factRef)) unsupported();
+      if (node.type === 'fact' && !eligible.some(f => f.ref === node.factRef)) unsupported({ ...location, reason: 'fact_scope', tokens: [] });
     }
     const evidence = [normalize(packet.title), ...eligible.flatMap(fragments)].filter(Boolean).sort((a, b) => b.length - a.length);
     // Fixed-size spaces preserve boundaries between unmatched tokens and source fragments.
@@ -124,18 +150,19 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
       criticalUncovered = criticalUncovered.slice(0, offset) + ' '.repeat(match.length) + criticalUncovered.slice(offset + match.length);
       return ' '.repeat(match.length);
     });
-    if (/\p{N}/u.test(uncovered) || critical.test(criticalUncovered)) unsupported();
+    if (/\p{N}/u.test(uncovered)) unsupported({ ...location, reason: 'numeric', tokens: matchedTokens(uncovered, /[+\-±∓]?\p{N}+(?:[.,]\p{N}+)*/gu) });
+    if (critical.test(criticalUncovered)) unsupported({ ...location, reason: 'critical_term', tokens: matchedTokens(criticalUncovered, new RegExp(critical.source, 'gu')) });
     // Even a noncritical colour/size value must not escape its known variant scope.
     for (const f of packet.facts) {
-      if (f.scope === 'variant' && !eligible.includes(f) && occurrence(f.value).test(uncovered)) unsupported();
+      if (f.scope === 'variant' && !eligible.includes(f) && occurrence(f.value).test(uncovered)) unsupported({ ...location, reason: 'variant_scope', tokens: matchedTokens(uncovered, occurrence(f.value)) });
     }
   }
   const nodeText = (nodes: readonly ContentAuthoringTextNode[]) => nodes.map(n => n.type === 'text' ? n.text : `${n.value}${n.unit ? ` ${n.unit}` : ''}`).join('');
-  for (const block of draft.description ?? []) {
-    if (block.type === 'paragraph' || block.type === 'heading') check(nodeText(block.children), block.children);
-    else if (block.type === 'list') for (const item of block.items) check(nodeText(item), item);
-    else if (block.type === 'table') for (const row of block.rows) check(row.map(nodeText).join(' | '), row.flat());
+  for (const [blockIndex, block] of (draft.description ?? []).entries()) {
+    if (block.type === 'paragraph' || block.type === 'heading') check(nodeText(block.children), block.children, 'description', blockIndex);
+    else if (block.type === 'list') for (const item of block.items) check(nodeText(item), item, 'description', blockIndex);
+    else if (block.type === 'table') for (const row of block.rows) check(row.map(nodeText).join(' | '), row.flat(), 'description', blockIndex);
   }
-  if (draft.seoTitle !== undefined) check(draft.seoTitle);
-  if (draft.seoDescription !== undefined) check(draft.seoDescription);
+  if (draft.seoTitle !== undefined) check(draft.seoTitle, [], 'seoTitle', null);
+  if (draft.seoDescription !== undefined) check(draft.seoDescription, [], 'seoDescription', null);
 }

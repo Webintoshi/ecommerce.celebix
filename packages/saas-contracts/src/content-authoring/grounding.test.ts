@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateProductDraftOutput, parseContentGenerationView } from './validation.ts';
+import * as grounding from './grounding.ts';
 import type { ContentAuthoringDraft, ContentAuthoringField, ProductFact, ProductFactPacket } from './types.ts';
 
 const fingerprint = 'a'.repeat(64);
@@ -187,4 +188,44 @@ test('active adjustment morphology does not exempt ambiguous nouns, purity, pass
 test('ordinary active adjustment adverbials retain the distinction from passive or purity claims',()=>{
  for(const text of ['Miktarı ayarlayarak tarifinize uyarlayın.','Miktarı ayarlarken tarifinizi izleyin.'])assert.doesNotThrow(()=>validate(text,packet([], 'Erişte')),text);
  for(const text of ['Ürün ayarlanarak kullanılır.','Ürün ayarlı.','Ürün ayarlanabilir.','Miktarı ayarlayarak 14 g ekleyin.'])assert.throws(()=>validate(text,packet([], 'Erişte')),text);
+});
+
+function groundingFailure(output:ContentAuthoringDraft,source=packet(),selected:readonly ContentAuthoringField[]=['description']):unknown{
+ try{validateProductDraftOutput(output,source,selected);}catch(error){return error;}
+ assert.fail('Unsupported output must still be rejected');
+}
+test('internal grounding issues identify the actual field, AST block and unsupported normalized tokens',()=>{
+ assert.equal(typeof grounding.getProductDraftGroundingIssue,'function');
+ const description=[{type:'heading',level:2,children:[{type:'text',text:'Ürün bilgisi'}]},{type:'paragraph',children:[{type:'text',text:'Desteksiz ALTIN ve Hipoalerjenik ürün.'}]}] as const;
+ const error=groundingFailure({...draft(''),description});
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(error),{reason:'critical_term',field:'description',blockIndex:1,tokens:['altin','hipoalerjenik']});
+ const seoError=groundingFailure(draft('Ürün −25,5 g.','seoDescription'),packet(),['seoDescription']);
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(seoError),{reason:'numeric',field:'seoDescription',blockIndex:null,tokens:['-25.5']});
+});
+test('internal issues retain variant and fact scope rejection without exposing fact references or IDs',()=>{
+ const scoped:ProductFact={ref:'PRIVATE_REF',field:'Renk',value:'Kırmızı',scope:'variant',variantId:'PRIVATE_ID',source:'current_draft'};
+ const source=packet([scoped]);
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(groundingFailure(draft('Kırmızı ürün.'),source)),{reason:'variant_scope',field:'description',blockIndex:0,tokens:['kirmizi']});
+ const description=[{type:'paragraph',children:[{type:'fact',factRef:scoped.ref,value:scoped.value}]}] as const;
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(groundingFailure({...draft(''),description},source)),{reason:'fact_scope',field:'description',blockIndex:0,tokens:[]});
+});
+test('private grounding issues are bounded, immutable and absent from error properties or public parsing',()=>{
+ const error=groundingFailure(draft(`Altın${'a'.repeat(90)} gümüş platin titanyum.`));
+ const issue=grounding.getProductDraftGroundingIssue(error);assert.ok(issue);
+ assert.equal(issue.tokens.length,3);assert.equal([...issue.tokens[0]].length,64);
+ assert.ok(issue.tokens.every(token=>[...token].length<=64));assert.ok(Object.isFrozen(issue));assert.ok(Object.isFrozen(issue.tokens));
+ assert.ok(error instanceof TypeError);assert.equal(error.message,'content_authoring_contract_invalid');
+ assert.deepEqual(Object.keys(error),[]);assert.equal(JSON.stringify(error),'{}');
+ assert.ok(!Object.getOwnPropertyNames(error).some(name=>['tokens','issue','reason','field','blockIndex'].includes(name)));
+ assert.equal(grounding.getProductDraftGroundingIssue(new TypeError('content_authoring_contract_invalid')),null);
+ assert.equal(grounding.getProductDraftGroundingIssue(Object.create(error)),null);
+ assert.equal(grounding.getProductDraftGroundingIssue({reason:'critical_term',tokens:['forged']}),null);
+ assert.equal(grounding.getProductDraftGroundingIssue(null),null);
+});
+test('list and table grounding failures report their enclosing AST block without changing acceptance',()=>{
+ for(const block of [{type:'list',ordered:false,items:[[{type:'text',text:'Altın ürün.'}]]},{type:'table',rows:[[[{type:'text',text:'Altın ürün.'}]]]}] as const){
+  const error=groundingFailure({...draft(''),description:[{type:'paragraph',children:[{type:'text',text:'Ürün bilgisi.'}]},block]});
+  assert.equal(grounding.getProductDraftGroundingIssue(error)?.blockIndex,1);
+ }
+ assert.doesNotThrow(()=>validate('Altın ürün.',packet([fact('Malzeme','Altın')])));
 });
