@@ -1,4 +1,5 @@
 import "server-only";
+import {createMerchantOnlyToshiAuthority} from '../server-toshi-providers/central.ts';
 import type { ToshiConversationRepository } from "@celebix/saas-data";
 import type { ServerPanelAccessRuntime } from "../server-panel-access/runtime.ts";
 import { resolveServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
@@ -12,7 +13,7 @@ const RUNTIMES = new WeakMap<ServerPanelAccessRuntime, ServerToshiChatRuntime>()
 export function registerServerToshiChatRuntime(access: ServerPanelAccessRuntime, conversations: ToshiConversationRepository, repositories: ToshiToolRepositories, generations: ToshiGenerationRegistry = createToshiGenerationRegistry()): ServerToshiChatRuntime {
   const providerRuntime = resolveServerToshiProviderRuntime(access);
   if (!providerRuntime || RUNTIMES.has(access) || !conversations || ["list", "get", "beginTurn", "completeTurn", "failTurn"].some(method => typeof conversations[method as keyof ToshiConversationRepository] !== "function")) throw Error("server_toshi_chat_runtime_invalid");
-  const runtime = Object.freeze({ access: providerRuntime.access, service: createToshiChatService({ conversations, providers: providerRuntime.repository, keyring: () => providerRuntime.keyring, generations, repositories: Object.freeze({ ...repositories }), now: () => new Date() }) });
+  const runtime = Object.freeze({ access: providerRuntime.access, service: createToshiChatService({ conversations, providers: {...createMerchantOnlyToshiAuthority(providerRuntime.repository,()=>providerRuntime.keyring),list:providerRuntime.repository.list.bind(providerRuntime.repository)}, keyring: () => providerRuntime.keyring, generations, repositories: Object.freeze({ ...repositories }), now: () => new Date() }) });
   RUNTIMES.set(access, runtime); return runtime;
 }
 export function resolveServerToshiChatRuntime(access: ServerPanelAccessRuntime): ServerToshiChatRuntime | null {

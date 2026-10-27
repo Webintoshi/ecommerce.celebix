@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
 import { Archive, ArrowLeft, ArrowRight, GripVertical, Image as ImageIcon, ImagePlus, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
+import { imageSignature, type AuthoringMediaBridge } from "@/lib/content-authoring-ui/image-alts";
 import { ProductMediaApiError, productMediaApi } from "@/lib/catalog-ui/media-client";
 import { CatalogSortArea, CatalogSortItem } from "./CatalogSortArea";
 import styles from "./product-media-manager.module.css";
@@ -29,11 +30,13 @@ function ProductMediaManagerWorkspace({
   canManage = false,
   canArchive = false,
   onActiveMediaChange,
+  onAuthoringMediaBridgeChange,
 }: Readonly<{
   productId: string;
   canManage?: boolean;
   canArchive?: boolean;
   onActiveMediaChange?: (media: readonly ProductMediaLifecycle[]) => void;
+  onAuthoringMediaBridgeChange?: (bridge:AuthoringMediaBridge|null)=>void;
 }>) {
   const [media, setMedia] = useState<readonly ProductMediaLifecycle[]>([]);
   const [tab, setTab] = useState<"active" | "archived">("active");
@@ -46,6 +49,8 @@ function ProductMediaManagerWorkspace({
   const [notice, setNotice] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<readonly File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
+  const pendingFileIds=useRef(new Map<File,string>());
+  const [pendingAlts,setPendingAlts]=useState<Readonly<Record<string,string>>>({});
   const [uploadProgress, setUploadProgress] = useState(0);
   const [archiveTarget, setArchiveTarget] = useState<ProductMediaLifecycle>();
   const archiveDialogRef = useRef<HTMLDivElement>(null);
@@ -79,6 +84,25 @@ function ProductMediaManagerWorkspace({
     [media],
   );
   useEffect(() => { if (!loading) onActiveMediaChange?.(activeMedia); }, [activeMedia, loading, onActiveMediaChange]);
+  const authoringMediaBridge:AuthoringMediaBridge={
+    captureImages:()=>[...activeMedia.filter(item=>item.publicUrl).map(item=>({id:item.id,url:item.publicUrl,thumbnailUrl:`/api/content-ai/image-source/${productId}/${item.id}`,altText:item.altText,version:item.version})),...selectedFiles.map(file=>({id:pendingFileIds.current.get(file)!,file,altText:pendingAlts[pendingFileIds.current.get(file)!]??''}))],
+    canApplyImageAlts:(results,captured)=>canManage&&!loading&&!busyRef.current&&imageSignature(authoringMediaBridge.captureImages())===imageSignature(captured)&&results.every(result=>captured.some(image=>image.id===result.id)),
+    applyImageAlts:async(results,captured)=>{
+      if(!authoringMediaBridge.canApplyImageAlts(results,captured)||!beginMutation('authoring-alt'))return false;
+      try{
+        const local=new Map(selectedFiles.map(file=>[pendingFileIds.current.get(file)!,file]));
+        for(const result of results){
+          if(local.has(result.id)){setPendingAlts(current=>({...current,[result.id]:result.altText}));continue;}
+          const item=activeMedia.find(image=>image.id===result.id);if(!item)return false;
+          const updated=await productMediaApi.updateAlt(productId,item.id,{expectedVersion:item.version,altText:result.altText});
+          setMedia(current=>current.map(candidate=>candidate.id===item.id?updated.media:candidate));
+        }
+        setNotice('Seçili görsellerin alt metinleri uygulandı.');return true;
+      }catch(failure){setError(safeMessage(failure));return false;}finally{finishMutation();}
+    },
+  };
+  useEffect(()=>{onAuthoringMediaBridgeChange?.(authoringMediaBridge);return()=>onAuthoringMediaBridgeChange?.(null);},[onAuthoringMediaBridgeChange,activeMedia,selectedFiles,pendingAlts,loading,busy,canManage]);
+
 
   useEffect(() => {
     if (archiveTarget !== undefined) {
@@ -150,6 +174,8 @@ function ProductMediaManagerWorkspace({
       setError("Tüm görseller PNG, JPEG veya WebP biçiminde ve en fazla 5 MB olmalı.");
       return;
     }
+    pendingFileIds.current=new Map(files.map(file=>[file,crypto.randomUUID()]));
+    setPendingAlts({});
     setSelectedFiles(files);
     setPreviewUrl(URL.createObjectURL(files[0]!));
     setTab("active");
@@ -178,7 +204,7 @@ function ProductMediaManagerWorkspace({
       for (const file of selectedFiles) {
         const result = await productMediaApi.upload(productId, {
           file,
-          altText: selectedFiles.length === 1 ? altText : "",
+          altText: (pendingAlts[pendingFileIds.current.get(file)!] ?? (selectedFiles.length === 1 ? altText : "")).trim(),
           onProgress: (value) => setUploadProgress(Math.round(((uploaded + value / 100) / selectedFiles.length) * 100)),
         });
         uploaded++;
@@ -346,7 +372,7 @@ function ProductMediaManagerWorkspace({
               {previewUrl ? <img src={previewUrl} alt="Yüklenecek görsel önizlemesi" /> : <span aria-hidden="true"><ImageIcon /></span>}
               <div className={styles.uploadFields}>
                 <span className={styles.fileName} title={selectedFiles.map((file) => file.name).join(", ")}>{selectedFiles.length === 1 ? selectedFiles[0]!.name : `${selectedFiles.length} görsel seçildi`}</span>
-                {selectedFiles.length === 1 ? <label className={styles.field}><span>Alt metin</span><input name="altText" maxLength={500} placeholder="Görseli kısaca açıklayın" disabled={loading || busy !== ""} /></label> : <span className={styles.bulkHint}>Alt metinleri yükledikten sonra düzenleyebilirsiniz.</span>}
+                {selectedFiles.length === 1 ? <label className={styles.field}><span>Alt metin</span><input name="altText" maxLength={500} value={pendingAlts[pendingFileIds.current.get(selectedFiles[0]!)!]??""} onChange={event=>setPendingAlts(current=>({...current,[pendingFileIds.current.get(selectedFiles[0]!)!]:event.target.value}))} placeholder="Görseli kısaca açıklayın" disabled={loading || busy !== ""} /></label> : <span className={styles.bulkHint}>Alt metinleri yükledikten sonra düzenleyebilirsiniz.</span>}
               </div>
               <div className={styles.uploadActions}><button className={styles.quietButton} type="button" onClick={clearSelectedFiles} disabled={loading || busy !== ""}>Vazgeç</button><button className={styles.darkButton} type="submit" disabled={loading || busy !== ""}>{busy === "upload" ? "Yükleniyor…" : selectedFiles.length === 1 ? "Yükle" : `${selectedFiles.length} görseli yükle`}</button></div>
               {busy === "upload" ? <div className={styles.progress}><span>Yükleme</span><progress role="progressbar" max="100" value={uploadProgress}>{uploadProgress}%</progress><b>{uploadProgress}%</b></div> : null}

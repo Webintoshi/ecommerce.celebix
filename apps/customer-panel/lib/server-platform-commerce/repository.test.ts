@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import {createHash,createHmac} from 'node:crypto';
 import test from 'node:test';
 import {COMMERCIAL_PACKAGES,type TenantContext} from '@celebix/saas-contracts';
-import {createPostgresPlatformCommerceRepository} from './repository.ts';
+import {createPostgresPlatformCommerceRepository,parsePlatformCheckoutIntent} from './repository.ts';
 const ID='11111111-1111-4111-8111-111111111111',OP='22222222-2222-4222-8222-222222222222',ORDER='33333333-3333-4333-8333-333333333333',NOW=new Date('2026-10-26T12:00:00Z');
 const KEY=new Uint8Array(32).fill(7),PLAN=COMMERCIAL_PACKAGES[0]!;
 const context={schemaVersion:1,requestId:'test',principal:{id:ID,issuer:'https://auth.test/oidc',subject:'test'},store:{id:ID,slug:'test',status:'active'},membership:{id:ID,role:'store_owner',status:'active'},entitlements:{schemaVersion:1,planId:PLAN.id,planCode:PLAN.code,version:PLAN.version,status:'active',features:['orders','catalog'],limits:{products:100,staff:1,storageBytes:1000},validFrom:'2026-01-01T00:00:00.000Z'},locale:'tr-TR'} as TenantContext;
 const intent={kind:'tool' as const,offerId:'restock',term:'once' as const,operationId:OP};
-function setup(options:{outcome?:string;loseCommit?:boolean;foreign?:boolean}={}){
+function setup(options:{outcome?:string;loseCommit?:boolean;foreign?:boolean;credit?:boolean}={}){
  const queries:{text:string;values?:unknown[]}[]=[],released:unknown[]=[];let connections=0;
- const client={async query(text:string,values?:unknown[]){queries.push({text,values});if(text==='COMMIT'&&options.loseCommit)throw Error('private transport');return{rows:text.includes('saas.platform_checkout_create')?[{outcome:options.outcome??'created',result_payload:{orderId:ORDER,storeId:options.foreign?OP:ID,kind:'tool',offerId:'restock',term:'once',netCents:99000,vatBps:2000,vatCents:19800,totalCents:118800,currency:'TRY'}}]:[],rowCount:1,command:'SELECT',oid:0,fields:[]};},release(value?:unknown){released.push(value);}};
+ const client={async query(text:string,values?:unknown[]){queries.push({text,values});if(text==='COMMIT'&&options.loseCommit)throw Error('private transport');return{rows:text.includes('saas.platform_checkout_create')?[{outcome:options.outcome??'created',result_payload:{orderId:ORDER,storeId:options.foreign?OP:ID,kind:options.credit?'toshi_credit':'tool',offerId:options.credit?'toshi-500':'restock',term:'once',netCents:options.credit?24900:99000,vatBps:2000,vatCents:options.credit?4980:19800,totalCents:options.credit?29880:118800,currency:'TRY'}}]:[],rowCount:1,command:'SELECT',oid:0,fields:[]};},release(value?:unknown){released.push(value);}};
  const repository=createPostgresPlatformCommerceRepository({pool:{connect:async()=>{connections++;return client;}},handoffKey:KEY,timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});
  return{repository,queries,released,connections:()=>connections};
 }
@@ -35,3 +35,12 @@ test('native conflicts are safe and cross-store receipts cannot commit',async()=
  const s=setup({foreign:true});await assert.rejects(()=>s.repository.createCheckout({tenantContext:context,now:NOW,intent}));assert.equal(s.queries.at(-1)?.text,'ROLLBACK');
 });
 test('ambiguous commit preserves one native call and never returns a handoff',async()=>{const s=setup({loseCommit:true});await assert.rejects(()=>s.repository.createCheckout({tenantContext:context,now:NOW,intent}),error=>(error as {code?:string}).code==='commit_unknown');assert.equal(s.queries.filter(q=>q.text.includes('saas.platform_checkout_create')).length,1);assert.deepEqual(s.released,[true]);});
+
+test('credit offers use once-only checkout and owner or admin authority without client pricing',async()=>{
+ const selected={kind:'toshi_credit' as const,offerId:'toshi-500',term:'once' as const,operationId:OP};
+ assert.deepEqual(parsePlatformCheckoutIntent(selected),selected);
+ for(const role of ['store_owner','admin']as const){const s=setup({credit:true});const result=await s.repository.createCheckout({tenantContext:{...context,membership:{...context.membership,role}},now:NOW,intent:selected});assert.equal(result.orderId,ORDER);const query=s.queries.find(q=>q.text.includes('saas.platform_checkout_create'))!;assert.deepEqual(JSON.parse(query.values![8]as string),{kind:'toshi_credit',offerId:'toshi-500',term:'once'});}
+ const s=setup({credit:true});
+ for(const bad of [{...selected,term:'annual'},{...selected,offerId:'toshi-501'},{...selected,credits:500},{...selected,netCents:1}])assert.throws(()=>parsePlatformCheckoutIntent(bad));
+ await assert.rejects(()=>s.repository.createCheckout({tenantContext:{...context,membership:{...context.membership,role:'editor'}},now:NOW,intent:selected}));assert.equal(s.connections(),0);
+});

@@ -416,3 +416,16 @@ test('neutral merchant prose completes only when every original clause is retain
  const rejected=await sourceServiceRun(candidate,o=>{o.description[0].items.pop();o.claims.pop();});
  assert.equal(rejected.result.status,'failed');assert.equal(rejected.result.safeCode,'invalid_output');assert.equal(rejected.fetches,1);
 });
+
+
+test('automatic field actions reach provider; long SEO is corrected once within same durable generation',async()=>{
+ const s=setup();s.dependencies.deadlineMs=30000;let calls=0;
+ s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);assert.deepEqual(sent.fieldActions,{seoTitle:'create',seoDescription:'create'});assert.match(args.system,/seoTitle <=60/);return {text:JSON.stringify({seoTitle:'Fresh draft',seoDescription:calls===1?'ş'.repeat(161):'Fresh draft ürün bilgilerini inceleyin.',suggestions:[],claims:[],sourceFingerprint:sent.facts.sourceFingerprint}),toolCalls:[],usage:{inputTokens:10,outputTokens:20}};}})};
+ const r=await createContentAuthoringService(s.dependencies).generateContent({...input,request:{...request,action:'auto',fields:['seoTitle','seoDescription'],note:''}} as any);
+ assert.equal(r.status,'completed');assert.equal(calls,2);assert.equal(r.draft?.description,undefined);assert.ok((r.draft?.seoDescription?.length??999)<=160);assert.deepEqual(r.usage,{inputTokens:20,outputTokens:40,totalTokens:60});
+});
+test('automatic noncompliant output after bounded correction never completes',async()=>{
+ const s=setup();s.dependencies.deadlineMs=30000;let calls=0;
+ s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);return {text:JSON.stringify({seoTitle:'ş'.repeat(61),suggestions:[],claims:[],sourceFingerprint:sent.facts.sourceFingerprint}),toolCalls:[]};}})};
+ const r=await createContentAuthoringService(s.dependencies).generateContent({...input,request:{...request,action:'auto',fields:['seoTitle'],note:''}} as any);assert.equal(r.status,'failed');assert.equal(calls,2);assert.equal(s.counts().completed,0);
+});

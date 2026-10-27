@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "ca74ff3ab945d60f9c6e6ac26a83e9321eb6342a27b0fb26b604f87654f3b1f8",
+  "inputDigest": "cfdbbf2ba05b8ce0a077bfb4edd69e41aacd150dcddf145150c6058032865c08",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -269,7 +269,7 @@
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "8ed2caf2b2541d3d4e3df0020d5d0b24e11abbcb110207f7f4adb7e18e6ac5c4"
+      "sha256": "b7e1d9d84bd0140c3395758eda8ef6a37d8cb3033308c56799639aeede4e5208"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -1197,7 +1197,7 @@
     },
     {
       "path": "apps/owner/lib/platform-commerce/service.ts",
-      "sha256": "8c7e24411bdc308eb1f7572f11ed95609ea9cbed33844f781b00df846e7b83fe"
+      "sha256": "3e59a14d6229ea8f5a124ec5b09fa5940e50ad92af04c617af13374bb7a44b93"
     },
     {
       "path": "apps/owner/lib/platform-commerce/webhook.ts",
@@ -2884,6 +2884,14 @@
       "sha256": "351033bc7964784241ca656d2f6a11fcd5e26dbd307c0d2a45262b001f8d946c"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610270283_toshi_credits.up.sql",
+      "sha256": "4db5f397d13c59c9f06d6499a330e59cc34888fe938a79e84274e7f9911ea2d6"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610270284_toshi_central_binding.up.sql",
+      "sha256": "7101246cef262f0469d87e297735f8a4954fa7831f91eedb827c36ae61d16c99"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -2962,6 +2970,14 @@
     {
       "path": "apps/owner/scripts/sql/saas/phase-reference-pricing-v1-staging-manifest.json",
       "sha256": "0b48dea658b84fb715b8cdbf98a44c0606cec0bb17658a3d4d9de765d1023dad"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/phase-toshi-central-binding-manifest.json",
+      "sha256": "688f3aa1815285aacc14f31740ddbfd8eaa27f1e472035d180aca6caad422532"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/phase-toshi-credits-manifest.json",
+      "sha256": "c1d8cf50fb704cb3f3165dfa52285e5882e0c9b2741fc9f50a3bd4e9f5964cc8"
     },
     {
       "path": "apps/owner/scripts/sql/saas/phase2a1-manifest.json",
@@ -3821,11 +3837,11 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/types.ts",
-      "sha256": "3c5e42387c3a76cdffa04f36615bc98e8043cf4cf1be040bad91df51e519d8e5"
+      "sha256": "99fb252a4ff5871ac9bd177ee5ebb048bde1674be06351a070c3f68e0cbd1f03"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/validation.ts",
-      "sha256": "f930adf054676a075176417739a6b8ed8641dcaa81f729ca170996eaf38a3b88"
+      "sha256": "4e409082525f6771c7933658b1cbf23b0dd663e087293a5b04d89a1073d1d733"
     },
     {
       "path": "packages/saas-contracts/src/content-resource-authoring/index.ts",
@@ -3905,7 +3921,7 @@
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "e1e85e5d8e7616a417e061aabb6873250c747de39d54f043e09014e9d2c56534"
+      "sha256": "dff565b0cd2b112274f8b8a53da8abab529b1a41540aa94624c019802f3eaa72"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -4224,8 +4240,12 @@
       "sha256": "d64dd387d7c7bf94e007ff37493dde4869acf49b40520a61260497ceb06673be"
     },
     {
+      "path": "packages/saas-contracts/src/toshi/credits.ts",
+      "sha256": "7b10a7417801ee068450fef26942e4b92f6862a2404f2a868a4c60359fd3c59d"
+    },
+    {
       "path": "packages/saas-contracts/src/toshi/index.ts",
-      "sha256": "d7f5f40565372579095b47c7ad89bedbbf77a69ab318950dd43ea46fb3db3e63"
+      "sha256": "a789c6d0d49bb7488353ca61681100b5b2b80c9eca809137d7bf15c92d62cf05"
     },
     {
       "path": "packages/saas-contracts/src/toshi/providers.ts",
@@ -4777,7 +4797,7 @@
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "9aadc552239fd83a28c1c30902fa0adcee57f6fa3dcc1e8b01753b9f3c673140"
+      "sha256": "319a7a7e1266723703e426f6a726d7fefd1ee48b20d416654f12f4a0552062c4"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -5514,6 +5534,22 @@
     {
       "path": "packages/saas-data/src/toshi-conversations/types.ts",
       "sha256": "c9ebe575f10f0ff648c3924998910aef78ca21775c6de08cba8da81d2bcbd74c"
+    },
+    {
+      "path": "packages/saas-data/src/toshi-credits/errors.ts",
+      "sha256": "b1dfb08db00f6c56631d2bc77df14131f14d49e3ec7fa11fcacbb6e70acc15ee"
+    },
+    {
+      "path": "packages/saas-data/src/toshi-credits/index.ts",
+      "sha256": "c069aa31251885aa42ef4fcdc1e538d4f11e742c202d8dc55f00b30f4e7613b4"
+    },
+    {
+      "path": "packages/saas-data/src/toshi-credits/repository.ts",
+      "sha256": "131b18c9be91cb2a82aeba8e75d3308b5eaf6e3b826dc65d5dda210034a9176b"
+    },
+    {
+      "path": "packages/saas-data/src/toshi-credits/types.ts",
+      "sha256": "d02f2b2ede0098bb249fa9d49109934f3e07fe62fd35ae00e8c4ee1d1119950a"
     },
     {
       "path": "packages/saas-data/src/toshi-providers/canonical.ts",

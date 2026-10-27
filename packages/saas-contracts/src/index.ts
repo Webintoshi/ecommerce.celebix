@@ -735,3 +735,5 @@ export type {CatalogVariantOrder,CatalogVariantOrderIntent} from "./catalog/vari
 export {STORE_ADMIN_SESSION_MAX_AGE_SECONDS,STORE_ADMIN_SESSION_MAX_AGE_MS} from "./store-admin-session-policy.ts";
 
 export * from "./product-page-reviews/index.ts";
+export { TOSHI_CREDIT_PRICES, TOSHI_CREDIT_OFFERS, parseToshiCreditWallet } from './toshi/credits.ts';
+export type { ToshiCreditOffer, ToshiCreditWallet } from './toshi/credits.ts';

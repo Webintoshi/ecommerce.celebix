@@ -10,7 +10,10 @@ import { ToshiGenerationError } from '../toshi-generation/types.ts';
 import type { ToshiGenerationRegistry } from '../toshi-generation/types.ts';
 import { fingerprintContentAuthoringRequest } from './facts.ts';
 import { renderContentAuthoringDescription } from './render.ts';
-const SAFE=new Set(['source_preservation_required','invalid_input','unauthenticated','membership_denied','store_inactive','feature_unavailable','credential_invalid','connection_missing','connection_revoked','model_unavailable','rate_limited','quota_exceeded','operation_busy','operation_mismatch','operation_not_found','version_conflict','lease_expired','dispatch_already_claimed','provider_timeout','provider_unavailable','invalid_output','cancelled','unavailable','commit_unknown']);
+import { attachAutomaticProductSource,assertAutomaticSourcePreserved } from './automatic-source.ts';
+import { assertToshiGeneratedLimits,automaticFieldActions } from './toshi-policy.ts';
+import { TOSHI_PRODUCT_EDITORIAL_PROMPT } from './editorial-prompt.ts';
+const SAFE=new Set(['insufficient_credits','source_preservation_required','invalid_input','unauthenticated','membership_denied','store_inactive','feature_unavailable','credential_invalid','connection_missing','connection_revoked','model_unavailable','rate_limited','quota_exceeded','operation_busy','operation_mismatch','operation_not_found','version_conflict','lease_expired','dispatch_already_claimed','provider_timeout','provider_unavailable','invalid_output','cancelled','unavailable','commit_unknown']);
 export class ContentAuthoringError extends Error {constructor(readonly code:string){super('content_authoring_failed');this.code=SAFE.has(code)?code:'unavailable';}}
 export function safeContentAuthoringError(error:unknown):ContentAuthoringError {if(error instanceof ContentAuthoringError)return error;const d=error instanceof Error?Object.getOwnPropertyDescriptor(error,'code'):null;return new ContentAuthoringError(d&&'value'in d&&typeof d.value==='string'?d.value:'unavailable');}
 export type ContentAuthoringGenerateInput=Readonly<{tenantContext:TenantContext;operationId:string;request:ContentAuthoringRequest;signal:AbortSignal;deadlineAt?:number}>;
@@ -85,22 +88,32 @@ export function createContentAuthoringService(deps:Dependencies){
   try{
    active();await bounded(deps.authorizeContentFields({tenantContext:input.tenantContext,now:deps.now(),fields:request.fields}));
    try {const previous=await bounded(deps.repository.getGeneration(base()));if(previous.requestFingerprint!==fingerprintContentAuthoringRequest(request))throw new ContentAuthoringError('operation_mismatch');if(previous.status!=='pending'||previous.dispatchState!=='not_dispatched')return previous;} catch(error){if(safeContentAuthoringError(error).code!=='operation_not_found')throw error;}
-   const packet=attachProductSourcePreservation(await bounded(deps.loadFacts({tenantContext:input.tenantContext,now:deps.now(),request})),request);
+   const loaded=await bounded(deps.loadFacts({tenantContext:input.tenantContext,now:deps.now(),request}));
+   const packet=request.action==='auto'?attachAutomaticProductSource(loaded,request):attachProductSourcePreservation(loaded,request);
    const credential=await bounded(deps.providers.getAuthority({tenantContext:input.tenantContext,now:deps.now(),provider:null}));
-   const begun=await bounded(deps.repository.beginGeneration({...base(),requestFingerprint:fingerprintContentAuthoringRequest(request),providerBinding:{configId:credential.configId,provider:credential.provider,model:credential.selectedModel,credentialVersion:credential.credentialVersion,promptVersion:'content-authoring-v6'},envelope:{draftId:request.draftId,productId:request.productId,sourceFingerprint:packet.sourceFingerprint}}));row=begun.generation;
+   const begun=await bounded(deps.repository.beginGeneration({...base(),requestFingerprint:fingerprintContentAuthoringRequest(request),providerBinding:{configId:credential.configId,provider:credential.provider,model:credential.selectedModel,credentialVersion:credential.credentialVersion,promptVersion:request.action==='auto'?'toshi-product-v7':'content-authoring-v6'},envelope:{draftId:request.draftId,productId:request.productId,sourceFingerprint:packet.sourceFingerprint}}));row=begun.generation;
    if(row.status!=='pending'||row.dispatchState!=='not_dispatched')return row;
    const authority=async()=>{active();const c=await bounded(deps.providers.getAuthority({tenantContext:input.tenantContext,now:deps.now(),provider:credential.provider}));if(c.configId!==row!.configId||c.credentialVersion!==row!.credentialVersion||c.selectedModel!==row!.model||c.version!==credential.version)throw new ContentAuthoringError('connection_revoked');return c;};
    const current=await authority();keyring=deps.keyring();secret=openMerchantProviderCredential({envelope:current.sealedCredentials,profileId:current.configId,storeId:input.tenantContext.store.id,providerCode:current.provider,capability:'ai_assistant',credentialVersion:current.credentialVersion,keyring});keyring.keys.forEach(k=>k.key.fill(0));
-   const data=JSON.stringify({facts:packet,currentDraft:request.currentDraft,action:request.action,fields:request.fields,locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note,selection:request.selection});if(Buffer.byteLength(data,'utf8')>32768)throw new ContentAuthoringError('invalid_input');
+   const data=JSON.stringify({facts:packet,currentDraft:request.currentDraft,action:request.action,...(request.action==='auto'?{fieldActions:automaticFieldActions(request)}:{}),fields:request.fields,locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note,selection:request.selection});if(Buffer.byteLength(data,'utf8')>32768)throw new ContentAuthoringError('invalid_input');
    active();claim=await bounded(deps.repository.claimGenerationDispatch({...base(),expectedVersion:row.version}));active();await authority();
-   const output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:SYSTEM,history:[{role:'user',text:data}],tools:[],outputFormat:'json_object',maxOutputTokens:4096,signal}));active();
+   let output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:request.action==='auto'?SYSTEM+TOSHI_PRODUCT_EDITORIAL_PROMPT:SYSTEM,history:[{role:'user',text:data}],tools:[],outputFormat:'json_object',maxOutputTokens:4096,signal}));active();
    knownUsage=measuredUsage(output);
-   let draft;try{
-    if(output.toolCalls.length||!output.text.trim()||Buffer.byteLength(output.text,'utf8')>32768||output.text.includes(new TextDecoder().decode(secret)))throw Error();
-    try{draft=validateProductDraftOutput(JSON.parse(output.text),packet,request.fields);}
-    catch{draft=preservedSeoOnlyDraft(packet,request.fields);if(!draft)throw Error();}
-    if(draft.description)renderContentAuthoringDescription(draft.description);
-   }catch{throw new ContentAuthoringError('invalid_output');}
+   const validate=()=>{
+    if(output.toolCalls.length||!output.text.trim()||Buffer.byteLength(output.text,'utf8')>32768||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
+    let draft;try{const parsed=JSON.parse(output.text);if(request.action==='auto'&&parsed&&typeof parsed==='object'&&!Array.isArray(parsed))for(const field of ['seoTitle','seoDescription'])if(typeof parsed[field]==='string')parsed[field]=parsed[field].normalize('NFC');draft=validateProductDraftOutput(parsed,packet,request.fields);}
+    catch{draft=preservedSeoOnlyDraft(packet,request.fields);if(!draft)throw new ContentAuthoringError('invalid_output');}
+    if(request.action==='auto'){assertToshiGeneratedLimits(draft);assertAutomaticSourcePreserved(draft,packet);}
+    if(draft.description)renderContentAuthoringDescription(draft.description);return draft;
+   };
+   let draft;try{draft=validate();}catch{
+    // A known, completed but invalid answer can be corrected once. Network/dispatch uncertainty is never retried.
+    if(request.action!=='auto'||endsAt-performance.now()<12000||!output.text.trim()||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
+    await authority();const previousUsage=knownUsage;
+    output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:SYSTEM+TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:'The completed answer failed validation. Return a corrected JSON object only. Preserve exact source fact values, refs, units and variant labels; every existing-description fact in description exactly once in source order. SEO uses structured facts/product identity only, title<=60 and description<=160 Unicode characters. No extra fields, invented claims, HTML or tools. Do not repeat the invalid answer.'}],tools:[],outputFormat:'json_object',maxOutputTokens:4096,signal}));active();
+    const nextUsage=measuredUsage(output);knownUsage=previousUsage&&nextUsage?{inputTokens:previousUsage.inputTokens+nextUsage.inputTokens,outputTokens:previousUsage.outputTokens+nextUsage.outputTokens,totalTokens:previousUsage.totalTokens+nextUsage.totalTokens}:null;
+    try{draft=validate();}catch{throw new ContentAuthoringError('invalid_output');}
+   }
    await authority();const usage=knownUsage;
    finalizing=true;return await terminal(deps.repository.completeGeneration({...base(),expectedVersion:claim.version,claimToken:claim.claimToken,validatedDraft:draft,usage}));
   }catch(error){

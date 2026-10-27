@@ -1,0 +1,34 @@
+{
+  "migrationId": "native284",
+  "description": "Internal fixed DeepSeek binding under existing catalog action authority without changing legacy provider permissions",
+  "up": "202610270284_toshi_central_binding.up.sql",
+  "down": "202610270284_toshi_central_binding.down.sql",
+  "assertions": "202610270284_toshi_central_binding_assertions.sql",
+  "dependencies": [
+    "native283"
+  ],
+  "isolatedAcceptance": "node apps/owner/scripts/sql/saas/toshi-central-binding.native.test.mjs",
+  "protocol": {
+    "provider": "deepseek",
+    "model": "deepseek-flash",
+    "maskedKey": "••••oshi",
+    "newBindingDefault": false,
+    "rotationPreservesDefault": true,
+    "permission": "catalog_admin.manage",
+    "browserMutation": false
+  },
+  "artifacts": [
+    {
+      "file": "202610270284_toshi_central_binding.up.sql",
+      "sha256": "7101246cef262f0469d87e297735f8a4954fa7831f91eedb827c36ae61d16c99"
+    },
+    {
+      "file": "202610270284_toshi_central_binding.down.sql",
+      "sha256": "57b8b2386f1273c8fccc6a9fa7df6239f3f9244cb7beb21858e5372366696e1e"
+    },
+    {
+      "file": "202610270284_toshi_central_binding_assertions.sql",
+      "sha256": "ed231e4a3f488b5ea26f4ed0b9c182fdaa794bfb13168cc1349a4e0ae61f66c8"
+    }
+  ]
+}

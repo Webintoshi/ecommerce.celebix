@@ -28,7 +28,7 @@ export interface ContentAuthoringRequest {
     readonly productVersion: number | null;
     readonly profileVersion: number | null;
     readonly currentDraft: ContentAuthoringProductSnapshot;
-    readonly action: "create" | "improve" | "shorten" | "rewrite_selection";
+    readonly action: "auto" | "create" | "improve" | "shorten" | "rewrite_selection";
     readonly fields: readonly ContentAuthoringField[];
     readonly locale: string;
     readonly tone: "neutral" | "friendly" | "professional";

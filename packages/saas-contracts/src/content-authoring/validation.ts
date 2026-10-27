@@ -44,7 +44,7 @@ function brandVoiceText(v: unknown): string { const value = text(v, 160); if (/\
 export function parseContentAuthoringRequest(v: unknown): ContentAuthoringRequest { const r = record(v, ['draftId', 'productId', 'productVersion', 'profileVersion', 'currentDraft', 'action', 'fields', 'locale', 'tone', 'length', 'note', 'selection'], ['brandVoice']); const versions = (v: unknown) => { if (v === null)
     return null; if (!Number.isSafeInteger(v) || (v as number) < 1)
     bad(); return v as number; }; const fs = arr(r.fields, 3).map(f => choice(f, fields)); if (!fs.length || new Set(fs).size !== fs.length)
-    bad(); const action = choice(r.action, ['create', 'improve', 'shorten', 'rewrite_selection'] as const); let selection = null; if (r.selection !== null) {
+    bad(); const action = choice(r.action, ['auto', 'create', 'improve', 'shorten', 'rewrite_selection'] as const); let selection = null; if (r.selection !== null) {
     const s = record(r.selection, ['field', 'text']);
     selection = { field: choice(s.field, fields), text: text(s.text, 10000, 1) };
     if (!fs.includes(selection.field))

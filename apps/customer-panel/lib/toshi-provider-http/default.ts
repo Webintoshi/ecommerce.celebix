@@ -25,17 +25,17 @@ export function handleToshiProviderList(request: Request) {
 }
 
 export function handleToshiProviderConnect(request: Request, context: ToshiProviderRouteContext) {
-  return handlers.connect(request, context);
+  return Response.json({code:'feature_unavailable'},{status:409,headers:{'cache-control':'no-store'}});
 }
 
 export function handleToshiProviderModel(request: Request, context: ToshiProviderRouteContext) {
-  return handlers.selectModel(request, context);
+  return Response.json({code:'feature_unavailable'},{status:409,headers:{'cache-control':'no-store'}});
 }
 
 export function handleToshiProviderDefault(request: Request, context: ToshiProviderRouteContext) {
-  return handlers.setDefault(request, context);
+  return Response.json({code:'feature_unavailable'},{status:409,headers:{'cache-control':'no-store'}});
 }
 
 export function handleToshiProviderRevoke(request: Request, context: ToshiProviderRouteContext) {
-  return handlers.revoke(request, context);
+  return Response.json({code:'feature_unavailable'},{status:409,headers:{'cache-control':'no-store'}});
 }

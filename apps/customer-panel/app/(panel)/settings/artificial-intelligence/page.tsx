@@ -6,5 +6,5 @@ import { requireServerPanelAccess } from "@/lib/server-access";
 export default async function ArtificialIntelligenceSettingsPage() {
   const { tenantContext } = await requireServerPanelAccess();
   const canManage = isMerchantActionAllowed(tenantContext.membership.role, "configuration.manage");
-  return <ArtificialIntelligenceSettings canManage={canManage} />;
+  return <ArtificialIntelligenceSettings canManage={canManage} storeId={tenantContext.store.id} />;
 }

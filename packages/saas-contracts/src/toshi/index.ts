@@ -16,3 +16,5 @@ export type {
 } from "./providers.ts";
 export { parseToshiSource, parseToshiMessage, parseToshiConversationSummary, parseToshiConversation, parseToshiConversationListResponse } from "./conversations.ts";
 export type { ToshiSource, ToshiMessage, ToshiConversationSummary, ToshiConversation, ToshiConversationListResponse } from "./conversations.ts";
+export { TOSHI_CREDIT_PRICES, TOSHI_CREDIT_OFFERS, parseToshiCreditWallet } from './credits.ts';
+export type { ToshiCreditOffer, ToshiCreditWallet } from './credits.ts';
