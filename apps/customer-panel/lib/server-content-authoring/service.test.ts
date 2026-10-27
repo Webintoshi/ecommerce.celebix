@@ -429,3 +429,77 @@ test('automatic noncompliant output after bounded correction never completes',as
  s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);return {text:JSON.stringify({seoTitle:'ş'.repeat(61),suggestions:[],claims:[],sourceFingerprint:sent.facts.sourceFingerprint}),toolCalls:[]};}})};
  const r=await createContentAuthoringService(s.dependencies).generateContent({...input,request:{...request,action:'auto',fields:['seoTitle'],note:''}} as any);assert.equal(r.status,'failed');assert.equal(calls,2);assert.equal(s.counts().completed,0);
 });
+
+// Public-product shape from the failure capture; all variant identities are synthetic.
+const capturedAutomaticPacket={"title":"İrmikli ve Yumurtalı Kesme Erişte","facts":[{"ref":"product:title:0","field":"title","value":"İrmikli ve Yumurtalı Kesme Erişte","source":"current_draft","scope":"product"},{"ref":"product:category:1","field":"category","value":"Unlu Mamüller","source":"tenant_reference","scope":"product"},{"ref":"product:category:2","field":"category","value":"Yöresel Ürünler","source":"tenant_reference","scope":"product"},{"ref":"variant:81000000-0000-4000-8000-000000000001:title:3","field":"title","value":"250g","source":"current_draft","scope":"variant","variantId":"81000000-0000-4000-8000-000000000001"},{"ref":"variant:81000000-0000-4000-8000-000000000001:Ağırlık:4","field":"Ağırlık","value":"250g","source":"tenant_reference","scope":"variant","variantId":"81000000-0000-4000-8000-000000000001"},{"ref":"variant:81000000-0000-4000-8000-000000000001:weight:5","field":"weight","value":"250","source":"current_draft","scope":"variant","unit":"g","variantId":"81000000-0000-4000-8000-000000000001"},{"ref":"variant:81000000-0000-4000-8000-000000000002:title:6","field":"title","value":"1000g","source":"current_draft","scope":"variant","variantId":"81000000-0000-4000-8000-000000000002"},{"ref":"variant:81000000-0000-4000-8000-000000000002:Ağırlık:7","field":"Ağırlık","value":"1000g","source":"tenant_reference","scope":"variant","variantId":"81000000-0000-4000-8000-000000000002"},{"ref":"variant:81000000-0000-4000-8000-000000000002:weight:8","field":"weight","value":"1000","source":"current_draft","scope":"variant","unit":"g","variantId":"81000000-0000-4000-8000-000000000002"},{"ref":"variant:81000000-0000-4000-8000-000000000003:title:9","field":"title","value":"500g","source":"current_draft","scope":"variant","variantId":"81000000-0000-4000-8000-000000000003"},{"ref":"variant:81000000-0000-4000-8000-000000000003:Ağırlık:10","field":"Ağırlık","value":"500g","source":"tenant_reference","scope":"variant","variantId":"81000000-0000-4000-8000-000000000003"},{"ref":"variant:81000000-0000-4000-8000-000000000003:weight:11","field":"weight","value":"500","source":"current_draft","scope":"variant","unit":"g","variantId":"81000000-0000-4000-8000-000000000003"}],"sourceFingerprint":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"} as const;
+const capturedMalformedListJson="{\"description\":[{\"type\":\"paragraph\",\"children\":[{\"type\":\"text\",\"text\":\"İrmikli ve Yumurtalı Kesme Erişte için ürün bilgileri:\"}]},{\"type\":\"list\",\"ordered\":false,\"items\":[[{\"type\":\"text\",\"text\":\"1000g varyantı — Ağırlık: \"},{\"type\":\"fact\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000002:weight:8\",\"value\":\"1000\",\"unit\":\"g\"}]],[[{\"type\":\"text\",\"text\":\"250g varyantı — Ağırlık: \"},{\"type\":\"fact\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000001:weight:5\",\"value\":\"250\",\"unit\":\"g\"}]],[[{\"type\":\"text\",\"text\":\"500g varyantı — Ağırlık: \"},{\"type\":\"fact\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000003:weight:11\",\"value\":\"500\",\"unit\":\"g\"}]]}],\"seoTitle\":\"İrmikli ve Yumurtalı Kesme Erişte\",\"seoDescription\":\"İrmikli ve Yumurtalı Kesme Erişte: 1000g varyantı ağırlığı 1000 g; 250g varyantı ağırlığı 250 g; 500g varyantı ağırlığı 500 g.\",\"suggestions\":[],\"claims\":[{\"field\":\"description\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000002:weight:8\",\"value\":\"1000\",\"unit\":\"g\"},{\"field\":\"description\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000001:weight:5\",\"value\":\"250\",\"unit\":\"g\"},{\"field\":\"description\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000003:weight:11\",\"value\":\"500\",\"unit\":\"g\"},{\"field\":\"seoDescription\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000002:weight:8\",\"value\":\"1000\",\"unit\":\"g\"},{\"field\":\"seoDescription\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000001:weight:5\",\"value\":\"250\",\"unit\":\"g\"},{\"field\":\"seoDescription\",\"factRef\":\"variant:81000000-0000-4000-8000-000000000003:weight:11\",\"value\":\"500\",\"unit\":\"g\"}],\"sourceFingerprint\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}";
+const capturedCorrectedList:any={"description":[{"type":"paragraph","children":[{"type":"text","text":"İrmikli ve Yumurtalı Kesme Erişte için ürün bilgileri:"}]},{"type":"list","ordered":false,"items":[[{"type":"text","text":"1000g varyantı — Ağırlık: "},{"type":"fact","factRef":"variant:81000000-0000-4000-8000-000000000002:weight:8","value":"1000","unit":"g"}],[{"type":"text","text":"250g varyantı — Ağırlık: "},{"type":"fact","factRef":"variant:81000000-0000-4000-8000-000000000001:weight:5","value":"250","unit":"g"}],[{"type":"text","text":"500g varyantı — Ağırlık: "},{"type":"fact","factRef":"variant:81000000-0000-4000-8000-000000000003:weight:11","value":"500","unit":"g"}]]}],"seoTitle":"İrmikli ve Yumurtalı Kesme Erişte","seoDescription":"İrmikli ve Yumurtalı Kesme Erişte: 1000g varyantı 1000 g; 250g varyantı 250 g; 500g varyantı 500 g.","suggestions":[],"claims":[{"field":"description","factRef":"variant:81000000-0000-4000-8000-000000000002:weight:8","value":"1000","unit":"g"},{"field":"description","factRef":"variant:81000000-0000-4000-8000-000000000001:weight:5","value":"250","unit":"g"},{"field":"description","factRef":"variant:81000000-0000-4000-8000-000000000003:weight:11","value":"500","unit":"g"},{"field":"seoDescription","factRef":"variant:81000000-0000-4000-8000-000000000002:weight:8","value":"1000","unit":"g"},{"field":"seoDescription","factRef":"variant:81000000-0000-4000-8000-000000000001:weight:5","value":"250","unit":"g"},{"field":"seoDescription","factRef":"variant:81000000-0000-4000-8000-000000000003:weight:11","value":"500","unit":"g"}],"sourceFingerprint":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"};
+
+import {createMeteredContentAuthoringService}from'./metered-service.ts';
+import {TOSHI_PRODUCT_EDITORIAL_PROMPT}from'./editorial-prompt.ts';
+function capturedAutomaticRun(outputs:readonly string[],source:any=capturedAutomaticPacket){
+ const s=setup();s.dependencies.deadlineMs=30000;s.dependencies.loadFacts=async()=>source;
+ let generation:any=null,providerCalls=0,begins=0,completions=0,debits=0,balance=100,held=0,walletRow:any=null;const sent:any[]=[];
+ const automaticRequest={...request,action:'auto',fields:['description','seoTitle','seoDescription'],note:'',currentDraft:{title:source.title,description:'',seoTitle:'',seoDescription:''}}as any;
+ s.dependencies.repository={
+  async getGeneration(){if(!generation)throw Object.assign(Error(),{code:'operation_not_found'});return generation;},
+  async beginGeneration(value:any){begins++;generation={...initial,requestFingerprint:value.requestFingerprint,sourceFingerprint:value.envelope.sourceFingerprint,promptVersion:value.providerBinding.promptVersion};return {kind:'pending',generation};},
+  async claimGenerationDispatch(){generation={...generation,version:2,dispatchState:'dispatched'};return {claimToken:id,version:2,leaseExpiresAt:'2026-09-29T00:01:00.000Z'};},
+  async completeGeneration(value:any){completions++;assert.equal(value.expectedVersion,2);assert.equal(value.claimToken,id);generation={...generation,status:'completed',version:3,draft:value.validatedDraft,usage:value.usage,finishedAt:initial.createdAt};return generation;},
+  async failGeneration(value:any){generation={...generation,status:'failed',safeCode:value.safeCode,usage:value.usage??null,finishedAt:initial.createdAt};return generation;},
+ };
+ s.dependencies.generations=createToshiGenerationRegistry({deepseek:async(_url,init)=>{
+  const body=JSON.parse(String(init.body));sent.push(body);assert.equal(body.response_format.type,'json_object');assert.equal(body.tools,undefined);assert.equal(body.max_tokens,4096);
+  const text=outputs[Math.min(providerCalls++,outputs.length-1)]!;
+  return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:text}}],usage:{prompt_tokens:100,completion_tokens:50}});
+ }});
+ const credits:any={
+  async reserve(value:any){if(walletRow)return {kind:walletRow.status==='reserved'?'pending':'replayed',...walletRow};held=value.cost;walletRow={status:'reserved',fingerprint:value.fingerprint,result:null,chargedCredits:0};return {kind:'created',...walletRow};},
+  async complete(value:any){assert.equal(value.fingerprint,walletRow.fingerprint);if(walletRow.status!=='completed'){assert.equal(value.chargedCredits,10);debits++;balance-=value.chargedCredits;held=0;walletRow={...walletRow,status:'completed',result:value.result,chargedCredits:value.chargedCredits};}return {balance,reserved:held,available:balance-held};},
+  async fail(){if(walletRow.status!=='completed'){held=0;walletRow={...walletRow,status:'failed'};}return {balance,reserved:held,available:balance-held};},
+ };
+ const service=createMeteredContentAuthoringService(createContentAuthoringService(s.dependencies),credits),automaticInput={...input,request:automaticRequest};
+ return {service,input:automaticInput,sent,state:()=>({providerCalls,begins,completions,debits,balance,held})};
+}
+
+test('concise AUTO protocol has one valid paragraph example and excludes legacy system instructions',()=>{
+ const exampleText=TOSHI_PRODUCT_EDITORIAL_PROMPT.split('\n').find(line=>line.startsWith('{"description":'))!;
+ const example=JSON.parse(exampleText);assert.ok(example.description.every((block:any)=>block.type==='paragraph'));assert.equal(example.claims[0].field,'description');
+ assert.ok(Buffer.byteLength(TOSHI_PRODUCT_EDITORIAL_PROMPT,'utf8')<8000);assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Preservation example with ONE clause|Package contents example|Labeled dimensions example|hard limits are 200\/500/);
+});
+
+test('captured malformed list receives JSON-stage correction, completes once and charges text credits once',async()=>{
+ assert.throws(()=>JSON.parse(capturedMalformedListJson));
+ const f=capturedAutomaticRun([capturedMalformedListJson,JSON.stringify(capturedCorrectedList)]);
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.promptVersion,'toshi-product-v8');assert.deepEqual(result.usage,{inputTokens:200,outputTokens:100,totalTokens:300});
+ assert.equal(f.sent.length,2);assert.equal(f.sent[0].messages[0].content,TOSHI_PRODUCT_EDITORIAL_PROMPT);assert.equal(f.sent[1].messages[0].content,TOSHI_PRODUCT_EDITORIAL_PROMPT);
+ const feedback=JSON.parse(f.sent[1].messages.at(-1).content);assert.equal(feedback.validationFailure,'json_syntax');assert.deepEqual(Object.keys(feedback),['validationFailure','instruction']);
+ const replay=await f.service.generateContent(f.input);assert.deepEqual(replay,result);await f.service.getGeneration({tenantContext:f.input.tenantContext,operationId:id});
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
+});
+
+test('AUTO correction never accepts unsupported weight values and releases all reserved credits',async()=>{
+ const bad=structuredClone(capturedCorrectedList);bad.description[1].items[0][1].value='9999';
+ const f=capturedAutomaticRun([JSON.stringify(bad)]),result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).validationFailure,'contract_or_grounding');assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).fieldNote,'seo_product_scope_only');
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});
+});
+
+for(const stage of ['policy_limits','source_order','render']as const)test(`AUTO correction identifies closed ${stage} feedback without weakening validation`,async()=>{
+ const first:any=structuredClone(capturedCorrectedList),second:any=structuredClone(capturedCorrectedList),source:any=structuredClone(capturedAutomaticPacket);
+ if(stage==='policy_limits')first.seoTitle='ş'.repeat(61);
+ if(stage==='source_order'){
+  const fact={ref:'product:existing:0',field:'merchantDescription',value:'Özgün ürün açıklaması.',source:'current_draft',scope:'product'};source.facts.push(fact);
+  second.description.push({type:'paragraph',children:[{type:'fact',factRef:fact.ref,value:fact.value}]});second.claims.push({field:'description',factRef:fact.ref,value:fact.value});
+ }
+ if(stage==='render')first.description.push({type:'paragraph',children:[{type:'text',text:'&'.repeat(2500)}]});
+ const f=capturedAutomaticRun([JSON.stringify(first),JSON.stringify(second)],source),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');
+ assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).validationFailure,stage);assert.equal(f.state().debits,1);assert.equal(f.state().providerCalls,2);
+});
+
+test('AUTO SEO protocol keeps variant-only values in description and uses product-scoped identity in meta',async()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/SEO MAY USE ONLY product identity and product-scoped facts/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/NEVER put variant-only titles, names, attribute values, weights, sizes, colours, units or numbers in seoTitle or seoDescription/);
+ assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT,/SEO statement using a variant fact must/);
+ const productScoped=structuredClone(capturedCorrectedList);productScoped.seoDescription=capturedAutomaticPacket.title+' için ürün bilgilerini ve sunulan seçenekleri inceleyin.';productScoped.claims=productScoped.claims.filter((claim:any)=>claim.field==='description');
+ const f=capturedAutomaticRun([JSON.stringify(productScoped)]),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(f.state().providerCalls,1);assert.equal(f.state().debits,1);assert.doesNotMatch(result.draft!.seoDescription!,/1000|500|250/);
+});
