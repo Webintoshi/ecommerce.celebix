@@ -72,10 +72,10 @@ test('marketplace comparison reflects derived paid feature access without modify
 
 test('free-package checkout defaults annual, shows VAT total and preserves paid manual controls',async()=>{
  const {CommercialPlanComparison}=compile<any>(new URL('./CommercialPlanComparison.tsx',import.meta.url),{'next/link':link});
- await withEditor(async({container,render,change})=>{
+ await withEditor(async({container,render,click})=>{
   const props={storeId:'11111111-1111-4111-8111-111111111111',checkoutEnabled:true,currentPlan:{planId:COMMERCIAL_PACKAGES[0].id,planCode:COMMERCIAL_PACKAGES[0].code,version:COMMERCIAL_PACKAGES[0].version},canRequest:true,fetcher:async()=>Response.json({plan:{planId:COMMERCIAL_PACKAGES[0].id,planCode:COMMERCIAL_PACKAGES[0].code,version:COMMERCIAL_PACKAGES[0].version},usage:{products:0,variants:0,staff:1,storageBytes:0,monthlyOrders:0,customDomains:0}})};
   await render(React.createElement(CommercialPlanComparison,props));await React.act(async()=>{await new Promise(r=>setTimeout(r,0));});
-  const select=container.querySelector<HTMLSelectElement>('select[aria-label="Ödeme dönemi"]');assert.ok(select);assert.equal(select.value,'annual');assert.match(container.textContent??'',/KDV dahil toplam/);assert.match(container.textContent??'',/Güvenli ödemeye geç/);await change(select,'monthly');assert.equal(select.value,'monthly');
+  const annual=container.querySelector<HTMLButtonElement>('button[aria-label="Yıllık ödeme"]');const monthly=container.querySelector<HTMLButtonElement>('button[aria-label="Aylık ödeme"]');assert.ok(annual);assert.ok(monthly);assert.equal(annual.getAttribute('aria-pressed'),'true');assert.match(container.textContent??'',/KDV dahil toplam/);assert.match(container.textContent??'',/Güvenli ödemeye geç/);await click(monthly);assert.equal(monthly.getAttribute('aria-pressed'),'true');
   await render(React.createElement(CommercialPlanComparison,{...props,currentPlan:{planId:COMMERCIAL_PACKAGES[1].id,planCode:COMMERCIAL_PACKAGES[1].code,version:COMMERCIAL_PACKAGES[1].version}}));assert.doesNotMatch(container.textContent??'',/Güvenli ödemeye geç/);assert.match(container.textContent??'',/Paket değişikliği talep et/);
  });
 });

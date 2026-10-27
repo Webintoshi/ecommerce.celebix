@@ -1,11 +1,12 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Package, Tags, Users, ShoppingCart, Database, ArrowRight } from 'lucide-react';
 import { COMMERCIAL_PACKAGES, STORE_TOOL_OFFERS, commercialPackageHasCapability, getCommercialPackage, getRequiredCommercialPackage, parseCommercialPlanOverview, parseCommercialUpgradeRequest, type CommercialCapability, type CommercialPlanOverview, type CommercialUpgradeRequest } from '@celebix/saas-contracts';
 import { COMMERCIAL_CAPABILITY_LABELS } from '@/lib/commercial-packages/route-model';
-import { hasAnnualDiscount, packageCount, packageMoney, packageStorage } from './presentation';
+import { packageCount, packageMoney, packageStorage } from './presentation';
 import {PlatformCheckoutButton} from './PlatformCheckoutButton';
-import styles from './commercial-packages.module.css';
+import { PLAN_PRESENTATION } from './plan-presentation';
+import styles from './plan-catalog.module.css';
 type PlanIdentity = Readonly<{
     planId: string;
     planCode: string;
@@ -91,11 +92,90 @@ export function CommercialPlanComparison({ currentPlan, canRequest, feature, sto
         setBusy(false);
     } }
     const usage = overview?.usage;
-    const usageItems = usage ? [['Ürün', usage.products, current?.limits.products], ['SKU / varyant', usage.variants, current?.variantLimit], ['Kullanıcı', usage.staff, current?.limits.staff], ['Aylık sipariş', usage.monthlyOrders, current?.limits.monthlyOrders]] as const : [];
+    const usageItems = usage ? [
+        { label: 'Ürün', used: packageCount(usage.products), limit: current ? packageCount(current.limits.products) : undefined, Icon: Package },
+        { label: 'SKU / varyant', used: packageCount(usage.variants), limit: current ? packageCount(current.variantLimit) : undefined, Icon: Tags },
+        { label: 'Kullanıcı', used: packageCount(usage.staff), limit: current ? packageCount(current.limits.staff) : undefined, Icon: Users },
+        { label: 'Aylık sipariş', used: packageCount(usage.monthlyOrders), limit: current?.limits.monthlyOrders !== undefined ? packageCount(current.limits.monthlyOrders) : undefined, Icon: ShoppingCart },
+        { label: 'Depolama', used: packageStorage(usage.storageBytes), limit: current ? packageStorage(current.limits.storageBytes) : undefined, Icon: Database },
+    ] : [];
+    const selectionLocked = busy || Boolean(operation.current) || (!onlineCheckout && requestPending);
+    const selectedPresentation = PLAN_PRESENTATION[selected.code];
+    const quotaRows = [
+        { label: 'Ürün', value: (plan: typeof selected) => packageCount(plan.limits.products) },
+        { label: 'SKU / varyant', value: (plan: typeof selected) => packageCount(plan.variantLimit) },
+        { label: 'Kullanıcı', value: (plan: typeof selected) => packageCount(plan.limits.staff) },
+        { label: 'Depolama', value: (plan: typeof selected) => packageStorage(plan.limits.storageBytes) },
+        { label: 'Aylık sipariş', value: (plan: typeof selected) => packageCount(plan.limits.monthlyOrders ?? 0) },
+    ];
     return <div className={styles.comparison}>
-  <section className={styles.usageSection} aria-label="Mevcut paket ve kullanım"><div><span className={styles.eyebrow}>Mevcut paketiniz</span><h2>{current?.name ?? currentPlan.planCode}</h2></div>{loading ? <p role="status">Kullanım bilgileri yükleniyor…</p> : loadError ? <div role="alert"><p>Kullanım bilgileri alınamadı.</p><button type="button" className="button button-secondary" onClick={() => setRevision(n => n + 1)}>Yeniden dene</button></div> : usage ? <div className={styles.usageGrid}>{usageItems.map(([label, used, limit]) => <div key={label}><span>{label}</span><strong>{packageCount(used)}{limit !== undefined ? ` / ${packageCount(limit)}` : ''}</strong></div>)}<div><span>Depolama</span><strong>{packageStorage(usage.storageBytes)}{current ? ` / ${packageStorage(current.limits.storageBytes)}` : ''}</strong></div>{usage.customDomains > 0 ? <div><span>Alan adı bağlantıları</span><strong>{packageCount(usage.customDomains)}{current ? ` / ${packageCount(current.limits.customDomains ?? 0)}` : ''}</strong></div> : null}</div> : <p>Kullanım bilgilerini mağaza sahibiniz görüntüleyebilir.</p>}</section>
-  <fieldset className={styles.planGrid} disabled={busy || Boolean(operation.current) || (!onlineCheckout&&requestPending)}><legend className="sr-only">Paket seçin</legend>{COMMERCIAL_PACKAGES.map(plan => <label className={`${styles.planOption} ${selectedId === plan.id ? styles.selectedPlan : ''}`} key={plan.id}><span className={styles.planRadio}><input type="radio" name="commercial-plan" value={plan.id} checked={selectedId === plan.id} onChange={() => { setSelectedId(plan.id); setError(''); }}/><strong>{plan.name}</strong>{current?.code === plan.code ? <small>Mevcut paket</small> : required?.id === plan.id ? <small>Önerilen</small> : null}</span><span className={styles.planPrice}>{packageMoney(plan.annualPriceCents)} <small>TL / yıl{plan.annualPriceCents > 0 ? ' + KDV' : ''}</small></span><span className={styles.planDetail}>{plan.annualPriceCents > 0 ? 'Yıllık peşin ödeme' : 'Ücretsiz'}</span>{plan.monthlyPriceCents > 0 ? <span className={styles.planDetail}>Aylık: {packageMoney(plan.monthlyPriceCents)} TL + KDV</span> : null}<span className={styles.planQuota}>{packageCount(plan.limits.products)} ürün · {packageCount(plan.variantLimit)} SKU<br />{packageCount(plan.limits.staff)} kullanıcı · {packageStorage(plan.limits.storageBytes)}<br />{packageCount(plan.limits.monthlyOrders ?? 0)} sipariş / ay<br />{plan.limits.customDomains ? '1 özel alan adı' : 'Celebix mağaza adresi'}</span></label>)}</fieldset>
-  <div className={styles.featureTable} role="region" aria-label="Paket özellik karşılaştırması" tabIndex={0}><table><thead><tr><th scope="col">Özellik</th>{COMMERCIAL_PACKAGES.map(plan => <th scope="col" key={plan.id}>{plan.name}</th>)}</tr></thead><tbody><tr><th scope="row">Mağaza, ödeme, kargo ve temel analizler</th>{COMMERCIAL_PACKAGES.map(plan => <td key={plan.id}><Check size={16} aria-hidden="true"/><span className="sr-only">Var</span></td>)}</tr>{CAPABILITIES.map(capability => <tr key={capability}><th scope="row">{COMMERCIAL_CAPABILITY_LABELS[capability]}</th>{COMMERCIAL_PACKAGES.map(plan => <td key={plan.id}>{commercialPackageHasCapability(plan, capability) ? <><Check size={16} aria-hidden="true"/><span className="sr-only">Var</span></> : <span aria-label="Üst paketlerde">—</span>}</td>)}</tr>)}</tbody></table></div>
-  <section className={styles.requestSection} aria-label="Paket değişikliği"><div><h2>{selected.name}</h2>{hasAnnualDiscount(selected) ? <p>Yıllık pakette 12 ay kullanın, 10 ay ödeyin.</p> : null}<p>Her paket bir mağaza içindir. Yapay zekâ, mesaj, ödeme ve kargo sağlayıcısı ücretleri kullanımınıza göre ayrıca oluşur.</p></div>{!canRequest ? <p>Mağaza sahibinizle paket seçeneklerini inceleyebilirsiniz.</p> : onlineCheckout ? <div className={styles.requestActions}><label>Ödeme dönemi <select aria-label="Ödeme dönemi" value={checkoutTerm} onChange={event=>setCheckoutTerm(event.target.value as 'monthly'|'annual')}><option value="annual">Yıllık peşin</option><option value="monthly">Aylık</option></select></label><small>Net {checkoutMoney(checkoutNet)} TL · KDV {checkoutMoney(checkoutVat)} TL · KDV dahil toplam {checkoutMoney(checkoutNet+checkoutVat)} TL</small><PlatformCheckoutButton storeId={storeId!} kind="package" offerId={selected.id} term={checkoutTerm} disabled={!higher}/><small>Ödeme doğrulandığında paketiniz seçtiğiniz dönem için açılır. Otomatik yenileme yapılmaz.</small></div> : requestPending ? <p className={styles.requestSuccess} role="status">Talebiniz iletildi. Paket değişikliği ekibimiz tarafından değerlendirilecek.</p> : <div className={styles.requestActions}><button type="button" className="button button-primary" disabled={!higher || busy || loading || loadError} onClick={() => void submit()}>{busy ? 'Talep iletiliyor…' : error ? 'Aynı talebi yeniden kontrol et' : 'Paket değişikliği talep et'}</button><small>Talep iletmek ödeme başlatmaz. Paketiniz ekibimizin onayından sonra değişir.</small></div>}{error ? <p className={styles.requestError} role="alert">{error}</p> : null}</section>
- </div>;
+        <section className={styles.usageSection} aria-label="Mevcut paket ve kullanım">
+            <div className={styles.currentPlan}><span className={styles.eyebrow}>Mevcut paketiniz</span><h2>{current?.name ?? currentPlan.planCode}</h2></div>
+            {loading ? <p role="status">Kullanım bilgileri yükleniyor…</p> : loadError ? <div className={styles.usageFeedback} role="alert"><p>Kullanım bilgileri alınamadı.</p><button type="button" className="button button-secondary" onClick={() => setRevision(n => n + 1)}>Yeniden dene</button></div> : usage ? <div className={styles.usageGrid}>
+                {usageItems.map(({ label, used, limit, Icon }) => <div className={styles.usageItem} key={label}><Icon size={20} aria-hidden="true"/><div><span>{label}</span><strong>{used}{limit !== undefined ? ` / ${limit}` : ''}</strong></div></div>)}
+                {usage.customDomains > 0 ? <div className={styles.usageItem}><div><span>Alan adı bağlantıları</span><strong>{packageCount(usage.customDomains)}{current ? ` / ${packageCount(current.limits.customDomains ?? 0)}` : ''}</strong></div></div> : null}
+            </div> : <p>Kullanım bilgilerini mağaza sahibiniz görüntüleyebilir.</p>}
+        </section>
+
+        <div className={styles.termToolbar}>
+            <div className={styles.termSwitch} role="group" aria-label="Ödeme dönemi">
+                <button type="button" aria-label="Aylık ödeme" aria-pressed={checkoutTerm === 'monthly'} disabled={selectionLocked} onClick={() => setCheckoutTerm('monthly')}>Aylık</button>
+                <button type="button" aria-label="Yıllık ödeme" aria-pressed={checkoutTerm === 'annual'} disabled={selectionLocked} onClick={() => setCheckoutTerm('annual')}>Yıllık</button>
+            </div>
+            <p>Yıllık pakette 12 ay kullanın, 10 ay ödeyin.</p>
+        </div>
+
+        <fieldset className={styles.planGrid} disabled={selectionLocked}>
+            <legend className="sr-only">Paket seçin</legend>
+            {COMMERCIAL_PACKAGES.map(plan => {
+                const presentation = PLAN_PRESENTATION[plan.code];
+                const isSelected = selectedId === plan.id;
+                const price = checkoutTerm === 'annual' ? plan.annualPriceCents : plan.monthlyPriceCents;
+                return <label className={`${styles.planOption} ${isSelected ? styles.selectedPlan : ''}`} key={plan.id} data-plan-id={plan.id}>
+                    <img className={styles.productImage} src={presentation.image} alt={`${plan.name} paket görseli`} width={960} height={640}/>
+                    <div className={styles.planBody}>
+                        <div className={styles.planIdentity}><input type="radio" name="commercial-plan" value={plan.id} aria-label={`${plan.name} paketini seç`} checked={isSelected} onChange={() => { setSelectedId(plan.id); setError(''); }}/><strong>{plan.name}</strong>{current?.code === plan.code ? <small>Mevcut paket</small> : required?.id === plan.id ? <small>Önerilen</small> : null}</div>
+                        <div className={styles.priceBlock}><div className={styles.priceLine}><strong data-plan-price>{packageMoney(price)} TL</strong>{price > 0 ? <span>/ {checkoutTerm === 'annual' ? 'yıl' : 'ay'} + KDV</span> : null}</div>
+                            {price === 0 ? <p>Süresiz ücretsiz</p> : checkoutTerm === 'annual' ? <p data-plan-equivalent>Aylık {checkoutMoney(plan.annualPriceCents / 12)} TL</p> : <p>Aylık ödeme</p>}
+                        </div>
+                        <p className={styles.planDescription}>{presentation.description}</p>
+                        <ul className={styles.highlights}>
+                            <li><Package size={17} aria-hidden="true"/><span>{packageCount(plan.limits.products)} ürün</span></li>
+                            <li><ShoppingCart size={17} aria-hidden="true"/><span>{packageCount(plan.limits.monthlyOrders ?? 0)} sipariş / ay</span></li>
+                            <li><presentation.Icon size={17} aria-hidden="true"/><span>{presentation.highlight ?? `${packageCount(plan.limits.staff)} kullanıcı`}</span></li>
+                        </ul>
+                        <span className={styles.selectControl} aria-hidden="true">{isSelected ? <><Check size={16}/> Seçili paket</> : <>Paketi seç <ArrowRight size={16}/></>}</span>
+                    </div>
+                </label>;
+            })}
+        </fieldset>
+
+        <section className={styles.requestSection} aria-label="Paket değişikliği">
+            <div className={styles.selectedProduct}><img src={selectedPresentation.image} alt="" width={960} height={640}/><div><h2>{selected.name} · {checkoutTerm === 'annual' ? 'Yıllık' : 'Aylık'}</h2><p>{checkoutNet > 0 ? 'Seçtiğiniz paket için ödeme özeti.' : 'Süresiz ücretsiz paket.'}</p></div></div>
+            <dl className={styles.paymentTotals}><div><dt>Net</dt><dd data-total="net">{checkoutMoney(checkoutNet)} TL</dd></div><div><dt>KDV (%{STORE_TOOL_OFFERS[0]!.vatBps / 100})</dt><dd data-total="vat">{checkoutMoney(checkoutVat)} TL</dd></div><div className={styles.grandTotal}><dt>KDV dahil toplam</dt><dd data-total="total">{checkoutMoney(checkoutNet + checkoutVat)} TL</dd></div></dl>
+            <div className={styles.requestActions}>
+                {!canRequest ? <p>Mağaza sahibinizle paket seçeneklerini inceleyebilirsiniz.</p> : onlineCheckout ? <>
+                    <PlatformCheckoutButton storeId={storeId!} kind="package" offerId={selected.id} term={checkoutTerm} disabled={!higher}/>
+                    <small>Ödeme doğrulandığında paketiniz seçtiğiniz dönem için açılır. Otomatik yenileme yapılmaz.</small>
+                </> : requestPending ? <p className={styles.requestSuccess} role="status">Talebiniz iletildi. Paket değişikliği ekibimiz tarafından değerlendirilecek.</p> : <>
+                    <button type="button" className="button button-primary" disabled={!higher || busy || loading || loadError} onClick={() => void submit()}>{busy ? 'Talep iletiliyor…' : error ? 'Aynı talebi yeniden kontrol et' : 'Paket değişikliği talep et'}</button>
+                    <small>Talep iletmek ödeme başlatmaz. Paketiniz ekibimizin onayından sonra değişir.</small>
+                </>}
+            </div>
+            {error ? <p className={styles.requestError} role="alert">{error}</p> : null}
+        </section>
+
+        <section className={styles.comparisonSection} aria-labelledby="plan-comparison-title">
+            <h2 id="plan-comparison-title">Paketleri karşılaştır</h2>
+            <div className={styles.featureTable} role="region" aria-label="Paket özellik karşılaştırması" tabIndex={0}><table>
+                <thead><tr><th scope="col">Özellik</th>{COMMERCIAL_PACKAGES.map(plan => <th scope="col" key={plan.id} className={selectedId === plan.id ? styles.selectedColumn : undefined}>{plan.name}</th>)}</tr></thead>
+                <tbody>
+                    {quotaRows.map(row => <tr key={row.label}><th scope="row">{row.label}</th>{COMMERCIAL_PACKAGES.map(plan => <td key={plan.id} className={selectedId === plan.id ? styles.selectedColumn : undefined}>{row.value(plan)}</td>)}</tr>)}
+                    <tr><th scope="row">Mağaza, ödeme, kargo ve temel analizler</th>{COMMERCIAL_PACKAGES.map(plan => <td key={plan.id} className={selectedId === plan.id ? styles.selectedColumn : undefined}><Check size={16} aria-hidden="true"/><span className="sr-only">Var</span></td>)}</tr>
+                    {CAPABILITIES.map(capability => <tr key={capability}><th scope="row">{COMMERCIAL_CAPABILITY_LABELS[capability]}</th>{COMMERCIAL_PACKAGES.map(plan => <td key={plan.id} className={selectedId === plan.id ? styles.selectedColumn : undefined}>{commercialPackageHasCapability(plan, capability) ? <><Check size={16} aria-hidden="true"/><span className="sr-only">Var</span></> : <span aria-label="Üst paketlerde">—</span>}</td>)}</tr>)}
+                </tbody>
+            </table></div>
+            <p className={styles.terms}>Her paket bir mağaza içindir. Yapay zekâ, mesaj, ödeme ve kargo sağlayıcısı ücretleri kullanımınıza göre ayrıca oluşur.</p>
+        </section>
+    </div>;
 }
