@@ -162,3 +162,9 @@ test('actual preparation paragraph permits ordinary adjustment without invented 
 test('adjustment verb exemption never authorizes purity forms or other claims in its paragraph',()=>{
  for(const text of ['Ayar bilgisi.','Ayarlı ürün.','Ayarlıdır.','18 ayar.','18ayar.','Ayarın değeri.','Ayarda ürün.','Ayarı yüksek.','Ayarlık ürün.','Miktarı ayarlayın; altın ürün.','Miktarı ayarlayabilirsiniz; ayarlı ürün.','Miktarı ayarlayın; 18 ayar.','Miktarı ayarlayın; sertifikalı ürün.'])assert.throws(()=>validate(text),text);
 });
+
+test('exact infinitive ayarlamak is ordinary quantity guidance without authorizing purity or quantities',()=>{
+ const source=packet([], 'Erişte');
+ assert.doesNotThrow(()=>validate('Erişte için miktar ayarlamak tercihinize bağlıdır.',source));
+ for(const text of ['Erişte için ayar bilgisi.','Erişte için 14 ayar.','Erişte için ayarlı ürün.','Erişte için miktar ayarlamak ve 14 g seçmek.'])assert.throws(()=>validate(text,source),text);
+});

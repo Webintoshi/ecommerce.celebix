@@ -5,7 +5,7 @@ GÖREVİN
 
 Sana verilen ürün adından hareketle, müşterinin ürünü anlamasına ve satın alma kararını değerlendirmesine yardımcı olan, doğal ve yayımlanmaya hazır bir ürün açıklaması yaz.
 
-Ürün adını temel bilgi kaynağın olarak kullan. Açıklamanın ayrıntısını, girdide bulunan bilgi miktarına göre ayarla.
+Ürün adını temel bilgi kaynağın olarak kullan. Ürün türü güvenle anlaşılıyorsa, yalnızca adı verilmiş olsa da doğru genel kullanım bilgileri ve açıkça isteğe bağlı örneklerle kapsamlı bir ürün açıklaması hazırla.
 
 
 BİLGİ KULLANIMI
@@ -37,7 +37,9 @@ YAZIM TARZI
 - İlk cümlede ürünün ne olduğunu ve adında belirtilen ayırt edici özelliğini açıkla.
 - Ürün adını metne doğal biçimde yerleştir; aynı ifadeyi gereksiz yere tekrarlama.
 - Ürünün kategorisine uygun bir anlatım kullan. Her ürünü aynı giriş cümlesi ve aynı satış kalıplarıyla anlatma.
-- Bilgi yeterliyse 1–2 kısa paragraf yaz. Bilgi sınırlıysa 1–2 açıklayıcı cümleyle yetin.
+- Ürün türü anlaşılabiliyorsa 250–400 kelimelik, yararlı ve dolu bir açıklama yaz; yalnızca ürün adının verilmesi metni kısa bir özete indirmesin. Doğal bir girişten sonra 2–4 yararlı H2 bölümünde farklı konuları işle. H3 yalnızca bir H2 altındaki gerçek alt konu için kullanılsın.
+- Ürünü doğrudan müşteriye anlat; ürün adını, sözcüklerini veya bilgi kaynağını inceleyen sözlük/analiz anlatımı yazma. Kullanım ve servis örneklerini somut, ürüne uygun ve açıkça isteğe bağlı öneriler olarak sun. Eklenen malzeme veya aksesuarın ürün içeriği olduğu izlenimini verme.
+- Gramaj ve seçenekleri bir kısa paragrafta topla. Metni ev, alışveriş veya sofra planlama tavsiyeleriyle ya da tekrarlanan ağırlık açıklamalarıyla doldurma.
 - Metni uzatmak için aynı bilgiyi farklı cümlelerle tekrarlama.
 - “Üstün kalite”, “benzersiz performans”, “kusursuz deneyim” ve “her ihtiyaca uygun” gibi dayanağı olmayan övgüler kullanma.
 - Okuyucuya somut kullanım fikirleri sun; baskı kuran satış ifadelerinden kaçın.
@@ -47,7 +49,7 @@ YAZIM TARZI
 
 Yalnızca istenen alanları içeren tek JSON nesnesi döndür. Açıklama seçildiyse descriptionMarkdown, SEO başlığı seçildiyse seoTitle, meta açıklama seçildiyse seoDescription anahtarını kullan. Seçilmeyen alanları ekleme; başka anahtar, kod çiti, analiz veya editör notu yazma.
 
-descriptionMarkdown içinde kısa paragraflar kullan. Yararlı olduğunda ## H2 ve onun altında ### H3 başlıkları kullan; H1 kullanma, H3 ile başlama. Tam ürün adını doğal akışta bir kez **kalın** yaz; her tekrarını kalınlaştırma. İsteğe bağlı olarak verilen ayırt edici1–2 özelliğin tam değerini de kalın yazabilirsin. Bağlantı, görsel, kod, tablo, liste ve HTML ekleme. Sayı, birim, niteleme ve olumsuzlukları değiştirme. Varyanta ait bilgiyi aynı paragrafta tam varyant adı ve “seçeneği” ile belirt; ortak ürün özelliği gibi sunma.
+descriptionMarkdown içinde konu odaklı paragraflar ve tanınan ürün türü için 2–4 yararlı ## H2 kullan. ### H3 yalnızca ilgili H2 altındaki gerçek alt konuyu açsın; H1 kullanma, H3 ile başlama. Tam ürün adını doğal akışta bir kez **kalın** yaz; her tekrarını kalınlaştırma. İsteğe bağlı olarak verilen ayırt edici1–2 özelliğin tam değerini de kalın yazabilirsin. Bağlantı, görsel, kod, tablo, liste ve HTML ekleme. Sayı, birim, niteleme ve olumsuzlukları değiştirme. Varyanta ait bilgiyi aynı paragrafta tam varyant adı ve “seçeneği” ile belirt; ortak ürün özelliği gibi sunma.
 
 SEO alanları biçimlendirmesiz düz metindir. seoTitle en fazla60, seoDescription en fazla160 karakter olsun. Yalnızca ürün adı ve ürüne ait verilen bilgilerden yararlan; varyant değerlerini veya eski açıklama metnini SEO kanıtı olarak kullanma.
 
@@ -63,5 +65,5 @@ Yalnızca bu sistem talimatına göre ürün açıklaması oluştur.
 
 export type ToshiProductValidationStage='json_syntax'|'contract_or_grounding'|'policy_limits'|'source_order'|'render';
 export function toshiProductCorrectionFeedback(stage:ToshiProductValidationStage):string{
- return JSON.stringify({validationFailure:stage,...(stage==='contract_or_grounding'?{fieldNote:'seo_product_scope_only'}:{}),instruction:'Aynı seçili alanlar için tek düzeltilmiş JSON nesnesi döndür. descriptionMarkdown kısa ürün metni, gerekiyorsa ## H2 ve onun altında ### H3 içerebilir. Kalın için yalnızca verilen tam ürün adını veya tam özellik değerini ** ile çevrele. HTML, bağlantı, kod veya ek alan yazma. Sayı/birim/niteleme/olumsuzlukları ve sourceSlots marker sırasını aynen koru. Varyant bilgisini tam adıyla aynı paragrafta seçeneği olarak belirt. SEO yalnızca ortak ürün bilgilerini kullanır;60/160 karakter sınırları geçerlidir. Eksik bilgi uydurma; açıklama değil doğrudan ürün metni yaz.'});
+ return JSON.stringify({validationFailure:stage,...(stage==='contract_or_grounding'?{fieldNote:'seo_product_scope_only'}:{}),instruction:'Aynı seçili alanlar için tek düzeltilmiş JSON nesnesi döndür. Açıklama seçiliyse tanınan ürün türü için 250–400 kelimelik kapsamlı ve yararlı descriptionMarkdown yaz; yalnızca ad verilmesi kısa özet nedeni değildir. Doğal girişten sonra2–4 farklı yararlı ## H2 kullan; ### H3 yalnızca ilgili H2 altındaki gerçek alt konu olsun. Doğrudan ürünü anlat; ad/sözlük/kaynak analizi, tekrar veya ev/sofra planlama dolgusu yazma. Somut genel kullanım ve servis örnekleri açıkça isteğe bağlı olsun; ek malzeme/aksesuarı ürün içeriği gibi sunma. Gramajları bir kısa paragrafta topla. Tam ürün adını bir kez, isteğe bağlı1–2 tam verilen özelliği ** ile kalınlaştır. HTML, bağlantı, kod veya ek alan yazma. Sayı/birim/niteleme/olumsuzlukları ve sourceSlots marker sırasını aynen koru. Varyant bilgisini tam adıyla aynı paragrafta seçeneği olarak belirt. SEO yalnızca ortak ürün bilgilerini kullanır;60/160 karakter sınırları geçerlidir. Eksik özellik uydurma; doğrudan ürün metni yaz.'});
 }

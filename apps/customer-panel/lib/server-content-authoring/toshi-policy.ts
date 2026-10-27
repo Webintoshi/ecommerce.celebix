@@ -18,3 +18,18 @@ export function assertToshiGeneratedLimits(draft:ContentAuthoringDraft):void{
   if(strings.join(' ').split(/\s+/u).filter(word=>/[\p{L}\p{N}]/u.test(word)).length>1000)throw TypeError('invalid_output');
  }
 }
+
+/** Fresh AUTO copy must be a developed article, not the old two-sentence result. */
+export function assertProductWriterCompleteness(draft:ContentAuthoringDraft):void{
+ if(!draft.description)return;
+ const words=(text:string)=>(text.replace(/\p{Cf}/gu,'').match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)??[]).length;
+ const inline=(nodes:readonly import('../../../../packages/saas-contracts/src/content-authoring/types.ts').ContentAuthoringTextNode[])=>nodes.map(n=>n.type==='text'?n.text:n.value+(n.unit?' '+n.unit:'')).join('');
+ let bodyWords=0,sections=0;
+ for(const block of draft.description){
+  if(block.type==='heading'){if(block.level===2&&words(inline(block.children)))sections++;}
+  else if(block.type==='paragraph')bodyWords+=words(inline(block.children));
+  else if(block.type==='list')for(const item of block.items)bodyWords+=words(inline(item));
+  else for(const row of block.rows)for(const cell of row)bodyWords+=words(inline(cell));
+ }
+ if(bodyWords<180||sections<2)throw TypeError('invalid_output');
+}

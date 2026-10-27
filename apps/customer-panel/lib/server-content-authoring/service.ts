@@ -11,7 +11,7 @@ import type { ToshiGenerationRegistry } from '../toshi-generation/types.ts';
 import { fingerprintContentAuthoringRequest } from './facts.ts';
 import { renderContentAuthoringDescription } from './render.ts';
 import { attachAutomaticProductSource,assertAutomaticSourcePreserved } from './automatic-source.ts';
-import { assertToshiGeneratedLimits,automaticFieldActions } from './toshi-policy.ts';
+import { assertToshiGeneratedLimits,assertProductWriterCompleteness,automaticFieldActions } from './toshi-policy.ts';
 import { TOSHI_PRODUCT_EDITORIAL_PROMPT,toshiProductCorrectionFeedback,type ToshiProductValidationStage } from './editorial-prompt.ts';
 import {withProductFormattingFacts,createProductWriterProtocol}from'./writer-protocol.ts';
 const SAFE=new Set(['insufficient_credits','source_preservation_required','invalid_input','unauthenticated','membership_denied','store_inactive','feature_unavailable','credential_invalid','connection_missing','connection_revoked','model_unavailable','rate_limited','quota_exceeded','operation_busy','operation_mismatch','operation_not_found','version_conflict','lease_expired','dispatch_already_claimed','provider_timeout','provider_unavailable','invalid_output','cancelled','unavailable','commit_unknown']);
@@ -111,7 +111,7 @@ export function createContentAuthoringService(deps:Dependencies){
      if(request.action==='auto'&&parsed&&typeof parsed==='object'&&!Array.isArray(parsed))for(const field of ['seoTitle','seoDescription'])if(typeof parsed[field]==='string')parsed[field]=parsed[field].normalize('NFC');
      draft=checked('contract_or_grounding',()=>validateProductDraftOutput(writer?writer.decode(parsed):parsed,packet,request.fields));
     }catch{draft=preservedSeoOnlyDraft(packet,request.fields);if(!draft)throw new ContentAuthoringError('invalid_output');}
-    if(request.action==='auto'){checked('policy_limits',()=>assertToshiGeneratedLimits(draft));checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));}
+    if(request.action==='auto'){checked('policy_limits',()=>{assertToshiGeneratedLimits(draft);assertProductWriterCompleteness(draft);});checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));}
     if(draft.description)checked('render',()=>renderContentAuthoringDescription(draft.description!));return draft;
    };
    let draft;try{draft=validate();}catch{

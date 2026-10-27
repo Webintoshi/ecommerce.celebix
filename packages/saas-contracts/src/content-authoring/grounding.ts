@@ -34,7 +34,7 @@ const critical = new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:` + [
 // Altından and noun/case variants remain protected: they can assert gold material.
 const spatialUnder = /(^|[^\p{L}\p{N}])((?:elinin|elinizin)\s+)(altında|altındaki)(?=$|[^\p{L}\p{N}])/gu;
 // These complete adjustment verbs do not describe metal purity.
-const ordinaryAdjust = /(^|[^\p{L}\p{N}])(ayarlayabilirsiniz|ayarlayın)(?=$|[^\p{L}\p{N}])/gu;
+const ordinaryAdjust = /(^|[^\p{L}\p{N}])(ayarlayabilirsiniz|ayarlayın|ayarlamak)(?=$|[^\p{L}\p{N}])/gu;
 function criticalProjection(raw: string): string {
   const original = raw.normalize('NFKC').toLocaleLowerCase('tr-TR').normalize('NFC').replace(/\p{Cf}/gu, '');
   // Nulls preserve normalized positions without joining or authorizing other
