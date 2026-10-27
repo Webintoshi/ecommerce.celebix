@@ -12,14 +12,20 @@ async function withProductBrowser(run: Parameters<typeof withBaseProductBrowser>
 }
 type ConsentProps = Omit<typeof props, "projection"> & { projection: PublicGoogleMarketingProjection; preferencesPlacement?: "floating" | "footer" };
 function component(pathname = "/products/example") { return componentLoader({ "next/navigation": { usePathname: () => pathname } })<{ GoogleMarketingConsent: React.ComponentType<ConsentProps> }>(new URL("./GoogleMarketingConsent.tsx", import.meta.url)).GoogleMarketingConsent; }
-test("banner gives equal accept and reject controls with no initial Google loader", async () => {
+test("first visit keeps the banner closed without recording consent or loading Google; manual preferences retain equal choices", async () => {
   const Consent = component();
   await withProductBrowser(async ({ container, render, click }) => {
     // Simulate load completion locally; never execute or request a Google script in this fixture.
     Object.assign((window as unknown as Window).happyDOM.settings, { disableJavaScriptFileLoading: true, handleDisabledFileLoadingAsSuccess: true });
     await render(React.createElement(Consent, props));
-    assert.ok(container.querySelector('[role="region"][aria-label="Çerez tercihleri"]'));
+    assert.ok(!container.querySelector('[role="region"][aria-label="Çerez tercihleri"]'));
+    assert.equal(window.localStorage.getItem(`celebix:google-consent:v1:${props.storeId}:${props.hostname}`), null);
     assert.equal(document.querySelector('script[src*="googletagmanager"]'), null);
+    await click('button[aria-expanded="false"]');
+    assert.ok(container.querySelector('[data-google-consent="granted"]'));
+    assert.ok(container.querySelector('[data-google-consent="denied"]'));
+    assert.equal(document.querySelector('script[src*="googletagmanager"]'), null);
+    assert.equal(window.localStorage.getItem(`celebix:google-consent:v1:${props.storeId}:${props.hostname}`), null);
     await click('[data-google-consent="denied"]');
     assert.equal(document.querySelector('script[src*="googletagmanager"]'), null);
     assert.equal(container.querySelector('[data-google-consent="granted"]'), null);
@@ -32,6 +38,7 @@ test("acceptance loads one GTM script across strict effects and preferences rema
   await withProductBrowser(async ({ container, render, click }) => {
     Object.assign((window as unknown as Window).happyDOM.settings, { disableJavaScriptFileLoading: true, handleDisabledFileLoadingAsSuccess: true });
     await render(React.createElement(React.StrictMode, null, React.createElement(Consent, props)));
+    await openPreferences();
     await click('[data-google-consent="granted"]');
     assert.equal(document.querySelectorAll('script[src*="googletagmanager"]').length, 1);
     assert.equal((document.querySelector('script[src*="googletagmanager"]') as HTMLScriptElement)?.nonce, props.nonce);
@@ -47,6 +54,7 @@ for (const choice of ["granted", "denied"] as const) {
       footer.setAttribute("data-google-consent-preferences-host", "");
       document.body.append(footer);
       await render(React.createElement(React.StrictMode, null, React.createElement(Consent, { ...props, preferencesPlacement: "footer" })));
+      await openPreferences();
       await click(`[data-google-consent="${choice}"]`);
       assert.equal(container.querySelector('[role="region"][aria-label="Çerez tercihleri"]'), null);
       assert.ok(!document.querySelector(".google-consent-preferences"), "footer mode must not leave a floating preferences control");
@@ -116,9 +124,14 @@ test("server captured-result component requests one reread without remounting th
 });
 test("captured result signals cannot fetch or convert after consent is denied",async()=>{
  const Consent=component("/checkout/payment/result");const previousFetch=globalThis.fetch;let requests=0;globalThis.fetch=(async()=>{requests++;return Response.json({purchase:null});}) as typeof fetch;
- try{await withProductBrowser(async({render,click})=>{await render(React.createElement(Consent,props));await click('[data-google-consent="denied"]');await React.act(async()=>window.dispatchEvent(new window.Event("celebix:google-payment-captured")));assert.equal(requests,0);assert.equal(document.querySelector('script[src*="googletagmanager"]'),null);});}finally{globalThis.fetch=previousFetch;}
+ try{await withProductBrowser(async({render,click})=>{await render(React.createElement(Consent,props));await openPreferences();await click('[data-google-consent="denied"]');await React.act(async()=>window.dispatchEvent(new window.Event("celebix:google-payment-captured")));assert.equal(requests,0);assert.equal(document.querySelector('script[src*="googletagmanager"]'),null);});}finally{globalThis.fetch=previousFetch;}
 });
 
+async function openPreferences() {
+  const trigger = document.querySelector<HTMLButtonElement>(".google-consent-preferences, .google-consent-preferences-inline");
+  assert.ok(trigger, "manual consent preferences remain available");
+  await React.act(async () => trigger.click());
+}
 function localGoogleScripts() {
   Object.assign((window as unknown as Window).happyDOM.settings, { disableJavaScriptFileLoading: true, handleDisabledFileLoadingAsSuccess: true });
   let reloads = 0;
@@ -128,6 +141,20 @@ function localGoogleScripts() {
 function storedConsent(value: "granted" | "denied") {
   window.localStorage.setItem(`celebix:google-consent:v1:${props.storeId}:${props.hostname}`, JSON.stringify({ version: 1, value, expires: Date.now() + 60000 }));
 }
+test("a stored grant remains revocable through manual preferences without an automatic banner", async () => {
+  const Consent = component();
+  await withProductBrowser(async ({ container, render, click }) => {
+    const reloads = localGoogleScripts(); storedConsent("granted");
+    await render(React.createElement(Consent, props));
+    assert.ok(!container.querySelector('[role="region"][aria-label="Çerez tercihleri"]'));
+    assert.equal(document.querySelectorAll('script[src*="googletagmanager"]').length, 1);
+    await openPreferences();
+    await click('[data-google-consent="denied"]');
+    assert.equal(JSON.parse(window.localStorage.getItem(`celebix:google-consent:v1:${props.storeId}:${props.hostname}`)!).value, "denied");
+    assert.ok(!document.querySelector('script[src*="googletagmanager"]'));
+    assert.equal(reloads(), 1);
+  });
+});
 test("a newly connected container is adopted before consent without loading or reloading early", async () => {
   const Consent = component();
   await withProductBrowser(async ({ render, click }) => {
@@ -136,6 +163,7 @@ test("a newly connected container is adopted before consent without loading or r
     await render(React.createElement(Consent, props));
     assert.equal(document.querySelector('script[src*="googletagmanager"]'), null);
     assert.equal(reloads(), 0);
+    await openPreferences();
     await click('[data-google-consent="granted"]');
     assert.equal((document.querySelector('script[src*="googletagmanager"]') as HTMLScriptElement)?.src, "https://www.googletagmanager.com/gtm.js?id=GTM-ABC123");
   });
@@ -253,6 +281,7 @@ test("a document without a trusted initial nonce stays disabled without a reload
   await withBaseProductBrowser(async ({ render, click }) => {
     const reloads = localGoogleScripts();
     await render(React.createElement(React.StrictMode, null, React.createElement(Consent, props)));
+    await openPreferences();
     await click('[data-google-consent="granted"]');
     assert.equal(reloads(), 0); assert.equal(document.querySelector('script[src*="googletagmanager"]') === null, true);
     assert.equal((window as unknown as { dataLayer?: unknown[] }).dataLayer, undefined);
