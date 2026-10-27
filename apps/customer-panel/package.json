@@ -16,7 +16,8 @@
     "test:lucky-wheel": "node --experimental-transform-types --test lib/lucky-wheel-ui/*.test.ts lib/lucky-wheel-http/*.test.ts lib/server-lucky-wheel/*.test.ts components/promotions/LuckyWheel*.behavior.test.ts",
     "test:admin-login": "node --experimental-transform-types --test --test-concurrency=1 lib/admin-login-security-ui/*.test.ts lib/admin-login-security/*.test.ts components/auth/AdminWhatsAppVerification.behavior.test.ts components/settings/AdminLoginSecurityConsole.behavior.test.ts lib/panel-session-completion/*.test.ts lib/cross-host-session-handoff/*.test.ts lib/platform-invitations/*.test.ts",
     "prebuild": "node ../../scripts/signup-release-proof.mjs",
-    "test:trendyol": "node --experimental-transform-types --test lib/trendyol-http/*.test.ts lib/trendyol-ui/*.test.ts components/trendyol/*.test.ts && node --conditions=react-server --experimental-transform-types --test lib/server-trendyol/*.test.ts"
+    "test:trendyol": "node --experimental-transform-types --test lib/trendyol-http/*.test.ts lib/trendyol-ui/*.test.ts components/trendyol/*.test.ts && node --conditions=react-server --experimental-transform-types --test lib/server-trendyol/*.test.ts",
+    "test:toshi-authoring": "node --conditions=react-server --experimental-transform-types --test lib/server-content-authoring/*.test.ts lib/content-authoring-http/*.test.ts lib/server-toshi-credits/*.test.ts lib/toshi-generation/*.test.ts lib/server-toshi-providers/central*.test.ts ../../packages/saas-contracts/src/content-authoring/*.test.ts && node --experimental-transform-types --test lib/content-authoring-ui/*.test.ts components/content-authoring/*.test.ts components/catalog/ProductDescriptionField.ai.behavior.test.ts components/catalog/ProductDetailAuthoring.behavior.test.ts components/catalog/ProductAdvancedCreate.behavior.test.ts components/catalog/ProductMediaManager.behavior.test.ts"
   },
   "dependencies": {
     "@bwip-js/browser": "^4.11.4",

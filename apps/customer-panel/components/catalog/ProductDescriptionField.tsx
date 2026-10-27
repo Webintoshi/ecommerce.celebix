@@ -36,7 +36,7 @@ import {
   normalizePastedProductDescriptionHtml,
   normalizeStoredProductDescription,
 } from "@/lib/product-description-editor";
-import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
+import { ContentAuthoringPanel, type ContentAuthoringBridge, type ContentAuthoringIntent } from "@/components/content-authoring/ContentAuthoringPanel";
 import { ContentAuthoringOrigin, applyDescriptionDraft, canApplyDescriptionDraft, captureDescriptionSelection, descriptionOrigin, type PendingContentOrigin } from "@/lib/content-authoring-ui/editor";
 import { renderContentAuthoringDescription } from "@/lib/server-content-authoring/render";
 import type { ContentAuthoringRequest, ContentAuthoringField, ContentGenerationView } from "@celebix/saas-contracts";
@@ -128,6 +128,7 @@ export function ProductDescriptionField({
 }: ProductDescriptionFieldProps) {
   const initialValue = useMemo(() => normalizeStoredProductDescription(defaultValue), [defaultValue]);
   const [aiOpen, setAiOpen] = useState(false);
+  const authoringIntent = useRef<ContentAuthoringIntent|null>(null);
   const aiTrigger = useRef<HTMLButtonElement>(null);
   const edited = useRef(false);
   const loadedOrigin = useRef(initialOrigin);
@@ -322,7 +323,7 @@ export function ProductDescriptionField({
           </div>
         ) : null}
 
-        {aiOpen && authoring && aiAvailable ? <ContentAuthoringPanel bridge={bridge} fields={authoring.fields} onClose={closeAi} /> : null}
+        {aiOpen && authoring && aiAvailable ? <ContentAuthoringPanel intentState={authoringIntent} bridge={bridge} fields={authoring.fields} onClose={closeAi} /> : null}
 
         {linkPanel ? (
           <div className={styles.linkPanel} role="dialog" aria-label="Bağlantı düzenle">

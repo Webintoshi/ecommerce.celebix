@@ -1,0 +1,61 @@
+name: Toshi authoring guard
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/toshi-authoring-guard.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/customer-panel/**'
+      - 'packages/saas-contracts/**'
+      - 'packages/saas-data/**'
+      - 'packages/platform-config/src/product-description-rich-text*'
+      - 'apps/owner/scripts/sql/saas/*toshi*'
+      - 'tests/saas-phase3/merchant-signup-profile/disposable-postgres.mjs'
+      - 'tests/saas-phase3/admin-login-security/baseline.mjs'
+  push:
+    paths:
+      - '.github/workflows/toshi-authoring-guard.yml'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'apps/customer-panel/**'
+      - 'packages/saas-contracts/**'
+      - 'packages/saas-data/**'
+      - 'packages/platform-config/src/product-description-rich-text*'
+      - 'apps/owner/scripts/sql/saas/*toshi*'
+      - 'tests/saas-phase3/merchant-signup-profile/disposable-postgres.mjs'
+      - 'tests/saas-phase3/admin-login-security/baseline.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toshi-authoring-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  authoring:
+    name: Content, recovery and credit invariants
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Use repository npm version
+        run: npm install -g npm@11.8.0
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify authoring and recovery without external calls
+        run: npm run test:toshi-authoring
+      - name: Install disposable PostgreSQL 16 binaries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-client-16
+      - name: Verify native credits, lease and rendering contracts
+        env:
+          CELEBIX_TEST_PG_BIN: /usr/lib/postgresql/16/bin
+        run: npm run test:toshi-authoring:native

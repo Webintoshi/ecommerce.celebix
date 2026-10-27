@@ -1,3 +1,4 @@
+import * as ReactDom from "react-dom";
 import {compile as compileCatalogSort} from "../../lib/mira-final-test-support.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -31,7 +32,7 @@ async function withDetail(verify:(h:{container:HTMLElement;browser:Window;reques
  let descriptionAuthoring:any,productCapture:any;const requests:any[]=[],variantRequests:any[]=[],generationRequests:any[]=[];let resolveGeneration!:(value:any)=>void; let failure:string|null=null;let reloadFailure:string|null=null;
  const compile=async(file:string,imports:Record<string,unknown>)=>{
   const source=await readFile(new URL(file,import.meta.url),"utf8");const output=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
-  const module={exports:{} as Record<string,any>};Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name],module,module.exports);return module.exports;
+  const module={exports:{} as Record<string,any>};Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react-dom"?ReactDom:name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name],module,module.exports);return module.exports;
  };
  const panel=await compile("../content-authoring/ContentAuthoringPanel.tsx",{"@/components/panel/PanelLayoutClient":{usePanelChromeModel:()=>({activeStoreSelectionKey:"fixture-store"})},"@/lib/content-authoring-ui/store-writing-preferences":writingPreferences,"@/lib/content-authoring-ui/client":authoringClient,"@/lib/content-authoring-ui/credits-client":authoringCredits,"@/lib/content-authoring-ui/image-alts":authoringImages,"@/lib/content-authoring-ui/state":authoringState,"@/lib/server-content-authoring/render":descriptionRenderer});
  const measurementFields=await compile("./ProductMeasurementFields.tsx",{"@/lib/catalog-ui/product-measurements":measurements});
@@ -74,7 +75,7 @@ async function withDetail(verify:(h:{container:HTMLElement;browser:Window;reques
  const source=await readFile(new URL("./ProductDetailConsole.tsx",import.meta.url),"utf8");
  const output=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
  const module={exports:{} as Record<string,unknown>};
- Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name]??new Proxy({},{get:()=>()=>null}),module,module.exports);
+ Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react-dom"?ReactDom:name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name]??new Proxy({},{get:()=>()=>null}),module,module.exports);
  const {createRoot}=await import("react-dom/client"); const container=browser.document.createElement("div") as unknown as HTMLElement; browser.document.body.append(container as never);const root=createRoot(container);
  const button=(text:string)=>{const result=[...container.querySelectorAll("button")].find(b=>b.textContent?.trim()===text);assert.ok(result,text+" available="+[...container.querySelectorAll("button")].map(b=>b.textContent).join("|"));return result;};
  try {await act(async()=>root.render(createElement(module.exports.ProductDetailConsole as React.ComponentType<any>,{productId:product.id,canManage:true,canArchive})));

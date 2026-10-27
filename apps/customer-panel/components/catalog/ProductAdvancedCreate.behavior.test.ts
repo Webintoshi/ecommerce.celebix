@@ -1,3 +1,4 @@
+import * as ReactDom from "react-dom";
 import * as authoringImages from "../../lib/content-authoring-ui/image-alts.ts";
 import * as authoringCredits from "../../lib/content-authoring-ui/credits-client.ts";
 import { installCatalogSortRects, beginCatalogMouseDrag, dropCatalogMouseDrag, dragCatalogItem } from "./catalog-sort-test-utils.ts";
@@ -53,6 +54,7 @@ async function compile(url: URL, imports: Record<string, unknown>) {
     if (name === "@/lib/catalog-ui/product-tax") return productTax;
     if (name === "@/lib/content-authoring-ui/image-alts") return authoringImages;
     if (name === "@/lib/content-authoring-ui/credits-client") return authoringCredits;
+    if (name === "react-dom") return ReactDom;
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });

@@ -22,7 +22,7 @@ export function assertToshiGeneratedLimits(draft:ContentAuthoringDraft):void{
 /** Fresh AUTO copy must be a developed article, not the old two-sentence result. */
 export function assertProductWriterCompleteness(draft:ContentAuthoringDraft):void{
  if(!draft.description)return;
- const words=(text:string)=>(text.replace(/\p{Cf}/gu,'').match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)??[]).length;
+ const words=(text:string)=>(text.replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu,'').match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)??[]).length;
  const inline=(nodes:readonly import('../../../../packages/saas-contracts/src/content-authoring/types.ts').ContentAuthoringTextNode[])=>nodes.map(n=>n.type==='text'?n.text:n.value+(n.unit?' '+n.unit:'')).join('');
  let bodyWords=0,sections=0;
  for(const block of draft.description){

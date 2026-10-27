@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "c2e31f2812b3e7064a1213486ff83eeb117e6faf1b52b5db295d15e52a5e689c",
+  "inputDigest": "517fa15bcfd1d103ff4da88f9b0f21f548695da8cef95590567bf85241ee11c0",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -269,7 +269,7 @@
     },
     {
       "path": "apps/customer-panel/package.json",
-      "sha256": "b7e1d9d84bd0140c3395758eda8ef6a37d8cb3033308c56799639aeede4e5208"
+      "sha256": "52002d1ad6cdc680dcb44c4255d28f9652588a32886bd7cc9391c0cfd39776d5"
     },
     {
       "path": "apps/media-gateway/package.json",
@@ -3433,7 +3433,7 @@
     },
     {
       "path": "package.json",
-      "sha256": "e6858688a718ea6f6acb86bb14ffd6500e7ba86a14ffd1c7997358094b1265f7"
+      "sha256": "cd0aecd5d91a6272e4a3efa5448cabf8c1adb2d03e313646c4ec7661c2cafb5a"
     },
     {
       "path": "packages/payment-adapters/package.json",

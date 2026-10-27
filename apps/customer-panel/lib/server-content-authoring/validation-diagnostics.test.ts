@@ -23,3 +23,21 @@ test('diagnostic logging is best effort and never propagates sink errors',async(
  assert.doesNotThrow(()=>reportProductValidationFailure(input,()=>{throw Error('PRIVATE_ERROR');}));
  assert.doesNotThrow(()=>reportProductValidationFailure(input,async()=>{throw Error('PRIVATE_ERROR');}));await new Promise(resolve=>setImmediate(resolve));
 });
+
+test('diagnostic body and section counts ignore Unicode letter fillers and format controls',()=>{
+ const invisible='\u115f \u1160 \u3164 \uffa0 \u200b \u0600';
+ const diagnostic=createProductValidationDiagnostic({attempt:1,stage:'completeness',output:{text:''},sourceSlotsExpected:0,draft:{description:[
+  {type:'heading',level:2,children:[{type:'text',text:invisible}]},
+  {type:'paragraph',children:[{type:'text',text:'Erişte '+Array(180).fill(invisible).join(' ')}]},
+  {type:'heading',level:2,children:[{type:'text',text:'Kullanım önerileri'}]},
+ ]}});
+ assert.ok(diagnostic);assert.equal(diagnostic.counts.bodyWords,1);assert.equal(diagnostic.counts.h2Count,1);
+});
+test('diagnostics preserve genuine Turkish and CJK word and heading counts',()=>{
+ const diagnostic=createProductValidationDiagnostic({attempt:1,stage:'completeness',output:{text:''},sourceSlotsExpected:0,draft:{description:[
+  {type:'heading',level:2,children:[{type:'text',text:'Ürünü tanıyın'}]},
+  {type:'paragraph',children:[{type:'text',text:'Türkçe ürün açıklaması 商品 使用例'}]},
+  {type:'heading',level:2,children:[{type:'text',text:'商品紹介'}]},
+ ]}});
+ assert.ok(diagnostic);assert.equal(diagnostic.counts.bodyWords,5);assert.equal(diagnostic.counts.h2Count,2);
+});

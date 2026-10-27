@@ -85,7 +85,8 @@ export function createContentAuthoringService(deps:Dependencies){
   const aborted=new Promise<never>((_,reject)=>{signal.addEventListener('abort',()=>reject(new ContentAuthoringError(input.signal.aborted?'cancelled':'provider_timeout')),{once:true});});void aborted.catch(()=>{});
   const bounded=<T>(p:Promise<T>)=>Promise.race([p,aborted]);const active=()=>{if(signal.aborted)throw new ContentAuthoringError(input.signal.aborted?'cancelled':'provider_timeout');};
   const base=()=>({tenantContext:input.tenantContext,operationId:input.operationId,now:deps.now()});
-  const terminal=async<T>(p:Promise<T>):Promise<T>=>{const remaining=endsAt-performance.now();if(remaining<=0)throw new ContentAuthoringError("provider_timeout");let t:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([p,new Promise<never>((_,reject)=>{t=setTimeout(()=>reject(new ContentAuthoringError("provider_timeout")),remaining);})]);}finally{if(t)clearTimeout(t);}};
+  const terminal=async<T>(p:Promise<T>):Promise<T>=>{const remaining=endsAt-performance.now();if(remaining<=0){void p.catch(()=>undefined);throw new ContentAuthoringError("provider_timeout");}let t:ReturnType<typeof setTimeout>|undefined;try{return await Promise.race([p,new Promise<never>((_,reject)=>{t=setTimeout(()=>reject(new ContentAuthoringError("provider_timeout")),remaining);})]);}finally{if(t)clearTimeout(t);}};
+  const observeUncertain=async()=>{try{return await terminal(deps.repository.getGeneration(base()));}catch{throw new ContentAuthoringError('commit_unknown');}};
   let knownUsage:ContentGenerationUsage|null=null;
   let row:ContentGeneration|undefined,claim:ContentGenerationDispatchClaim|undefined,finalizing=false,secret:Uint8Array|undefined,keyring:MerchantProviderCredentialKeyring|undefined;
   try{
@@ -133,9 +134,9 @@ export function createContentAuthoringService(deps:Dependencies){
    await authority();const usage=knownUsage;
    finalizing=true;return await terminal(deps.repository.completeGeneration({...base(),expectedVersion:claim.version,claimToken:claim.claimToken,validatedDraft:draft,usage}));
   }catch(error){
-   const safe=error instanceof ToshiGenerationError&&error.outcome?new ContentAuthoringError("invalid_output"):safeContentAuthoringError(error);if(!row){if(safe.code==='commit_unknown')return await terminal(deps.repository.getGeneration(base()));throw safe;}
+   const safe=error instanceof ToshiGenerationError&&error.outcome?new ContentAuthoringError("invalid_output"):safeContentAuthoringError(error);if(!row){if(safe.code==='commit_unknown')return await observeUncertain();throw safe;}
    // An uncertain claim/finalizer must only be observed; never repeat a mutation or external request.
-   if(finalizing||['commit_unknown','dispatch_already_claimed','version_conflict'].includes(safe.code))return await terminal(deps.repository.getGeneration(base()));
+   if(finalizing||['commit_unknown','dispatch_already_claimed','version_conflict'].includes(safe.code))return await observeUncertain();
    const unknown=!!claim&&['provider_timeout','provider_unavailable','cancelled'].includes(safe.code);
    try{return await terminal(deps.repository.failGeneration({...base(),expectedVersion:claim?.version??row.version,claimToken:claim?.claimToken??null,safeCode:safe.code,dispatchState:unknown?'unknown':claim?'dispatched':'not_dispatched',usage:claim&&safe.code==='invalid_output'?knownUsage:null}));}catch{return await terminal(deps.repository.getGeneration(base()));}
   }finally{clearTimeout(timer);secret?.fill(0);keyring?.keys.forEach(k=>k.key.fill(0));}

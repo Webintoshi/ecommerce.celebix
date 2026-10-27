@@ -13,9 +13,9 @@ export function createMeteredContentAuthoringService(service:ContentAuthoringSer
  const settle=async(g:ContentGeneration,base:{tenantContext:Parameters<ContentAuthoringService['getGeneration']>[0]['tenantContext'];operationId:string;now:Date})=>{
   if(g.status==='completed'&&g.draft){
    view(g);const fields=(['description','seoTitle','seoDescription']as ContentAuthoringField[]).filter(f=>g.draft![f]!==undefined);
-   try{await credits.complete({...base,fingerprint:g.requestFingerprint,result:g,chargedCredits:selectedContentCreditCost(fields)});}catch(error){if((error as {code?:string})?.code!=='operation_not_found')throw error;}
+   try{await credits.complete({...base,now:new Date(),fingerprint:g.requestFingerprint,result:g,chargedCredits:selectedContentCreditCost(fields)});}catch(error){if((error as {code?:string})?.code!=='operation_not_found')throw error;}
   }else if(g.status==='failed'||g.status==='unknown'){
-   try{await credits.fail({...base,fingerprint:g.requestFingerprint,safeCode:g.safeCode??'invalid_output',unknown:g.status==='unknown'});}catch(error){if((error as {code?:string})?.code!=='operation_not_found')throw error;}
+   try{await credits.fail({...base,now:new Date(),fingerprint:g.requestFingerprint,safeCode:g.safeCode??'invalid_output',unknown:g.status==='unknown'});}catch(error){if((error as {code?:string})?.code!=='operation_not_found')throw error;}
   }
   return g;
  };
@@ -28,14 +28,18 @@ export function createMeteredContentAuthoringService(service:ContentAuthoringSer
    if(reservation.kind!=='created'){
     try{return await settle(await service.getGeneration(base),base);}catch(error){if((error as {code?:string})?.code==='operation_not_found')throw new ContentAuthoringError('operation_busy');throw error;}
    }
-   try{return await settle(await service.generateContent(input),base);}
+   let generated:ContentGeneration;
+   try{generated=await service.generateContent(input);}
    catch(error){
     const code=String((error as {code?:string})?.code??'unavailable');
     // An uncertain finalizer is only observed, never released/redispatched by a timeout retry.
     if(code==='commit_unknown')throw error;
-    try{await credits.fail({...base,fingerprint,safeCode:/^[a-z][a-z0-9_]{0,63}$/.test(code)?code:'unavailable',unknown:['provider_timeout','provider_unavailable','cancelled'].includes(code)});}catch{/* Retained reservation expires without customer deduction. */}
+    try{await credits.fail({...base,now:new Date(),fingerprint,safeCode:/^[a-z][a-z0-9_]{0,63}$/.test(code)?code:'unavailable',unknown:['provider_timeout','provider_unavailable','cancelled'].includes(code)});}catch{/* Retained reservation expires without customer deduction. */}
     throw error;
    }
+   // A completed generation remains recoverable if wallet settlement is unavailable.
+   // Never turn a settlement error into a terminal release of its reservation.
+   return settle(generated,base);
   }
  });
 }

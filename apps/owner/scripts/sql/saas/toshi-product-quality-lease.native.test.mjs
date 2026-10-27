@@ -7,7 +7,8 @@ import {startDisposablePostgres} from '../../../../../tests/saas-phase3/merchant
 const dir=path.resolve(import.meta.dirname),migration='202610270285_toshi_product_quality_lease';
 const pg=startDisposablePostgres({database:'toshi_quality_lease285'}),{sql}=pg;
 const read=f=>readFileSync(path.join(dir,f),'utf8'),lit=s=>`'${String(s).replaceAll("'","''")}'`,json=v=>`${lit(JSON.stringify(v))}::jsonb`,j=q=>JSON.parse(sql(q));
-const id=n=>`28500000-0000-4000-8000-${String(n).padStart(12,'0')}`,P=id(100),PLAN='00000000-0000-4000-8000-000000000010',SOURCE='b'.repeat(64),FP='a'.repeat(64),NOW='2026-10-27T12:00:00.000Z';
+const id=n=>`28500000-0000-4000-8000-${String(n).padStart(12,'0')}`,P=id(100),PLAN='00000000-0000-4000-8000-000000000010',SOURCE='b'.repeat(64),FP='a'.repeat(64);
+let NOW;
 const signature='saas.content_authoring_claim(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,uuid,bigint)';
 const after=n=>new Date(Date.parse(NOW)+n*1000).toISOString();
 const auth=(store,time=NOW,extra={})=>`'${id(store)}','${extra.principal??P}','${extra.member??id(1000+store)}','${PLAN}','professional',${extra.planVersion??2},'${time}'`;
@@ -21,6 +22,10 @@ let checks=0;const check=(name,fn)=>{fn();console.log(`PASS ${++checks} ${name}`
 try{
  applyBaseline(sql,dir);
  for(const f of readdirSync(dir).filter(f=>/^\d{12}/.test(f)&&Number(f.slice(8,12))>227&&Number(f.slice(8,12))<=284&&/(?:\.up|\.seed|\.freeze|_grants)\.sql$/.test(f)).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12))||a.localeCompare(b)))sql(read(f));
+ // Revision248 publishes tariffs at database time. Anchor the logical test clock
+ // after that publication once; all lease boundary offsets remain deterministic.
+ const fixtureClock=j(`SELECT jsonb_build_object('publishedAt',valid_from,'now',date_trunc('milliseconds',greatest(clock_timestamp(),valid_from))+interval '1 second')FROM saas.plans WHERE id='${PLAN}'`);
+ NOW=fixtureClock.now;assert.ok(Date.parse(NOW)>Date.parse(fixtureClock.publishedAt));
  const before=catalog(),original=before[signature];assert.ok(original,'exact claim identity exists');
  assert.equal(createHash('md5').update(original.definition).digest('hex'),'e51b56bcf1f2f62a7ff555dc1dabbae3','native baseline matches reviewed production claim');
  if(!process.argv.includes('--baseline-red')){sql(read(migration+'.up.sql'));sql(read(migration+'.up.sql'));sql(read(migration+'_assertions.sql'));}
@@ -28,6 +33,7 @@ try{
  INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at)VALUES('${P}','https://lease285.example.test','staff285','staff285@example.test',true,'2026-01-01','2026-01-01');
  ${Array.from({length:14},(_,i)=>{const n=i+1;return`INSERT INTO saas.stores(id,name,slug,status,locale,currency,theme_key,created_at,updated_at)VALUES('${id(n)}','Lease ${n}','lease-${n}','active','tr','TRY','starter','2026-01-01','2026-01-01');INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at)VALUES('${id(1000+n)}','${P}','${id(n)}','store_owner','active','2026-01-01','2026-01-01');INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at)VALUES('${id(3000+n)}','${id(n)}','${PLAN}','professional',2,'active','2026-01-01','2026-01-01','2026-01-01');INSERT INTO saas.toshi_provider_configs(id,store_id,provider,sealed_credentials,credential_digest,credential_version,masked_key,selected_model,available_models,status,is_default,version,verified_at,created_at,updated_at)VALUES('${id(2000+n)}','${id(n)}','deepseek','{"algorithm":"A256GCM","ciphertext":"Y3JlZGVudGlhbA","iv":"MTIzNDU2Nzg5MDEy","keyId":"native-test-only","tag":"MTIzNDU2Nzg5MDEyMzQ1Ng","version":1}','sha256:${FP}',1,'••••oshi','deepseek-flash','[{"id":"deepseek-flash","label":"Toshi"}]','active',false,1,'2026-01-01','2026-01-01','2026-01-01');`;}).join('')}`);
  check('trusted quality profile keeps begin60 but receives claim120 without another version change',()=>{
+  assert.equal(begin(14,4014,'toshi-product-v10','deepseek','deepseek-flash',new Date(Date.parse(fixtureClock.publishedAt)-1).toISOString()).outcome,'durable_authority_invalid','a request before tariff publication remains unauthorized');
   const pending=begin(1,4001);assert.equal(pending.outcome,'pending');assert.equal(leaseSeconds(pending),60);
   const claimed=claim(1,4001);assert.equal(claimed.outcome,'claimed');assert.equal(leaseSeconds(claimed),120);assert.equal(claimed.result_payload.version,2);assert.equal(claimed.result_payload.dispatchState,'dispatched');assert.ok(claimed.result_payload.claimToken);
  });

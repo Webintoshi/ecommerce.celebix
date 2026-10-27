@@ -13,7 +13,7 @@ function own(value:unknown,key:string):unknown{
 }
 const bytes=(value:unknown)=>typeof value==='string'?bounded(Buffer.byteLength(value,'utf8')):null;
 const characters=(value:unknown)=>{if(typeof value!=='string')return null;let count=0;for(const _ of value.normalize('NFC'))if(++count>=1_000_000)break;return count;};
-const wordCount=(value:string)=>(value.replace(/\p{Cf}/gu,'').match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)??[]).length;
+const wordCount=(value:string)=>(value.replace(/[\p{Cf}\p{Default_Ignorable_Code_Point}]/gu,'').match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu)??[]).length;
 function bodyCounts(draft:unknown):Readonly<{bodyWords:number|null;h2Count:number|null}>{
  const missing={bodyWords:null,h2Count:null},blocks=own(draft,'description');if(!Array.isArray(blocks)||nodeTypes.isProxy(blocks)||blocks.length>100)return missing;
  let bodyWords=0,h2Count=0,visited=0;

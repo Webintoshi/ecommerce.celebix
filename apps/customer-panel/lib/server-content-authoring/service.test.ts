@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {spawnSync}from'node:child_process';
 import type { ProductMeasurements } from '../../../../packages/saas-contracts/src/catalog/types.ts';
 import { sealMerchantProviderCredential } from '@celebix/saas-data';
 import { createContentAuthoringService } from './service.ts';
@@ -26,6 +27,31 @@ test('unresponsive dispatched provider reaches unknown status by total deadline'
 
 test('revoked binding cannot dispatch',async()=>{const s=setup({revoked:true});const r=await s.service.generateContent(input);assert.equal(r.status,'failed');assert.equal(r.safeCode,'connection_revoked');assert.equal(s.counts().calls,0);});
 test('lost completion acknowledgement recovers committed result without second paid call',async()=>{const s=setup({completeUnknown:true});const r=await s.service.generateContent(input);assert.equal(r.status,'completed');assert.equal(s.counts().calls,1);});
+for(const stage of ['begin','claim']as const)test(`an uncertain ${stage} with an unavailable observation remains commit_unknown without dispatch`,async()=>{
+ const s=setup({claimError:stage==='claim'}),get=s.dependencies.repository.getGeneration;let observations=0;
+ s.dependencies.repository.getGeneration=async(value:any)=>{if(++observations===2)throw Object.assign(Error(),{code:'unavailable'});return get(value);};
+ if(stage==='begin')s.dependencies.repository.beginGeneration=async()=>{throw Object.assign(Error(),{code:'commit_unknown'});};
+ await assert.rejects(s.service.generateContent(input),(error:any)=>error.code==='commit_unknown');assert.deepEqual(s.counts(),{calls:0,completed:0});
+ assert.equal((await s.service.getGeneration({tenantContext:input.tenantContext,operationId:id})).status,'pending');
+});
+test('exhausted finalizer and observation promises cannot reject unhandled after commit_unknown',()=>{
+ const script=`
+ import assert from 'node:assert/strict';
+ import {createContentAuthoringService} from ${JSON.stringify(new URL('./service.ts',import.meta.url).href)};
+ import {withProductFormattingFacts} from ${JSON.stringify(new URL('./writer-protocol.ts',import.meta.url).href)};
+ const id=${JSON.stringify(id)},packet=${JSON.stringify(packet)},initial=${JSON.stringify(initial)},authority=${JSON.stringify(authority)};
+ ${setup.toString()}
+ let clock=0;Object.defineProperty(performance,'now',{value:()=>clock});
+ const s=setup(),get=s.dependencies.repository.getGeneration;let reads=0;
+ s.dependencies.repository.getGeneration=async(value)=>{if(++reads===1)return get(value);return new Promise((_,reject)=>setImmediate(()=>reject(Object.assign(Error('late_read'),{code:'unavailable'}))));};
+ s.dependencies.repository.completeGeneration=()=>{clock=1001;return Promise.reject(Object.assign(Error('late_completion'),{code:'commit_unknown'}));};
+ let code;try{await s.service.generateContent({tenantContext:${JSON.stringify(input.tenantContext)},operationId:id,request:${JSON.stringify(request)},signal:new AbortController().signal});}catch(error){code=error.code;}
+ assert.equal(code,'commit_unknown');await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));
+ console.log('EXHAUSTED_COMMIT_UNKNOWN_SURVIVED');
+ `;
+ const child=spawnSync(process.execPath,['--conditions=react-server','--experimental-transform-types','--unhandled-rejections=strict','--input-type=module','-e',script],{encoding:'utf8',timeout:5000,maxBuffer:262144});
+ assert.equal(child.status,0,child.stderr);assert.match(child.stdout,/EXHAUSTED_COMMIT_UNKNOWN_SURVIVED/);
+});
 test('same operation with changed request rejects instead of returning older content',async()=>{const s=setup({readReplay:true});await assert.rejects(s.service.generateContent(input),(e:any)=>e.code==='operation_mismatch');assert.equal(s.counts().calls,0);});
 
 test("disabled content purpose cannot reserve or dispatch a generation",async()=>{const s=setup({featureDisabled:true});await assert.rejects(s.service.generateContent(input),(e:any)=>e.code==="feature_unavailable");assert.equal(s.counts().calls,0);});
@@ -492,12 +518,24 @@ function capturedAutomaticRun(outputs:readonly (string|((body:any)=>string))[],s
  }});
  const credits:any={
   async reserve(value:any){if(walletRow)return {kind:walletRow.status==='reserved'?'pending':'replayed',...walletRow};held=value.cost;walletRow={status:'reserved',fingerprint:value.fingerprint,result:null,chargedCredits:0};return {kind:'created',...walletRow};},
-  async complete(value:any){assert.equal(value.fingerprint,walletRow.fingerprint);if(walletRow.status!=='completed'){assert.equal(value.chargedCredits,10);debits++;balance-=value.chargedCredits;held=0;walletRow={...walletRow,status:'completed',result:value.result,chargedCredits:value.chargedCredits};}return {balance,reserved:held,available:balance-held};},
+  async complete(value:any){assert.equal(value.fingerprint,walletRow.fingerprint);if(!['reserved','completed'].includes(walletRow.status))throw Object.assign(Error(),{code:'operation_failed'});if(walletRow.status!=='completed'){assert.equal(value.chargedCredits,10);debits++;balance-=value.chargedCredits;held=0;walletRow={...walletRow,status:'completed',result:value.result,chargedCredits:value.chargedCredits};}return {balance,reserved:held,available:balance-held};},
   async fail(){if(walletRow.status!=='completed'){held=0;walletRow={...walletRow,status:'failed'};}return {balance,reserved:held,available:balance-held};},
  };
  const service=createMeteredContentAuthoringService(createContentAuthoringService(s.dependencies),credits),automaticInput={...input,request:automaticRequest};
  return {service,input:automaticInput,sent,dependencies:s.dependencies,state:()=>({providerCalls,begins,completions,debits,balance,held})};
 }
+
+test('lost completion and observation acknowledgements preserve the hold until GET recovers one result and one debit',async()=>{
+ const f=capturedAutomaticRun([JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title})]);
+ const complete=f.dependencies.repository.completeGeneration,get=f.dependencies.repository.getGeneration;let loseObservation=false;
+ f.dependencies.repository.completeGeneration=async(value:any)=>{await complete(value);loseObservation=true;throw Object.assign(Error(),{code:'commit_unknown'});};
+ f.dependencies.repository.getGeneration=async(value:any)=>{if(loseObservation){loseObservation=false;throw Object.assign(Error(),{code:'unavailable'});}return get(value);};
+ await assert.rejects(f.service.generateContent(f.input),(error:any)=>error.code==='commit_unknown');
+ assert.deepEqual(f.state(),{providerCalls:1,begins:1,completions:1,debits:0,balance:100,held:10});
+ const result=await f.service.getGeneration({tenantContext:f.input.tenantContext,operationId:id});assert.equal(result.status,'completed');
+ assert.deepEqual(await f.service.generateContent(f.input),result);await f.service.getGeneration({tenantContext:f.input.tenantContext,operationId:id});
+ assert.deepEqual(f.state(),{providerCalls:1,begins:1,completions:1,debits:1,balance:90,held:0});
+});
 
 test('AUTO writer envelope becomes bold facts and H2/H3 without asking the model for internal metadata',async()=>{
  const f=capturedAutomaticRun([JSON.stringify({descriptionMarkdown:expandedFoodMarkdown+'\n\n### İsteğe bağlı eşlikçiler\n\nDilerseniz kendi seçtiğiniz bir eşlikçiyi sonradan ekleyin.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title})]);

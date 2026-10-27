@@ -39,7 +39,7 @@ import {safeTaxChoice,taxFromChoice,sellingPriceCents,effectiveTax} from '@/lib/
 import { catalogAdminApi } from "@/lib/catalog-admin-ui/client";
 import { ContentAuthoringTextField, type TextAuthoringController } from "@/components/content-authoring/ContentAuthoringTextField";
 import { imageSignature, type AuthoringMediaBridge } from "@/lib/content-authoring-ui/image-alts";
-import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
+import { ContentAuthoringPanel, type ContentAuthoringBridge, type ContentAuthoringIntent } from "@/components/content-authoring/ContentAuthoringPanel";
 import type { ContentAuthoringFieldOriginsInput, ContentAuthoringRequest, ContentAuthoringField, ContentGenerationView } from "@celebix/saas-contracts";
 import { parseProductMeasurements as parseAuthoringMeasurements } from "@/lib/catalog-ui/product-measurements";
 import { ProductDescriptionField } from "@/components/catalog/ProductDescriptionField";
@@ -156,6 +156,7 @@ export function ProductAdvancedEditor({ options, initialKind, aiAvailable = true
   const [seoAiOpen,setSeoAiOpen] = useState(false);
   const seoFieldControllers = useRef<Partial<Record<string,TextAuthoringController>>>({});
   const seoAiTrigger = useRef<HTMLButtonElement>(null);
+  const seoAuthoringIntent = useRef<ContentAuthoringIntent|null>(null);
   const [kind, setKind] = useState<"simple" | "variant">(draftSession?.current.kind ?? ((editor?.variants.length ?? 1) > 1 ? "variant" : "simple"));
   const [productType, setProductType] = useState<"physical" | "digital">(draftSession?.current.productType ?? editor?.profile.productType ?? "physical");
   const [taxChoice,setTaxChoice]=useState(draftSession?.current.taxChoice??'');
@@ -325,11 +326,11 @@ export function ProductAdvancedEditor({ options, initialKind, aiAvailable = true
   const mediaAuthoringBridge:AuthoringMediaBridge={
     captureImages:()=>media.map(item=>({id:item.localId,file:item.file,url:item.preview,altText:item.altText})),
     canApplyImageAlts:(results,captured)=>!lock.current&&!recoveryRef.current&&imageSignature(media.map(item=>({id:item.localId,file:item.file,url:item.preview,altText:item.altText})))===imageSignature(captured)&&results.every(result=>media.some(item=>item.localId===result.id)),
-    applyImageAlts:(results,captured)=>{if(!mediaAuthoringBridge.canApplyImageAlts(results,captured))return false;const byId=new Map(results.map(result=>[result.id,result.altText]));setMedia(current=>current.map(item=>byId.has(item.localId)?{...item,altText:byId.get(item.localId)!}:item));markEditingDirty();return true;},
+    applyImageAlts:(results,captured,onApplied)=>{if(!mediaAuthoringBridge.canApplyImageAlts(results,captured))return false;const byId=new Map(results.map(result=>[result.id,result.altText]));setMedia(current=>current.map(item=>byId.has(item.localId)?{...item,altText:byId.get(item.localId)!}:item));markEditingDirty();for(const result of results){const image=captured.find(value=>value.id===result.id);if(image)onApplied?.({...image,altText:result.altText});}return true;},
   };
   const seoAuthoringBridge:ContentAuthoringBridge={media:editing?undefined:mediaAuthoringBridge,capture:()=>{const {request,sessionId,draftRevision}=captureAuthoring();return {request:{...request,fields:["seoTitle","seoDescription"]},lifecycle:{sessionId,draftRevision,selection:null}};},canApply:canApplyAuthoringField,apply:applyAuthoringField};
   useEffect(()=>{onAuthoringBridgeChange?.(seoAuthoringBridge);return ()=>onAuthoringBridgeChange?.(null);},[onAuthoringBridgeChange,seoAuthoringBridge]);
-  const seoAuthoringControls = aiAvailable ? <><button ref={seoAiTrigger} type="button" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>Yapay Zeka ile SEO Hazırla</button>{seoAiOpen?<ContentAuthoringPanel fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</> : <CommercialFeatureLink capability="ai" />;
+  const seoAuthoringControls = aiAvailable ? <><button ref={seoAiTrigger} type="button" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>Yapay Zeka ile SEO Hazırla</button>{seoAiOpen?<ContentAuthoringPanel intentState={seoAuthoringIntent} fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</> : <CommercialFeatureLink capability="ai" />;
   function requestCancel() {
     if (!editing && (lock.current || pendingBarcodeCountRef.current > 0 || attributeSavingRef.current)) return;
     if (editing) {

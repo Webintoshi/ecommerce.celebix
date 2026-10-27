@@ -87,15 +87,16 @@ function ProductMediaManagerWorkspace({
   const authoringMediaBridge:AuthoringMediaBridge={
     captureImages:()=>[...activeMedia.filter(item=>item.publicUrl).map(item=>({id:item.id,url:item.publicUrl,thumbnailUrl:`/api/content-ai/image-source/${productId}/${item.id}`,altText:item.altText,version:item.version})),...selectedFiles.map(file=>({id:pendingFileIds.current.get(file)!,file,altText:pendingAlts[pendingFileIds.current.get(file)!]??''}))],
     canApplyImageAlts:(results,captured)=>canManage&&!loading&&!busyRef.current&&imageSignature(authoringMediaBridge.captureImages())===imageSignature(captured)&&results.every(result=>captured.some(image=>image.id===result.id)),
-    applyImageAlts:async(results,captured)=>{
+    applyImageAlts:async(results,captured,onApplied)=>{
       if(!authoringMediaBridge.canApplyImageAlts(results,captured)||!beginMutation('authoring-alt'))return false;
       try{
         const local=new Map(selectedFiles.map(file=>[pendingFileIds.current.get(file)!,file]));
         for(const result of results){
-          if(local.has(result.id)){setPendingAlts(current=>({...current,[result.id]:result.altText}));continue;}
+          if(local.has(result.id)){setPendingAlts(current=>({...current,[result.id]:result.altText}));const image=captured.find(value=>value.id===result.id);if(image)onApplied?.({...image,altText:result.altText});continue;}
           const item=activeMedia.find(image=>image.id===result.id);if(!item)return false;
           const updated=await productMediaApi.updateAlt(productId,item.id,{expectedVersion:item.version,altText:result.altText});
           setMedia(current=>current.map(candidate=>candidate.id===item.id?updated.media:candidate));
+          onApplied?.({id:updated.media.id,url:updated.media.publicUrl,thumbnailUrl:`/api/content-ai/image-source/${productId}/${updated.media.id}`,altText:updated.media.altText,version:updated.media.version});
         }
         setNotice('Seçili görsellerin alt metinleri uygulandı.');return true;
       }catch(failure){setError(safeMessage(failure));return false;}finally{finishMutation();}

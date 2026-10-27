@@ -3,7 +3,7 @@ export type AuthoringImageAlt = Readonly<{id:string;altText:string}>;
 export type AuthoringMediaBridge = Readonly<{
  captureImages():readonly AuthoringImage[];
  canApplyImageAlts(results:readonly AuthoringImageAlt[],captured:readonly AuthoringImage[]):boolean;
- applyImageAlts(results:readonly AuthoringImageAlt[],captured:readonly AuthoringImage[]):boolean|Promise<boolean>;
+ applyImageAlts(results:readonly AuthoringImageAlt[],captured:readonly AuthoringImage[],onApplied?:(image:AuthoringImage)=>void):boolean|Promise<boolean>;
 }>;
 export function imageSignature(images:readonly AuthoringImage[]) {return JSON.stringify(images.map(({id,url,thumbnailUrl,altText,version,file})=>({id,url,thumbnailUrl,altText,version,file:file?{name:file.name,size:file.size,lastModified:file.lastModified}:undefined})));}
 export function selectedImageBatches(images:readonly AuthoringImage[],selectedIds:readonly string[]) {

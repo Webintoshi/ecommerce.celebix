@@ -39,7 +39,9 @@
     "refresh:signup-release": "node ./scripts/rehearse-signup-release.mjs --refresh-proof",
     "generate:akbank-build": "node --experimental-strip-types ./scripts/generate-akbank-build.mjs",
     "check:akbank-build": "node --experimental-strip-types ./scripts/generate-akbank-build.mjs --check",
-    "test:akbank-build": "node --experimental-strip-types --test ./scripts/generate-akbank-build.test.mjs"
+    "test:akbank-build": "node --experimental-strip-types --test ./scripts/generate-akbank-build.test.mjs",
+    "test:toshi-authoring": "npm run test:toshi-authoring --workspace @celebix/customer-panel",
+    "test:toshi-authoring:native": "node --experimental-transform-types apps/owner/scripts/sql/saas/toshi-credits.native.test.mjs && node --experimental-transform-types apps/owner/scripts/sql/saas/toshi-product-quality-lease.native.test.mjs && node --experimental-transform-types apps/owner/scripts/sql/saas/toshi-product-formatting.native.test.mjs"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
