@@ -453,7 +453,8 @@ const capturedMalformedListJson="{\"description\":[{\"type\":\"paragraph\",\"chi
 const capturedCorrectedList:any={"description":[{"type":"paragraph","children":[{"type":"text","text":"İrmikli ve Yumurtalı Kesme Erişte için ürün bilgileri:"}]},{"type":"list","ordered":false,"items":[[{"type":"text","text":"1000g varyantı — Ağırlık: "},{"type":"fact","factRef":"variant:81000000-0000-4000-8000-000000000002:weight:8","value":"1000","unit":"g"}],[{"type":"text","text":"250g varyantı — Ağırlık: "},{"type":"fact","factRef":"variant:81000000-0000-4000-8000-000000000001:weight:5","value":"250","unit":"g"}],[{"type":"text","text":"500g varyantı — Ağırlık: "},{"type":"fact","factRef":"variant:81000000-0000-4000-8000-000000000003:weight:11","value":"500","unit":"g"}]]}],"seoTitle":"İrmikli ve Yumurtalı Kesme Erişte","seoDescription":"İrmikli ve Yumurtalı Kesme Erişte: 1000g varyantı 1000 g; 250g varyantı 250 g; 500g varyantı 500 g.","suggestions":[],"claims":[{"field":"description","factRef":"variant:81000000-0000-4000-8000-000000000002:weight:8","value":"1000","unit":"g"},{"field":"description","factRef":"variant:81000000-0000-4000-8000-000000000001:weight:5","value":"250","unit":"g"},{"field":"description","factRef":"variant:81000000-0000-4000-8000-000000000003:weight:11","value":"500","unit":"g"},{"field":"seoDescription","factRef":"variant:81000000-0000-4000-8000-000000000002:weight:8","value":"1000","unit":"g"},{"field":"seoDescription","factRef":"variant:81000000-0000-4000-8000-000000000001:weight:5","value":"250","unit":"g"},{"field":"seoDescription","factRef":"variant:81000000-0000-4000-8000-000000000003:weight:11","value":"500","unit":"g"}],"sourceFingerprint":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"};
 
 import {createMeteredContentAuthoringService}from'./metered-service.ts';
-import {TOSHI_PRODUCT_EDITORIAL_PROMPT}from'./editorial-prompt.ts';
+import {TOSHI_PRODUCT_EDITORIAL_PROMPT,toshiProductCorrectionFeedback}from'./editorial-prompt.ts';
+import {assertToshiGeneratedLimits}from'./toshi-policy.ts';
 function capturedAutomaticRun(outputs:readonly string[],source:any=capturedAutomaticPacket){
  const s=setup();s.dependencies.deadlineMs=30000;s.dependencies.loadFacts=async()=>source;
  let generation:any=null,providerCalls=0,begins=0,completions=0,debits=0,balance=100,held=0,walletRow:any=null;const sent:any[]=[];
@@ -479,9 +480,24 @@ function capturedAutomaticRun(outputs:readonly string[],source:any=capturedAutom
  return {service,input:automaticInput,sent,state:()=>({providerCalls,begins,completions,debits,balance,held})};
 }
 
+test('one synthetic Turkish PDP example passes the actual contract, grounding and SEO limits without becoming live evidence',()=>{
+ assert.ok(TOSHI_PRODUCT_EDITORIAL_PROMPT.startsWith('Türkçe e-ticaret'));
+ const sampleFacts=JSON.parse(TOSHI_PRODUCT_EDITORIAL_PROMPT.split('\n').find(line=>line.startsWith('{"title":"Paslanmaz Çelik Termos"'))!);
+ const sample=JSON.parse(TOSHI_PRODUCT_EDITORIAL_PROMPT.split('\n').find(line=>line.startsWith('{"description":'))!);
+ const accepted=validateProductDraftOutput(sample,sampleFacts,['description','seoTitle','seoDescription']);assertToshiGeneratedLimits(accepted);
+ assert.equal(sampleFacts.sourceFingerprint,'0'.repeat(64));assert.equal(sample.sourceFingerprint,sampleFacts.sourceFingerprint);
+ const html=renderContentAuthoringDescription(accepted.description!),words=html.replace(/<[^>]+>/g,' ').split(/\s+/u).filter(Boolean);
+ assert.equal((html.match(/<p>/g)??[]).length,3);assert.ok(words.length>=100&&words.length<=140,String(words.length));
+ assert.doesNotMatch(html,/sızdırmaz|vakum|gıda sınıfı|\d+\s*saat|kayıtlıdır|kategorisinde yer alır|Materyal:|Hacim:/iu);
+ assert.ok(accepted.description!.filter((block:any)=>block.type==='paragraph').every((block:any)=>block.children.some((node:any)=>node.type==='fact')&&block.children.some((node:any)=>node.type==='text')));
+ assert.throws(()=>validateProductDraftOutput({...sample,sourceFingerprint:capturedAutomaticPacket.sourceFingerprint},capturedAutomaticPacket,['description','seoTitle','seoDescription']));
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/SYNTHETIC STYLE ONLY/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/NEVER evidence for the live product/);
+});
+
 test('concise AUTO protocol has one valid paragraph example and excludes legacy system instructions',()=>{
  const exampleText=TOSHI_PRODUCT_EDITORIAL_PROMPT.split('\n').find(line=>line.startsWith('{"description":'))!;
- const example=JSON.parse(exampleText);assert.ok(example.description.every((block:any)=>['paragraph','heading'].includes(block.type)));assert.equal(example.description.filter((block:any)=>block.type==='heading').length,3);assert.equal(example.claims[0].field,'description');
+ const example=JSON.parse(exampleText);assert.ok(example.description.every((block:any)=>block.type==='paragraph'));assert.equal(example.claims[0].field,'description');
+ assert.equal(example.claims[0].factRef,'example:material');assert.equal(example.description.at(-1).children[0].factRef,'example:cap');assert.doesNotMatch(exampleText,/<product-attribute|<variant-title|planning|selection heading|kullanım planı|göz önünde/);
  assert.ok(Buffer.byteLength(TOSHI_PRODUCT_EDITORIAL_PROMPT,'utf8')<10000);assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Preservation example with ONE clause|Package contents example|Labeled dimensions example|hard limits are 200\/500/);
 });
 
@@ -521,7 +537,19 @@ test('AUTO SEO protocol keeps variant-only values in description and uses produc
  const f=capturedAutomaticRun([JSON.stringify(productScoped)]),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(f.state().providerCalls,1);assert.equal(f.state().debits,1);assert.doesNotMatch(result.draft!.seoDescription!,/1000|500|250/);
 });
 
-function richAutomaticQualityCandidate(){
+test('product-first brief and correction remove the mandatory shopping and planning outline',()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/İlk cümlede ürünü doğrudan tanıt/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/150–300 fact-supported words/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Headings are adaptive/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/at most ONE concise optional-use or serving paragraph/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/one short paragraph near the end/);
+ assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT,/universal outline|3–4 useful H2\/H3|practical planning or selection note|Use only ONE section for package\/size selection/);
+ const correction=JSON.parse(toshiProductCorrectionFeedback('json_syntax')).instruction;
+ assert.match(correction,/Write direct fluent Turkish product copy/);assert.match(correction,/adaptive headings/);assert.match(correction,/150–300 fact-supported words/);
+ assert.doesNotMatch(correction,/3–4|250–350|practical planning/);
+});
+
+function planningBiasedQualityCounterexample(){
  const candidate=structuredClone(capturedCorrectedList),variantTitles=capturedAutomaticPacket.facts.filter(fact=>fact.scope==='variant'&&fact.field==='title');
  const paragraph=(text:string)=>({type:'paragraph',children:[{type:'text',text}]}),heading=(text:string,level=2)=>({type:'heading',level,children:[{type:'text',text}]});
  const options:any[]=[{type:'text',text:'Sunulan '}];variantTitles.forEach((fact,index)=>{if(index)options.push({type:'text',text:index===variantTitles.length-1?' ve ':', '});options.push({type:'fact',factRef:fact.ref,value:fact.value},{type:'text',text:' seçeneği'});});
@@ -540,23 +568,122 @@ function richAutomaticQualityCandidate(){
  return candidate;
 }
 
-test('v10 permits rich shopper-facing food copy with natural variant choices and optional serving guidance',async()=>{
- const candidate=richAutomaticQualityCandidate(),html=renderContentAuthoringDescription(candidate.description),words=html.replace(/<[^>]+>/g,' ').split(/\s+/u).filter(Boolean);
- assert.ok(words.length>=250&&words.length<=350,String(words.length));assert.equal((html.match(/<h[23]>/g)??[]).length,3);assert.doesNotMatch(html,/Ağırlık:|Unlu Mamüller|Yöresel Ürünler|adından anlaşılacağı üzere|taahhüt|kesin hazırlık talimatı|ürün ailesindendir/);
+test('product-first brief addresses the earlier household and meal-planning counterexample',()=>{
+ const html=renderContentAuthoringDescription(planningBiasedQualityCounterexample().description);
+ assert.match(html,/kuracağınız sofrayı|Alışverişinizi|kullanım planınız|sunuma karar/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/ev\/sofra planlama tavsiyesi yazma/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Açıklamanın ana konusu ürünün kendisi ve bilinen özellikleri olsun/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Weight variants are "gramaj seçenekleri", never evidence of physical packaging or packaging material/);
+});
+
+test('main product prose may explain known terms without becoming metadata or extra batch evidence',()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Only supplied facts establish product-specific or batch attributes/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/ordinary knowledge may explain a recognised product type, named physical form or ordinary role of a clearly named food component in the MAIN description/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/stays true without the SKU\/brand but becomes false if its specific named term changes/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/General explanations permitted in description are NOT additional SEO evidence/);
+ const feedback=JSON.parse(toshiProductCorrectionFeedback('contract_or_grounding')).instruction;
+ for(const phrase of ['Ürün adı ... tanımlar','kayıtlıdır','kategorisinde yer alır']){assert.equal(TOSHI_PRODUCT_EDITORIAL_PROMPT.includes(phrase),false);assert.equal(feedback.includes(phrase),false);}
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/yayımlanan metin girdiyi, yazarı, başlığı veya kanıtı açıklamadan ürünü doğrudan anlatır/);
+ assert.match(feedback,/No dictionary, metadata report, source-analysis/);
+ assert.match(feedback,/recognised product type, named physical form or ordinary role of a clearly named food component/);assert.match(feedback,/never grades, measurement units, material taxonomy, new batch taste\/texture\/nutrition\/health\/manufacturing promises or SEO evidence/);
+ const example=JSON.parse(TOSHI_PRODUCT_EDITORIAL_PROMPT.split('\n').find(line=>line.startsWith('{"description":'))!);
+ const inline=example.description.find((block:any)=>block.children.some((node:any)=>node.factRef==='example:material')).children;
+ assert.match(inline[0].text,/Paslanmaz Çelik Termos,.*termos modelidir/);assert.equal(inline[1].type,'fact');assert.match(inline[2].text,/gövdesi/);assert.ok(inline.every((node:any)=>!node.text?.includes('Materyal:')));
+});
+
+test('general knowledge explains type, physical form or a clear named food component while grades and units stay direct',()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/recognised product type, named physical form or ordinary role of a clearly named food component/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Do not define grades, measurement units or material taxonomy/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Doğrulanmış değerleri doğrudan cümleyle belirt/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Ürünün biçimini bir kez açıkla/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Categories are context only; do not list catalogue category names/);
+ const correction=JSON.parse(toshiProductCorrectionFeedback('contract_or_grounding')).instruction;
+ assert.match(correction,/ordinary role of a clearly named food component/);assert.match(correction,/State confirmed attributes with exact values/);
+ assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT+' '+correction,/type\/form\/confirmed property|explain their relevant ordinary meaning/);
+});
+
+test('literal food title descriptors allow natural identity prose without an invented ingredient list or altered qualifiers',async()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/State literal title descriptors naturally as direct product description/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/ordinary role of a clearly named food component/);
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/not a complete ingredient list, ratios or extra ingredients/);
+ for(const term of ['altın renkli','aromalı','şeker ilavesiz','kaplama'])assert.ok(TOSHI_PRODUCT_EDITORIAL_PROMPT.includes(term),term);
+ const candidate=productFirstQualityCandidate();candidate.description[0]={type:'paragraph',children:[{type:'text',text:'İrmik ve yumurtanın kullanıldığı bu erişte, kesme erişte çeşididir.'}]};
+ const accepted=capturedAutomaticRun([JSON.stringify(candidate)]);assert.equal((await accepted.service.generateContent(accepted.input)).status,'completed');
+ const extra=structuredClone(candidate);extra.description.push({type:'paragraph',children:[{type:'fact',factRef:'product:ingredients:invented',value:'İrmik, yumurta, su ve tuz'}]});extra.claims.push({field:'description',factRef:'product:ingredients:invented',value:'İrmik, yumurta, su ve tuz'});
+ const rejected=capturedAutomaticRun([JSON.stringify(extra)]);assert.equal((await rejected.service.generateContent(rejected.input)).status,'failed');assert.equal(rejected.state().debits,0);assert.equal(rejected.state().held,0);
+ for(const [title,altered]of [['Altın renkli bileklik','Altın bileklik'],['Çilek aromalı içecek','Çilekli içecek'],['Şeker ilavesiz atıştırmalık','Şekersiz atıştırmalık'],['Altın kaplama bileklik','Altın bileklik']]as const){
+  const source=buildProductFactPacket(null,{title},{category:()=>null,brand:()=>null,attribute:()=>null,variant:()=>null}),fact=source.facts.find(value=>value.field==='title')!;
+  const exact={description:[{type:'paragraph',children:[{type:'fact',factRef:fact.ref,value:fact.value}]}],suggestions:[],claims:[{field:'description',factRef:fact.ref,value:fact.value}],sourceFingerprint:source.sourceFingerprint};
+  assert.doesNotThrow(()=>validateProductDraftOutput(exact,source,['description']));
+  const changed=structuredClone(exact);changed.description[0].children[0].value=altered;changed.claims[0].value=altered;assert.throws(()=>validateProductDraftOutput(changed,source,['description']));
+ }
+});
+
+test('final opening demonstrates direct product prose while verification and wording rules remain internal',()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Yalnızca gerçek üründe açıkça irmikli\/yumurtalı kesme erişte kimliği varsa ÜSLUP ÖRNEĞİ/);
+ assert.ok(TOSHI_PRODUCT_EDITORIAL_PROMPT.includes('İrmikli ve yumurtalı kesme erişte, çorbalarda ve erişte yemeklerinde kullanılabilen bir makarna çeşididir.'));
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Doğrulama ve anlatım kuralları iç talimattır/);
+ const feedback=JSON.parse(toshiProductCorrectionFeedback('json_syntax')).instruction;
+ assert.match(feedback,/Verification\/wording rules stay internal; public prose describes the product, not the input, author, title or evidence/);
+ assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT+' '+feedback,/seller-provided identity|satıcının verdiği kimlik/);
+});
+
+function productFirstQualityCandidate(source:any=capturedAutomaticPacket){
+ const candidate=structuredClone(capturedCorrectedList),variantTitles=source.facts.filter((fact:any)=>fact.scope==='variant'&&fact.field==='title');
+ const options:any[]=[{type:'text',text:'Gramaj seçenekleri: '}];variantTitles.forEach((fact:any,index:number)=>{if(index)options.push({type:'text',text:index===variantTitles.length-1?' ve ':', '});options.push({type:'fact',factRef:fact.ref,value:fact.value},{type:'text',text:' seçeneği'});});options.push({type:'text',text:'.'});
+ const attributes=source.facts.filter((fact:any)=>fact.ref.startsWith('product:confirmed:'));
+ candidate.description=[
+  {type:'paragraph',children:[{type:'text',text:'İrmikli ve Yumurtalı Kesme Erişte, kesme erişte çeşididir. Erişte, genel olarak makarna türleri arasında anılan bir yiyecektir.'}]},
+  {type:'paragraph',children:[{type:'text',text:'Kesme erişte, şerit biçiminde kesilmiş makarna çeşidi için kullanılan genel bir addır.'}]},
+  ...attributes.map((fact:any)=>({type:'paragraph',children:[{type:'text',text:'Ürün '},{type:'fact',factRef:fact.ref,value:fact.value},{type:'text',text:fact.field==='Kesim biçimi'?' formundadır.':' türündedir.'}]})),
+  {type:'paragraph',children:[{type:'text',text:'Dilerseniz erişteyi sade olarak servis edin veya hazırladığınız tabağa kendi tercih ettiğiniz sosu ekleyin. Hazırlarken seçtiğiniz tarifin adımlarını izleyin.'}]},
+  {type:'paragraph',children:options},
+ ];
+ candidate.claims=[...attributes,...variantTitles].map((fact:any)=>({field:'description',factRef:fact.ref,value:fact.value}));candidate.seoDescription='İrmikli ve Yumurtalı Kesme Erişte ürününü inceleyin.';return candidate;
+}
+
+test('product-first copy keeps useful identity before one optional use paragraph and brief gramaj options',async()=>{
+ const candidate=productFirstQualityCandidate(),html=renderContentAuthoringDescription(candidate.description);
+ assert.equal((html.match(/<p>/g)??[]).length,4);assert.equal((html.match(/<h[23]>/g)??[]).length,0,'sparse facts do not require headings');assert.doesNotMatch(html,/Ağırlık:|Unlu Mamüller|Yöresel Ürünler|planla|sofra|Alışveriş|ambalaj/);
+ assert.match(html,/<p>İrmikli ve Yumurtalı Kesme Erişte/);assert.match(html,/<p>Gramaj seçenekleri:.*250g seçeneği.*1000g seçeneği.*500g seçeneği\.<\/p>$/);
  const f=capturedAutomaticRun([JSON.stringify(candidate)]),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.promptVersion,'toshi-product-v10');assert.equal(f.state().providerCalls,1);assert.equal(f.state().debits,1);assert.deepEqual(result.draft!.suggestions,[]);
  assert.match(result.draft!.description!.map((block:any)=>block.type==='paragraph'?block.children.map((node:any)=>node.type==='text'?node.text:node.value).join(''):'').join(' '),/Dilerseniz/);
  assert.deepEqual(result.draft!.claims,candidate.claims);assert.ok([...result.draft!.seoDescription!].length<=160);assert.doesNotMatch(result.draft!.seoDescription!,/1000|500|250/);
 });
 
-test('v10 style omits meta commentary and routine seller questions from published shopper copy',()=>{
- for(const pattern of [/Speak directly to the shopper/,/Use sentence-case headings/,/Do not add source-analysis, legal, AI, disclaimer or meta commentary/,/Omit unsupported details silently/,/suggestions should normally be \[\]/,/Ask1–3 concise seller questions ONLY when unknown identity or essential missing facts genuinely prevent safe content/,/preparation note should be one short actionable line/])assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,pattern);
- for(const phrase of ['adından anlaşılacağı üzere','bu metinde taahhüt yer almamaktadır','kesin hazırlık talimatı değildir','ürün ailesindendir'])assert.ok(TOSHI_PRODUCT_EDITORIAL_PROMPT.includes(phrase));
+test('supplied product attributes stay ahead of optional use and variant facts without introducing new properties',async()=>{
+ const source:any=structuredClone(capturedAutomaticPacket),confirmed=[{ref:'product:confirmed:form',field:'Kesim biçimi',value:'Kısa kesme',source:'tenant_reference',scope:'product'},{ref:'product:confirmed:type',field:'Ürün türü',value:'Erişte',source:'tenant_reference',scope:'product'}];source.facts.push(...confirmed);
+ const candidate=productFirstQualityCandidate(source),f=capturedAutomaticRun([JSON.stringify(candidate)],source),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');
+ const facts=result.draft!.description!.flatMap((block:any)=>block.type==='paragraph'?block.children.filter((node:any)=>node.type==='fact'):[]);
+ assert.deepEqual(facts.slice(0,2),confirmed.map(fact=>({type:'fact',factRef:fact.ref,value:fact.value})));assert.ok(facts.slice(2).every((node:any)=>node.factRef.startsWith('variant:')));
+ const changed=structuredClone(candidate);changed.description[2].children[1].value='El yapımı';
+ const rejected=capturedAutomaticRun([JSON.stringify(changed)],source);assert.equal((await rejected.service.generateContent(rejected.input)).status,'failed');assert.equal(rejected.state().debits,0);assert.equal(rejected.state().held,0);
 });
 
-test('v10 quality target is advisory while nonfood and unsupported factual claims remain constrained',async()=>{
- assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/aim for250–350 meaningful Turkish words/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/3–4 useful H2\/H3 sections/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/For nonfood, do not invent technical care or compatibility instructions/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/clearly describe them as additions, NEVER product composition/);
+test('known physical form can be explained while material and grade are direct exact facts without glossary terms or derived purity',async()=>{
+ const source={title:'Burgu Bileklik',sourceFingerprint:'c'.repeat(64),facts:[{ref:'product:title:0',field:'title',value:'Burgu Bileklik',source:'current_draft',scope:'product'},{ref:'product:material:1',field:'Materyal',value:'Altın',source:'tenant_reference',scope:'product'},{ref:'product:grade:2',field:'Ayar',value:'22',source:'tenant_reference',scope:'product'}]};
+ const candidate={description:[
+  {type:'paragraph',children:[{type:'text',text:'Burgu Bileklik, birbirini izleyen kıvrımların oluşturduğu burgu formuna sahip bir bileklik modelidir.'}]},
+  {type:'paragraph',children:[{type:'text',text:'Bu bileklikte '},{type:'fact',factRef:'product:grade:2',value:'22'},{type:'text',text:' ayar '},{type:'fact',factRef:'product:material:1',value:'Altın'},{type:'text',text:' kullanılır.'}]},
+ ],seoTitle:'Burgu Bileklik',seoDescription:'Burgu Bileklik ürününü inceleyin.',suggestions:[],claims:[{field:'description',factRef:'product:material:1',value:'Altın'},{field:'description',factRef:'product:grade:2',value:'22'}],sourceFingerprint:source.sourceFingerprint};
+ const f=capturedAutomaticRun([JSON.stringify(candidate)],source),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(f.state().debits,1);assert.deepEqual(result.draft!.claims,candidate.claims);
+ for(const extra of ['Materyal ve ayar bilgileri.','Ayar derecesi açıklaması.','Gümüş içerir.','Saflık oranı: 91.6%.']){
+  const unsupported=structuredClone(candidate);unsupported.description.push({type:'paragraph',children:[{type:'text',text:extra}]});
+  const rejected=capturedAutomaticRun([JSON.stringify(unsupported)],source);assert.equal((await rejected.service.generateContent(rejected.input)).status,'failed');assert.equal(rejected.state().debits,0);assert.equal(rejected.state().held,0);
+ }
+});
+
+test('v10 style gives a positive Turkish editorial job without priming metadata or routine seller questions',()=>{
+ for(const pattern of [/Türkçe e-ticaret ürün açıklaması yazan deneyimli bir editörsün/,/müşterinin okuyacağı akıcı bir satış sayfası metni/,/Doğal bir ürün sayfası dili kullan/,/Omit unsupported details silently/,/suggestions normally \[\]/,/at most1–3 seller questions only for essential ambiguity preventing safe content/,/preparation note should be one short actionable line/])assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,pattern);
+ const badCopy=['adından anlaşılacağı üzere','bu metinde taahhüt yer almamaktadır','kesin hazırlık talimatı değildir','ürün ailesindendir'];
+ for(const phrase of badCopy)assert.equal(TOSHI_PRODUCT_EDITORIAL_PROMPT.includes(phrase),false,phrase);
+ assert.match(JSON.parse(toshiProductCorrectionFeedback('json_syntax')).instruction,/legal\/AI commentary/);
+});
+
+test('v10 product-first length and headings are advisory while nonfood and unsupported factual claims remain constrained',async()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Aim for150–300 fact-supported words/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/There is no required number of headings or sections/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/For nonfood, do not invent technical care or compatibility instructions/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/clearly describe any optional sauces or other additions as additions, NEVER product composition/);
  const short=structuredClone(capturedCorrectedList);short.description=[{type:'paragraph',children:[{type:'text',text:capturedAutomaticPacket.title}]}];short.claims=[];short.seoDescription=capturedAutomaticPacket.title;
  const accepted=capturedAutomaticRun([JSON.stringify(short)]);assert.equal((await accepted.service.generateContent(accepted.input)).status,'completed','word target must not become a new runtime minimum');
- const unsupported=richAutomaticQualityCandidate();unsupported.description.push({type:'paragraph',children:[{type:'text',text:'Organik ürün.'}]});
+ const unsupported=productFirstQualityCandidate();unsupported.description.push({type:'paragraph',children:[{type:'text',text:'Organik ürün.'}]});
  const rejected=capturedAutomaticRun([JSON.stringify(unsupported)]),result=await rejected.service.generateContent(rejected.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(rejected.state().debits,0);assert.equal(rejected.state().held,0);
 });
