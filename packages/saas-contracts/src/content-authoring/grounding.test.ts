@@ -168,3 +168,23 @@ test('exact infinitive ayarlamak is ordinary quantity guidance without authorizi
  assert.doesNotThrow(()=>validate('Erişte için miktar ayarlamak tercihinize bağlıdır.',source));
  for(const text of ['Erişte için ayar bilgisi.','Erişte için 14 ayar.','Erişte için ayarlı ürün.','Erişte için miktar ayarlamak ve 14 g seçmek.'])assert.throws(()=>validate(text,source),text);
 });
+
+test('bounded active adjustment morphology covers advice without treating the ayar stem as purity',()=>{
+ const forms=['ayarlamak','ayarlayın','ayarlayınız','ayarlayabilirim','ayarlayabilirsin','ayarlayabiliriz','ayarlayabilirsiniz',...['m','n','mız','nız'].flatMap(person=>['','ı','ın','a','da','dan'].map(ending=>`ayarlama${person}${ending}`))];
+ for(const verb of forms)assert.doesNotThrow(()=>validate(`Erişte için miktarı ${verb}.`,packet([], 'Erişte')),verb);
+});
+
+test('captured preparation advice uses an active possessive adjustment noun, not a purity assertion',()=>{
+ assert.doesNotThrow(()=>validate('Bu öneriler ürünün kendi özellikleri değil, kullanım fikirleridir; tarifinize göre malzeme ve pişirme süresini ayarlamanız gerekir.',packet([], 'Erişte')));
+});
+
+test('active adjustment morphology does not exempt ambiguous nouns, purity, passive capability or arbitrary suffixes',()=>{
+ for(const word of ['ayar','ayarı','ayarlar','ayarları','ayarlı','ayarlıdır','ayarlanabilir','ayarlanabilirlik','ayarlanmıştır','ayarlanması','ayarlatabilirsiniz','ayarlayabilir','ayarlayabilirlik','ayarlamanızgarantili','ayarlamaniz'])assert.throws(()=>validate(`Ürün ${word}.`),word);
+ for(const text of ['Miktarı ayarlamanız gerekir; 20 g.','Süreyi ayarlamanız için 14 dakika.','Miktarı ayarlamanız gerekir; altın ürün.'])assert.throws(()=>validate(text,packet([], 'Erişte')),text);
+ const count=packet([fact('packageCount','14')]);assert.throws(()=>validate('14 ayar; miktarı ayarlamanız gerekir.',count));
+});
+
+test('ordinary active adjustment adverbials retain the distinction from passive or purity claims',()=>{
+ for(const text of ['Miktarı ayarlayarak tarifinize uyarlayın.','Miktarı ayarlarken tarifinizi izleyin.'])assert.doesNotThrow(()=>validate(text,packet([], 'Erişte')),text);
+ for(const text of ['Ürün ayarlanarak kullanılır.','Ürün ayarlı.','Ürün ayarlanabilir.','Miktarı ayarlayarak 14 g ekleyin.'])assert.throws(()=>validate(text,packet([], 'Erişte')),text);
+});

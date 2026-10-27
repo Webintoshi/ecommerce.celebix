@@ -14,11 +14,12 @@ import { attachAutomaticProductSource,assertAutomaticSourcePreserved } from './a
 import { assertToshiGeneratedLimits,assertProductWriterCompleteness,automaticFieldActions } from './toshi-policy.ts';
 import { TOSHI_PRODUCT_EDITORIAL_PROMPT,toshiProductCorrectionFeedback,type ToshiProductValidationStage } from './editorial-prompt.ts';
 import {withProductFormattingFacts,createProductWriterProtocol}from'./writer-protocol.ts';
+import {reportProductValidationFailure,type ProductValidationDiagnosticSink,type ProductValidationDiagnosticStage}from'./validation-diagnostics.ts';
 const SAFE=new Set(['insufficient_credits','source_preservation_required','invalid_input','unauthenticated','membership_denied','store_inactive','feature_unavailable','credential_invalid','connection_missing','connection_revoked','model_unavailable','rate_limited','quota_exceeded','operation_busy','operation_mismatch','operation_not_found','version_conflict','lease_expired','dispatch_already_claimed','provider_timeout','provider_unavailable','invalid_output','cancelled','unavailable','commit_unknown']);
 export class ContentAuthoringError extends Error {constructor(readonly code:string){super('content_authoring_failed');this.code=SAFE.has(code)?code:'unavailable';}}
 export function safeContentAuthoringError(error:unknown):ContentAuthoringError {if(error instanceof ContentAuthoringError)return error;const d=error instanceof Error?Object.getOwnPropertyDescriptor(error,'code'):null;return new ContentAuthoringError(d&&'value'in d&&typeof d.value==='string'?d.value:'unavailable');}
 export type ContentAuthoringGenerateInput=Readonly<{tenantContext:TenantContext;operationId:string;request:ContentAuthoringRequest;signal:AbortSignal;deadlineAt?:number}>;
-type Dependencies=Readonly<{authorizeContentFields(input:Readonly<{tenantContext:TenantContext;now:Date;fields:ContentAuthoringRequest["fields"]}>):Promise<void>;repository:ContentAuthoringRepository;providers:Pick<ToshiProviderRepository,'getAuthority'>;keyring():MerchantProviderCredentialKeyring;generations:ToshiGenerationRegistry;loadFacts(input:Readonly<{tenantContext:TenantContext;now:Date;request:ContentAuthoringRequest}>):Promise<ProductFactPacket>;now():Date;deadlineMs?:number}>;
+type Dependencies=Readonly<{authorizeContentFields(input:Readonly<{tenantContext:TenantContext;now:Date;fields:ContentAuthoringRequest["fields"]}>):Promise<void>;repository:ContentAuthoringRepository;providers:Pick<ToshiProviderRepository,'getAuthority'>;keyring():MerchantProviderCredentialKeyring;generations:ToshiGenerationRegistry;loadFacts(input:Readonly<{tenantContext:TenantContext;now:Date;request:ContentAuthoringRequest}>):Promise<ProductFactPacket>;now():Date;deadlineMs?:number;diagnostic?:ProductValidationDiagnosticSink}>;
 function assertTenant(tenant:TenantContext){if(tenant.store.status!=='active')throw new ContentAuthoringError('store_inactive');if(tenant.membership.status!=='active'||!isMerchantActionAllowed(tenant.membership.role,'catalog_admin.manage'))throw new ContentAuthoringError('membership_denied');}
 /** The server has already selected exact source clauses. For SEO-only requests,
  * a malformed model response can be replaced with that verified extract without
@@ -103,24 +104,30 @@ export function createContentAuthoringService(deps:Dependencies){
    let output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:request.action==='auto'?TOSHI_PRODUCT_EDITORIAL_PROMPT:SYSTEM,history:[{role:'user',text:data}],tools:[],outputFormat:'json_object',...(request.action==='auto'?{authoringProfile:'product_quality' as const,maxOutputTokens:12288}:{maxOutputTokens:4096}),signal}));active();
    knownUsage=measuredUsage(output);
    let validationStage:ToshiProductValidationStage='contract_or_grounding';
-   const checked=<T>(stage:ToshiProductValidationStage,operation:()=>T):T=>{validationStage=stage;return operation();};
+   let diagnosticStage:ProductValidationDiagnosticStage='output',diagnosticParsed:unknown,diagnosticDraft:unknown;
+   const checked=<T>(stage:ToshiProductValidationStage,operation:()=>T,detail:ProductValidationDiagnosticStage=stage):T=>{validationStage=stage;diagnosticStage=detail;return operation();};
+   const diagnose=(attempt:1|2)=>{if(request.action==='auto')reportProductValidationFailure({attempt,stage:diagnosticStage,output,parsed:diagnosticParsed,draft:diagnosticDraft,sourceSlotsExpected:writer?.context.sourceSlots.length??0},deps.diagnostic);};
    const validate=()=>{
-    checked('contract_or_grounding',()=>{if(output.toolCalls.length||!output.text.trim()||Buffer.byteLength(output.text,'utf8')>32768||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');});
+    diagnosticParsed=undefined;diagnosticDraft=undefined;
+    checked('contract_or_grounding',()=>{if(output.toolCalls.length||!output.text.trim()||Buffer.byteLength(output.text,'utf8')>32768||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');},'output');
     let draft;try{
      const parsed=checked('json_syntax',()=>JSON.parse(output.text));
+     diagnosticParsed=parsed;
      if(request.action==='auto'&&parsed&&typeof parsed==='object'&&!Array.isArray(parsed))for(const field of ['seoTitle','seoDescription'])if(typeof parsed[field]==='string')parsed[field]=parsed[field].normalize('NFC');
-     draft=checked('contract_or_grounding',()=>validateProductDraftOutput(writer?writer.decode(parsed):parsed,packet,request.fields));
+     const decoded=writer?checked('contract_or_grounding',()=>writer.decode(parsed),'writer_decode'):parsed;diagnosticDraft=decoded;
+     draft=checked('contract_or_grounding',()=>validateProductDraftOutput(decoded,packet,request.fields));
     }catch{draft=preservedSeoOnlyDraft(packet,request.fields);if(!draft)throw new ContentAuthoringError('invalid_output');}
-    if(request.action==='auto'){checked('policy_limits',()=>{assertToshiGeneratedLimits(draft);assertProductWriterCompleteness(draft);});checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));}
+    if(request.action==='auto'){checked('policy_limits',()=>assertToshiGeneratedLimits(draft));checked('policy_limits',()=>assertProductWriterCompleteness(draft),'completeness');checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));}
     if(draft.description)checked('render',()=>renderContentAuthoringDescription(draft.description!));return draft;
    };
    let draft;try{draft=validate();}catch{
+    diagnose(1);
     // A known, completed but invalid answer can be corrected once. Network/dispatch uncertainty is never retried.
     if(request.action!=='auto'||endsAt-performance.now()<12000||!output.text.trim()||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
     await authority();const previousUsage=knownUsage;
     output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:toshiProductCorrectionFeedback(validationStage)}],tools:[],outputFormat:'json_object',authoringProfile:'product_quality',maxOutputTokens:12288,signal}));active();
     const nextUsage=measuredUsage(output);knownUsage=previousUsage&&nextUsage?{inputTokens:previousUsage.inputTokens+nextUsage.inputTokens,outputTokens:previousUsage.outputTokens+nextUsage.outputTokens,totalTokens:previousUsage.totalTokens+nextUsage.totalTokens}:null;
-    try{draft=validate();}catch{throw new ContentAuthoringError('invalid_output');}
+    try{draft=validate();}catch{diagnose(2);throw new ContentAuthoringError('invalid_output');}
    }
    await authority();const usage=knownUsage;
    finalizing=true;return await terminal(deps.repository.completeGeneration({...base(),expectedVersion:claim.version,claimToken:claim.claimToken,validatedDraft:draft,usage}));

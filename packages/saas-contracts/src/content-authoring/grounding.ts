@@ -33,8 +33,10 @@ const critical = new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:` + [
 // Exempt only the observed hand/within-reach idiom in original Turkish.
 // Altından and noun/case variants remain protected: they can assert gold material.
 const spatialUnder = /(^|[^\p{L}\p{N}])((?:elinin|elinizin)\s+)(altında|altındaki)(?=$|[^\p{L}\p{N}])/gu;
-// These complete adjustment verbs do not describe metal purity.
-const ordinaryAdjust = /(^|[^\p{L}\p{N}])(ayarlayabilirsiniz|ayarlayın|ayarlamak)(?=$|[^\p{L}\p{N}])/gu;
+// Finite active advice grammar: infinitive, imperative, personal ability, active
+// adverbials, and possessive verbal nouns with ordinary case endings. Never match ayar/ayarlı,
+// ambiguous ayarlar, or passive/causative capability claims such as ayarlanabilir.
+const ordinaryAdjust = /(^|[^\p{L}\p{N}])(ayarla(?:mak|ma(?:m(?:ız)?|n(?:ız)?)(?:ı|ın|a|da|dan)?|y(?:ın(?:ız)?|abilir(?:im|sin(?:iz)?|iz)|arak)|rken))(?=$|[^\p{L}\p{N}])/gu;
 function criticalProjection(raw: string): string {
   const original = raw.normalize('NFKC').toLocaleLowerCase('tr-TR').normalize('NFC').replace(/\p{Cf}/gu, '');
   // Nulls preserve normalized positions without joining or authorizing other

@@ -496,7 +496,7 @@ function capturedAutomaticRun(outputs:readonly (string|((body:any)=>string))[],s
   async fail(){if(walletRow.status!=='completed'){held=0;walletRow={...walletRow,status:'failed'};}return {balance,reserved:held,available:balance-held};},
  };
  const service=createMeteredContentAuthoringService(createContentAuthoringService(s.dependencies),credits),automaticInput={...input,request:automaticRequest};
- return {service,input:automaticInput,sent,state:()=>({providerCalls,begins,completions,debits,balance,held})};
+ return {service,input:automaticInput,sent,dependencies:s.dependencies,state:()=>({providerCalls,begins,completions,debits,balance,held})};
 }
 
 test('AUTO writer envelope becomes bold facts and H2/H3 without asking the model for internal metadata',async()=>{
@@ -525,6 +525,39 @@ test('two thin AUTO answers never charge and release the full reservation',async
  const thin=JSON.stringify({descriptionMarkdown:'**İrmikli ve Yumurtalı Kesme Erişte**, bir erişte çeşididir.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
  const f=capturedAutomaticRun([thin,thin]),result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);
  assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});
+});
+
+test('AUTO validation reports closed attempt stages and counts without changing correction or charge behavior',async()=>{
+ const thin=JSON.stringify({descriptionMarkdown:'**İrmikli ve Yumurtalı Kesme Erişte**, bir erişte çeşididir.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const complete=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const events:any[]=[],f=capturedAutomaticRun([thin,complete]);f.dependencies.diagnostic=(event:unknown)=>events.push(event);
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');
+ assert.equal(events.length,1);assert.equal(events[0].event,'toshi_product_validation_failed');assert.equal(events[0].attempt,1);assert.equal(events[0].stage,'completeness');
+ assert.equal(events[0].counts.bodyWords,8);assert.equal(events[0].counts.h2Count,0);
+ assert.equal(f.state().providerCalls,2);assert.equal(f.state().debits,1);
+ assert.deepEqual(await f.service.getGeneration({tenantContext:f.input.tenantContext,operationId:id}),result);assert.deepEqual(await f.service.generateContent(f.input),result);assert.equal(events.length,1);
+ assert.ok(!JSON.stringify(result).includes('toshi_product_validation_failed'));
+});
+
+test('AUTO reports each rejected answer while diagnostics failures cannot alter zero-charge finalization',async()=>{
+ const thin=JSON.stringify({descriptionMarkdown:'Kısa açıklama.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const events:any[]=[],f=capturedAutomaticRun([thin,thin]);f.dependencies.diagnostic=(event:unknown)=>{events.push(event);throw Error('private logger failure');};
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');
+ assert.deepEqual(events.map(event=>[event.attempt,event.stage]),[[1,'completeness'],[2,'completeness']]);assert.equal(f.state().debits,0);assert.equal(f.state().held,0);
+});
+
+test('AUTO grounding diagnostics distinguish decoding from evidence rejection without exposing text or identifiers',async()=>{
+ const value=JSON.stringify({descriptionMarkdown:'PRIVATE_SENTINEL **Altın** ürün.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+ const events:any[]=[],f=capturedAutomaticRun([value,value]);f.dependencies.diagnostic=(event:unknown)=>events.push(event);
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.deepEqual(events.map(event=>event.stage),['contract_or_grounding','contract_or_grounding']);
+ const serialized=JSON.stringify(events);for(const privateValue of ['PRIVATE_SENTINEL','Altın',capturedAutomaticPacket.title,'fixture-secret',id,'descriptionMarkdown','stack'])assert.ok(!serialized.includes(privateValue),privateValue);
+ assert.equal(f.state().debits,0);
+});
+
+test('non-AUTO validation and ambiguous AUTO dispatch do not emit output validation diagnostics',async()=>{
+ for(const automatic of [false,true]){const events:unknown[]=[],s=setup(automatic?{claimError:true}:{output:'PRIVATE_INVALID_JSON'});s.dependencies.diagnostic=(event:unknown)=>events.push(event);
+  await s.service.generateContent({...input,request:automatic?{...request,action:'auto',note:''}:request}as any);assert.deepEqual(events,[]);assert.equal(s.counts().completed,0);
+ }
 });
 
 test('AUTO v10 uses enabled writing thinking at low effort for initial and corrected JSON and charges once',async()=>{
