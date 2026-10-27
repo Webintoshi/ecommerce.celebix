@@ -13,6 +13,7 @@ import { renderContentAuthoringDescription } from './render.ts';
 import { attachAutomaticProductSource,assertAutomaticSourcePreserved } from './automatic-source.ts';
 import { assertToshiGeneratedLimits,automaticFieldActions } from './toshi-policy.ts';
 import { TOSHI_PRODUCT_EDITORIAL_PROMPT,toshiProductCorrectionFeedback,type ToshiProductValidationStage } from './editorial-prompt.ts';
+import {withProductFormattingFacts,createProductWriterProtocol}from'./writer-protocol.ts';
 const SAFE=new Set(['insufficient_credits','source_preservation_required','invalid_input','unauthenticated','membership_denied','store_inactive','feature_unavailable','credential_invalid','connection_missing','connection_revoked','model_unavailable','rate_limited','quota_exceeded','operation_busy','operation_mismatch','operation_not_found','version_conflict','lease_expired','dispatch_already_claimed','provider_timeout','provider_unavailable','invalid_output','cancelled','unavailable','commit_unknown']);
 export class ContentAuthoringError extends Error {constructor(readonly code:string){super('content_authoring_failed');this.code=SAFE.has(code)?code:'unavailable';}}
 export function safeContentAuthoringError(error:unknown):ContentAuthoringError {if(error instanceof ContentAuthoringError)return error;const d=error instanceof Error?Object.getOwnPropertyDescriptor(error,'code'):null;return new ContentAuthoringError(d&&'value'in d&&typeof d.value==='string'?d.value:'unavailable');}
@@ -90,13 +91,14 @@ export function createContentAuthoringService(deps:Dependencies){
    active();await bounded(deps.authorizeContentFields({tenantContext:input.tenantContext,now:deps.now(),fields:request.fields}));
    try {const previous=await bounded(deps.repository.getGeneration(base()));if(previous.requestFingerprint!==fingerprintContentAuthoringRequest(request))throw new ContentAuthoringError('operation_mismatch');if(previous.status!=='pending'||previous.dispatchState!=='not_dispatched')return previous;} catch(error){if(safeContentAuthoringError(error).code!=='operation_not_found')throw error;}
    const loaded=await bounded(deps.loadFacts({tenantContext:input.tenantContext,now:deps.now(),request}));
-   const packet=request.action==='auto'?attachAutomaticProductSource(loaded,request):attachProductSourcePreservation(loaded,request);
+   const packet=request.action==='auto'?attachAutomaticProductSource(withProductFormattingFacts(loaded),request):attachProductSourcePreservation(loaded,request);
+   const writer=request.action==='auto'?createProductWriterProtocol({packet,fields:request.fields}):null;
    const credential=await bounded(deps.providers.getAuthority({tenantContext:input.tenantContext,now:deps.now(),provider:null}));
    const begun=await bounded(deps.repository.beginGeneration({...base(),requestFingerprint:fingerprintContentAuthoringRequest(request),providerBinding:{configId:credential.configId,provider:credential.provider,model:credential.selectedModel,credentialVersion:credential.credentialVersion,promptVersion:request.action==='auto'?'toshi-product-v10':'content-authoring-v6'},envelope:{draftId:request.draftId,productId:request.productId,sourceFingerprint:packet.sourceFingerprint}}));row=begun.generation;
    if(row.status!=='pending'||row.dispatchState!=='not_dispatched')return row;
    const authority=async()=>{active();const c=await bounded(deps.providers.getAuthority({tenantContext:input.tenantContext,now:deps.now(),provider:credential.provider}));if(c.configId!==row!.configId||c.credentialVersion!==row!.credentialVersion||c.selectedModel!==row!.model||c.version!==credential.version)throw new ContentAuthoringError('connection_revoked');return c;};
    const current=await authority();keyring=deps.keyring();secret=openMerchantProviderCredential({envelope:current.sealedCredentials,profileId:current.configId,storeId:input.tenantContext.store.id,providerCode:current.provider,capability:'ai_assistant',credentialVersion:current.credentialVersion,keyring});keyring.keys.forEach(k=>k.key.fill(0));
-   const data=JSON.stringify({facts:packet,currentDraft:request.currentDraft,action:request.action,...(request.action==='auto'?{fieldActions:automaticFieldActions(request)}:{}),fields:request.fields,locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note,selection:request.selection});if(Buffer.byteLength(data,'utf8')>32768)throw new ContentAuthoringError('invalid_input');
+   const data=JSON.stringify(writer?{product:writer.context,fields:request.fields,fieldActions:automaticFieldActions(request),locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note}:{facts:packet,currentDraft:request.currentDraft,action:request.action,fields:request.fields,locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note,selection:request.selection});if(Buffer.byteLength(data,'utf8')>32768)throw new ContentAuthoringError('invalid_input');
    active();claim=await bounded(deps.repository.claimGenerationDispatch({...base(),expectedVersion:row.version}));active();await authority();
    let output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:request.action==='auto'?TOSHI_PRODUCT_EDITORIAL_PROMPT:SYSTEM,history:[{role:'user',text:data}],tools:[],outputFormat:'json_object',...(request.action==='auto'?{authoringProfile:'product_quality' as const,maxOutputTokens:12288}:{maxOutputTokens:4096}),signal}));active();
    knownUsage=measuredUsage(output);
@@ -107,7 +109,7 @@ export function createContentAuthoringService(deps:Dependencies){
     let draft;try{
      const parsed=checked('json_syntax',()=>JSON.parse(output.text));
      if(request.action==='auto'&&parsed&&typeof parsed==='object'&&!Array.isArray(parsed))for(const field of ['seoTitle','seoDescription'])if(typeof parsed[field]==='string')parsed[field]=parsed[field].normalize('NFC');
-     draft=checked('contract_or_grounding',()=>validateProductDraftOutput(parsed,packet,request.fields));
+     draft=checked('contract_or_grounding',()=>validateProductDraftOutput(writer?writer.decode(parsed):parsed,packet,request.fields));
     }catch{draft=preservedSeoOnlyDraft(packet,request.fields);if(!draft)throw new ContentAuthoringError('invalid_output');}
     if(request.action==='auto'){checked('policy_limits',()=>assertToshiGeneratedLimits(draft));checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));}
     if(draft.description)checked('render',()=>renderContentAuthoringDescription(draft.description!));return draft;

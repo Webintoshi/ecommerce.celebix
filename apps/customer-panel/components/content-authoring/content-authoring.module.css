@@ -16,6 +16,10 @@
 .fields label { display: flex; align-items: center; min-height: 44px; }
 .preview { padding: 12px 0; border-bottom: 1px solid var(--catalog-border, var(--border, #E7E2DD)); overflow-wrap: anywhere; }
 .preview > label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.preview p { margin: 0 0 12px; line-height: 1.6; }
+.preview h2 { margin: 22px 0 9px; font-size: 21px; font-weight: var(--cp-font-weight-heading); line-height: 1.28; }
+.preview h3 { margin: 19px 0 8px; font-size: 17px; font-weight: var(--cp-font-weight-heading); line-height: 1.35; }
+.preview strong { font-weight: bolder; }
 .preview table { display: block; overflow: auto; max-width: 100%; }
 .panel summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
 .panel details > label { margin-top: 8px; }

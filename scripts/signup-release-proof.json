@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "f52a1b4fda07dc2b93c5972dc98531243f746214acc258db87681f17f9b337b6",
+  "inputDigest": "cc03385e304ed17aedae26332bb1cfde6f053d7c09d1c42884478ac2e6c42580",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2894,6 +2894,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/202610270285_toshi_product_quality_lease.up.sql",
       "sha256": "6623af67fb4b3a2547c5354ee7bde683d3dc7fa2aa9598c7e59ef0545800e90e"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202610270286_toshi_product_formatting.up.sql",
+      "sha256": "f8b11a26700757a80af0587fb48ef7d6794b30195864b23cccc163f78106ebb8"
     },
     {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
