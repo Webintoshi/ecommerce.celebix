@@ -26,3 +26,12 @@ test('arbitrary error properties and copied issue data cannot become correction 
  assert.equal(feedback.issue,undefined);assert.equal(feedback.fieldNote,undefined);assert.deepEqual(feedback.selectedFields,['description']);assert.ok(!JSON.stringify(feedback).includes('PRIVATE_'));
  const syntax=JSON.parse(toshiProductCorrectionFeedback('json_syntax',['description','seoDescription']));assert.deepEqual(syntax.selectedFields,['description','seoDescription']);assert.equal(syntax.issue,undefined);
 });
+test('description source repair repeats only server-supplied marker and text pairs in order',()=>{
+ const sourceSlots=[{marker:'[[TOSHI_SOURCE_'+'a'.repeat(32)+'_0]]',text:'Özgün kaynak cümlesi.',internalRef:'PRIVATE_REF'},{marker:'[[TOSHI_SOURCE_'+'a'.repeat(32)+'_1]]',text:'Son özgün cümle.'}];
+ const feedback=JSON.parse(toshiProductCorrectionFeedback('contract_or_grounding',['description'],undefined,sourceSlots));
+ assert.deepEqual(feedback.sourceRepair,{reason:'source_marker_order',sourceSlots:sourceSlots.map(({marker,text})=>({marker,text}))});
+ assert.ok(!JSON.stringify(feedback).includes('PRIVATE_REF'));assert.equal(feedback.fieldNote,undefined);
+ for(const [stage,fields,slots]of [['contract_or_grounding',['seoTitle'],sourceSlots],['json_syntax',['description'],sourceSlots],['contract_or_grounding',['description'],[]]]as const){
+  assert.equal(JSON.parse(toshiProductCorrectionFeedback(stage,fields,undefined,slots)).sourceRepair,undefined);
+ }
+});

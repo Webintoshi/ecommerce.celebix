@@ -551,6 +551,31 @@ test('AUTO source slots are server expanded exactly once with one billed usable 
  const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.deepEqual(result.draft!.description![0],{type:'paragraph',children:[{type:'fact',factRef:'product:existing:0',value:'Özgün ürün bilgisi korunur.'}]});assert.equal(f.state().debits,1);
 });
 
+const sourceRepairTexts=['Özgün ürün bilgisi korunur.','Satıcının özgün açıklaması.','Mevcut kullanım ifadesi.','Kaynak bilgisi aynen korunur.','Ürün metninin özgün bölümü.','Tanıtım ifadesi değiştirilmez.','Son açıklama cümlesi.'];
+function sourceRepairPacket(){const source:any=structuredClone(capturedAutomaticPacket);source.facts.push(...sourceRepairTexts.map((value,index)=>({ref:`product:existing:${index}`,field:'merchantDescription',value,source:'current_draft',scope:'product'})));return source;}
+const sourceRepairOutput=(descriptionMarkdown:string)=>JSON.stringify({descriptionMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+test('missing source markers receive exact private correction context and preserve all seven facts with one charge',async()=>{
+ const f=capturedAutomaticRun([sourceRepairOutput(expandedFoodMarkdown),body=>{const feedback=JSON.parse(body.messages.at(-1).content);assert.deepEqual(feedback.sourceRepair.sourceSlots,JSON.parse(body.messages[1].content).product.sourceSlots);return sourceRepairOutput(feedback.sourceRepair.sourceSlots.map((slot:any)=>slot.marker).join('\n\n')+'\n\n'+expandedFoodMarkdown);}],sourceRepairPacket());
+ const events:any[]=[];f.dependencies.diagnostic=(event:unknown)=>events.push(event);
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');
+ const facts=result.draft!.description!.flatMap((block:any)=>block.children??[]).filter((node:any)=>node.type==='fact'&&node.factRef.startsWith('product:existing:'));
+ assert.deepEqual(facts.map((node:any)=>[node.factRef,node.value]),sourceRepairTexts.map((value,index)=>[`product:existing:${index}`,value]));
+ assert.equal(events[0].stage,'writer_decode');assert.equal(events[0].counts.sourceSlotsExpected,7);assert.equal(events[0].counts.sourceMarkersFound,0);
+ for(const text of [...sourceRepairTexts,'TOSHI_SOURCE_','sourceRepair'])assert.ok(!JSON.stringify(events).includes(text));
+ assert.ok(!JSON.stringify(result).includes('TOSHI_SOURCE_'));assert.ok(!JSON.stringify(result).includes('sourceRepair'));
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
+ assert.deepEqual(await f.service.generateContent(f.input),result);assert.equal(f.state().providerCalls,2);assert.equal(f.state().debits,1);
+});
+for(const mode of ['malformed','duplicate','reordered']as const)test(`source correction still rejects ${mode} markers without charging`,async()=>{
+ const f=capturedAutomaticRun([sourceRepairOutput(expandedFoodMarkdown),body=>{const slots=JSON.parse(body.messages[1].content).product.sourceSlots,markers=slots.map((slot:any)=>slot.marker);if(mode==='malformed')markers[0]=markers[0].slice(0,-1);else if(mode==='duplicate')markers.unshift(markers[0]);else[markers[0],markers[1]]=[markers[1],markers[0]];return sourceRepairOutput(markers.join('\n\n')+'\n\n'+expandedFoodMarkdown);}],sourceRepairPacket());
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});
+});
+test('another writer decode failure with all exact ordered markers does not receive a source repair hint',async()=>{
+ const invalid=(body:any)=>sourceRepairOutput(JSON.parse(body.messages[1].content).product.sourceSlots.map((slot:any)=>slot.marker).join('\n\n')+'\n\n`unsupported code`\n\n'+expandedFoodMarkdown);
+ const f=capturedAutomaticRun([invalid,invalid],sourceRepairPacket());assert.equal((await f.service.generateContent(f.input)).status,'failed');assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).sourceRepair,undefined);assert.equal(f.state().debits,0);
+});
+
 test('thin AUTO copy is corrected once into complete copy and charges once with safe replay',async()=>{
  const thin=JSON.stringify({descriptionMarkdown:'**İrmikli ve Yumurtalı Kesme Erişte**, bir erişte çeşididir.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
  const complete=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});

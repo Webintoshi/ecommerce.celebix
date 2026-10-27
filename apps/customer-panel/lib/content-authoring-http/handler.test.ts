@@ -37,10 +37,11 @@ test('slow input reduces remaining server generation budget',async()=>{
  const r=await h.post(req());assert.equal(r.status,200);assert.ok(received.deadlineAt-performance.now()<90);assert.ok(received.deadlineAt-performance.now()>0);
 });
 
-test('only validated AUTO gets an80-second absolute HTTP budget; legacy and small overrides remain bounded',async()=>{
+test('only validated AUTO gets an80-second absolute HTTP budget; legacy and small overrides remain bounded',async(t)=>{
+ t.mock.method(performance,'now',()=>1234);
  for(const [action,override,maximum]of [['auto',undefined,80000],['create',undefined,45000],['auto',70000,70000],['create',70000,45000],['auto',100,100]]as const){
-  const f=fixture(true,undefined,override),started=performance.now();const response=await f.h.post(req({...body,action}));assert.equal(response.status,200);
-  const elapsed=performance.now()-started,deadline=f.input().deadlineAt;assert.ok(deadline-started<=maximum+5,`${action}:${override}`);assert.ok(deadline-performance.now()>=maximum-elapsed-5,`${action}:${override}`);
+  const f=fixture(true,undefined,override);const response=await f.h.post(req({...body,action}));assert.equal(response.status,200);
+  assert.equal(f.input().deadlineAt,1234+maximum,`${action}:${override}`);
  }
 });
 

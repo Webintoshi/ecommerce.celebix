@@ -126,8 +126,11 @@ export function createContentAuthoringService(deps:Dependencies){
     diagnose(1);
     // A known, completed but invalid answer can be corrected once. Network/dispatch uncertainty is never retried.
     if(request.action!=='auto'||endsAt-performance.now()<12000||!output.text.trim()||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
+    const markdown=(diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown,sourceSlots=writer?.context.sourceSlots;
+    const markerPattern=/\[\[TOSHI_SOURCE_[^\]\r\n]*\]\]/gu;
+    const sourceRepair=(diagnosticStage as ProductValidationDiagnosticStage)==='writer_decode'&&typeof markdown==='string'&&sourceSlots?.length&&(JSON.stringify(markdown.match(markerPattern)??[])!==JSON.stringify(sourceSlots.map(slot=>slot.marker))||markdown.replace(markerPattern,'').includes('[[TOSHI_SOURCE_'))?sourceSlots:undefined;
     await authority();const previousUsage=knownUsage;
-    output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:toshiProductCorrectionFeedback(validationStage,request.fields,validationFailure)}],tools:[],outputFormat:'json_object',authoringProfile:'product_quality',maxOutputTokens:12288,signal}));active();
+    output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:toshiProductCorrectionFeedback(validationStage,request.fields,validationFailure,sourceRepair)}],tools:[],outputFormat:'json_object',authoringProfile:'product_quality',maxOutputTokens:12288,signal}));active();
     const nextUsage=measuredUsage(output);knownUsage=previousUsage&&nextUsage?{inputTokens:previousUsage.inputTokens+nextUsage.inputTokens,outputTokens:previousUsage.outputTokens+nextUsage.outputTokens,totalTokens:previousUsage.totalTokens+nextUsage.totalTokens}:null;
     try{draft=validate();}catch{diagnose(2);throw new ContentAuthoringError('invalid_output');}
    }
