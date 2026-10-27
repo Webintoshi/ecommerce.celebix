@@ -7,7 +7,7 @@ const ID='72000000-0000-4000-8000-000000000001',NOW=new Date('2026-09-29T00:00:0
 const COOKIE=`v1.panel.current.${Buffer.alloc(32,1).toString('base64url')}`;
 const body={draftId:ID,productId:null,productVersion:null,profileVersion:null,currentDraft:{title:'Draft'},action:'create',fields:['description'],locale:'tr',tone:'neutral',length:'short',note:'',selection:null};
 const generation={id:ID,draftId:ID,productId:null,status:'pending',draft:null,sourceFingerprint:'a'.repeat(64),usage:null,safeCode:null,createdAt:NOW.toISOString(),updatedAt:NOW.toISOString(),finishedAt:null,secret:'never-public',provider:'deepseek'};
-function fixture(enabled=true,error?:unknown,requestBudgetMs?:number,planIndex=3){let calls=0;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>({access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},entitlements:commercialEntitlements(planIndex),membership:{status:'active',role:'editor'}}})},enabled:()=>enabled,service:{generateContent:async()=>{calls++;if(error)throw error;return generation;},getGeneration:async()=>{calls++;if(error)throw error;return generation;}}}as any),now:()=>NOW,requestId:()=>ID,requestBudgetMs}as any);return {h,count:()=>calls};}
+function fixture(enabled=true,error?:unknown,requestBudgetMs?:number,planIndex=3){let calls=0,received:any;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>({access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},entitlements:commercialEntitlements(planIndex),membership:{status:'active',role:'editor'}}})},enabled:()=>enabled,service:{generateContent:async(input:any)=>{calls++;received=input;if(error)throw error;return generation;},getGeneration:async()=>{calls++;if(error)throw error;return generation;}}}as any),now:()=>NOW,requestId:()=>ID,requestBudgetMs}as any);return {h,count:()=>calls,input:()=>received};}
 function req(value:unknown=body,headers:HeadersInit={},get=false){return new Request('http://customer-panel:3400/api/content-ai/generations'+(get?'/'+ID:''),{method:get?'GET':'POST',headers:{cookie:`__Host-celebix_panel=${COOKIE}`,origin:'https://fixture.admin.saas-staging.celebix.site','content-type':'application/json','idempotency-key':ID,...Object.fromEntries(new Headers(headers))},...(get?{}:{body:JSON.stringify(value)})});}
 test('generation responses expose only strict view and are not cached',async()=>{const f=fixture();const r=await f.h.post(req());assert.equal(r.status,200);assert.equal(r.headers.get('cache-control'),'no-store');const v=await r.json();assert.equal(v.generation.provider,undefined);assert.equal(v.generation.secret,undefined);assert.equal(v.generation.id,ID);});
 test('client store provider secrets and oversized body fail before service',async()=>{for(const extra of [{storeId:ID},{provider:'openai'},{secret:'secret'},{history:[]}]){const f=fixture();assert.equal((await f.h.post(req({...body,...extra}))).status,400);assert.equal(f.count(),0);}const f=fixture();assert.equal((await f.h.post(req({...body,note:'x'.repeat(50000)}))).status,400);assert.equal(f.count(),0);});
@@ -35,6 +35,26 @@ test('unresponsive initial runtime authority is bounded before authoring',async(
 test('slow input reduces remaining server generation budget',async()=>{
  let received:any;const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>{await new Promise(r=>setTimeout(r,15));return {access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},entitlements:commercialEntitlements(),membership:{status:'active',role:'editor'}}})},enabled:()=>true,service:{generateContent:async(input:any)=>{received=input;return generation;}}}as any;},now:()=>NOW,requestId:()=>ID,requestBudgetMs:100}as any);
  const r=await h.post(req());assert.equal(r.status,200);assert.ok(received.deadlineAt-performance.now()<90);assert.ok(received.deadlineAt-performance.now()>0);
+});
+
+test('only validated AUTO gets an80-second absolute HTTP budget; legacy and small overrides remain bounded',async()=>{
+ for(const [action,override,maximum]of [['auto',undefined,80000],['create',undefined,45000],['auto',70000,70000],['create',70000,45000],['auto',100,100]]as const){
+  const f=fixture(true,undefined,override),started=performance.now();const response=await f.h.post(req({...body,action}));assert.equal(response.status,200);
+  const elapsed=performance.now()-started,deadline=f.input().deadlineAt;assert.ok(deadline-started<=maximum+5,`${action}:${override}`);assert.ok(deadline-performance.now()>=maximum-elapsed-5,`${action}:${override}`);
+ }
+});
+
+test('AUTO extension includes time already spent on authority and body; it does not restart the clock',async()=>{
+ let received:any;const encoded=new TextEncoder().encode(JSON.stringify({...body,action:'auto'}));
+ const stream=new ReadableStream<Uint8Array>({async pull(controller){await new Promise(resolve=>setTimeout(resolve,20));controller.enqueue(encoded);controller.close();}});
+ const request=new Request('http://customer-panel:3400/api/content-ai/generations',{method:'POST',headers:req().headers,body:stream,duplex:'half'}as RequestInit);
+ const h=createContentAuthoringHttpHandlers({resolveRuntime:async()=>{await new Promise(resolve=>setTimeout(resolve,20));return {access:{panelOrigin:'https://panel.saas-staging.celebix.site',resolveCredential:async()=>({kind:'authenticated',tenantContext:{store:{id:ID,slug:'fixture',status:'active'},entitlements:commercialEntitlements(),membership:{status:'active',role:'editor'}}})},enabled:()=>true,service:{generateContent:async(input:any)=>{received=input;return generation;}}}as any;},now:()=>NOW,requestId:()=>ID}as any);
+ const started=performance.now(),response=await h.post(request);assert.equal(response.status,200);assert.ok(performance.now()-started>=15);assert.ok(received.deadlineAt-started<=80005);assert.ok(received.deadlineAt-performance.now()<79990);
+});
+
+test('GET retains its45-second budget even when a longer POST override is configured',async(t)=>{
+ const delays:number[]=[],original=setTimeout;t.mock.method(globalThis,'setTimeout',((callback:any,delay:any,...args:any[])=>{delays.push(delay);return original(callback,delay,...args);})as typeof setTimeout);
+ const f=fixture(true,undefined,80000),response=await f.h.get(req(body,{},true),{params:Promise.resolve({id:ID})});assert.equal(response.status,200);assert.deepEqual(delays,[45000]);
 });
 
 test('protected existing source is an actionable conflict without exposing source text',async()=>{

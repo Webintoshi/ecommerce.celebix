@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "cfdbbf2ba05b8ce0a077bfb4edd69e41aacd150dcddf145150c6058032865c08",
+  "inputDigest": "f52a1b4fda07dc2b93c5972dc98531243f746214acc258db87681f17f9b337b6",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2892,6 +2892,10 @@
       "sha256": "7101246cef262f0469d87e297735f8a4954fa7831f91eedb827c36ae61d16c99"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610270285_toshi_product_quality_lease.up.sql",
+      "sha256": "6623af67fb4b3a2547c5354ee7bde683d3dc7fa2aa9598c7e59ef0545800e90e"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -3825,7 +3829,7 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/grounding.ts",
-      "sha256": "6686dd7bf38ead7da64ad2fd5b2617b620680b4db031ecd7e58156f56cf9c568"
+      "sha256": "8ef5a19117f2c3b551fa5faf5a90da19eb047b813604cc47e07693a879249b3b"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/index.ts",

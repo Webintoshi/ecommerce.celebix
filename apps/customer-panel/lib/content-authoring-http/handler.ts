@@ -22,18 +22,21 @@ function requestShape(request: Request, pathname: string) {
   } catch { return false; }
 }
 
-type RequestBudget = Readonly<{deadlineAt:number;run<T>(operation:()=>Promise<T>):Promise<T>;active():void;dispose():void}>;
-function requestBudget(request:Request,milliseconds=45000):RequestBudget {
- const budgetMs=Math.min(milliseconds,45000),deadlineAt=performance.now()+budgetMs;
+type RequestBudget = Readonly<{deadlineAt:number;allowAutomatic():void;run<T>(operation:()=>Promise<T>):Promise<T>;active():void;dispose():void}>;
+function requestBudget(request:Request,milliseconds?:number):RequestBudget {
+ const startedAt=performance.now();let budgetMs=Math.min(milliseconds??45000,45000),deadlineAt=startedAt+budgetMs;
  const deadline=new AbortController(),signal=AbortSignal.any([request.signal,deadline.signal]);
  const expired=()=>new ContentAuthoringError(request.signal.aborted?'cancelled':'provider_timeout');
  let rejectAbort:(error:unknown)=>void=()=>{};
  const aborted=new Promise<never>((_,reject)=>{rejectAbort=reject;});void aborted.catch(()=>{});
  const onAbort=()=>rejectAbort(expired());signal.addEventListener('abort',onAbort,{once:true});
- const timer=setTimeout(()=>deadline.abort(),Math.max(1,budgetMs));
+ let timer=setTimeout(()=>deadline.abort(),Math.max(1,budgetMs));
  const active=()=>{if(signal.aborted||performance.now()>=deadlineAt)throw expired();};
  if(signal.aborted)onAbort();
- return {deadlineAt,active,async run<T>(operation:()=>Promise<T>):Promise<T>{active();const value=await Promise.race([operation(),aborted]);active();return value;},dispose(){clearTimeout(timer);signal.removeEventListener('abort',onAbort);}};
+ return {get deadlineAt(){return deadlineAt;},active,allowAutomatic(){
+  active();const automaticMs=Math.min(milliseconds??80000,80000);if(automaticMs<=budgetMs)return;
+  budgetMs=automaticMs;deadlineAt=startedAt+budgetMs;clearTimeout(timer);timer=setTimeout(()=>deadline.abort(),Math.max(1,deadlineAt-performance.now()));active();
+ },async run<T>(operation:()=>Promise<T>):Promise<T>{active();const value=await Promise.race([operation(),aborted]);active();return value;},dispose(){clearTimeout(timer);signal.removeEventListener('abort',onAbort);}};
 }
 async function withinRequest(request:Request,deps:Dependencies,operation:(budget:RequestBudget)=>Promise<Response>):Promise<Response>{
  const budget=requestBudget(request,deps.requestBudgetMs);
@@ -83,6 +86,7 @@ export function createContentAuthoringHttpHandlers(deps: Dependencies) {
    const auth=await authorize(deps,request,'POST','/api/content-ai/generations',budget);if(auth instanceof Response)return auth;
    const operationId=request.headers.get('idempotency-key');if(!operationId||!TOSHI_UUID.test(operationId))return failure('invalid_input');
    let parsed;try{parsed=parseContentAuthoringRequest(await body(request,budget));}catch(error){return error instanceof ContentAuthoringError?mapped(error):failure('invalid_input');}
+   if(parsed.action==='auto')budget.allowAutomatic();
    return json({generation:view(await budget.run(()=>auth.runtime.service.generateContent({tenantContext:auth.tenantContext,operationId,request:parsed,signal:request.signal,deadlineAt:budget.deadlineAt})))});
   });},
   get(request:Request,context:ContentGenerationRouteContext){return withinRequest(request,deps,async budget=>{

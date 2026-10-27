@@ -30,6 +30,19 @@ const critical = new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:` + [
   ...Object.values(units).flat().map(u => `${escape(normalize(u))}(?:dir|tir|lik)?`),
 ].join('|') + String.raw`)(?=$|[^\p{L}\p{N}])`, 'u');
 
+// Exempt only the observed hand/within-reach idiom in original Turkish.
+// Altından and noun/case variants remain protected: they can assert gold material.
+const spatialUnder = /(^|[^\p{L}\p{N}])((?:elinin|elinizin)\s+)(altında|altındaki)(?=$|[^\p{L}\p{N}])/gu;
+// These complete adjustment verbs do not describe metal purity.
+const ordinaryAdjust = /(^|[^\p{L}\p{N}])(ayarlayabilirsiniz|ayarlayın)(?=$|[^\p{L}\p{N}])/gu;
+function criticalProjection(raw: string): string {
+  const original = raw.normalize('NFKC').toLocaleLowerCase('tr-TR').normalize('NFC').replace(/\p{Cf}/gu, '');
+  // Nulls preserve normalized positions without joining or authorizing other
+  // words. Skip only the matched altın/ayar stem, never its surrounding prose.
+  const projected = original.replace(spatialUnder, (_match, lead: string, context: string, spatial: string) => `${lead}${context}${'\0'.repeat(5)}${spatial.slice(5)}`);
+  return normalize(projected.replace(ordinaryAdjust, (_match, lead: string, verb: string) => `${lead}${'\0'.repeat(4)}${verb.slice(4)}`));
+}
+
 /** Match complete source fragments; never let "250" in ZX-250 authorize a new weight. */
 function occurrence(fragment: string): RegExp {
   return new RegExp(`(?<![\\p{L}\\p{N}.,+\\-±∓])${escape(normalize(fragment))}(?![\\p{L}\\p{N}])`, 'gu');
@@ -44,7 +57,8 @@ function fragments(fact: ProductFact): string[] {
 function variantIsNamed(text: string, id: string | undefined, packet: ProductFactPacket): boolean {
   if (!id) return false;
   return packet.facts.some(f => f.scope === 'variant' && f.variantId === id && f.field === 'title' && (
-    new RegExp(`(?:^|[^\\p{L}\\p{N}])${escape(normalize(f.value))} (?:varyant[\\p{L}]*|secenek[\\p{L}]*|variant|option)(?=$|[^\\p{L}\\p{N}])`, 'u').test(text) ||
+    // Turkish softens the final k in seçenek: seçeneği / seçeneğinde / seçeneğiyle.
+    new RegExp(`(?:^|[^\\p{L}\\p{N}])${escape(normalize(f.value))} (?:varyant[\\p{L}]*|secenek[\\p{L}]*|seceneg[\\p{L}]*|variant|option)(?=$|[^\\p{L}\\p{N}])`, 'u').test(text) ||
     new RegExp(`(?:^|[^\\p{L}\\p{N}])(?:varyant|secenek|variant|option):? ${escape(normalize(f.value))}(?=$|[^\\p{L}\\p{N}])`, 'u').test(text)
   ));
 }
@@ -103,8 +117,12 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     const evidence = [normalize(packet.title), ...eligible.flatMap(fragments)].filter(Boolean).sort((a, b) => b.length - a.length);
     // Fixed-size spaces preserve boundaries between unmatched tokens and source fragments.
     let uncovered = text;
-    for (const fragment of evidence) uncovered = uncovered.replace(occurrence(fragment), match => ' '.repeat(match.length));
-    if (/\p{N}/u.test(uncovered) || critical.test(uncovered)) unsupported();
+    let criticalUncovered = criticalProjection(raw);
+    for (const fragment of evidence) uncovered = uncovered.replace(occurrence(fragment), (match, offset: number) => {
+      criticalUncovered = criticalUncovered.slice(0, offset) + ' '.repeat(match.length) + criticalUncovered.slice(offset + match.length);
+      return ' '.repeat(match.length);
+    });
+    if (/\p{N}/u.test(uncovered) || critical.test(criticalUncovered)) unsupported();
     // Even a noncritical colour/size value must not escape its known variant scope.
     for (const f of packet.facts) {
       if (f.scope === 'variant' && !eligible.includes(f) && occurrence(f.value).test(uncovered)) unsupported();

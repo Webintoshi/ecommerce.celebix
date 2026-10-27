@@ -33,6 +33,22 @@ test('configuration changed while claiming cannot make a paid call',async()=>{co
 test('configuration changed after provider output cannot complete old binding',async()=>{const s=setup({changeConfigAt:4});const r=await s.service.generateContent(input);assert.equal(r.status,'failed');assert.equal(r.safeCode,'connection_revoked');assert.equal(s.counts().calls,1);assert.equal(s.counts().completed,0);});
 test('already exhausted HTTP budget cannot dispatch',async()=>{const s=setup();await assert.rejects(s.service.generateContent({...input,deadlineAt:performance.now()-1}),(e:any)=>e.code==='provider_timeout');assert.equal(s.counts().calls,0);});
 
+test('AUTO has one80-second total budget with a5-second finalizer reserve while legacy stays45 seconds',async(t)=>{
+ const delays:number[]=[],original=setTimeout;t.mock.method(globalThis,'setTimeout',((callback:any,delay:any,...args:any[])=>{delays.push(delay);return original(callback,delay,...args);})as typeof setTimeout);
+ for(const [action,expected]of [['create',40000],['auto',75000]]as const){
+  const s=setup();delete s.dependencies.deadlineMs;const before=delays.length;
+  const result=await s.service.generateContent({...input,request:{...request,action,note:''}}as any);assert.equal(result.status,'completed');assert.equal(delays[before],expected);assert.equal(s.counts().calls,1);
+ }
+});
+
+test('AUTO honors a smaller test or remaining HTTP deadline instead of resetting to80 seconds',async()=>{
+ for(const external of [false,true]){
+  const s=setup({delay:true});s.dependencies.deadlineMs=external?80000:30;const started=performance.now();
+  const result=await s.service.generateContent({...input,request:{...request,action:'auto',note:''},...(external?{deadlineAt:started+30}:{})}as any);
+  assert.equal(result.status,'unknown');assert.equal(result.safeCode,'provider_timeout');assert.equal(s.counts().calls,1);assert.ok(performance.now()-started<300);
+ }
+});
+
 test("GET own durable status survives revoked provider without key or model call",async()=>{const s=setup({readReplay:true,providerUnavailable:true});const r=await s.service.getGeneration({tenantContext:input.tenantContext,operationId:id});assert.equal(r.id,id);assert.equal(r.status,"pending");assert.equal(s.counts().calls,0);});
 
 import { createToshiGenerationRegistry } from '../toshi-generation/registry.ts';
@@ -149,7 +165,8 @@ async function promptFromActualAdapter() {
  const s=setup();let binding:any,system='',fetches=0;const begin=s.dependencies.repository.beginGeneration;
  s.dependencies.repository.beginGeneration=async(value:any)=>{binding=value.providerBinding;return begin(value);};
  s.dependencies.generations=createToshiGenerationRegistry({deepseek:async(_url,init)=>{
-  fetches++;const messages=JSON.parse(String(init.body)).messages;system=messages.find((message:any)=>message.role==='system').content;
+  fetches++;const body=JSON.parse(String(init.body)),messages=body.messages;system=messages.find((message:any)=>message.role==='system').content;
+  assert.equal(body.max_tokens,4096);assert.deepEqual(body.thinking,{type:'disabled'});assert.equal(body.reasoning_effort,undefined);
   return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:JSON.stringify({description:[{type:'paragraph',children:[{type:'text',text:'A product.'}]}],suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint})}}]});
  }});
  const result=await createContentAuthoringService(s.dependencies).generateContent(input);
@@ -420,7 +437,7 @@ test('neutral merchant prose completes only when every original clause is retain
 
 test('automatic field actions reach provider; long SEO is corrected once within same durable generation',async()=>{
  const s=setup();s.dependencies.deadlineMs=30000;let calls=0;
- s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);assert.deepEqual(sent.fieldActions,{seoTitle:'create',seoDescription:'create'});assert.match(args.system,/seoTitle <=60/);return {text:JSON.stringify({seoTitle:'Fresh draft',seoDescription:calls===1?'ş'.repeat(161):'Fresh draft ürün bilgilerini inceleyin.',suggestions:[],claims:[],sourceFingerprint:sent.facts.sourceFingerprint}),toolCalls:[],usage:{inputTokens:10,outputTokens:20}};}})};
+ s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);assert.deepEqual(sent.fieldActions,{seoTitle:'create',seoDescription:'create'});assert.match(args.system,/seoTitle <=60/);assert.equal(args.authoringProfile,'product_quality');assert.equal(args.maxOutputTokens,12288);return {text:JSON.stringify({seoTitle:'Fresh draft',seoDescription:calls===1?'ş'.repeat(161):'Fresh draft ürün bilgilerini inceleyin.',suggestions:[],claims:[],sourceFingerprint:sent.facts.sourceFingerprint}),toolCalls:[],usage:{inputTokens:10,outputTokens:20}};}})};
  const r=await createContentAuthoringService(s.dependencies).generateContent({...input,request:{...request,action:'auto',fields:['seoTitle','seoDescription'],note:''}} as any);
  assert.equal(r.status,'completed');assert.equal(calls,2);assert.equal(r.draft?.description,undefined);assert.ok((r.draft?.seoDescription?.length??999)<=160);assert.deepEqual(r.usage,{inputTokens:20,outputTokens:40,totalTokens:60});
 });
@@ -449,7 +466,7 @@ function capturedAutomaticRun(outputs:readonly string[],source:any=capturedAutom
   async failGeneration(value:any){generation={...generation,status:'failed',safeCode:value.safeCode,usage:value.usage??null,finishedAt:initial.createdAt};return generation;},
  };
  s.dependencies.generations=createToshiGenerationRegistry({deepseek:async(_url,init)=>{
-  const body=JSON.parse(String(init.body));sent.push(body);assert.equal(body.response_format.type,'json_object');assert.equal(body.tools,undefined);assert.equal(body.max_tokens,4096);
+  const body=JSON.parse(String(init.body));sent.push(body);assert.equal(body.response_format.type,'json_object');assert.equal(body.tools,undefined);assert.equal(body.max_tokens,12288);assert.deepEqual(body.thinking,{type:'enabled'});assert.equal(body.reasoning_effort,'low');
   const text=outputs[Math.min(providerCalls++,outputs.length-1)]!;
   return Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:text}}],usage:{prompt_tokens:100,completion_tokens:50}});
  }});
@@ -464,14 +481,14 @@ function capturedAutomaticRun(outputs:readonly string[],source:any=capturedAutom
 
 test('concise AUTO protocol has one valid paragraph example and excludes legacy system instructions',()=>{
  const exampleText=TOSHI_PRODUCT_EDITORIAL_PROMPT.split('\n').find(line=>line.startsWith('{"description":'))!;
- const example=JSON.parse(exampleText);assert.ok(example.description.every((block:any)=>block.type==='paragraph'));assert.equal(example.claims[0].field,'description');
- assert.ok(Buffer.byteLength(TOSHI_PRODUCT_EDITORIAL_PROMPT,'utf8')<8000);assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Preservation example with ONE clause|Package contents example|Labeled dimensions example|hard limits are 200\/500/);
+ const example=JSON.parse(exampleText);assert.ok(example.description.every((block:any)=>['paragraph','heading'].includes(block.type)));assert.equal(example.description.filter((block:any)=>block.type==='heading').length,3);assert.equal(example.claims[0].field,'description');
+ assert.ok(Buffer.byteLength(TOSHI_PRODUCT_EDITORIAL_PROMPT,'utf8')<10000);assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT,/Preservation example with ONE clause|Package contents example|Labeled dimensions example|hard limits are 200\/500/);
 });
 
-test('captured malformed list receives JSON-stage correction, completes once and charges text credits once',async()=>{
+test('AUTO v10 uses enabled writing thinking at low effort for initial and corrected JSON and charges once',async()=>{
  assert.throws(()=>JSON.parse(capturedMalformedListJson));
  const f=capturedAutomaticRun([capturedMalformedListJson,JSON.stringify(capturedCorrectedList)]);
- const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.promptVersion,'toshi-product-v8');assert.deepEqual(result.usage,{inputTokens:200,outputTokens:100,totalTokens:300});
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.promptVersion,'toshi-product-v10');assert.deepEqual(result.usage,{inputTokens:200,outputTokens:100,totalTokens:300});
  assert.equal(f.sent.length,2);assert.equal(f.sent[0].messages[0].content,TOSHI_PRODUCT_EDITORIAL_PROMPT);assert.equal(f.sent[1].messages[0].content,TOSHI_PRODUCT_EDITORIAL_PROMPT);
  const feedback=JSON.parse(f.sent[1].messages.at(-1).content);assert.equal(feedback.validationFailure,'json_syntax');assert.deepEqual(Object.keys(feedback),['validationFailure','instruction']);
  const replay=await f.service.generateContent(f.input);assert.deepEqual(replay,result);await f.service.getGeneration({tenantContext:f.input.tenantContext,operationId:id});
@@ -502,4 +519,44 @@ test('AUTO SEO protocol keeps variant-only values in description and uses produc
  assert.doesNotMatch(TOSHI_PRODUCT_EDITORIAL_PROMPT,/SEO statement using a variant fact must/);
  const productScoped=structuredClone(capturedCorrectedList);productScoped.seoDescription=capturedAutomaticPacket.title+' için ürün bilgilerini ve sunulan seçenekleri inceleyin.';productScoped.claims=productScoped.claims.filter((claim:any)=>claim.field==='description');
  const f=capturedAutomaticRun([JSON.stringify(productScoped)]),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(f.state().providerCalls,1);assert.equal(f.state().debits,1);assert.doesNotMatch(result.draft!.seoDescription!,/1000|500|250/);
+});
+
+function richAutomaticQualityCandidate(){
+ const candidate=structuredClone(capturedCorrectedList),variantTitles=capturedAutomaticPacket.facts.filter(fact=>fact.scope==='variant'&&fact.field==='title');
+ const paragraph=(text:string)=>({type:'paragraph',children:[{type:'text',text}]}),heading=(text:string,level=2)=>({type:'heading',level,children:[{type:'text',text}]});
+ const options:any[]=[{type:'text',text:'Sunulan '}];variantTitles.forEach((fact,index)=>{if(index)options.push({type:'text',text:index===variantTitles.length-1?' ve ':', '});options.push({type:'fact',factRef:fact.ref,value:fact.value},{type:'text',text:' seçeneği'});});
+ options.push({type:'text',text:' arasında seçim yaparken kendi kullanım planınızdan yola çıkabilirsiniz. Hazırlamak istediğiniz tarifi ve ne sıklıkla erişteye yer vermeyi düşündüğünüzü birlikte ele alın. Aklınızda farklı tarifler varsa her birinde kullanmayı planladığınız miktarı önceden düşünün. Böylece yalnızca seçenek adlarına bakmak yerine kendi alışkanlıklarınızla bağlantı kurabilir, kararınızı günlük planınıza göre verebilirsiniz.'});
+ candidate.description=[
+  paragraph('İrmikli ve Yumurtalı Kesme Erişte ile kuracağınız sofrayı damak zevkinize göre planlayabilirsiniz. Sade bir tabak hazırlamak ya da sevdiğiniz eşlikçilere yer vermek istiyorsanız, önce nasıl bir sunum istediğinizi düşünün. Alışverişinizi de bu plana göre yaparak seçiminizi kolaylaştırabilirsiniz. İster alışık olduğunuz bir tarife yönelin ister farklı bir sunumu denemeyi düşünün, başlangıç noktanız kendi tercihleriniz olsun.'),
+  heading('Seçenekleri kendi planınıza göre değerlendirin'),
+  {type:'paragraph',children:options},
+  heading('Hazırlama ve sunum için fikirler'),
+  paragraph('Dilerseniz erişteyi sade bir sunumla değerlendirebilir, dilerseniz hazırladığınız tabağa kendi seçeceğiniz bir sosu sonradan ekleyebilirsiniz. Bu eklemeyi damak zevkinize göre yapmak, sofradaki diğer tabaklarla nasıl bir birliktelik istediğinizi düşünmek için de iyi bir başlangıç olabilir. Eşlikçi kullanmak istemiyorsanız sunumunuzu daha yalın tutmayı tercih edin. Sofraya oturmadan önce tercih ettiğiniz sunuma karar vererek hazırlık sırasında ihtiyaç duyacağınız eklemeleri yanınızda bulundurabilirsiniz. Sunumu paylaşmayı planlıyorsanız, eşlikçi tercihlerini sofranızdakilerle önceden konuşabilir, herkesin kendi tabağında tercih ettiği eklemeyi seçmesine fırsat verebilirsiniz. Hazırlarken kendi tarifinizin adımlarını izleyin.'),
+  heading('Tercihinizi netleştirin',3),
+  paragraph('Alışverişinizi tamamlamadan önce seçtiğiniz miktarı kullanım planınızla tekrar karşılaştırın. Aklınızdaki tarifle birlikte nasıl bir sunum yapacağınıza da bakın; sade bir tabak ile eklemelerle hazırlamayı düşündüğünüz bir tabak için kişisel tercihleriniz farklı olabilir. Sizin için önemli olan noktaları belirledikten sonra seçenekler arasında yeniden dönüp karar vermek daha kolay olabilir. Dilerseniz sonraki alışverişleriniz için beğendiğiniz sunum fikrini not alın.'),
+ ];
+ candidate.claims=variantTitles.map(fact=>({field:'description',factRef:fact.ref,value:fact.value}));
+ candidate.seoDescription=capturedAutomaticPacket.title+' için ürün bilgilerini ve sunulan seçenekleri inceleyin.';
+ return candidate;
+}
+
+test('v10 permits rich shopper-facing food copy with natural variant choices and optional serving guidance',async()=>{
+ const candidate=richAutomaticQualityCandidate(),html=renderContentAuthoringDescription(candidate.description),words=html.replace(/<[^>]+>/g,' ').split(/\s+/u).filter(Boolean);
+ assert.ok(words.length>=250&&words.length<=350,String(words.length));assert.equal((html.match(/<h[23]>/g)??[]).length,3);assert.doesNotMatch(html,/Ağırlık:|Unlu Mamüller|Yöresel Ürünler|adından anlaşılacağı üzere|taahhüt|kesin hazırlık talimatı|ürün ailesindendir/);
+ const f=capturedAutomaticRun([JSON.stringify(candidate)]),result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.promptVersion,'toshi-product-v10');assert.equal(f.state().providerCalls,1);assert.equal(f.state().debits,1);assert.deepEqual(result.draft!.suggestions,[]);
+ assert.match(result.draft!.description!.map((block:any)=>block.type==='paragraph'?block.children.map((node:any)=>node.type==='text'?node.text:node.value).join(''):'').join(' '),/Dilerseniz/);
+ assert.deepEqual(result.draft!.claims,candidate.claims);assert.ok([...result.draft!.seoDescription!].length<=160);assert.doesNotMatch(result.draft!.seoDescription!,/1000|500|250/);
+});
+
+test('v10 style omits meta commentary and routine seller questions from published shopper copy',()=>{
+ for(const pattern of [/Speak directly to the shopper/,/Use sentence-case headings/,/Do not add source-analysis, legal, AI, disclaimer or meta commentary/,/Omit unsupported details silently/,/suggestions should normally be \[\]/,/Ask1–3 concise seller questions ONLY when unknown identity or essential missing facts genuinely prevent safe content/,/preparation note should be one short actionable line/])assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,pattern);
+ for(const phrase of ['adından anlaşılacağı üzere','bu metinde taahhüt yer almamaktadır','kesin hazırlık talimatı değildir','ürün ailesindendir'])assert.ok(TOSHI_PRODUCT_EDITORIAL_PROMPT.includes(phrase));
+});
+
+test('v10 quality target is advisory while nonfood and unsupported factual claims remain constrained',async()=>{
+ assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/aim for250–350 meaningful Turkish words/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/3–4 useful H2\/H3 sections/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/For nonfood, do not invent technical care or compatibility instructions/);assert.match(TOSHI_PRODUCT_EDITORIAL_PROMPT,/clearly describe them as additions, NEVER product composition/);
+ const short=structuredClone(capturedCorrectedList);short.description=[{type:'paragraph',children:[{type:'text',text:capturedAutomaticPacket.title}]}];short.claims=[];short.seoDescription=capturedAutomaticPacket.title;
+ const accepted=capturedAutomaticRun([JSON.stringify(short)]);assert.equal((await accepted.service.generateContent(accepted.input)).status,'completed','word target must not become a new runtime minimum');
+ const unsupported=richAutomaticQualityCandidate();unsupported.description.push({type:'paragraph',children:[{type:'text',text:'Organik ürün.'}]});
+ const rejected=capturedAutomaticRun([JSON.stringify(unsupported)]),result=await rejected.service.generateContent(rejected.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(rejected.state().debits,0);assert.equal(rejected.state().held,0);
 });
