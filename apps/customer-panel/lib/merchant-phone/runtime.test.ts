@@ -39,7 +39,7 @@ test('hinted central login keeps one prepared handoff and installs a session bef
  let issued:any=null;
  const run=createMerchantPhoneRuntime({source:source(),clock:()=>NOW,getHandoffRepository:async()=>({
   recoverIssuedHandoff:async()=>issued??{kind:'unauthenticated'},
-  issuePreparedHandoff:async input=>{writes.push(input);return issued={kind:'handoff_issued',credential:input.candidateCredential,destinationOrigin:target,expiresAt:new Date(NOW.getTime()+120000).toISOString()};},
+  issuePreparedHandoff:async input=>{writes.push(input);return issued={kind:'handoff_issued' as const,credential:input.candidateCredential,destinationOrigin:target,expiresAt:new Date(NOW.getTime()+120000).toISOString()};},
  }),createTransport:()=>({command:async input=>{commands.push(input);return input.action==='complete'?{schemaVersion:1,code:'complete',completion}:{schemaVersion:1,code:'ok',state:{phase:'phone'}};}})});
  const centralRequest=(path:string,cookie?:string)=>new Request('http://customer-panel:3400'+path,{headers:{host:new URL(central).host,...(cookie?{cookie}:{})}});
  const state=await run('state',centralRequest('/api/merchant-login/state')),cookie=state.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');

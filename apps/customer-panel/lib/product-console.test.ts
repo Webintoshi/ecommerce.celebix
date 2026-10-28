@@ -237,6 +237,7 @@ async function createMountedProductConsole(
       return { CatalogApiError: CompiledCatalogApiError, catalogApi: Object.freeze(api) };
     }
     if (specifier === "./catalog-operations.module.css") return { __esModule: true, default: { catalogRoot: "catalogRoot", primaryAction: "primaryAction", bulkActionButton: "bulkActionButton" } };
+    if (specifier === "./product-list.module.css") return { __esModule: true, default: new Proxy({}, { get: (_target, key) => String(key) }) };
     throw new Error(`unexpected_product_console_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(requireModule, compiled, compiled.exports);
@@ -748,7 +749,7 @@ test("dense product controls expose a 48px hit area without enlarging their visu
   assert.match(styles, /[.]icon-button\s*\{[^}]*width:\s*48px[^}]*height:\s*48px/s);
 });
 
-test("mounted product console renders all four commands in the <=1024 mobile fallback", async () => {
+test("mounted product console keeps creation and transfer commands in the mobile fallback and sort once in the toolbar", async () => {
   const product = productFixture("11111111-1111-4111-8111-111111111111", "draft", 1);
   const mounted = await createMountedProductConsole({
     async listProducts() { return { items: [product] }; },
@@ -760,9 +761,10 @@ test("mounted product console renders all four commands in the <=1024 mobile fal
   const tree = await mounted.render();
   const mobile = mountedNodes(tree).find((node) => node.props.className === "product-mobile-commandbar");
   assert.ok(mobile);
-  for (const label of ["Sırala", "İçe Aktar", "Dışa Aktar", "Ürün Ekle"]) {
+  for (const label of ["İçe Aktar", "Dışa Aktar", "Ürün Ekle"]) {
     assert.match(mountedText(mobile), new RegExp(label));
   }
+  assert.equal(mountedNodes(tree).filter((node) => node.type === "select" && node.props["aria-label"] === "Ürünleri sırala").length, 1);
   const styles = await source("app/globals.css");
   assert.match(styles, /@media \(max-width: 1024px\)[^]*[.]product-mobile-commandbar\s*\{[^}]*display:\s*flex/s);
   assert.match(styles, /@media \(max-width: 640px\)[^]*[.]product-mobile-commandbar [.]hemenaku-product-commandbar\s*\{[^}]*display:\s*grid[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s);
@@ -1148,7 +1150,8 @@ test("debounced global search clears selection immediately and stale search resp
   let search = mountedNodes(tree).find((node) => node.type === "input" && node.props["aria-label"] === "Ürün tablosunda ara")!;
   (search.props.onChange as (event: unknown) => void)({ target: { value: "old" } });
   tree = await mounted.render();
-  assert.match(tree.map(mountedText).join(" "), /0 ürün seçildi/);
+  assert.ok(mountedNodes(tree).filter((node) => node.type === "input" && String(node.props["aria-label"]).includes("ürününü seç")).every((node) => node.props.checked === false));
+  assert.equal(mountedNodes(tree).some((node) => node.type === "select" && node.props["aria-label"] === "Toplu İşlemler"), false);
   await new Promise((resolve) => setTimeout(resolve, 320));
   await mounted.render();
 
