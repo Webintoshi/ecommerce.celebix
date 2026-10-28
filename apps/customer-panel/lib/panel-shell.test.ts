@@ -721,7 +721,10 @@ test("desktop shell carries the Celebix visual tokens, fixed width, topbar, and 
   const layout = await source("components/panel/PanelLayoutClient.tsx");
   assert.match(css, /#201C19/i);
   assert.match(css, /#F8F7F5/i);
-  assert.match(css, /#FE6100/i);
+  const declarations = parseApplicableCss(`${await source("app/globals.css")}\n${css}`, 1440);
+  const root: CssTestElement = { tagName: "html", states: ["root"] };
+  assert.equal(resolveCssValue(declarations, root, "var(--cp-brand)").toUpperCase(), "#FE6100");
+  assert.match(css, /var\(--cp-brand\)/);
   assert.match(css, /\.desktopSidebar\s*\{[\s\S]*?width:\s*15[.]3125rem;/);
   assert.match(css, /\.workspace\s*\{[\s\S]*?margin-left:\s*15[.]3125rem;/);
   assert.doesNotMatch(css, /width:\s*(?:15\.5|16)rem/);
@@ -871,8 +874,16 @@ test("Toshi drawer is an accessible modal with complete close and focus-return b
   assert.match(styles, /[.]drawerLayer::backdrop\s*\{/);
   assert.match(styles, /@media\s*\(max-width:\s*600px\)[\s\S]*?[.]drawer\s*\{[\s\S]*?inset:\s*0;[\s\S]*?width:\s*100%;[\s\S]*?height:\s*100dvh;/);
   assert.match(styles, /@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*?animation:\s*none/);
-  assert.match(styles, /min-height:\s*44px/);
-  assert.match(styles, /min-width:\s*44px/);
+  const declarations = parseApplicableCss(`${await source("app/globals.css")}\n${styles}`, 390);
+  const closeButton: CssTestElement = {
+    tagName: "button", classNames: ["closeButton"],
+    parent: { tagName: "html", states: ["root"] },
+  };
+  for (const property of ["min-height", "min-width"]) {
+    const declaration = winningDeclaration(declarations, closeButton, [property]);
+    assert.ok(declaration);
+    assert.ok(lengthInPixels(resolveCssValue(declarations, closeButton, declaration.value)) >= 44);
+  }
 });
 
 test("Toshi drawer native modal contains focus and closes by backdrop, Escape, and button", async () => {
@@ -1925,8 +1936,13 @@ test("dashboard loads real durable summaries without tenant authority in the bro
   assert.match(view, /ANALYTICS_PERIODS[.]includes\(nextPeriod\)/);
   assert.doesNotMatch(view, /console[.](?:log|warn|error)/);
   assert.doesNotMatch(view, /storeId|tenantId|principalId|membershipId|x-store|x-tenant/i);
-  const retry = winningDeclaration(parseApplicableCss(styles, 390), { tagName: "button", classNames: ["retryButton"] }, ["min-height"]);
-  assert.ok(retry && lengthInPixels(retry.value) >= 44, "retry action retains a usable touch target");
+  const declarations = parseApplicableCss(`${await source("app/globals.css")}\n${styles}`, 390);
+  const retryButton: CssTestElement = {
+    tagName: "button", classNames: ["retryButton"],
+    parent: { tagName: "html", states: ["root"] },
+  };
+  const retry = winningDeclaration(declarations, retryButton, ["min-height"]);
+  assert.ok(retry && lengthInPixels(resolveCssValue(declarations, retryButton, retry.value)) >= 44, "retry action retains a usable touch target");
   assert.match(styles, /[.]kpiGrid\s*\{[\s\S]*?repeat\(4, minmax\(0, 1fr\)\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation:\s*none/);
 });
