@@ -353,6 +353,13 @@
 
 .operationsGrid.singleColumn, .detailGrid.singleColumn, .insightGrid.singleColumn, .quickActions.singleColumn { grid-template-columns: minmax(0, 1fr); }
 
+@media (max-width: 360px) {
+  .overviewToolbar { grid-template-columns: minmax(0, 1fr); }
+  .dashboardTopbarActions { grid-column: 1; grid-row: 2; }
+  .dashboardTopbarActions a { width: 100%; }
+  .liveVisitors { grid-row: 3; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dashboardPage *, .dashboardTopbarContext * { animation: none; transition: none; scroll-behavior: auto; }
 }
