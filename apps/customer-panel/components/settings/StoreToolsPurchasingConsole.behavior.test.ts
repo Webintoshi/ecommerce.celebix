@@ -8,6 +8,7 @@ import { Window } from 'happy-dom';
 import ts from 'typescript';
 import * as contracts from '@celebix/saas-contracts';
 import * as client from '../../lib/store-tools-ui/client.ts';
+import { compile } from './design/design-editor-test-utils.ts';
 const ID='11111111-1111-4111-8111-111111111111',OTHER='22222222-2222-4222-8222-222222222222',OP='33333333-3333-4333-8333-333333333333',NOW='2026-10-22T12:00:00.000Z';
 const workspace=(extra:Record<string,unknown>={})=>({storeId:ID,timezone:'Europe/Istanbul',offers:contracts.STORE_TOOL_OFFERS,licenses:[],purchases:[],canRequestPurchase:true,...extra});
 function receipt(pending:client.PendingToolPurchase){const o=pending.offer;return {id:pending.intent.operationId,storeId:pending.storeId,storeName:'Test',offerId:o.id,offerName:o.name,status:'pending',version:1,createdAt:NOW,netCents:o.netCents,vatBps:o.vatBps,vatCents:o.vatCents,totalCents:o.totalCents,currency:o.currency,toolKeys:o.toolKeys,settledAt:null,receipt:null};}
@@ -25,7 +26,8 @@ async function screen(options:Options,verify:(context:any)=>Promise<void>){
   if(name==='@/lib/store-tools-ui/client')return api;
   if(name==='../commercial-packages/PlatformCheckoutButton')return {PlatformCheckoutButton:(p:any)=>createElement('button',{'data-platform-checkout':p.offerId,disabled:p.disabled},'Güvenli ödemeye geç')};
   if(name==='@/components/panel/PanelPageShell')return {PanelPageShell:({children}:any)=>children,PanelPageHeader:()=>null};
-  if(name==='./StoreToolsConsole')return {ToolArtwork:()=>null,StoreToolsConsole:(p:any)=>{props.push(p);return createElement('div',null,p.purchaseSummary,...contracts.STORE_TOOL_KEYS.map(tool=>p.toolAccess[tool]?createElement('div',{'data-unlocked':tool,key:tool},tool):createElement('div',{key:tool},p.renderLockedTool(tool))));}};
+  if(name==='./ToolProductCard')return compile(new URL('./ToolProductCard.tsx',import.meta.url));
+  if(name==='./StoreToolsConsole')return {ToolArtwork:()=>null,StoreToolsConsole:(p:any)=>{props.push(p);return createElement('div',null,p.purchaseSummary,...contracts.STORE_TOOL_KEYS.map(tool=>p.toolAccess[tool]?createElement('div',{'data-unlocked':tool,key:tool},p.renderToolSummary?.(tool,{enabled:false,onConfigure:()=>{}})??tool):createElement('div',{key:tool},p.renderLockedTool(tool))));}};
   if(name.endsWith('.css'))return css;throw Error('unexpected_import:'+name);
  },compiled,compiled.exports);
  const Component=compiled.exports.StoreToolsPurchasingConsole,{createRoot}=await import('react-dom/client'),container=browser.document.createElement('div');browser.document.body.append(container);const root=createRoot(container as any);
@@ -44,3 +46,22 @@ test('unavailable storage prevents request and owned server license alone mounts
 test('settled receipt without license stays locked while a fresh license opens only its tool',async()=>{const offer=contracts.STORE_TOOL_OFFERS[1]!,pending={schemaVersion:1 as const,storeId:ID,intent:{operationId:OP,offerId:offer.id,quoteFingerprint:offer.quoteFingerprint},offer};let owned=false;await screen({read:async()=>workspace({licenses:owned?[{toolKey:'whatsapp_ordering',source:'purchase',grantedAt:NOW}]:[],purchases:[{...receipt(pending),status:'settled',settledAt:NOW,receipt:{method:'bank_transfer',reference:'REF-1',amountCents:offer.totalCents}}]})},async({container,settle})=>{assert.equal(container.querySelector('[data-unlocked]'),null);assert.match(container.querySelector('[data-tool-offer="whatsapp_ordering"]').textContent,/Ödeme doğrulandı/);owned=true;await act(async()=>button(container,'Durumu yenile').click());await settle();assert.ok(container.querySelector('[data-unlocked="whatsapp_ordering"]'));assert.equal(container.querySelectorAll('[data-unlocked]').length,1);});});
 test('foreign/stale store responses cannot authorize purchases after a context change',async()=>{let release!:(value:unknown)=>void;let count=0;const old=new Promise(resolve=>{release=resolve;});await screen({read:async()=>count++===0?old:workspace({storeId:OTHER})},async({container,render,settle})=>{await render(OTHER);assert.equal(container.querySelectorAll('[data-tool-offer]').length,6);await act(async()=>release(workspace({licenses:[{toolKey:'contact_widget',source:'purchase',grantedAt:NOW}]})));await settle();assert.equal(container.querySelector('[data-unlocked]'),null);});});
 test('enabled online checkout reuses a pending manual offer while owned tools remain unavailable',async()=>{const offer=contracts.STORE_TOOL_OFFERS[0]!,pending={schemaVersion:1 as const,storeId:ID,intent:{operationId:OP,offerId:offer.id,quoteFingerprint:offer.quoteFingerprint},offer};await screen({checkoutEnabled:true,read:async()=>workspace({purchases:[receipt(pending)]})},async({container})=>{assert.ok(container.querySelector('[data-platform-checkout="contact_widget"]'));assert.equal(container.querySelector('[data-platform-checkout="contact_widget"]').disabled,false);assert.doesNotMatch(container.textContent,/Talep oluşturmak tahsilat yapmaz/);});await screen({checkoutEnabled:true,read:async()=>workspace({licenses:[{toolKey:'contact_widget',source:'purchase',grantedAt:NOW}]})},async({container})=>{assert.equal(container.querySelector('[data-platform-checkout="contact_widget"]'),null);});});
+
+test('a pending bundle does not offer false individual checkout and keeps only matching continuation',async()=>{
+ const offer=contracts.STORE_TOOL_OFFERS.find(item=>item.id==='all_tools')!,pending={schemaVersion:1 as const,storeId:ID,intent:{operationId:OP,offerId:offer.id,quoteFingerprint:offer.quoteFingerprint},offer};
+ await screen({checkoutEnabled:true,read:async()=>workspace({purchases:[receipt(pending)]})},async({container,calls})=>{
+  assert.equal(container.querySelectorAll('[data-tool-offer]').length,6);
+  for(const tool of contracts.STORE_TOOL_KEYS)assert.ok(!container.querySelector(`[data-platform-checkout="${tool}"]`),tool);
+  assert.ok(container.querySelector('[data-platform-checkout="all_tools"]'));
+  for(const tool of contracts.STORE_TOOL_KEYS){const card=container.querySelector(`[data-tool-offer="${tool}"]`);assert.match(card.textContent,/Tüm mağaza araçları/);assert.match(card.textContent,/16.788/);}
+  assert.equal(calls.length,0);
+ });
+});
+test('a pending individual permits its own continuation and unrelated singles but never an overlapping bundle',async()=>{
+ const offer=contracts.STORE_TOOL_OFFERS[0]!,pending={schemaVersion:1 as const,storeId:ID,intent:{operationId:OP,offerId:offer.id,quoteFingerprint:offer.quoteFingerprint},offer};
+ await screen({checkoutEnabled:true,read:async()=>workspace({purchases:[receipt(pending)]})},async({container})=>{
+  assert.ok(container.querySelector('[data-platform-checkout="contact_widget"]'));
+  assert.ok(container.querySelector('[data-platform-checkout="whatsapp_ordering"]'));
+  assert.ok(!container.querySelector('[data-platform-checkout="all_tools"]'));
+ });
+});

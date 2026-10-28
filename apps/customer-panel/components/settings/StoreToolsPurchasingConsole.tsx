@@ -5,18 +5,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { PanelPageHeader, PanelPageShell } from '@/components/panel/PanelPageShell';
 import { clearPendingPurchase, persistPendingPurchase, purchaseMatchesPending, readPendingPurchase, storeToolsUi, StoreToolsUiError, type PendingToolPurchase } from '@/lib/store-tools-ui/client';
 import type { EngagementPermissions } from '../promotions/PopupStudio';
-import { StoreToolsConsole, ToolArtwork } from './StoreToolsConsole';
+import { StoreToolsConsole } from './StoreToolsConsole';
+import { ToolProductCard } from './ToolProductCard';
+import catalog from './tool-product-catalog.module.css';
 import {PlatformCheckoutButton} from '../commercial-packages/PlatformCheckoutButton';
 import styles from './store-tools.module.css';
 import local from './store-tools-purchasing.module.css';
 
-const descriptions: Readonly<Record<StoreToolKey, string>> = {
-  contact_widget: 'WhatsApp, telefon ve diğer iletişim kanallarınızı tek balonda sunun.',
-  whatsapp_ordering: 'Ürün ve sepet bilgileriyle WhatsApp üzerinden sipariş alın.',
-  cart_capture: 'Ziyaretçilerin e-posta veya telefon bilgilerini sepet aşamasında alın.',
-  restock: 'Stok bekleyen müşterilere ürün yeniden geldiğinde haber verin.',
-  order_bump: 'Sepette ve ödemede tamamlayıcı ürünler önerin.',
-};
 const money = (cents: number) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(cents / 100);
 const failureMessage = (error: unknown) => error instanceof StoreToolsUiError ? error.message : 'Araçların güncel durumu yüklenemedi. Yeniden deneyin.';
 type Props = EngagementPermissions & Readonly<{ storeId: string; checkoutEnabled?:boolean }>;
@@ -104,26 +99,28 @@ export function StoreToolsPurchasingConsole({ storeId, canManage, canReadCoupons
   function offerCard(offer: StoreToolOffer, bundle = false) {
     const requested = workspace!.purchases.find(purchase => purchase.toolKeys.some(tool => offer.toolKeys.includes(tool)));
     const blocked = busy || refreshing || journalBlocked || Boolean(pending) || !canManage || !workspace!.canRequestPurchase || Boolean(requested);
-    return <article className={`${styles.toolRow} ${local.offerRow}`} key={offer.id} data-tool-offer={offer.id}>
-      <ToolArtwork store /><div className={styles.toolCopy}><h2>{offer.name}</h2><p>{bundle ? 'Beş aracı tek seferde mağazanıza ekleyin.' : descriptions[offer.toolKeys[0]!]}</p>
-        <div className={local.price}><strong>{money(offer.netCents)} + KDV</strong><span>Toplam {money(offer.totalCents)} · KDV {money(offer.vatCents)}</span></div>
-        {offer.toolKeys.includes('restock') ? <small className={local.delivery}>E-posta gönderimi hizmetin gönderim koşullarına tabidir; sınırsız gönderim içermez.</small> : null}
-        {requested ? <p className={local.requestState} role="status">{requested.status === 'settled' ? 'Ödeme doğrulandı. Araçların güncel durumunu yenileyin.' : 'Talep alındı · Ödeme doğrulaması bekleniyor.'}<span>Talep tutarı: {money(requested.totalCents)} (KDV dahil)</span></p> : !workspace!.canRequestPurchase ? <p className={local.requestState}>Talebi mağaza sahibi veya yöneticisi oluşturabilir.</p> : null}
-      </div>
-      {checkoutEnabled&&workspace!.canRequestPurchase&&requested?.status!=='settled' ? <PlatformCheckoutButton storeId={storeId} kind="tool" offerId={offer.id} term="once" className={`button ${bundle?'button-primary':'button-secondary'}`} disabled={busy||refreshing||journalBlocked||Boolean(pending)||!canManage}/> : !requested && workspace!.canRequestPurchase ? <button className={`button ${bundle ? 'button-primary' : 'button-secondary'}`} type="button" disabled={blocked} onClick={() => void submit(offer)}>Satın alma talebi oluştur<span className={styles.srOnly}> · {offer.name}</span></button> : null}
-    </article>;
+    const matchingRequest = requested?.offerId === offer.id;
+    const mayCheckout = checkoutEnabled && workspace!.canRequestPurchase && (!requested || matchingRequest && requested.status === 'pending');
+    return <ToolProductCard key={offer.id} offer={offer} canManage={canManage}>
+      {requested ? <div className={catalog.pending} role="status"><strong>{requested.offerName}</strong><p>{money(requested.totalCents)} (KDV dahil) · {requested.status === 'settled' ? 'Ödeme doğrulandı. Araçların güncel durumunu yenileyin.' : 'Ödeme doğrulaması bekleniyor.'}</p>{!matchingRequest && requested.status === 'pending' ? <p>Bu aracı içeren farklı bir talep bekliyor. Yeni satın alma başlatmadan mevcut talebi kontrol edin.</p> : null}</div> : null}
+      {!workspace!.canRequestPurchase ? <p className={catalog.state}>Satın almayı mağaza sahibi veya yöneticisi yapabilir.</p> : mayCheckout ? <PlatformCheckoutButton storeId={storeId} kind="tool" offerId={offer.id} term="once" className={`button ${bundle ? 'button-primary' : 'button-secondary'}`} disabled={busy || refreshing || journalBlocked || Boolean(pending) || !canManage} label={matchingRequest ? 'Mevcut satın almaya devam et' : 'Güvenli ödemeye geç'}/> : !requested ? <button className={`button ${bundle ? 'button-primary' : 'button-secondary'}`} type="button" disabled={blocked} onClick={() => void submit(offer)}>Satın alma talebi oluştur<span className={styles.srOnly}> · {offer.name}</span></button> : null}
+    </ToolProductCard>;
   }
   const bundle = workspace.offers.find(offer => offer.id === 'all_tools');
   const showBundle = bundle && workspace.licenses.length === 0 && (checkoutEnabled||workspace.purchases.length === 0);
-  const summary = <div className={local.summary}>
+  const summary = <div className={catalog.toolbar}>
     <div className={local.terms}><p>Tek seferlik ödeme · Yıllık yenileme yok. Araç haklarınız paket değişikliklerinde korunur.</p><button className="button button-secondary" type="button" disabled={busy || refreshing} onClick={() => void load()}>{refreshing ? 'Yenileniyor…' : 'Durumu yenile'}</button></div>
     <p className={local.activation}>{checkoutEnabled?'Ödemenizi Celebix’in güvenli sayfasında tamamlayın. Araçlar ödeme doğrulandığında açılır.':'Talep oluşturmak tahsilat yapmaz. Araçlar, ödeme Celebix tarafından doğrulandığında açılır.'}</p>
     {message ? <p className={styles.status} role="status">{message}</p> : null}
     {error ? <p className={local.error} role="alert">{error}</p> : null}
     {pending ? <div className={local.recovery} role="status"><div><strong>{pending.offer.name} · {money(pending.offer.totalCents)} (KDV dahil)</strong><p>Talebin sonucu henüz doğrulanamadı. Yeni talep oluşturmadan aynı talebi doğrulayın.</p></div><button className="button button-secondary" type="button" disabled={busy || refreshing || journalBlocked || !workspace.canRequestPurchase} onClick={() => void submit()}>{busy ? 'Doğrulanıyor…' : 'Talebi doğrula'}</button></div> : null}
-    {showBundle ? offerCard(bundle, true) : null}
+    {workspace.purchases.filter(purchase => purchase.status === 'pending').map(purchase => <div className={catalog.pending} role="status" key={purchase.id}><strong>Bekleyen talep: {purchase.offerName}</strong><p>{money(purchase.totalCents)} (KDV dahil) · Ödeme doğrulaması bekleniyor. Bu taleple çakışan yeni bir satın alma başlatılamaz.</p></div>)}
+    {!showBundle && workspace.licenses.length > 0 ? <p className={catalog.bundleNotice}>Tüm mağaza araçları paketi, henüz araç hakkı olmayan mağazalar içindir. Mevcut haklarınız korunur; eksik araçları ayrı ayrı edinebilirsiniz.</p> : null}
   </div>;
-  return <StoreToolsConsole canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={workspace.timezone} toolAccess={toolAccess} purchaseSummary={summary} renderLockedTool={tool => {
+  return <StoreToolsConsole canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={workspace.timezone} toolAccess={toolAccess} catalogClassName={catalog.catalog} purchaseSummary={<>{summary}{showBundle ? offerCard(bundle, true) : null}</>} renderToolSummary={(tool, state) => {
+    const offer = workspace.offers.find(item => item.id === tool)!;
+    return <ToolProductCard offer={offer} summary={state} canManage={canManage}/>;
+  }} renderLockedTool={tool => {
     const offer = workspace.offers.find(item => item.id === tool);
     return offer ? offerCard(offer) : null;
   }} />;

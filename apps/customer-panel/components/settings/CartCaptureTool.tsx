@@ -1,4 +1,5 @@
 "use client";
+import type { ToolSummaryRenderer } from "./tool-product-presentation";
 import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { StoreEngagementCampaign } from '@celebix/saas-contracts';
@@ -7,12 +8,12 @@ import { scopedStoreEngagementApi,type PopupDeletionInput,type CampaignInput } f
 import { EngagementEditor, type EngagementPermissions } from '../promotions/PopupStudio';
 import { CartCaptureArtwork } from './CartCaptureArtwork';
 import styles from './store-tools.module.css';
-export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPermissions & Readonly<{
-    onOpenChange?: (open: boolean) => void;
+export function CartCaptureTool({ onOpenChange, renderSummary, ...permissions }: EngagementPermissions & Readonly<{
+    onOpenChange?: (open: boolean) => void; renderSummary?: ToolSummaryRenderer;
 }>) {
     const { storeSlug } = usePanelChromeModel(), api = useMemo(() => scopedStoreEngagementApi(storeSlug), [storeSlug]);
     const [campaign, setCampaign] = useState<StoreEngagementCampaign | null>(null), [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading'), [revision, setRevision] = useState(0), [open, setOpen] = useState(false), [notice, setNotice] = useState('');
-    const trigger = useRef<HTMLElement | null>(null);
+    const trigger = useRef<HTMLButtonElement | null>(null);
     const [recovery,setRecovery]=useState<CampaignInput|null>(null),[deletionRecovery,setDeletionRecovery]=useState<PopupDeletionInput|null>(null);
     useEffect(()=>{let active=true;Promise.all([api.pendingIntent(),api.pendingDeletion()]).then(([intent,deletion])=>{if(active){setRecovery(intent);setDeletionRecovery(deletion);}}).catch(reason=>{if(active)setNotice(reason instanceof Error?reason.message:'Kayıt doğrulanamadı.');});return()=>{active=false;};},[api,revision]);
     const ownRecovery=recovery?.kind==='cart_capture'&&api.hasUnresolved();
@@ -40,7 +41,7 @@ export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPerm
         onOpenChange?.(false);
     };
     return <>
-    <article className={styles.toolRow}>
+    {renderSummary ? !open ? renderSummary({ loading: phase === 'loading' && !ownRecovery, error: phase === 'error' && !ownRecovery ? 'Araç yüklenemedi.' : undefined, enabled: campaign?.enabled, detail: campaign?.config.promotionId ? 'Kupon bağlı' : undefined, disabled: ownRecovery ? !permissions.canManage : phase !== 'ready' || api.hasUnresolved(), triggerRef: trigger, configureKind: 'cart_capture', configureLabel: ownRecovery ? 'Önceki kaydı doğrula' : undefined, onConfigure: event => { trigger.current = event.currentTarget; setOpen(true); onOpenChange?.(true); }, onRetry: () => setRevision(value => value + 1), extra: <>{notice ? <p role="status">{notice}</p> : null}{deletionRecovery && api.hasUnresolved() ? <p role="status">Önceki popup silme işlemi doğrulanamadı. <a href="/discounts/popups">Popup silmeyi doğrula</a></p> : null}{recovery && api.hasUnresolved() ? <p role="status">Önceki kayıt sonucu belirsiz. Bilgileriniz korunuyor.{recovery.kind === 'popup' ? <a href="/discounts/popups">Popup kaydını doğrula</a> : null}</p> : null}</> }) : null : <article className={styles.toolRow}>
     <CartCaptureArtwork />
     <div className={styles.toolCopy}>
     <h2>
@@ -74,7 +75,7 @@ export function CartCaptureTool({ onOpenChange, ...permissions }: EngagementPerm
     {ownRecovery?'Önceki kaydı doğrula':permissions.canManage ? 'Düzenle' : 'Görüntüle'}
     <ArrowUpRight size={16} aria-hidden="true" />
     </button>}
-    </article>
+    </article>}
     {open ? <EngagementEditor {...permissions} kind="cart_capture" campaign={campaign} recoveryInput={ownRecovery&&recovery?recovery:undefined} returnFocusRef={trigger} onClose={close} onSaved={saved => {
         setCampaign(saved);
         setNotice(saved.enabled ? 'Sepet yakalama uygulandı.' : 'Sepet yakalama kapatıldı.');

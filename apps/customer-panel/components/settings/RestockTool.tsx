@@ -1,4 +1,5 @@
 "use client";
+import type { ToolSummaryRenderer } from "./tool-product-presentation";
 
 import { createDefaultRestockAlertsConfig, parseRestockAlertsConfig, type MerchantAdminRecord, type MerchantAdminJson, type RestockAlertsConfig } from "@celebix/saas-contracts";
 import { ArrowLeft, ArrowUpRight, Bell, Check, Info, Mail, Monitor, Package, RefreshCw, Smartphone } from "lucide-react";
@@ -27,7 +28,7 @@ function RestockArtwork({ product = false }: Readonly<{ product?: boolean }>) {
   </svg>;
 }
 
-export function RestockTool({ canManage, onOpenChange }: Readonly<{ canManage: boolean; onOpenChange?: (open: boolean) => void }>) {
+export function RestockTool({ canManage, onOpenChange, renderSummary }: Readonly<{ canManage: boolean; onOpenChange?: (open: boolean) => void; renderSummary?: ToolSummaryRenderer }>) {
   const [record, setRecord] = useState<MerchantAdminRecord | null>(null), [baseline, setBaseline] = useState(createDefaultRestockAlertsConfig), [draft, setDraft] = useState(createDefaultRestockAlertsConfig);
   const [loaded, setLoaded] = useState(false), [loadError, setLoadError] = useState(""), [stats, setStats] = useState<Stats | null>(null), [statsError, setStatsError] = useState(""), [statsLoading, setStatsLoading] = useState(true);
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(false), [reloading, setReloading] = useState(false), [error, setError] = useState(""), [conflict, setConflict] = useState(false), [message, setMessage] = useState("");
@@ -125,9 +126,9 @@ export function RestockTool({ canManage, onOpenChange }: Readonly<{ canManage: b
   }
   const statsFeedback = statsError ? <div className={styles.feedback}><Info size={18} aria-hidden="true" /><div><p role="alert">{statsError}</p><button className={secondary} type="button" data-restock-stats-retry disabled={statsLoading || busy || reloading} onClick={() => void refreshStats()}>Yeniden dene</button></div></div> : statsLoading ? <p className={styles.status} role="status">Bildirim durumları yükleniyor…</p> : null;
 
-  return <div className={styles.workspace} data-restock-open={open}>
-    {message ? <p className={styles.status} role="status">{message}</p> : null}
-    {!open ? <>
+  return <div className={styles.workspace} data-restock-open={open} style={renderSummary && !open ? {display:"contents"} : undefined}>
+    {message ? <p className={styles.status} role="status" style={renderSummary && !open ? {gridColumn:"1 / -1"} : undefined}>{message}</p> : null}
+    {!open ? renderSummary ? renderSummary({ loading: !loaded && !loadError, error: loadError || undefined, enabled: baseline.enabled, detail: `${stats?.pendingConfirmed ?? '—'} stok bekliyor · ${stats?.sent ?? '—'} gönderildi`, disabled: busy || reading.current || !loaded, configureId: 'restock-edit', configureKind: 'restock_alerts', onConfigure: begin, onRetry: () => void load(), extra: statsFeedback }) : <>
       {!loaded ? <div className={styles.toolSkeleton}>{loadError ? <div className={styles.feedback}><Info size={20} aria-hidden="true" /><div><p role="alert">{loadError}</p><button className={secondary} type="button" disabled={busy} onClick={() => void load()}>Yeniden dene</button></div></div> : <><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Stok bildirimi yükleniyor…</span></>}</div> : <article className={styles.toolRow}>
         <RestockArtwork /><div className={styles.toolCopy}><h2>Stok gelince haber ver</h2><p>Tükenen ürün için tek seferlik e-posta.</p><span>{baseline.enabled ? "Açık" : "Kapalı"} · {stats?.pendingConfirmed ?? "—"} stok bekliyor · {stats?.sent ?? "—"} gönderildi{!canManage ? " · Salt okunur" : ""}</span></div>
         <button id="restock-edit" className={primary} type="button" data-tool-edit="restock_alerts" onClick={begin}>{canManage ? "Düzenle" : "Görüntüle"}<ArrowUpRight size={16} aria-hidden="true" /></button>

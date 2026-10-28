@@ -3,6 +3,7 @@ import { WhatsAppOrderTool } from "./WhatsAppOrderTool";
 import { RestockTool } from "./RestockTool";
 import { CartCaptureTool } from "./CartCaptureTool";
 import { OrderBumpTool } from "./OrderBumpTool";
+import type { ToolSummary } from "./tool-product-presentation";
 import type { EngagementPermissions } from "../promotions/PopupStudio";
 
 import {
@@ -101,7 +102,7 @@ export function ToolArtwork({ store = false }: Readonly<{ store?: boolean }>) {
   </svg>;
 }
 
-export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, timezone, growthToolsAvailable = true, whatsAppOrderingAvailable = true, toolAccess, renderLockedTool, purchaseSummary }: EngagementPermissions & Readonly<{growthToolsAvailable?: boolean;whatsAppOrderingAvailable?: boolean;toolAccess?: Readonly<Record<StoreToolKey,boolean>>;renderLockedTool?: (tool:StoreToolKey)=>ReactNode;purchaseSummary?:ReactNode}>) {
+export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, timezone, growthToolsAvailable = true, whatsAppOrderingAvailable = true, toolAccess, renderLockedTool, purchaseSummary, renderToolSummary, catalogClassName }: EngagementPermissions & Readonly<{growthToolsAvailable?: boolean;whatsAppOrderingAvailable?: boolean;toolAccess?: Readonly<Record<StoreToolKey,boolean>>;renderLockedTool?: (tool:StoreToolKey)=>ReactNode;purchaseSummary?:ReactNode;renderToolSummary?:(tool:StoreToolKey,summary:ToolSummary)=>ReactNode;catalogClassName?:string}>) {
   const contactAvailable = toolAccess?.contact_widget ?? growthToolsAvailable;
   const restockAvailable = toolAccess?.restock ?? growthToolsAvailable;
   const captureAvailable = toolAccess?.cart_capture ?? growthToolsAvailable;
@@ -323,21 +324,21 @@ export function StoreToolsConsole({ canManage, canReadCoupons, canCreateCoupon, 
     return pages.find(page => page.path === channel.value)?.label ?? (channel.value ? pagesLoading ? "Sayfalar yükleniyor" : "Sayfa artık seçilemiyor" : "Sayfa seçilmedi");
   }
 
-  return <PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={styles.workspace}>
+  return <PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={`${styles.workspace} ${!open && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? catalogClassName ?? "" : ""}`}>
     {!open && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? purchaseSummary : null}
-    {message && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <p className={styles.status} role="status">{message}</p> : null}
-    {contactAvailable && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen && (loading ? <div className={`${styles.toolSkeleton} ${styles.contactLoading}`} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
+    {message && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <p className={styles.status} role="status" style={catalogClassName ? {gridColumn:"1 / -1"} : undefined}>{message}</p> : null}
+    {contactAvailable && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen && (renderToolSummary && !open ? renderToolSummary('contact_widget', { loading: loading && !loaded, error: loadError || undefined, enabled: baseline.enabled, detail: `${baseline.channels.filter(channel => channel.enabled).length} kanal · ${summaryDevices}`, disabled: busy || reloading || !loaded, triggerRef, configureId: 'tool-edit-contact-widget', onConfigure: () => startEditing(), onRetry: () => void load(), shortcuts: loaded ? <nav className={styles.toolLinks} aria-label="İletişim balonu bölümleri">{[{ key: 'content', label: 'Kanallar' }, ...TABS.slice(1)].map(item => <button key={item.key} className={ghost} type="button" onClick={() => startEditing(item.key as Tab)}>{item.label}<ChevronRight size={16} aria-hidden="true"/></button>)}</nav> : undefined }) : loading ? <div className={`${styles.toolSkeleton} ${styles.contactLoading}`} role="status"><span /><div><span /><span /></div><span className={styles.skeletonButton} /><span className={styles.srOnly}>Mağaza araçları yükleniyor…</span></div>
       : loadError ? <div className={styles.feedback}><Info size={20} aria-hidden="true" /><div><p role="alert">{loadError}</p><button className={secondary} type="button" onClick={() => void load()}>Yeniden dene</button></div></div>
       : loaded && !open && !restockOpen ? <article className={styles.toolRow}>
         <ToolArtwork /><div className={styles.toolCopy}><h2>İletişim balonu</h2><p>Müşterileriniz size kolayca ulaşsın.</p><span>{baseline.enabled ? "Açık" : "Kapalı"} · {baseline.channels.filter(channel => channel.enabled).length} kanal · {summaryDevices}{!canManage ? " · Salt okunur" : ""}</span>
           <nav className={styles.toolLinks} aria-label="İletişim balonu bölümleri">{[{ key: "content", label: "Kanallar" }, ...TABS.slice(1)].map(item => <button key={item.key} className={ghost} type="button" onClick={() => startEditing(item.key as Tab)}>{item.label}<ChevronRight size={16} aria-hidden="true" /></button>)}</nav>
         </div><button id="tool-edit-contact-widget" ref={triggerRef} className={primary} type="button" data-tool-edit="contact_widget" onClick={() => startEditing()}>{canManage ? "Düzenle" : "Görüntüle"}<ArrowUpRight size={16} aria-hidden="true" /></button>
       </article> : null)}
-    {restockAvailable && !whatsAppOpen && !open && !cartCaptureOpen && !orderBumpOpen ? <RestockTool canManage={canManage} onOpenChange={setRestockOpen} /> : null}
-    {!whatsAppOpen && captureAvailable && !open && !restockOpen && !orderBumpOpen ? <CartCaptureTool canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={timezone} onOpenChange={setCartCaptureOpen} /> : null}
-    {!whatsAppOpen && bumpAvailable && !open && !restockOpen && !cartCaptureOpen ? <OrderBumpTool canManage={canManage} onOpenChange={setOrderBumpOpen} /> : null}
-    {(!toolAccess || whatsappAvailable) && !open && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <WhatsAppOrderTool canManage={canManage} available={whatsappAvailable} onOpenChange={setWhatsAppOpen} /> : null}
-    {toolAccess && !open && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? (['contact_widget','restock','cart_capture','order_bump','whatsapp_ordering'] as const).filter(tool=>!toolAccess[tool]).map(tool=><div key={tool}>{renderLockedTool?.(tool)}</div>) : null}
+    {restockAvailable && !whatsAppOpen && !open && !cartCaptureOpen && !orderBumpOpen ? <RestockTool canManage={canManage} onOpenChange={setRestockOpen} renderSummary={renderToolSummary ? state => renderToolSummary("restock", state) : undefined} /> : null}
+    {!whatsAppOpen && captureAvailable && !open && !restockOpen && !orderBumpOpen ? <CartCaptureTool renderSummary={renderToolSummary ? state => renderToolSummary("cart_capture", state) : undefined} canManage={canManage} canReadCoupons={canReadCoupons} canCreateCoupon={canCreateCoupon} timezone={timezone} onOpenChange={setCartCaptureOpen} /> : null}
+    {!whatsAppOpen && bumpAvailable && !open && !restockOpen && !cartCaptureOpen ? <OrderBumpTool renderSummary={renderToolSummary ? state => renderToolSummary("order_bump", state) : undefined} canManage={canManage} onOpenChange={setOrderBumpOpen} /> : null}
+    {(!toolAccess || whatsappAvailable) && !open && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? <WhatsAppOrderTool renderSummary={renderToolSummary ? state => renderToolSummary("whatsapp_ordering", state) : undefined} canManage={canManage} available={whatsappAvailable} onOpenChange={setWhatsAppOpen} /> : null}
+    {toolAccess && !open && !whatsAppOpen && !restockOpen && !cartCaptureOpen && !orderBumpOpen ? (['contact_widget','restock','cart_capture','order_bump','whatsapp_ordering'] as const).filter(tool=>!toolAccess[tool]).map(tool=><div key={tool} style={catalogClassName ? {display:"contents"} : undefined}>{renderLockedTool?.(tool)}</div>) : null}
     {!toolAccess && !growthToolsAvailable && !open && !whatsAppOpen && !restockOpen ? ["İletişim balonu", "Stok gelince haber ver", "Sepet yakalama", "Sepet ve ödeme önerileri"].map(title => <article key={title} className={styles.toolRow}><ToolArtwork store /><div className={styles.toolCopy}><h2>{title}</h2><p>Büyüme ve üzeri paketlerde.</p></div><a className={secondary} href="/upgrade?feature=growth_tools">Paketleri incele</a></article>) : null}
     {loaded && open ? <form ref={editorRef} onSubmit={apply} onKeyDown={event => { if (event.key === "Escape" && !dialog) { event.preventDefault(); requestExit(); } }} noValidate data-settings-dirty={dirty} className={styles.editor}>
       <header className={styles.contextBar}><div><button className={ghost + " " + styles.iconButton} type="button" data-tool-close disabled={busy || reloading} aria-label="Araçlara dön" onClick={requestExit}><ArrowLeft size={20} aria-hidden="true" /></button><h2>İletişim balonu</h2></div>
