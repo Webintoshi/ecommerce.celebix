@@ -191,11 +191,55 @@
 .root:global(.catalog-page.product-operations-page) :global(.product-stock-low::before),
 .root:global(.catalog-page.product-operations-page) :global(.product-stock-out::before) { content: none; }
 .root:global(.catalog-page.product-operations-page) :global(.catalog-table td[data-label="Durum"] small) { max-width: none; margin-top: 4px; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.4; }
-.root:global(.catalog-page.product-operations-page) :global(.publish-switch) { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
-.root:global(.catalog-page.product-operations-page) :global(.publish-switch::before) { border: 1px solid var(--cp-text-secondary); background: var(--cp-soft); }
-.root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active::before) { background: var(--cp-brand); }
-.root:global(.catalog-page.product-operations-page) :global(.publish-switch span) { border: 1px solid var(--cp-text-secondary); background: var(--cp-surface); box-shadow: none; }
-.root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active span) { border-color: var(--cp-graphite); }
+.root:global(.catalog-page.product-operations-page) :global(.publish-switch) {
+  --publish-switch-on: #ff6c13;
+  --publish-switch-off: #ececec;
+  --publish-switch-thumb: #fff;
+  width: 52px;
+  height: 44px;
+  min-width: 52px;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+}
+.root:global(.catalog-page.product-operations-page) :global(.publish-switch::before) {
+  top: 9px;
+  left: 2px;
+  width: 48px;
+  height: 26px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--publish-switch-off);
+  transition: background-color 140ms ease-out;
+}
+.root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active::before) { background: var(--publish-switch-on); }
+.root:global(.catalog-page.product-operations-page) :global(.publish-switch span) {
+  top: 12px;
+  left: 5px;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--publish-switch-thumb);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 12%);
+  transform: translateX(0);
+  transition: transform 140ms ease-out;
+}
+.root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active span) { transform: translateX(22px); }
+@media (prefers-reduced-motion: reduce) {
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch::before),
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch span) { transition: none; }
+}
+@media (prefers-contrast: more) {
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch::before) { outline: 1px solid var(--cp-graphite); }
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch span) { box-shadow: 0 0 0 1px var(--cp-graphite); }
+}
+@media (forced-colors: active) {
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch::before) { forced-color-adjust: none; border: 1px solid ButtonText; background: Canvas; }
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active::before) { background: Highlight; }
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch span) { forced-color-adjust: none; background: ButtonText; box-shadow: none; }
+  .root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active span) { background: HighlightText; }
+}
 
 .rowActions { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }
 .root:global(.catalog-page.product-operations-page) .editAction:global(.icon-button) { display: inline-flex; width: auto; min-width: 0; height: 44px; flex: 0 1 auto; align-items: center; gap: 8px; border-color: transparent; border-radius: 8px; background: transparent; padding: 0 8px; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-control); }
