@@ -5,7 +5,7 @@ import { resolveDefaultServerAdminHostAuthRuntime } from "../../lib/server-admin
 import { resolveTenantAdminLoginModel } from "../../lib/tenant-admin-login-model.ts";
 import { merchantPurchaseHintFromPage } from "../../lib/merchant-phone/purchase-hint.ts";
 
-export default async function LoginPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> } = {}) {
+export default async function LoginPage({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const requestHeaders = await headers();
   const model = await resolveTenantAdminLoginModel({
     hostHeader: requestHeaders.get("host"),

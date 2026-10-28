@@ -22,5 +22,5 @@ test('actual login page retains default login for absent, duplicate or extra pro
   assert.equal(result.props.purchaseHint,undefined);
   assert.equal(result.props.model,model);
  }
- assert.equal((await LoginPage()).props.purchaseHint,undefined);
+ assert.equal((await LoginPage({})).props.purchaseHint,undefined);
 });
