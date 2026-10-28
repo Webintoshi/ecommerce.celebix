@@ -1,3 +1,4 @@
+import * as authoringImages from "../../lib/content-authoring-ui/image-alts.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -44,6 +45,7 @@ async function withMediaManager(
   let nextId = 0;
   let persisted = supplied.media ?? [];
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "@/lib/content-authoring-ui/image-alts") return authoringImages;
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg") });
@@ -241,4 +243,14 @@ test("saved-gallery alt editing, archive confirmation and restore remain operati
     archive: async () => { archives++; return { media: { ...existingMedia[0], altText: "Yeni açı", version: 3, status: "archived" } }; },
     restore: async () => { restores++; return { media: { ...existingMedia[0], altText: "Yeni açı", version: 4 } }; },
   } });
+});
+
+test('saved-media authoring applies only explicit stable IDs through the normal versioned alt save',async()=>{
+ let bridge:any;const saves:any[]=[];
+ await withMediaManager(async()=>{},async(_container,_browser,rerender)=>{
+  await rerender({onAuthoringMediaBridgeChange:(value:any)=>{bridge=value;}});const captured=bridge.captureImages();assert.equal(captured[0].thumbnailUrl,'/api/content-ai/image-source/product-1/saved-1');assert.equal(captured[0].url,'https://media.example.test/1.webp');
+  await act(async()=>assert.equal(await bridge.applyImageAlts([{id:'saved-3',altText:'New third angle'}],captured),true));
+  assert.deepEqual(saves,[{productId:'product-1',id:'saved-3',input:{expectedVersion:1,altText:'New third angle'}}]);
+  const current=bridge.captureImages();assert.equal(current.find((image:any)=>image.id==='saved-1').altText,'Açı 1');assert.equal(current.find((image:any)=>image.id==='saved-3').altText,'New third angle');assert.equal(bridge.canApplyImageAlts([{id:'saved-3',altText:'Stale'}],captured),false);
+ },{media:existingMedia,api:{updateAlt:async(productId:string,id:string,input:any)=>{saves.push({productId,id,input});return {media:{...existingMedia.find(item=>item.id===id),altText:input.altText,version:2}};}}});
 });

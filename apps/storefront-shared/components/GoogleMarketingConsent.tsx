@@ -88,7 +88,7 @@ export function GoogleMarketingConsent(props: Readonly<{ storeId: string; hostna
     // A fresh document unloads every handler installed by the previously granted container.
     if (value === "denied" && previouslyGranted) reloadDocument();
   }
-  const open = consent === "undecided" || preferences;
+  const open = preferences;
   const preferencesButton = <button type="button" className={footerPreferences ? "google-consent-preferences-inline" : "google-consent-preferences"} aria-expanded="false" onClick={() => { setPreferences(true); requestAnimationFrame(() => acceptButton.current?.focus()); }}>Çerez tercihleri</button>;
   return <div className="google-consent-shell">
     {open ? <section className="google-consent-banner" role="region" aria-label="Çerez tercihleri">

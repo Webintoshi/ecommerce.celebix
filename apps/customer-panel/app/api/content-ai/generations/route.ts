@@ -4,5 +4,5 @@ import { resolveServerContentAuthoringRuntime } from '../../../../lib/server-con
 import { createContentAuthoringHttpHandlers } from '../../../../lib/content-authoring-http/handler.ts';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
-export const maxDuration=60;
+export const maxDuration=90;
 export const POST=createContentAuthoringHttpHandlers({resolveRuntime:async()=>resolveServerContentAuthoringRuntime(await resolveDefaultServerPanelAccessRuntime()),now:()=>new Date(),requestId:randomUUID}).post;

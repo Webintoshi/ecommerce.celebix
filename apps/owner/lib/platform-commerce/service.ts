@@ -7,7 +7,7 @@ export interface NativeCommerceResult { outcome: string; result_payload: unknown
 export type CommerceCommand = (action: string, args: Record<string, unknown>) => Promise<NativeCommerceResult>;
 export interface PublicCommerceOrder {
   id: string; storeId: string; storeName: string; title: string;
-  kind: 'package' | 'tool'; offerId: string; term: 'monthly' | 'annual' | 'once';
+  kind: 'package' | 'tool' | 'toshi_credit'; offerId: string; term: 'monthly' | 'annual' | 'once';
   netCents: number; vatCents: number; totalCents: number; currency: 'TRY';
   state: 'created' | 'pending' | 'approved' | 'failed' | 'review'; expiresAt: string;
   paymentUrl?: string;
@@ -59,7 +59,7 @@ function context(value: NativeCommerceResult): Context {
 function publicOrder(value: Context): PublicCommerceOrder {
   const order = value.order, netCents = integer(order.netCents, 1), vatCents = integer(order.vatCents), totalCents = integer(order.totalCents, 1);
   if (netCents + vatCents !== totalCents || !Number.isSafeInteger(netCents + vatCents) || order.currency !== 'TRY'
-    || !['package', 'tool'].includes(String(order.kind)) || !['monthly', 'annual', 'once'].includes(String(order.term))) unavailable();
+    || !['package', 'tool', 'toshi_credit'].includes(String(order.kind)) || !['monthly', 'annual', 'once'].includes(String(order.term))) unavailable();
   const state: PublicCommerceOrder['state'] = order.status === 'fulfilled' ? 'approved' : order.status === 'paid_review' ? 'review'
     : order.status === 'failed' ? 'failed' : order.status === 'pending' && !value.attempt ? 'created' : 'pending';
   if (!['pending', 'processing', 'fulfilled', 'failed', 'paid_review'].includes(String(order.status))) unavailable();

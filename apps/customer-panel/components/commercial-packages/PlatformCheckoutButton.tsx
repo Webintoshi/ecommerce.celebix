@@ -2,7 +2,7 @@
 import {useRef,useState} from 'react';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const send=(url:string,init:RequestInit)=>fetch(url,init),newId=()=>crypto.randomUUID();
-type Props=Readonly<{storeId:string;kind:'package'|'tool';offerId:string;term:'monthly'|'annual'|'once';label?:string;disabled?:boolean;className?:string;fetcher?:typeof send;createOperationId?:()=>string}>;
+type Props=Readonly<{storeId:string;kind:'package'|'tool'|'toshi_credit';offerId:string;term:'monthly'|'annual'|'once';label?:string;disabled?:boolean;className?:string;fetcher?:typeof send;createOperationId?:()=>string}>;
 export function PlatformCheckoutButton({storeId,kind,offerId,term,label='Güvenli ödemeye geç',disabled=false,className='button button-primary',fetcher=send,createOperationId=newId}:Props){
  const working=useRef(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expired,setExpired]=useState(false);
  async function start(){

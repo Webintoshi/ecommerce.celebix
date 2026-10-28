@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateProductDraftOutput, parseContentGenerationView } from './validation.ts';
+import * as grounding from './grounding.ts';
 import type { ContentAuthoringDraft, ContentAuthoringField, ProductFact, ProductFactPacket } from './types.ts';
 
 const fingerprint = 'a'.repeat(64);
@@ -81,6 +82,19 @@ test('variant fact nodes also require an explicit variant label in their own par
   assert.doesNotThrow(() => validate('Kırmızı varyantı: 14,89 gram.', variants));
   assert.throws(() => validate('Mavi varyantı: 14,89 gram.', variants));
 });
+test('natural Turkish option suffixes preserve the exact named variant scope', () => {
+  for (const suffix of ['seçeneği', 'seçeneğinin', 'seçeneğinde', 'seçeneğini', 'seçeneğiyle']) {
+    assert.doesNotThrow(() => validate(`Kırmızı ${suffix} — 14,89 gram.`, variants));
+  }
+});
+test('natural option wording cannot lend evidence to another variant or paragraph', () => {
+  assert.throws(() => validate('Mavi seçeneği — 14,89 gram.', variants));
+  assert.throws(() => validateProductDraftOutput({ ...draft(''), description: [
+    { type: 'paragraph', children: [{ type: 'text', text: 'Kırmızı seçeneği.' }] },
+    { type: 'paragraph', children: [{ type: 'fact', factRef: 'variant-weight', value: '14.89', unit: 'g' }] },
+  ] }, variants, ['description']));
+  assert.throws(() => validate('Kırmızı seçeneği — 99 gram.', variants));
+});
 test('public generation parser remains a shape parser without source packet', () => {
   const id = '11111111-1111-4111-8111-111111111111', at = '2026-09-29T10:00:00.000Z';
   assert.doesNotThrow(() => parseContentGenerationView({ id, draftId: id, productId: null, status: 'completed', draft: draft('24 ayar'), sourceFingerprint: fingerprint, usage: null, safeCode: null, createdAt: at, updatedAt: at, finishedAt: at }));
@@ -110,4 +124,108 @@ for(const field of ['description','seoTitle','seoDescription'] as const)test(`po
  const source=packet([fact('weight','14.89','g')]);
  for(const sign of ['−','﹣','－','⁻','₋','➖','＋','⁺','₊','➕','±','∓'])for(const gap of ['',' ','\u2009'])assert.throws(()=>validate(`${sign}${gap}14.89 g`,source,field),`${JSON.stringify(sign+gap)} must not change the source quantity`);
  for(const text of ['(14.89 g)','Ağırlık: 14,89 g.','Burgu Bileklik – 14.89 gram','Burgu Bileklik — 14.89 g'])assert.doesNotThrow(()=>validate(text,source,field));
+});
+
+for(const field of ['description','seoTitle','seoDescription'] as const)test(`clear Turkish spatial under constructions do not become gold claims in ${field}`,()=>{
+ for(const text of ['Elinin altında bulundurabilirsiniz.','Elinizin altında tutabilirsiniz.','Elinin altındaki ürünü inceleyin.','Elinizin altındaki ürünü inceleyin.','ELİNİZİN ALTINDA TUTUN.'])assert.doesNotThrow(()=>validate(text,packet(),field),text);
+});
+
+test('actual product prose may use elinin altında and elinizin altında without invented gold evidence',()=>{
+ for(const text of ['mutfağınızda elinin altında bulunmasını isteyebileceğiniz','elinizin altında daha uzun süre erişte bulundurmayı'])assert.doesNotThrow(()=>validate(text,packet([], 'Erişte')));
+});
+
+test('spatial wording exempts only its own stem and cannot authorize real gold claims in the same paragraph',()=>{
+ for(const text of ['Elinizin altında altın var.','Elinin altında altından bileklik bulunur.','Elinizin altında gold ürün var.','Masanın altında altınlı ürün bulunur.','Elinizin altında sertifikalı ürün bulunur.','Elinizin altında 24 ayar ürün bulunur.'])assert.throws(()=>validate(text),text);
+});
+
+test('bare gold and inflected or ASCII gold forms remain protected without material evidence',()=>{
+ for(const text of ['Altın bileklik.','Altından bileklik.','Altında kalite.','Altındaki fark.','Altının parlaklığı.','Altını seçin.','Altınla tamamlayın.','Altınlı ürün.','Altınsız ürün.','Altındır.','Altınmış.','Altin bileklik.','Altindan bileklik.','Elinizin altindan bileklik.','Elinin altinda altin var.'])assert.throws(()=>validate(text),text);
+});
+
+test('source fragments containing spatial wording still cover their exact recorded material and qualifiers',()=>{
+ const value='Elinizin altında altın rengi ürün';const source=packet([fact('Açıklama',value)]);
+ assert.doesNotThrow(()=>validate(`${value}.`,source));assert.throws(()=>validate('Elinizin altında altın ürün.',source));
+});
+
+test('ambiguous noun or ablative copulas cannot bypass unsupported gold claims',()=>{
+ for(const text of ['Ürünün altından olduğunu belirtmek gerekir.','Başlığın altından olduğunu belirtmek gerekir.','Masanın altından olduğu belirtilir.','Koltuğun altından olması beklenir.','Masanın altından olan yapısı.','Elinizin altından olduğunu belirtmek gerekir.','Elinin altından olan yapısı.'])assert.throws(()=>validate(text),text);
+});
+
+for(const field of ['description','seoTitle','seoDescription'] as const)test(`explicit Turkish adjustment verbs do not become purity claims in ${field}`,()=>{
+ for(const text of ['Miktarı ayarlayabilirsiniz.','Miktarı ayarlayın.','MİKTARI AYARLAYIN.'])assert.doesNotThrow(()=>validate(text,packet(),field),text);
+});
+
+test('actual preparation paragraph permits ordinary adjustment without invented purity evidence',()=>{
+ const text='Hazırlık sırasında kendi tarifinizin ölçülerini izlemeniz yeterli olacaktır; böylece sofranıza uygun miktarı kolayca ayarlayabilirsiniz.';
+ assert.doesNotThrow(()=>validate(text,packet([], 'Erişte')));
+});
+
+test('adjustment verb exemption never authorizes purity forms or other claims in its paragraph',()=>{
+ for(const text of ['Ayar bilgisi.','Ayarlı ürün.','Ayarlıdır.','18 ayar.','18ayar.','Ayarın değeri.','Ayarda ürün.','Ayarı yüksek.','Ayarlık ürün.','Miktarı ayarlayın; altın ürün.','Miktarı ayarlayabilirsiniz; ayarlı ürün.','Miktarı ayarlayın; 18 ayar.','Miktarı ayarlayın; sertifikalı ürün.'])assert.throws(()=>validate(text),text);
+});
+
+test('exact infinitive ayarlamak is ordinary quantity guidance without authorizing purity or quantities',()=>{
+ const source=packet([], 'Erişte');
+ assert.doesNotThrow(()=>validate('Erişte için miktar ayarlamak tercihinize bağlıdır.',source));
+ for(const text of ['Erişte için ayar bilgisi.','Erişte için 14 ayar.','Erişte için ayarlı ürün.','Erişte için miktar ayarlamak ve 14 g seçmek.'])assert.throws(()=>validate(text,source),text);
+});
+
+test('bounded active adjustment morphology covers advice without treating the ayar stem as purity',()=>{
+ const forms=['ayarlamak','ayarlayın','ayarlayınız','ayarlayabilirim','ayarlayabilirsin','ayarlayabiliriz','ayarlayabilirsiniz',...['m','n','mız','nız'].flatMap(person=>['','ı','ın','a','da','dan'].map(ending=>`ayarlama${person}${ending}`))];
+ for(const verb of forms)assert.doesNotThrow(()=>validate(`Erişte için miktarı ${verb}.`,packet([], 'Erişte')),verb);
+});
+
+test('captured preparation advice uses an active possessive adjustment noun, not a purity assertion',()=>{
+ assert.doesNotThrow(()=>validate('Bu öneriler ürünün kendi özellikleri değil, kullanım fikirleridir; tarifinize göre malzeme ve pişirme süresini ayarlamanız gerekir.',packet([], 'Erişte')));
+});
+
+test('active adjustment morphology does not exempt ambiguous nouns, purity, passive capability or arbitrary suffixes',()=>{
+ for(const word of ['ayar','ayarı','ayarlar','ayarları','ayarlı','ayarlıdır','ayarlanabilir','ayarlanabilirlik','ayarlanmıştır','ayarlanması','ayarlatabilirsiniz','ayarlayabilir','ayarlayabilirlik','ayarlamanızgarantili','ayarlamaniz'])assert.throws(()=>validate(`Ürün ${word}.`),word);
+ for(const text of ['Miktarı ayarlamanız gerekir; 20 g.','Süreyi ayarlamanız için 14 dakika.','Miktarı ayarlamanız gerekir; altın ürün.'])assert.throws(()=>validate(text,packet([], 'Erişte')),text);
+ const count=packet([fact('packageCount','14')]);assert.throws(()=>validate('14 ayar; miktarı ayarlamanız gerekir.',count));
+});
+
+test('ordinary active adjustment adverbials retain the distinction from passive or purity claims',()=>{
+ for(const text of ['Miktarı ayarlayarak tarifinize uyarlayın.','Miktarı ayarlarken tarifinizi izleyin.'])assert.doesNotThrow(()=>validate(text,packet([], 'Erişte')),text);
+ for(const text of ['Ürün ayarlanarak kullanılır.','Ürün ayarlı.','Ürün ayarlanabilir.','Miktarı ayarlayarak 14 g ekleyin.'])assert.throws(()=>validate(text,packet([], 'Erişte')),text);
+});
+
+function groundingFailure(output:ContentAuthoringDraft,source=packet(),selected:readonly ContentAuthoringField[]=['description']):unknown{
+ try{validateProductDraftOutput(output,source,selected);}catch(error){return error;}
+ assert.fail('Unsupported output must still be rejected');
+}
+test('internal grounding issues identify the actual field, AST block and unsupported normalized tokens',()=>{
+ assert.equal(typeof grounding.getProductDraftGroundingIssue,'function');
+ const description=[{type:'heading',level:2,children:[{type:'text',text:'Ürün bilgisi'}]},{type:'paragraph',children:[{type:'text',text:'Desteksiz ALTIN ve Hipoalerjenik ürün.'}]}] as const;
+ const error=groundingFailure({...draft(''),description});
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(error),{reason:'critical_term',field:'description',blockIndex:1,tokens:['altin','hipoalerjenik']});
+ const seoError=groundingFailure(draft('Ürün −25,5 g.','seoDescription'),packet(),['seoDescription']);
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(seoError),{reason:'numeric',field:'seoDescription',blockIndex:null,tokens:['-25.5']});
+});
+test('internal issues retain variant and fact scope rejection without exposing fact references or IDs',()=>{
+ const scoped:ProductFact={ref:'PRIVATE_REF',field:'Renk',value:'Kırmızı',scope:'variant',variantId:'PRIVATE_ID',source:'current_draft'};
+ const source=packet([scoped]);
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(groundingFailure(draft('Kırmızı ürün.'),source)),{reason:'variant_scope',field:'description',blockIndex:0,tokens:['kirmizi']});
+ const description=[{type:'paragraph',children:[{type:'fact',factRef:scoped.ref,value:scoped.value}]}] as const;
+ assert.deepEqual(grounding.getProductDraftGroundingIssue(groundingFailure({...draft(''),description},source)),{reason:'fact_scope',field:'description',blockIndex:0,tokens:[]});
+});
+test('private grounding issues are bounded, immutable and absent from error properties or public parsing',()=>{
+ const error=groundingFailure(draft(`Altın${'a'.repeat(90)} gümüş platin titanyum.`));
+ const issue=grounding.getProductDraftGroundingIssue(error);assert.ok(issue);
+ assert.equal(issue.tokens.length,3);assert.equal([...issue.tokens[0]].length,64);
+ assert.ok(issue.tokens.every(token=>[...token].length<=64));assert.ok(Object.isFrozen(issue));assert.ok(Object.isFrozen(issue.tokens));
+ assert.ok(error instanceof TypeError);assert.equal(error.message,'content_authoring_contract_invalid');
+ assert.deepEqual(Object.keys(error),[]);assert.equal(JSON.stringify(error),'{}');
+ assert.ok(!Object.getOwnPropertyNames(error).some(name=>['tokens','issue','reason','field','blockIndex'].includes(name)));
+ assert.equal(grounding.getProductDraftGroundingIssue(new TypeError('content_authoring_contract_invalid')),null);
+ assert.equal(grounding.getProductDraftGroundingIssue(Object.create(error)),null);
+ assert.equal(grounding.getProductDraftGroundingIssue({reason:'critical_term',tokens:['forged']}),null);
+ assert.equal(grounding.getProductDraftGroundingIssue(null),null);
+});
+test('list and table grounding failures report their enclosing AST block without changing acceptance',()=>{
+ for(const block of [{type:'list',ordered:false,items:[[{type:'text',text:'Altın ürün.'}]]},{type:'table',rows:[[[{type:'text',text:'Altın ürün.'}]]]}] as const){
+  const error=groundingFailure({...draft(''),description:[{type:'paragraph',children:[{type:'text',text:'Ürün bilgisi.'}]},block]});
+  assert.equal(grounding.getProductDraftGroundingIssue(error)?.blockIndex,1);
+ }
+ assert.doesNotThrow(()=>validate('Altın ürün.',packet([fact('Malzeme','Altın')])));
 });

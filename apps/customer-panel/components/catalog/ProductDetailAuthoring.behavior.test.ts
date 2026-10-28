@@ -1,3 +1,4 @@
+import * as ReactDom from "react-dom";
 import {compile as compileCatalogSort} from "../../lib/mira-final-test-support.ts";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -14,6 +15,8 @@ import * as writingPreferences from "../../lib/content-authoring-ui/store-writin
 import * as authoringState from "../../lib/content-authoring-ui/state.ts";
 import * as attributeChoices from "../../lib/catalog-onboarding-ui/attribute-variants.ts";
 import * as authoringClient from "../../lib/content-authoring-ui/client.ts";
+import * as authoringCredits from "../../lib/content-authoring-ui/credits-client.ts";
+import * as authoringImages from "../../lib/content-authoring-ui/image-alts.ts";
 import * as descriptionRenderer from "../../lib/server-content-authoring/render.ts";
 import * as dirty from "../../lib/catalog-ui/dirty-navigation.ts";
 
@@ -29,9 +32,9 @@ async function withDetail(verify:(h:{container:HTMLElement;browser:Window;reques
  let descriptionAuthoring:any,productCapture:any;const requests:any[]=[],variantRequests:any[]=[],generationRequests:any[]=[];let resolveGeneration!:(value:any)=>void; let failure:string|null=null;let reloadFailure:string|null=null;
  const compile=async(file:string,imports:Record<string,unknown>)=>{
   const source=await readFile(new URL(file,import.meta.url),"utf8");const output=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
-  const module={exports:{} as Record<string,any>};Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name],module,module.exports);return module.exports;
+  const module={exports:{} as Record<string,any>};Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react-dom"?ReactDom:name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name],module,module.exports);return module.exports;
  };
- const panel=await compile("../content-authoring/ContentAuthoringPanel.tsx",{"@/components/panel/PanelLayoutClient":{usePanelChromeModel:()=>({activeStoreSelectionKey:"fixture-store"})},"@/lib/content-authoring-ui/store-writing-preferences":writingPreferences,"@/lib/content-authoring-ui/client":authoringClient,"@/lib/content-authoring-ui/state":authoringState,"@/lib/server-content-authoring/render":descriptionRenderer});
+ const panel=await compile("../content-authoring/ContentAuthoringPanel.tsx",{"@/components/panel/PanelLayoutClient":{usePanelChromeModel:()=>({activeStoreSelectionKey:"fixture-store"})},"@/lib/content-authoring-ui/store-writing-preferences":writingPreferences,"@/lib/content-authoring-ui/client":authoringClient,"@/lib/content-authoring-ui/credits-client":authoringCredits,"@/lib/content-authoring-ui/image-alts":authoringImages,"@/lib/content-authoring-ui/state":authoringState,"@/lib/server-content-authoring/render":descriptionRenderer});
  const measurementFields=await compile("./ProductMeasurementFields.tsx",{"@/lib/catalog-ui/product-measurements":measurements});
  const preferencesApi={records:async()=>[]};
  const generationApi={generate:(request:any)=>{generationRequests.push(request);return new Promise<any>(resolve=>{resolveGeneration=resolve;});},get:async()=>{throw Error("unexpected");}};
@@ -72,7 +75,7 @@ async function withDetail(verify:(h:{container:HTMLElement;browser:Window;reques
  const source=await readFile(new URL("./ProductDetailConsole.tsx",import.meta.url),"utf8");
  const output=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
  const module={exports:{} as Record<string,unknown>};
- Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name]??new Proxy({},{get:()=>()=>null}),module,module.exports);
+ Function("require","module","exports",output)((name:string)=>name==="@/components/catalog/CatalogSortArea"?compileCatalogSort("components/catalog/CatalogSortArea.tsx"):name==="react-dom"?ReactDom:name==="react"?React:name==="react/jsx-runtime"?jsx:name==="lucide-react"?new Proxy({},{get:()=>()=>null}):name.endsWith(".css")?{default:{}}:imports[name]??new Proxy({},{get:()=>()=>null}),module,module.exports);
  const {createRoot}=await import("react-dom/client"); const container=browser.document.createElement("div") as unknown as HTMLElement; browser.document.body.append(container as never);const root=createRoot(container);
  const button=(text:string)=>{const result=[...container.querySelectorAll("button")].find(b=>b.textContent?.trim()===text);assert.ok(result,text+" available="+[...container.querySelectorAll("button")].map(b=>b.textContent).join("|"));return result;};
  try {await act(async()=>root.render(createElement(module.exports.ProductDetailConsole as React.ComponentType<any>,{productId:product.id,canManage:true,canArchive})));
@@ -155,7 +158,7 @@ test("both existing authoring entry points capture unsaved inline variant conten
 },[existingVariant]));
 
 for(const phase of ["pending","completed"] as const)test(`variant edits after ${phase} generation block actual preview apply without changing text or origin`,async()=>withDetail(async h=>{
- await openVariant(h);await typeVariant(h,"measurement-weight","20");await h.click("Open authoring preview");await h.click("İçerik oluştur");assert.equal(h.generationRequests[0].currentDraft.variants[0].measurements.weight.valueMilli,20000);
+ await openVariant(h);await typeVariant(h,"measurement-weight","20");await h.click("Open authoring preview");await h.click("Seçilenleri hazırla · 7 kredi");assert.equal(h.generationRequests[0].currentDraft.variants[0].measurements.weight.valueMilli,20000);
  if(phase==="completed")await act(async()=>h.resolveGeneration());
  await typeVariant(h,"measurement-weight","");
  if(phase==="pending")await act(async()=>h.resolveGeneration());
@@ -170,7 +173,7 @@ test("unsaved new variant facts are explicit and cancelling their form invalidat
 
 
 test("variant removal uses normal archive CAS and invalidates an earlier actual AI preview",async()=>withDetail(async h=>{
- await h.click("Open authoring preview");await h.click("İçerik oluştur");await act(async()=>h.resolveGeneration());assert.equal(h.authoring().capture().request.currentDraft.variants.length,1);
+ await h.click("Open authoring preview");await h.click("Seçilenleri hazırla · 7 kredi");await act(async()=>h.resolveGeneration());assert.equal(h.authoring().capture().request.currentDraft.variants.length,1);
  const archive=h.container.querySelector<HTMLButtonElement>('[aria-label="Aktif varyantlar"] .text-danger-button')!;assert.ok(archive);await act(async()=>archive.click());await h.click("Varyantı arşivle");
  assert.deepEqual(h.variantRequests,[{archive:existingVariant.id,expectedVersion:3}]);assert.deepEqual(h.authoring().capture().request.currentDraft.variants,[]);assert.deepEqual(h.seoDraft().currentDraft.variants,[]);
  await h.click("Açıklama alanına uygula");assert.equal(h.container.querySelector<HTMLTextAreaElement>('[name="description"]')!.value,"Saved description");assert.equal(h.container.querySelector('[data-description-origin]')!.getAttribute("data-description-origin"),JSON.stringify(priorOrigin));assert.match(h.container.textContent??"",/Alanlar değişti/);assert.equal(h.requests.length,0);

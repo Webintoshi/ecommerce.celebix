@@ -1,3 +1,6 @@
+import * as ReactDom from "react-dom";
+import * as authoringImages from "../../lib/content-authoring-ui/image-alts.ts";
+import * as authoringCredits from "../../lib/content-authoring-ui/credits-client.ts";
 import { installCatalogSortRects, beginCatalogMouseDrag, dropCatalogMouseDrag, dragCatalogItem } from "./catalog-sort-test-utils.ts";
 import { compile as compileTaxFields } from "../../lib/mira-final-test-support.ts";
 import * as productTax from "../../lib/catalog-ui/product-tax.ts";
@@ -49,6 +52,9 @@ async function compile(url: URL, imports: Record<string, unknown>) {
     if (name === "@/components/catalog/CatalogSortArea") return compileTaxFields("components/catalog/CatalogSortArea.tsx");
     if (name === "@/components/catalog/ProductTaxFields") return compileTaxFields("components/catalog/ProductTaxFields.tsx");
     if (name === "@/lib/catalog-ui/product-tax") return productTax;
+    if (name === "@/lib/content-authoring-ui/image-alts") return authoringImages;
+    if (name === "@/lib/content-authoring-ui/credits-client") return authoringCredits;
+    if (name === "react-dom") return ReactDom;
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });
@@ -379,7 +385,7 @@ for (const layout of ["create", "default", "rail"] as const) test(`AI SEO applie
     updateMerchandising: async (_id:string,payload:unknown)=>{requests.push(payload);return created;},
   }}, async ({container,browser,latest,remount}) => {
     assert.deepEqual(dirty, [], "mount must not mark fields dirty");
-    await click(container,"AI ile SEO oluştur");
+    await click(container,"Yapay Zeka ile SEO Hazırla");
     await click(container,"Apply SEO fixture");
     assert.equal(requests.length,0,"applying is not saving");
     const title = container.querySelector<HTMLInputElement>('[name="seoTitle"]')!;
@@ -406,7 +412,7 @@ test("SEO generation captures the current unsaved general product draft and reje
   let bridge:any;
   const snapshots=await import("../../lib/content-authoring-ui/state.ts");
   await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",captureProductAuthoringDraft:()=>({currentDraft:{title,description,variants:[]},productVersion:8,draftRevision:revision})},async({container})=>{
-    await click(container,"AI ile SEO oluştur");
+    await click(container,"Yapay Zeka ile SEO Hazırla");
     const current=bridge.capture();
     assert.equal(current.request.currentDraft.title,title);
     assert.equal(current.request.currentDraft.description,description);
@@ -425,7 +431,7 @@ test("SEO generation captures the current unsaved general product draft and reje
 for(const code of ["version_conflict","unavailable"] as const) test(`SEO ${code} keeps applied text, origin and dirty state until an acknowledged save`,async()=>{
  let failed=true,updates=0;const requests:any[]=[],dirty:boolean[]=[];
  await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",onDirtyChange:(value:boolean)=>dirty.push(value),onUpdated:()=>updates++,api:{updateMerchandising:async(_id:string,payload:unknown)=>{requests.push(payload);if(failed)throw new HarnessApiError(code);return created;}}},async({container,browser})=>{
-  await click(container,"AI ile SEO oluştur");await click(container,"Apply SEO fixture");await submit(container,browser);
+  await click(container,"Yapay Zeka ile SEO Hazırla");await click(container,"Apply SEO fixture");await submit(container,browser);
   assert.equal(updates,0);assert.equal(dirty.at(-1),true);assert.equal(container.querySelector<HTMLInputElement>('[name="seoTitle"]')!.value,"Generated SEO");
   assert.equal(requests[0].expectedProfileVersion,9);assert.deepEqual(requests[0].contentOrigins,{seoTitle:{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId},seoDescription:{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId}});
   assert.match(container.textContent??"",code==="version_conflict"?/Yerel alanlarınız korunuyor/:/unavailable/);
@@ -438,12 +444,12 @@ test("advanced AI capture maps saved variant slug keys to verified selected reso
  const contract=await import("@celebix/saas-contracts");let bridge:any;
  const matrixDraft=drafts.updateProductDraft(draft(),{kind:"variant",variants:[newSmall],resourceAttributeIds:[attributeId]});
  await withAdvanced({draftSession:matrixDraft},async({container,remount})=>{
-  await click(container,"AI ile SEO oluştur");
+  await click(container,"Yapay Zeka ile SEO Hazırla");
   const captured=bridge.capture();
   assert.deepEqual(captured.request.currentDraft.variants[0].attributes,[{attributeId,value:"S"}]);
   const parsed=contract.parseContentAuthoringRequest(captured.request);assert.equal(parsed.currentDraft.variants?.[0]?.attributes?.[0]?.attributeId,attributeId);
   const invalid=drafts.updateProductDraft(matrixDraft,{variants:[{...newSmall,attributes:{missing:"S"}}]});
-  await remount(invalid);await click(container,"AI ile SEO oluştur");
+  await remount(invalid);await click(container,"Yapay Zeka ile SEO Hazırla");
   assert.throws(()=>bridge.capture(),/attribute_metadata_unavailable/,"unknown slugs must never become client-invented references");
  },undefined,(props:any)=>{bridge=props.bridge;return null;});
 });
@@ -473,10 +479,9 @@ test("existing SEO rail request controls do not dirty saved fields and ordinary 
  });
  const dirty:boolean[]=[];
  await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",onDirtyChange:(value:boolean)=>dirty.push(value)},async({container,browser})=>{
-  await click(container,"AI ile SEO oluştur");const panel=container.querySelector('[aria-label="AI ile içerik"]')!;
+  await click(container,"Yapay Zeka ile SEO Hazırla");const panel=container.querySelector('[aria-label="Toshi ile içerik"]')!;
   await act(async()=>panel.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1].click());
-  await act(async()=>panel.querySelector('details summary')!.dispatchEvent(new browser.MouseEvent("click",{bubbles:true}) as unknown as Event));
-  const tone=panel.querySelectorAll<HTMLSelectElement>('select')[1];await act(async()=>{tone.value="professional";tone.dispatchEvent(new browser.Event("change",{bubbles:true}) as unknown as Event);});
+  assert.equal(panel.querySelector('select'),null);
   assert.equal(dirty.at(-1)??false,false);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,true);
   const seo=container.querySelector<HTMLInputElement>('[name="seoTitle"]')!;await act(async()=>{Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype,"value")!.set!.call(seo,"Manually edited SEO");seo.dispatchEvent(new browser.Event("input",{bubbles:true}) as unknown as Event);});
   assert.equal(dirty.at(-1),true);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,false);assert.equal(seo.value,"Manually edited SEO");
@@ -618,7 +623,7 @@ test("advanced one Save publishes after uploading and accepts keyboard submissio
 
 test('package locked product AI offers upgrade without opening generation while ordinary SEO fields stay editable',async()=>{
  await withAdvanced({aiAvailable:false},async({container})=>{
-  assert.equal([...container.querySelectorAll('button')].some(button=>button.textContent==='AI ile SEO oluştur'),false);
+  assert.equal([...container.querySelectorAll('button')].some(button=>button.textContent==='Yapay Zeka ile SEO Hazırla'),false);
   assert.ok(container.querySelector('a[href="/upgrade?feature=ai"]'));
   assert.ok(container.querySelector('input[name="seoTitle"]'));
   assert.ok(container.querySelector('textarea[name="seoDescription"]'));
@@ -645,4 +650,17 @@ test("creation variant drag keeps stable identities, prices and image links afte
     await submit(container, browser);
     assert.deepEqual(intents[0].variants.map((row:any)=>[row.title,row.priceCents,row.stockQuantity]), [["L",30000,4],["M",10000,2],["S",20000,3]]);
   });
+});
+
+test('draft image authoring applies by local ID and the ordinary product save uploads those exact alt texts',async()=>{
+ let bridge:any;const uploads:any[]=[];
+ await withAdvanced({onAuthoringBridgeChange:(value:any)=>{bridge=value;},mediaClient:{upload:async(_id:string,input:any)=>{uploads.push(input);return {media:{id:`saved-${uploads.length}`}};}}},async({container,browser,latest})=>{
+  const chooser=container.querySelector<HTMLInputElement>('input[type="file"]')!;
+  await act(async()=>{Object.defineProperty(chooser,'files',{configurable:true,value:[new browser.File(['one'],'same.png',{type:'image/png'}),new browser.File(['two'],'same.png',{type:'image/png'})]});chooser.dispatchEvent(new browser.Event('change',{bubbles:true}) as unknown as Event);});
+  const captured=bridge.media.captureImages();assert.equal(captured.length,2);assert.notEqual(captured[0].id,captured[1].id);
+  await act(async()=>assert.equal(bridge.media.applyImageAlts([{id:captured[1].id,altText:'Second angle'},{id:captured[0].id,altText:'Front angle'}],captured),true));
+  assert.deepEqual(latest().current.media.map(image=>image.altText),['Front angle','Second angle']);
+  assert.equal(bridge.media.canApplyImageAlts([{id:captured[0].id,altText:'Stale replacement'}],captured),false,'later media edits invalidate the old preview');
+  await submit(container,browser);assert.deepEqual(uploads.map(image=>image.altText),['Front angle','Second angle']);
+ });
 });

@@ -1,10 +1,10 @@
 import 'server-only';
 import {createHash,createHmac} from 'node:crypto';
-import {COMMERCIAL_PACKAGES,STORE_TOOL_OFFERS,commercialUuid,type TenantContext} from '@celebix/saas-contracts';
+import {COMMERCIAL_PACKAGES,STORE_TOOL_OFFERS,TOSHI_CREDIT_OFFERS,commercialUuid,type TenantContext} from '@celebix/saas-contracts';
 import {merchantAuthority} from '../../../../packages/saas-data/src/orders/validation.ts';
 import {acquirePostgresClient,type PostgresPoolLike,type PostgresTimeoutOptions} from '../../../../packages/saas-data/src/postgres/pool.ts';
 
-export type PlatformCheckoutIntent=Readonly<{kind:'package'|'tool';offerId:string;term:'monthly'|'annual'|'once';operationId:string}>;
+export type PlatformCheckoutIntent=Readonly<{kind:'package'|'tool'|'toshi_credit';offerId:string;term:'monthly'|'annual'|'once';operationId:string}>;
 export type PlatformCheckoutHandoff=Readonly<{orderId:string;handoff:string;checkoutUrl:'https://celebix.net/api/platform-checkout/handoff'}>;
 export interface PlatformCommerceRepository{createCheckout(input:Readonly<{tenantContext:TenantContext;now:Date;intent:PlatformCheckoutIntent}>):Promise<PlatformCheckoutHandoff>}
 export const PLATFORM_CHECKOUT_ERROR_CODES=['invalid_input','unauthenticated','durable_authority_invalid','membership_denied','store_inactive','feature_not_enabled','subscription_denied','operation_mismatch','already_covered','already_owned','purchase_pending','checkout_expired','unavailable','commit_unknown']as const;
@@ -19,6 +19,8 @@ export function parsePlatformCheckoutIntent(value:unknown):PlatformCheckoutInten
    if(!['monthly','annual'].includes(r.term as string)||!COMMERCIAL_PACKAGES.some(p=>p.id===r.offerId&&p.monthlyPriceCents>0))fail('invalid_input');
   }else if(r.kind==='tool'){
    if(r.term!=='once'||!STORE_TOOL_OFFERS.some(o=>o.id===r.offerId))fail('invalid_input');
+  }else if(r.kind==='toshi_credit'){
+   if(r.term!=='once'||!TOSHI_CREDIT_OFFERS.some(o=>o.id===r.offerId))fail('invalid_input');
   }else fail('invalid_input');
   return Object.freeze({kind:r.kind,offerId:r.offerId as string,term:r.term as PlatformCheckoutIntent['term'],operationId});
  }catch(error){if(error instanceof PlatformCommerceRepositoryError)throw error;return fail('invalid_input');}

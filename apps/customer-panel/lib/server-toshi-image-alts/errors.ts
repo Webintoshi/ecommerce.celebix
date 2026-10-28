@@ -1,0 +1,2 @@
+export type ToshiImageAltErrorCode = 'invalid_input' | 'unauthenticated' | 'membership_denied' | 'store_inactive' | 'feature_not_enabled' | 'origin_denied' | 'credential_invalid' | 'insufficient_credits' | 'operation_busy' | 'operation_mismatch' | 'operation_failed' | 'commit_unknown' | 'provider_unavailable' | 'provider_timeout' | 'invalid_output' | 'rate_limited' | 'cancelled' | 'unavailable';
+export class ToshiImageAltError extends Error { constructor(readonly code: ToshiImageAltErrorCode) { super(code); this.name = 'ToshiImageAltError'; } }

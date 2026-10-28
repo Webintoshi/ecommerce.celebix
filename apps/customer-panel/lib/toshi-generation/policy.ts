@@ -80,11 +80,13 @@ export function contentResourceGenerationCapability(provider: ToshiProvider, mod
 function validateInput(provider: ToshiProvider, input: ToshiGenerationInput): void {
   record(input, "invalid_input");
   const resource = input.authoringProfile === "content_resource";
-  if (input.authoringProfile !== undefined && !resource) fail("invalid_input");
-  if (resource && (input.outputFormat !== "json_object" || input.tools.length !== 0 || input.continuation !== undefined || input.toolResults !== undefined)) fail("invalid_input");
+  const quality = input.authoringProfile === "product_quality";
+  if (input.authoringProfile !== undefined && !resource && !quality) fail("invalid_input");
+  if ((resource || quality) && (input.outputFormat !== "json_object" || input.tools.length !== 0 || input.continuation !== undefined || input.toolResults !== undefined)) fail("invalid_input");
   if (resource && !contentResourceGenerationCapability(provider, input.model)) throw new ToshiGenerationError("model_unavailable");
+  if (quality && (provider !== "deepseek" || input.model !== "deepseek-flash")) throw new ToshiGenerationError("model_unavailable");
   if (input.outputFormat !== undefined && input.outputFormat !== "json_object") fail("invalid_input");
-  if (input.maxOutputTokens !== undefined && (!Number.isSafeInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || input.maxOutputTokens > (resource ? 8192 : 4096))) fail("invalid_input");
+  if (input.maxOutputTokens !== undefined && (!Number.isSafeInteger(input.maxOutputTokens) || input.maxOutputTokens < 1 || input.maxOutputTokens > (quality ? 12288 : resource ? 8192 : 4096))) fail("invalid_input");
   if (input.outputFormat && (input.tools.length || input.continuation !== undefined || input.toolResults !== undefined)) fail("invalid_input");
   const model = text(input.model, 160, "invalid_input");
   if (!/^[a-zA-Z0-9_.:-]{1,160}$/u.test(model)) throw new ToshiGenerationError("model_unavailable");

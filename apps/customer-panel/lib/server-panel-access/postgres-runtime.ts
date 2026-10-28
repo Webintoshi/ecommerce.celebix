@@ -113,6 +113,10 @@ import { registerServerPromotionsRepository } from "../server-promotions/runtime
 import { registerServerProviderExecutionRuntime } from "../server-provider-execution/runtime.ts";
 import { registerServerToshiProviderRuntime } from "../server-toshi-providers/runtime.ts";
 import { registerServerContentAuthoringRuntime } from "../server-content-authoring/runtime.ts";
+import { PostgresToshiCreditRepository } from "@celebix/saas-data";
+import { registerServerToshiCreditsRuntime } from "../server-toshi-credits/runtime.ts";
+import { registerServerToshiImageAltRuntime } from "../server-toshi-image-alts/runtime.ts";
+import { createPostgresCentralToshiRepository,registerServerCentralToshiRepository } from "../server-toshi-providers/central-repository.ts";
 import { registerServerContentResourceAuthoringRuntime } from "../server-content-resource-authoring/runtime.ts";
 import { registerServerContentResearchRuntime } from "../server-content-research/runtime.ts";
 import { registerServerToshiChatRuntime } from "../server-toshi-chat/runtime.ts";
@@ -1230,6 +1234,10 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       duplicate: ["promotions"],
       archive: ["promotions"],
     }));
+    const toshiCredits = new PostgresToshiCreditRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined});
+    registerServerToshiCreditsRuntime(access, toshiCredits);
+    registerServerCentralToshiRepository(access, createPostgresCentralToshiRepository({pool,timeouts:TIMEOUTS}));
+    registerServerToshiImageAltRuntime(access, {credits:toshiCredits});
     registerServerContentAuthoringRuntime(access, new PostgresContentAuthoringRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined}));
     if (typedMerchantContentReady) {
       const researchRepository = new PostgresContentResearchRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined});

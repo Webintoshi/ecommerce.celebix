@@ -1,0 +1,57 @@
+{
+  "migrationId": "native283",
+  "description": "Central store Toshi wallets, bounded generation reservations, immutable credit ledger and provider-verified credit purchases",
+  "up": "202610270283_toshi_credits.up.sql",
+  "down": "202610270283_toshi_credits.down.sql",
+  "assertions": "202610270283_toshi_credits_assertions.sql",
+  "dependencies": [
+    "native281",
+    "native282"
+  ],
+  "isolatedAcceptance": "node apps/owner/scripts/sql/saas/toshi-credits.native.test.mjs",
+  "financialPolicy": {
+    "reservationMinutes": 15,
+    "maxResultBytes": 262144,
+    "maxReservationCredits": 1000,
+    "expireAs": "unknown",
+    "autoGrant": false,
+    "rollback": "forward-only",
+    "operatorGrant": "saas.platform_toshi_credit_grant(uuid,uuid,uuid,bigint,text)"
+  },
+  "offers": [
+    {
+      "id": "toshi-500",
+      "credits": 500,
+      "netCents": 24900
+    },
+    {
+      "id": "toshi-2500",
+      "credits": 2500,
+      "netCents": 99900
+    },
+    {
+      "id": "toshi-10000",
+      "credits": 10000,
+      "netCents": 299900
+    },
+    {
+      "id": "toshi-50000",
+      "credits": 50000,
+      "netCents": 1249900
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "202610270283_toshi_credits.up.sql",
+      "sha256": "4db5f397d13c59c9f06d6499a330e59cc34888fe938a79e84274e7f9911ea2d6"
+    },
+    {
+      "file": "202610270283_toshi_credits.down.sql",
+      "sha256": "8f1772750877dfc262b7566f6ddb047d2c7e77d0b7d03dafcd38b0a5a52e5699"
+    },
+    {
+      "file": "202610270283_toshi_credits_assertions.sql",
+      "sha256": "fdfb824be07b18b6ad07ac4e2ec35289219cda6688e531216387e5b8ae2e3c90"
+    }
+  ]
+}

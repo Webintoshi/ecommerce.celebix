@@ -1,4 +1,5 @@
 import 'server-only';
+import {createMerchantOnlyToshiAuthority} from '../server-toshi-providers/central.ts';
 import type{MerchantAdminRecord,TenantContext}from'@celebix/saas-contracts';
 import type{ContentResourceAuthoringRepository}from'../../../../packages/saas-data/src/content-resource-authoring/types.ts';
 import type{ServerPanelAccessRuntime}from'../server-panel-access/runtime.ts';
@@ -25,7 +26,7 @@ export function assertContentResourcePreferences(settings:readonly MerchantAdmin
 export function registerServerContentResourceAuthoringRuntime(access:ServerPanelAccessRuntime,repository:ContentResourceAuthoringRepository,researchRepository?:ResearchReader):ServerContentResourceAuthoringRuntime{
  const provider=resolveServerToshiProviderRuntime(access),merchant=resolveServerMerchantAdminRuntime(access),content=resolveServerMerchantContentRuntime(access);
  if(!provider||!merchant||!content||runtimes.has(access))throw Error('server_content_resource_runtime_invalid');
- const service=createContentResourceAuthoringService({repository,contentRepository:content.merchantContent,researchRepository:researchRepository??{async get(){throw new ContentResourceAuthoringError('unavailable');}},providers:provider.repository,keyring:()=>provider.keyring,generations:createToshiGenerationRegistry(),now:()=>new Date(),async authorizePreferences({tenantContext,now,request}){
+ const service=createContentResourceAuthoringService({repository,contentRepository:content.merchantContent,researchRepository:researchRepository??{async get(){throw new ContentResourceAuthoringError('unavailable');}},providers:createMerchantOnlyToshiAuthority(provider.repository,()=>provider.keyring),keyring:()=>provider.keyring,generations:createToshiGenerationRegistry(),now:()=>new Date(),async authorizePreferences({tenantContext,now,request}){
   const settings=await merchant.merchantAdmin.list({tenantContext,now,kind:'ai_setting'});
   assertContentResourcePreferences(settings,request.stage==='outline'?['body']:request.fields);
  }});

@@ -36,10 +36,11 @@ import {
   normalizePastedProductDescriptionHtml,
   normalizeStoredProductDescription,
 } from "@/lib/product-description-editor";
-import { ContentAuthoringPanel, type ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
+import { ContentAuthoringPanel, type ContentAuthoringBridge, type ContentAuthoringIntent } from "@/components/content-authoring/ContentAuthoringPanel";
 import { ContentAuthoringOrigin, applyDescriptionDraft, canApplyDescriptionDraft, captureDescriptionSelection, descriptionOrigin, type PendingContentOrigin } from "@/lib/content-authoring-ui/editor";
 import { renderContentAuthoringDescription } from "@/lib/server-content-authoring/render";
 import type { ContentAuthoringRequest, ContentAuthoringField, ContentGenerationView } from "@celebix/saas-contracts";
+import type { AuthoringMediaBridge } from "@/lib/content-authoring-ui/image-alts";
 import styles from "./product-description-editor.module.css";
 export { ProductDescriptionPreview } from "./ProductDescriptionPreview";
 
@@ -59,6 +60,7 @@ type ProductDescriptionFieldProps = Readonly<{
     canApplyField?(field: ContentAuthoringField, generation: ContentGenerationView): boolean;
     applyField?(field: ContentAuthoringField, generation: ContentGenerationView): boolean;
     fields?: readonly ContentAuthoringField[];
+    media?: AuthoringMediaBridge;
   }>;
 
 }>;
@@ -126,6 +128,7 @@ export function ProductDescriptionField({
 }: ProductDescriptionFieldProps) {
   const initialValue = useMemo(() => normalizeStoredProductDescription(defaultValue), [defaultValue]);
   const [aiOpen, setAiOpen] = useState(false);
+  const authoringIntent = useRef<ContentAuthoringIntent|null>(null);
   const aiTrigger = useRef<HTMLButtonElement>(null);
   const edited = useRef(false);
   const loadedOrigin = useRef(initialOrigin);
@@ -240,6 +243,7 @@ export function ProductDescriptionField({
   }
 
   const bridge: ContentAuthoringBridge = {
+    media: authoring?.media,
     capture() {
       if (!editor || !callbacks.current.authoring) throw new Error("editor_unavailable");
       const captured = callbacks.current.authoring.capture();
@@ -282,7 +286,6 @@ export function ProductDescriptionField({
       <div className={`${styles.editor} ${editor?.isFocused ? styles.editorFocused : ""}`}>
         {!readOnly ? (
           <div className={styles.toolbar} role="toolbar" aria-label="Açıklama biçimlendirme araçları">
-            {authoring && aiAvailable ? <button ref={aiTrigger} type="button" className={styles.focusButton} aria-expanded={aiOpen} onClick={() => setAiOpen(current=>!current)}><Sparkles aria-hidden="true" /> AI</button> : null}
             <select
               className={styles.blockSelect}
               aria-label="Metin biçimi"
@@ -310,14 +313,17 @@ export function ProductDescriptionField({
               <ToolbarButton label="Tablo ekle" active={activeTable} onPress={() => editor?.chain().focus().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run()}><Table2 /></ToolbarButton>
               <ToolbarButton label="Biçimlendirmeyi temizle" onPress={() => editor?.chain().focus().clearNodes().unsetAllMarks().run()}><Eraser /></ToolbarButton>
             </span>
-            <span className={`${styles.toolbarGroup} ${styles.historyGroup}`}>
+            <span className={styles.historyGroup}>
+              {authoring && aiAvailable ? <button ref={aiTrigger} type="button" className={styles.aiButton} aria-expanded={aiOpen} onClick={() => setAiOpen(current=>!current)}><Sparkles aria-hidden="true" />{editor?.getText().replace(/[\s\u200B-\u200D\uFEFF]/g, "").length ? "Yapay Zeka ile Optimize Et" : "Yapay Zeka ile Üret"}</button> : null}
+            <span className={styles.toolbarGroup}>
               <ToolbarButton label="Geri al" disabled={!editor?.can().chain().focus().undo().run()} onPress={() => editor?.chain().focus().undo().run()}><Undo2 /></ToolbarButton>
               <ToolbarButton label="Yinele" disabled={!editor?.can().chain().focus().redo().run()} onPress={() => editor?.chain().focus().redo().run()}><Redo2 /></ToolbarButton>
+            </span>
             </span>
           </div>
         ) : null}
 
-        {aiOpen && authoring && aiAvailable ? <ContentAuthoringPanel bridge={bridge} fields={authoring.fields} onClose={closeAi} /> : null}
+        {aiOpen && authoring && aiAvailable ? <ContentAuthoringPanel intentState={authoringIntent} bridge={bridge} fields={authoring.fields} onClose={closeAi} /> : null}
 
         {linkPanel ? (
           <div className={styles.linkPanel} role="dialog" aria-label="Bağlantı düzenle">

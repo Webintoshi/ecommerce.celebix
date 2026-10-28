@@ -9,7 +9,7 @@ import { TOSHI_UUID } from "../server-toshi-chat/validation.ts";
 
 type Dependencies = Readonly<{ resolveRuntime(): Promise<ServerContentAuthoringRuntime | null>; now(): Date; requestId(): string; requestBudgetMs?: number }>;
 export type ContentGenerationRouteContext = Readonly<{ params: Promise<Readonly<{ id: string }>> }>;
-const STATUS: Readonly<Record<string, number>> = {source_preservation_required:409,invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,origin_denied:403,feature_unavailable:503,credential_invalid:401,connection_revoked:409,connection_missing:409,model_unavailable:409,rate_limited:429,quota_exceeded:429,operation_busy:409,operation_mismatch:409,operation_not_found:404,version_conflict:409,lease_expired:409,dispatch_already_claimed:409,invalid_output:502,provider_timeout:504,provider_unavailable:503,commit_unknown:503,cancelled:499,unavailable:503};
+const STATUS: Readonly<Record<string, number>> = {insufficient_credits:402,source_preservation_required:409,invalid_input:400,unauthenticated:401,membership_denied:403,store_inactive:403,origin_denied:403,feature_unavailable:503,credential_invalid:401,connection_revoked:409,connection_missing:409,model_unavailable:409,rate_limited:429,quota_exceeded:429,operation_busy:409,operation_mismatch:409,operation_not_found:404,version_conflict:409,lease_expired:409,dispatch_already_claimed:409,invalid_output:502,provider_timeout:504,provider_unavailable:503,commit_unknown:503,cancelled:499,unavailable:503};
 function json(value: unknown, status = 200) { return Response.json(value, { status, headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" } }); }
 function failure(code: string, status = code === "sensitive_input" ? 400 : STATUS[code] ?? 503) { return json({ code }, status); }
 function mapped(error: unknown) { return failure(safeContentAuthoringError(error).code); }
@@ -22,18 +22,21 @@ function requestShape(request: Request, pathname: string) {
   } catch { return false; }
 }
 
-type RequestBudget = Readonly<{deadlineAt:number;run<T>(operation:()=>Promise<T>):Promise<T>;active():void;dispose():void}>;
-function requestBudget(request:Request,milliseconds=45000):RequestBudget {
- const budgetMs=Math.min(milliseconds,45000),deadlineAt=performance.now()+budgetMs;
+type RequestBudget = Readonly<{deadlineAt:number;allowAutomatic():void;run<T>(operation:()=>Promise<T>):Promise<T>;active():void;dispose():void}>;
+function requestBudget(request:Request,milliseconds?:number):RequestBudget {
+ const startedAt=performance.now();let budgetMs=Math.min(milliseconds??45000,45000),deadlineAt=startedAt+budgetMs;
  const deadline=new AbortController(),signal=AbortSignal.any([request.signal,deadline.signal]);
  const expired=()=>new ContentAuthoringError(request.signal.aborted?'cancelled':'provider_timeout');
  let rejectAbort:(error:unknown)=>void=()=>{};
  const aborted=new Promise<never>((_,reject)=>{rejectAbort=reject;});void aborted.catch(()=>{});
  const onAbort=()=>rejectAbort(expired());signal.addEventListener('abort',onAbort,{once:true});
- const timer=setTimeout(()=>deadline.abort(),Math.max(1,budgetMs));
+ let timer=setTimeout(()=>deadline.abort(),Math.max(1,budgetMs));
  const active=()=>{if(signal.aborted||performance.now()>=deadlineAt)throw expired();};
  if(signal.aborted)onAbort();
- return {deadlineAt,active,async run<T>(operation:()=>Promise<T>):Promise<T>{active();const value=await Promise.race([operation(),aborted]);active();return value;},dispose(){clearTimeout(timer);signal.removeEventListener('abort',onAbort);}};
+ return {get deadlineAt(){return deadlineAt;},active,allowAutomatic(){
+  active();const automaticMs=Math.min(milliseconds??80000,80000);if(automaticMs<=budgetMs)return;
+  budgetMs=automaticMs;deadlineAt=startedAt+budgetMs;clearTimeout(timer);timer=setTimeout(()=>deadline.abort(),Math.max(1,deadlineAt-performance.now()));active();
+ },async run<T>(operation:()=>Promise<T>):Promise<T>{active();const value=await Promise.race([operation(),aborted]);active();return value;},dispose(){clearTimeout(timer);signal.removeEventListener('abort',onAbort);}};
 }
 async function withinRequest(request:Request,deps:Dependencies,operation:(budget:RequestBudget)=>Promise<Response>):Promise<Response>{
  const budget=requestBudget(request,deps.requestBudgetMs);
@@ -83,6 +86,7 @@ export function createContentAuthoringHttpHandlers(deps: Dependencies) {
    const auth=await authorize(deps,request,'POST','/api/content-ai/generations',budget);if(auth instanceof Response)return auth;
    const operationId=request.headers.get('idempotency-key');if(!operationId||!TOSHI_UUID.test(operationId))return failure('invalid_input');
    let parsed;try{parsed=parseContentAuthoringRequest(await body(request,budget));}catch(error){return error instanceof ContentAuthoringError?mapped(error):failure('invalid_input');}
+   if(parsed.action==='auto')budget.allowAutomatic();
    return json({generation:view(await budget.run(()=>auth.runtime.service.generateContent({tenantContext:auth.tenantContext,operationId,request:parsed,signal:request.signal,deadlineAt:budget.deadlineAt})))});
   });},
   get(request:Request,context:ContentGenerationRouteContext){return withinRequest(request,deps,async budget=>{

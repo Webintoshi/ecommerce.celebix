@@ -23,6 +23,7 @@ import {
   buildVariantUpdatePayload,
 } from "@/lib/catalog-ui/forms";
 import { formatTurkishMoney, formatTurkishMoneyInput } from "@/lib/catalog-ui/money";
+import type { AuthoringMediaBridge } from "@/lib/content-authoring-ui/image-alts";
 import type { ContentAuthoringBridge } from "@/components/content-authoring/ContentAuthoringPanel";
 import { ProductAdvancedEditor } from "@/components/catalog-onboarding/ProductAdvancedEditor";
 import { AttributeVariantPicker } from "@/components/catalog-onboarding/AttributeVariantPicker";
@@ -161,6 +162,8 @@ function ProductDetailConsoleWorkspace({
   const variantsHeadingRef = useRef<HTMLHeadingElement>(null);
   const wasArchiveDialogOpen = useRef(false);
   const seoAuthoringBridge = useRef<ContentAuthoringBridge | null>(null);
+  const mediaAuthoringBridge = useRef<AuthoringMediaBridge|null>(null);
+  const receiveMediaAuthoringBridge=useCallback((bridge:AuthoringMediaBridge|null)=>{mediaAuthoringBridge.current=bridge;},[]);
   const receiveSeoAuthoringBridge = useCallback((bridge: ContentAuthoringBridge | null) => { seoAuthoringBridge.current = bridge; }, []);
   const dirtyEditorsRef = useRef(createDirtyEditorRegistry(["product", "variant-create", "variant-batch", "variant-edit", "sales"] as const));
 
@@ -812,7 +815,7 @@ function ProductDetailConsoleWorkspace({
                     <fieldset disabled={busy !== ""}>
                       <label className="field field-wide"><span>Ürün adı <b>*</b></span><input name="title" required maxLength={200} defaultValue={product.title} /></label>
                       <input type="hidden" name="currency" value={product.currency} readOnly />
-                      <ProductDescriptionField aiAvailable={aiAvailable} className="field field-wide" rows={4} defaultValue={product.description ?? ""} initialOrigin={savedDescriptionOrigin.current.description ?? null} readOnly={busy !== ""} onValueChange={() => markDetailDirty("product")} onOriginChange={(origin) => { if (origin === null && !Object.hasOwn(savedDescriptionOrigin.current, "description")) return; pendingOrigins.current = {...pendingOrigins.current,description:origin}; }} authoring={{fields:["description","seoTitle","seoDescription"],canApplyField:(field,generation)=>seoAuthoringBridge.current?.canApply?.(field,generation,null) ?? false,applyField:(field,generation)=>seoAuthoringBridge.current?.apply(field,generation,null) ?? false,capture:()=>{
+                      <ProductDescriptionField aiAvailable={aiAvailable} className="field field-wide" rows={4} defaultValue={product.description ?? ""} initialOrigin={savedDescriptionOrigin.current.description ?? null} readOnly={busy !== ""} onValueChange={() => markDetailDirty("product")} onOriginChange={(origin) => { if (origin === null && !Object.hasOwn(savedDescriptionOrigin.current, "description")) return; pendingOrigins.current = {...pendingOrigins.current,description:origin}; }} authoring={{media:{captureImages:()=>mediaAuthoringBridge.current?.captureImages()??[],canApplyImageAlts:(results,captured)=>mediaAuthoringBridge.current?.canApplyImageAlts(results,captured)??false,applyImageAlts:(results,captured,onApplied)=>mediaAuthoringBridge.current?.applyImageAlts(results,captured,onApplied)??false},fields:["description","seoTitle","seoDescription"],canApplyField:(field,generation)=>seoAuthoringBridge.current?.canApply?.(field,generation,null) ?? false,applyField:(field,generation)=>seoAuthoringBridge.current?.apply(field,generation,null) ?? false,capture:()=>{
                         const data = generalFormRef.current ? new FormData(generalFormRef.current) : new FormData();
                         const seo = seoAuthoringBridge.current?.capture();
                         const current = captureCurrentProductDraft();
@@ -841,7 +844,7 @@ function ProductDetailConsoleWorkspace({
             </div>
           </section>
 
-          <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} onActiveMediaChange={receiveActiveMedia} />
+          <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} onActiveMediaChange={receiveActiveMedia} onAuthoringMediaBridgeChange={receiveMediaAuthoringBridge} />
 
           <section id="product-variants" className={styles.variants} aria-labelledby="variants-title">
             <div className={styles.sectionHeader}>

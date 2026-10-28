@@ -101,3 +101,10 @@ test('an invalid webhook signature cannot look up or settle a purchase',async()=
  await assert.rejects(service.execute('webhook',{body:'{}',signature:'a'.repeat(64)}),/platform_commerce_unavailable/);
  assert.equal(commands,0);
 });
+
+test('credit purchase reads expose the fixed credit offer kind through the existing checkout flow',async()=>{
+ const creditOrder={...order,kind:'toshi_credit',offerId:'toshi-500',offerName:'500 Toshi kredisi',netCents:24900,vatCents:4980,totalCents:29880,status:'fulfilled'};
+ const service=createPlatformCommerceService(config(async()=>({outcome:'found',result_payload:{order:creditOrder,attempt:ready()}}),{initialize:async()=>{throw Error();},retrieve:async()=>{throw Error();}}));
+ const result=await service.execute('read',{orderId:ORDER,sessionDigest:SESSION});
+ assert.equal(result.order.kind,'toshi_credit');assert.equal(result.order.offerId,'toshi-500');assert.equal(result.order.totalCents,29880);assert.equal(result.order.state,'approved');
+});

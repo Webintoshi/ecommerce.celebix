@@ -217,3 +217,4 @@ export {createPostgresProductTaxRepository} from './product-tax/repository.ts';
 export type {ProductTaxRepository,ProductTaxReadInput} from './product-tax/repository.ts';
 
 export * from "./product-page-reviews/index.ts";
+export * from './toshi-credits/index.ts';

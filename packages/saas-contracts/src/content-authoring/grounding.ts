@@ -1,6 +1,31 @@
-import type { ContentAuthoringDraft, ContentAuthoringTextNode, ProductFact, ProductFactPacket } from './types.ts';
+import type { ContentAuthoringDraft, ContentAuthoringField, ContentAuthoringTextNode, ProductFact, ProductFactPacket } from './types.ts';
 
-function unsupported(): never { throw new TypeError('content_authoring_contract_invalid'); }
+export type ProductDraftGroundingIssue = Readonly<{
+  reason: 'numeric' | 'critical_term' | 'variant_scope' | 'fact_scope';
+  field: ContentAuthoringField;
+  /** Zero-based enclosing AST block; SEO fields have no block. */
+  blockIndex: number | null;
+  tokens: readonly string[];
+}>;
+const groundingIssues = new WeakMap<object, ProductDraftGroundingIssue>();
+/** Private correction data: never attach rejected text to enumerable error properties. */
+export function getProductDraftGroundingIssue(error: unknown): ProductDraftGroundingIssue | null {
+  return typeof error === 'object' && error !== null ? groundingIssues.get(error) ?? null : null;
+}
+function unsupported(issue?: ProductDraftGroundingIssue): never {
+  const error = new TypeError('content_authoring_contract_invalid');
+  if (issue) groundingIssues.set(error, Object.freeze({ ...issue, tokens: Object.freeze([...new Set(issue.tokens.map(token => [...token].slice(0, 64).join('')))].slice(0, 3)) }));
+  throw error;
+}
+function matchedTokens(text: string, matcher: RegExp): string[] {
+  const tokens: string[] = [];
+  for (const match of text.matchAll(matcher)) {
+    const token = match[0].replace(/^[^\p{L}\p{N}+\-±∓]+/u, '').trim();
+    if (token && !tokens.includes(token)) tokens.push(token);
+    if (tokens.length === 3) break;
+  }
+  return tokens;
+}
 
 /** Lexical comparison only: no float conversion, translation or inferred equivalence. */
 function normalize(text: string): string {
@@ -30,6 +55,21 @@ const critical = new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:` + [
   ...Object.values(units).flat().map(u => `${escape(normalize(u))}(?:dir|tir|lik)?`),
 ].join('|') + String.raw`)(?=$|[^\p{L}\p{N}])`, 'u');
 
+// Exempt only the observed hand/within-reach idiom in original Turkish.
+// Altından and noun/case variants remain protected: they can assert gold material.
+const spatialUnder = /(^|[^\p{L}\p{N}])((?:elinin|elinizin)\s+)(altında|altındaki)(?=$|[^\p{L}\p{N}])/gu;
+// Finite active advice grammar: infinitive, imperative, personal ability, active
+// adverbials, and possessive verbal nouns with ordinary case endings. Never match ayar/ayarlı,
+// ambiguous ayarlar, or passive/causative capability claims such as ayarlanabilir.
+const ordinaryAdjust = /(^|[^\p{L}\p{N}])(ayarla(?:mak|ma(?:m(?:ız)?|n(?:ız)?)(?:ı|ın|a|da|dan)?|y(?:ın(?:ız)?|abilir(?:im|sin(?:iz)?|iz)|arak)|rken))(?=$|[^\p{L}\p{N}])/gu;
+function criticalProjection(raw: string): string {
+  const original = raw.normalize('NFKC').toLocaleLowerCase('tr-TR').normalize('NFC').replace(/\p{Cf}/gu, '');
+  // Nulls preserve normalized positions without joining or authorizing other
+  // words. Skip only the matched altın/ayar stem, never its surrounding prose.
+  const projected = original.replace(spatialUnder, (_match, lead: string, context: string, spatial: string) => `${lead}${context}${'\0'.repeat(5)}${spatial.slice(5)}`);
+  return normalize(projected.replace(ordinaryAdjust, (_match, lead: string, verb: string) => `${lead}${'\0'.repeat(4)}${verb.slice(4)}`));
+}
+
 /** Match complete source fragments; never let "250" in ZX-250 authorize a new weight. */
 function occurrence(fragment: string): RegExp {
   return new RegExp(`(?<![\\p{L}\\p{N}.,+\\-±∓])${escape(normalize(fragment))}(?![\\p{L}\\p{N}])`, 'gu');
@@ -44,7 +84,8 @@ function fragments(fact: ProductFact): string[] {
 function variantIsNamed(text: string, id: string | undefined, packet: ProductFactPacket): boolean {
   if (!id) return false;
   return packet.facts.some(f => f.scope === 'variant' && f.variantId === id && f.field === 'title' && (
-    new RegExp(`(?:^|[^\\p{L}\\p{N}])${escape(normalize(f.value))} (?:varyant[\\p{L}]*|secenek[\\p{L}]*|variant|option)(?=$|[^\\p{L}\\p{N}])`, 'u').test(text) ||
+    // Turkish softens the final k in seçenek: seçeneği / seçeneğinde / seçeneğiyle.
+    new RegExp(`(?:^|[^\\p{L}\\p{N}])${escape(normalize(f.value))} (?:varyant[\\p{L}]*|secenek[\\p{L}]*|seceneg[\\p{L}]*|variant|option)(?=$|[^\\p{L}\\p{N}])`, 'u').test(text) ||
     new RegExp(`(?:^|[^\\p{L}\\p{N}])(?:varyant|secenek|variant|option):? ${escape(normalize(f.value))}(?=$|[^\\p{L}\\p{N}])`, 'u').test(text)
   ));
 }
@@ -94,28 +135,34 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     if(expected.size)unsupported();
     return;
   }
-  function check(raw: string, nodes: readonly ContentAuthoringTextNode[] = []): void {
+  function check(raw: string, nodes: readonly ContentAuthoringTextNode[], field: ContentAuthoringField, blockIndex: number | null): void {
+    const location = { field, blockIndex };
     const text = normalize(raw);
     const eligible = packet.facts.filter(f => f.scope === 'product' || variantIsNamed(text, f.variantId, packet));
     for (const node of nodes) {
-      if (node.type === 'fact' && !eligible.some(f => f.ref === node.factRef)) unsupported();
+      if (node.type === 'fact' && !eligible.some(f => f.ref === node.factRef)) unsupported({ ...location, reason: 'fact_scope', tokens: [] });
     }
     const evidence = [normalize(packet.title), ...eligible.flatMap(fragments)].filter(Boolean).sort((a, b) => b.length - a.length);
     // Fixed-size spaces preserve boundaries between unmatched tokens and source fragments.
     let uncovered = text;
-    for (const fragment of evidence) uncovered = uncovered.replace(occurrence(fragment), match => ' '.repeat(match.length));
-    if (/\p{N}/u.test(uncovered) || critical.test(uncovered)) unsupported();
+    let criticalUncovered = criticalProjection(raw);
+    for (const fragment of evidence) uncovered = uncovered.replace(occurrence(fragment), (match, offset: number) => {
+      criticalUncovered = criticalUncovered.slice(0, offset) + ' '.repeat(match.length) + criticalUncovered.slice(offset + match.length);
+      return ' '.repeat(match.length);
+    });
+    if (/\p{N}/u.test(uncovered)) unsupported({ ...location, reason: 'numeric', tokens: matchedTokens(uncovered, /[+\-±∓]?\p{N}+(?:[.,]\p{N}+)*/gu) });
+    if (critical.test(criticalUncovered)) unsupported({ ...location, reason: 'critical_term', tokens: matchedTokens(criticalUncovered, new RegExp(critical.source, 'gu')) });
     // Even a noncritical colour/size value must not escape its known variant scope.
     for (const f of packet.facts) {
-      if (f.scope === 'variant' && !eligible.includes(f) && occurrence(f.value).test(uncovered)) unsupported();
+      if (f.scope === 'variant' && !eligible.includes(f) && occurrence(f.value).test(uncovered)) unsupported({ ...location, reason: 'variant_scope', tokens: matchedTokens(uncovered, occurrence(f.value)) });
     }
   }
   const nodeText = (nodes: readonly ContentAuthoringTextNode[]) => nodes.map(n => n.type === 'text' ? n.text : `${n.value}${n.unit ? ` ${n.unit}` : ''}`).join('');
-  for (const block of draft.description ?? []) {
-    if (block.type === 'paragraph' || block.type === 'heading') check(nodeText(block.children), block.children);
-    else if (block.type === 'list') for (const item of block.items) check(nodeText(item), item);
-    else if (block.type === 'table') for (const row of block.rows) check(row.map(nodeText).join(' | '), row.flat());
+  for (const [blockIndex, block] of (draft.description ?? []).entries()) {
+    if (block.type === 'paragraph' || block.type === 'heading') check(nodeText(block.children), block.children, 'description', blockIndex);
+    else if (block.type === 'list') for (const item of block.items) check(nodeText(item), item, 'description', blockIndex);
+    else if (block.type === 'table') for (const row of block.rows) check(row.map(nodeText).join(' | '), row.flat(), 'description', blockIndex);
   }
-  if (draft.seoTitle !== undefined) check(draft.seoTitle);
-  if (draft.seoDescription !== undefined) check(draft.seoDescription);
+  if (draft.seoTitle !== undefined) check(draft.seoTitle, [], 'seoTitle', null);
+  if (draft.seoDescription !== undefined) check(draft.seoDescription, [], 'seoDescription', null);
 }
