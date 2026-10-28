@@ -40,6 +40,10 @@ test('real composed catalog renders five individually purchasable products and t
       assert.equal(card.querySelectorAll('li').length, 3);
       assert.equal(card.querySelector('img').getAttribute('width'), '960');
       assert.equal(card.querySelector('img').getAttribute('height'), '640');
+      const gross = new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(offer.totalCents / 100);
+      assert.equal(card.querySelector('[data-tool-price="total"]')?.textContent, `${gross} TL`);
+      assert.match(card.textContent, /KDV dahil/);
+      assert.doesNotMatch(card.textContent, /\+ KDV/);
       assert.match(card.textContent, /Tek seferlik · Yıllık yenileme yok/);
     }
     assert.deepEqual(reads, ['offers'], 'unlicensed products do not read configuration');

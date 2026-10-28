@@ -17,7 +17,7 @@ export function ToolProductCard({ offer, children, summary, canManage }: Readonl
         {summary.loading ? <p role="status">Ayarlar yükleniyor…</p> : summary.error ? <p role="alert">{summary.error}</p> : <p>{summary.enabled ? 'Açık' : 'Kapalı'}{summary.detail ? ` · ${summary.detail}` : ''}{!canManage ? ' · Salt okunur' : ''}</p>}
         <p>Mevcut araç hakkınız korunur. Ek ödeme yok.</p>
         {summary.extra}{summary.shortcuts}
-      </div> : <><div className={styles.price}><strong>{money(offer.netCents)} TL</strong><span> + KDV</span></div><div className={styles.totals}>KDV {money(offer.vatCents)} TL · Toplam {money(offer.totalCents)} TL</div></>}
+      </div> : <><div className={styles.price}><strong data-tool-price="total">{money(offer.totalCents)} TL</strong><span>KDV dahil</span></div><div className={styles.totals}>Dahil KDV (%{offer.vatBps / 100}): {money(offer.vatCents)} TL</div></>}
       <p className={styles.terms}>Tek seferlik · Yıllık yenileme yok</p>
       {offer.toolKeys.includes('restock') ? <small className={styles.terms}>E-posta gönderimi hizmetin gönderim koşullarına tabidir; sınırsız gönderim içermez.</small> : null}
       <div className={styles.actions}>{summary ? summary.error && summary.onRetry ? <button className="button button-secondary" type="button" onClick={summary.onRetry}>Yeniden dene</button> : <button ref={summary.triggerRef} id={summary.configureId} data-tool-edit={summary.configureKind ?? offer.id} className="button button-primary" type="button" disabled={summary.disabled || summary.loading} onClick={summary.onConfigure}>{summary.configureLabel ?? (canManage ? 'Yapılandır' : 'Görüntüle')}<ArrowUpRight size={16} aria-hidden="true"/></button> : children}</div>

@@ -9,7 +9,8 @@ const usage = { products: 7, variants: 12, staff: 1, storageBytes: 100, monthlyO
 const checkout = ({ offerId, term, disabled }: any) => React.createElement('button', { 'data-checkout-offer': offerId, 'data-checkout-term': term, disabled }, 'Güvenli ödemeye geç');
 const load = () => compile<any>(new URL('./CommercialPlanComparison.tsx', import.meta.url), { './PlatformCheckoutButton': { PlatformCheckoutButton: checkout } }).CommercialPlanComparison;
 const props = { currentPlan, storeId: '11111111-1111-4111-8111-111111111111', canRequest: true, checkoutEnabled: true, fetcher: async () => Response.json({ plan: currentPlan, usage }) };
-const money = (cents: number) => new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(cents / 100);
+const money = (cents: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2 }).format(cents / 100);
+const gross = (net: number) => net + Math.round(net * 0.2);
 
 test('product cards and selected payment totals stay synchronized with the billing period', async () => {
   const Component = load();
@@ -19,8 +20,11 @@ test('product cards and selected payment totals stay synchronized with the billi
     assert.equal(cards.length, 4);
     for (const [index, card] of cards.entries()) {
       const plan = COMMERCIAL_PACKAGES[index];
-      assert.equal(card.querySelector('[data-plan-price]')?.textContent, `${money(plan.annualPriceCents)} TL`);
-      if (plan.annualPriceCents) assert.match(card.querySelector('[data-plan-equivalent]')?.textContent ?? '', new RegExp(money(plan.annualPriceCents / 12).replace('.', '\\.')));
+      assert.equal(card.querySelector('[data-plan-price]')?.textContent, `${money(gross(plan.annualPriceCents))} TL`);
+      if (plan.annualPriceCents) {
+        assert.match(card.textContent ?? '', /KDV dahil/);
+        assert.equal(card.querySelector('[data-plan-equivalent]')?.textContent, `Aylık ${money(gross(plan.annualPriceCents) / 12)} TL · KDV dahil`);
+      }
     }
     await click(container.querySelector(`input[value="${COMMERCIAL_PACKAGES[2].id}"]`)!);
     const summary = container.querySelector('[aria-label="Paket değişikliği"]')!;
@@ -31,13 +35,13 @@ test('product cards and selected payment totals stay synchronized with the billi
     await click(container.querySelector('button[aria-label="Aylık ödeme"]')!);
     assert.equal(container.querySelector('button[aria-label="Aylık ödeme"]')?.getAttribute('aria-pressed'), 'true');
     for (const [index, card] of cards.entries()) {
-      assert.equal(card.querySelector('[data-plan-price]')?.textContent, `${money(COMMERCIAL_PACKAGES[index].monthlyPriceCents)} TL`);
+      assert.equal(card.querySelector('[data-plan-price]')?.textContent, `${money(gross(COMMERCIAL_PACKAGES[index].monthlyPriceCents))} TL`);
       assert.equal(card.querySelector('[data-plan-equivalent]'), null);
     }
     assert.match(summary.textContent ?? '', /Büyüme · Aylık/);
     assert.equal(summary.querySelector('[data-total="net"]')?.textContent, '4.537 TL');
-    assert.equal(summary.querySelector('[data-total="vat"]')?.textContent, '907,4 TL');
-    assert.equal(summary.querySelector('[data-total="total"]')?.textContent, '5.444,4 TL');
+    assert.equal(summary.querySelector('[data-total="vat"]')?.textContent, '907,40 TL');
+    assert.equal(summary.querySelector('[data-total="total"]')?.textContent, '5.444,40 TL');
     assert.equal(summary.querySelector('[data-checkout-offer]')?.getAttribute('data-checkout-offer'), COMMERCIAL_PACKAGES[2].id);
     assert.equal(summary.querySelector('[data-checkout-term]')?.getAttribute('data-checkout-term'), 'monthly');
   });

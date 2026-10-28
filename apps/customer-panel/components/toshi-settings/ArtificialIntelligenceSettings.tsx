@@ -37,7 +37,7 @@ function ArtificialIntelligenceSettingsWorkspace({canManage,storeId}:{canManage:
      <img className={styles.productImage} src={presentation.image} alt="" width={960} height={640}/>
      <div className={styles.offerBody}>
       <h3>{offer.credits.toLocaleString('tr-TR')} kredi</h3><p className={styles.benefit}>{presentation.benefit}</p>
-      <dl className={styles.offerPrices}><div><dt>Net</dt><dd data-credit-price="net">{money(offer.netCents)}</dd></div><div><dt>KDV (%20)</dt><dd data-credit-price="vat">{money(vat)}</dd></div><div className={styles.offerTotal}><dt>KDV dahil toplam</dt><dd data-credit-price="total">{money(offer.netCents+vat)}</dd></div></dl>
+      <dl className={styles.offerPrices}><div className={styles.offerTotal}><dt>KDV dahil</dt><dd data-credit-price="total">{money(offer.netCents+vat)}</dd></div><div><dt>Dahil KDV (%20)</dt><dd data-credit-price="vat">{money(vat)}</dd></div></dl>
       <PlatformCheckoutButton storeId={storeId} kind="toshi_credit" offerId={offer.id} term="once" label={`${offer.credits.toLocaleString('tr-TR')} kredi yükle`} className={styles.purchaseButton} disabled={!canManage}/>
      </div>
     </article>;

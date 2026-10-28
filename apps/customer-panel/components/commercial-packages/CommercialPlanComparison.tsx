@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, Package, Tags, Users, ShoppingCart, Database, ArrowRight } from 'lucide-react';
 import { COMMERCIAL_PACKAGES, STORE_TOOL_OFFERS, commercialPackageHasCapability, getCommercialPackage, getRequiredCommercialPackage, parseCommercialPlanOverview, parseCommercialUpgradeRequest, type CommercialCapability, type CommercialPlanOverview, type CommercialUpgradeRequest } from '@celebix/saas-contracts';
 import { COMMERCIAL_CAPABILITY_LABELS } from '@/lib/commercial-packages/route-model';
-import { packageCount, packageMoney, packageStorage } from './presentation';
+import { packageCount, packageGrossCents, packageMoney, packageStorage } from './presentation';
 import {PlatformCheckoutButton} from './PlatformCheckoutButton';
 import { PLAN_PRESENTATION } from './plan-presentation';
 import styles from './plan-catalog.module.css';
@@ -39,8 +39,9 @@ export function CommercialPlanComparison({ currentPlan, canRequest, feature, sto
     const [checkoutTerm,setCheckoutTerm]=useState<'monthly'|'annual'>('annual');
     const onlineCheckout=Boolean(checkoutEnabled&&storeId&&canRequest&&current?.monthlyPriceCents===0);
     const checkoutNet=checkoutTerm==='annual'?selected.annualPriceCents:selected.monthlyPriceCents;
-    const checkoutVat=Number((BigInt(checkoutNet)*BigInt(STORE_TOOL_OFFERS[0]!.vatBps)+5000n)/10000n);
-    const checkoutMoney=(value:number)=>new Intl.NumberFormat('tr-TR',{maximumFractionDigits:2}).format(value/100);
+    const checkoutGross=packageGrossCents(checkoutNet);
+    const checkoutVat=checkoutGross-checkoutNet;
+    const checkoutMoney=packageMoney;
     const higher = selected.monthlyPriceCents > 0 && packageRank(selected) > packageRank(current);
     const requestPending = request?.status === 'pending';
     function samePlan(value: CommercialPlanOverview) { if (value.plan.planId !== currentPlan.planId || value.plan.planCode !== currentPlan.planCode || value.plan.version !== currentPlan.version)
@@ -130,13 +131,13 @@ export function CommercialPlanComparison({ currentPlan, canRequest, feature, sto
             {COMMERCIAL_PACKAGES.map(plan => {
                 const presentation = PLAN_PRESENTATION[plan.code];
                 const isSelected = selectedId === plan.id;
-                const price = checkoutTerm === 'annual' ? plan.annualPriceCents : plan.monthlyPriceCents;
+                const price = packageGrossCents(checkoutTerm === 'annual' ? plan.annualPriceCents : plan.monthlyPriceCents);
                 return <label className={`${styles.planOption} ${isSelected ? styles.selectedPlan : ''}`} key={plan.id} data-plan-id={plan.id}>
                     <img className={styles.productImage} src={presentation.image} alt={`${plan.name} paket görseli`} width={960} height={640}/>
                     <div className={styles.planBody}>
                         <div className={styles.planIdentity}><input type="radio" name="commercial-plan" value={plan.id} aria-label={`${plan.name} paketini seç`} checked={isSelected} onChange={() => { setSelectedId(plan.id); setError(''); }}/><strong>{plan.name}</strong>{current?.code === plan.code ? <small>Mevcut paket</small> : required?.id === plan.id ? <small>Önerilen</small> : null}</div>
-                        <div className={styles.priceBlock}><div className={styles.priceLine}><strong data-plan-price>{packageMoney(price)} TL</strong>{price > 0 ? <span>/ {checkoutTerm === 'annual' ? 'yıl' : 'ay'} + KDV</span> : null}</div>
-                            {price === 0 ? <p>Süresiz ücretsiz</p> : checkoutTerm === 'annual' ? <p data-plan-equivalent>Aylık {checkoutMoney(plan.annualPriceCents / 12)} TL</p> : <p>Aylık ödeme</p>}
+                        <div className={styles.priceBlock}><div className={styles.priceLine}><strong data-plan-price>{packageMoney(price)} TL</strong>{price > 0 ? <span>/ {checkoutTerm === 'annual' ? 'yıl' : 'ay'} · KDV dahil</span> : null}</div>
+                            {price === 0 ? <p>Süresiz ücretsiz</p> : checkoutTerm === 'annual' ? <p data-plan-equivalent>Aylık {checkoutMoney(price / 12)} TL · KDV dahil</p> : <p>Aylık ödeme</p>}
                         </div>
                         <p className={styles.planDescription}>{presentation.description}</p>
                         <ul className={styles.highlights}>
@@ -152,7 +153,7 @@ export function CommercialPlanComparison({ currentPlan, canRequest, feature, sto
 
         <section className={styles.requestSection} aria-label="Paket değişikliği">
             <div className={styles.selectedProduct}><img src={selectedPresentation.image} alt="" width={960} height={640}/><div><h2>{selected.name} · {checkoutTerm === 'annual' ? 'Yıllık' : 'Aylık'}</h2><p>{checkoutNet > 0 ? 'Seçtiğiniz paket için ödeme özeti.' : 'Süresiz ücretsiz paket.'}</p></div></div>
-            <dl className={styles.paymentTotals}><div><dt>Net</dt><dd data-total="net">{checkoutMoney(checkoutNet)} TL</dd></div><div><dt>KDV (%{STORE_TOOL_OFFERS[0]!.vatBps / 100})</dt><dd data-total="vat">{checkoutMoney(checkoutVat)} TL</dd></div><div className={styles.grandTotal}><dt>KDV dahil toplam</dt><dd data-total="total">{checkoutMoney(checkoutNet + checkoutVat)} TL</dd></div></dl>
+            <dl className={styles.paymentTotals}><div><dt>KDV hariç tutar</dt><dd data-total="net">{checkoutMoney(checkoutNet)} TL</dd></div><div><dt>KDV (%{STORE_TOOL_OFFERS[0]!.vatBps / 100})</dt><dd data-total="vat">{checkoutMoney(checkoutVat)} TL</dd></div><div className={styles.grandTotal}><dt>KDV dahil toplam</dt><dd data-total="total">{checkoutMoney(checkoutGross)} TL</dd></div></dl>
             <div className={styles.requestActions}>
                 {!canRequest ? <p>Mağaza sahibinizle paket seçeneklerini inceleyebilirsiniz.</p> : onlineCheckout ? <>
                     <PlatformCheckoutButton storeId={storeId!} kind="package" offerId={selected.id} term={checkoutTerm} disabled={!higher}/>

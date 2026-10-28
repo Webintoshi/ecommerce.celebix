@@ -8,10 +8,10 @@ const link = { __esModule: true, default: ({ children, ...p }: any) => React.cre
 test('one positive upgrade card shows annual upfront price and a separate monthly option from the catalog', () => {
     const { CommercialUpgradeCard } = compile<any>(new URL('./CommercialUpgradeCard.tsx', import.meta.url), { 'next/link': link });
     const html = renderToStaticMarkup(React.createElement(CommercialUpgradeCard, { capability: 'accounting', currentPackage: COMMERCIAL_PACKAGES[1], canRequest: true }));
-    for (const copy of ['Bu özelliğe indirimli sahip olabilirsiniz', 'Yıllık pakette 12 ay kullanın, 10 ay ödeyin.', 'Mevcut paketiniz', 'Önerilen paket', '77.870', '7.787', 'İndirimli paketi incele', 'Paketleri karşılaştır'])
+    for (const copy of ['Bu özelliğe indirimli sahip olabilirsiniz', 'Yıllık pakette 12 ay kullanın, 10 ay ödeyin.', 'Mevcut paketiniz', 'Önerilen paket', '93.444', '9.344,40', 'KDV dahil', 'İndirimli paketi incele', 'Paketleri karşılaştır'])
         assert.ok(html.includes(copy), copy);
     assert.match(html, /settings\/plan\?feature=accounting/);
-    assert.doesNotMatch(html, /dahil değil|planınızda yok|erişiminiz yok/i);
+    assert.doesNotMatch(html, /dahil değil|planınızda yok|erişiminiz yok|\+ KDV/i);
     const staff = renderToStaticMarkup(React.createElement(CommercialUpgradeCard, { capability: 'accounting', currentPackage: COMMERCIAL_PACKAGES[1], canRequest: false }));
     assert.match(staff, /Mağaza sahibinizle/);
     assert.doesNotMatch(staff, /İndirimli paketi incele/);

@@ -29,14 +29,14 @@ test('changing stores clears the previous wallet and offers even when the new st
  assert.doesNotMatch(container.textContent??'',/493|7 kredi devam eden/);assert.equal(container.querySelectorAll('article').length,0);assert.match(container.querySelector('[role="alert"]')?.textContent??'',/yüklenemedi/);
 },1));
 
-test('credit product cards map exact offer artwork and show the canonical net, VAT and total',async()=>mount(true,async(container,calls)=>{
- const amounts=[['249,00','49,80','298,80'],['999,00','199,80','1.198,80'],['2.999,00','599,80','3.598,80'],['12.499,00','2.499,80','14.998,80']];
+test('credit product cards map exact offer artwork and lead with the unchanged VAT-inclusive total',async()=>mount(true,async(container,calls)=>{
+ const amounts=[['49,80','298,80'],['199,80','1.198,80'],['599,80','3.598,80'],['2.499,80','14.998,80']];
  for(const[index,offer]of overview.offers.entries()){
   const card=container.querySelector(`[data-credit-offer="${offer.id}"]`);assert.ok(card);
   assert.match(card.querySelector('h3')?.textContent??'',new RegExp(offer.credits.toLocaleString('tr-TR').replaceAll('.','\\.')));
   const image=card.querySelector('img');assert.equal(image?.getAttribute('src'),`/payments/toshi/${offer.id}-v1.webp`);assert.equal(image?.getAttribute('width'),'960');assert.equal(image?.getAttribute('height'),'640');
-  for(const[field,amount]of ['net','vat','total'].map((field,n)=>[field,amounts[index][n]]))assert.ok(card.querySelector(`[data-credit-price="${field}"]`)?.textContent?.includes(amount));
-  assert.match(card.textContent??'',/KDV \(%20\)/);
+  for(const[field,amount]of ['vat','total'].map((field,n)=>[field,amounts[index][n]]))assert.ok(card.querySelector(`[data-credit-price="${field}"]`)?.textContent?.includes(amount));
+  assert.equal(card.querySelector('[data-credit-price]')?.getAttribute('data-credit-price'),'total');assert.equal(card.querySelector('[data-credit-price="net"]'),null);assert.match(card.textContent??'',/KDV dahil/);
  }
  const intents=calls.slice(-4)as any[];assert.deepEqual(intents.map(({kind,offerId,term,storeId})=>({kind,offerId,term,storeId})),overview.offers.map(offer=>({kind:'toshi_credit',offerId:offer.id,term:'once',storeId:'10000000-0000-4000-8000-000000000001'})));
  assert.match(container.textContent??'',/Toplam bakiye.*500/s);assert.match(container.textContent??'',/10 kredi/);assert.match(container.textContent??'',/Görsel alt metinleri ayrıca.*1 kredi/s);
@@ -46,7 +46,7 @@ test('credit counts, monetary rounding and usage explanations follow the API res
  const changed={...overview,wallet:{balance:1000,reserved:100,available:900},offers:overview.offers.map((offer,index)=>index?offer:{...offer,credits:750,netCents:24903}),prices:{description:9,seoTitle:3,seoDescription:4,imageAlt:2}};
  await mount(true,async(container)=>{
   const card=container.querySelector('[data-credit-offer="toshi-500"]');assert.ok(card);assert.match(card.querySelector('h3')?.textContent??'',/750 kredi/);
-  assert.ok(card.querySelector('[data-credit-price="net"]')?.textContent?.includes('249,03'));assert.ok(card.querySelector('[data-credit-price="vat"]')?.textContent?.includes('49,81'));assert.ok(card.querySelector('[data-credit-price="total"]')?.textContent?.includes('298,84'));
+  assert.equal(card.querySelector('[data-credit-price="net"]'),null);assert.ok(card.querySelector('[data-credit-price="vat"]')?.textContent?.includes('49,81'));assert.ok(card.querySelector('[data-credit-price="total"]')?.textContent?.includes('298,84'));
   assert.match(container.textContent??'',/900/);assert.match(container.textContent??'',/100 kredi devam eden/);assert.match(container.textContent??'',/16 kredi/);assert.match(container.textContent??'',/Görsel alt metinleri ayrıca.*2 kredi/s);
   const costs=[...container.querySelectorAll('[data-usage-cost]')].map(node=>node.textContent);assert.deepEqual(costs,['9 kredi','3 kredi','4 kredi','2 kredi / görsel']);
  },false,changed);

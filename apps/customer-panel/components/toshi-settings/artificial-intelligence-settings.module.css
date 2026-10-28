@@ -23,7 +23,7 @@
 .offerPrices > div { display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:4px 8px; }
 .offerPrices dt { color:var(--cp-text-secondary); }
 .offerPrices dd { margin:0; font-weight:var(--cp-font-weight-control); white-space:nowrap; }
-.offerPrices .offerTotal { display:block; margin-top:4px; padding-top:12px; border-top:1px solid var(--cp-border); }
+.offerPrices .offerTotal { display:block; }
 .offerTotal dt { font-size:12px; }
 .offerTotal dd { margin-top:4px; font-size:24px; line-height:1.3; font-weight:var(--cp-font-weight-value); }
 .purchaseButton { display:flex; align-items:center; justify-content:center; width:100%; background:var(--cp-action-primary); color:var(--cp-action-primary-text); padding:8px 12px; border:1px solid var(--cp-action-primary); border-radius:8px; font-size:13px!important; font-weight:var(--cp-font-weight-control)!important; }
