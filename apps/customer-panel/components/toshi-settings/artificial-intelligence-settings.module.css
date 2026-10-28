@@ -29,17 +29,8 @@
 .purchaseButton { display:flex; align-items:center; justify-content:center; width:100%; background:var(--cp-action-primary); color:var(--cp-action-primary-text); padding:8px 12px; border:1px solid var(--cp-action-primary); border-radius:8px; font-size:13px!important; font-weight:var(--cp-font-weight-control)!important; }
 .purchaseButton:hover:not(:disabled) { background:var(--cp-action-primary-hover); }
 .offerBody [role='alert'] { margin:8px 0 0; color:var(--cp-danger); font-size:12px; line-height:1.5; }
-.priceList { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:0; min-width:0; }
-.priceList > div { display:grid; gap:12px; min-width:0; padding:16px; border:1px solid var(--cp-border); border-radius:12px; background:var(--cp-surface); }
-.priceList dt { display:flex; align-items:center; gap:8px; color:var(--cp-text-secondary); font-size:13px; }
-.priceList dt svg { flex:none; }
-.priceList dd { margin:0; font-size:20px; font-weight:var(--cp-font-weight-value); }
-.usageExample { display:flex; align-items:flex-start; gap:12px; padding:16px; border:1px solid var(--cp-border); border-radius:12px; background:var(--cp-surface); }
-.usageExample > svg { flex:none; margin-top:2px; }
-.usageExample strong { font-size:14px; }
-.usageExample p { margin:4px 0 0; color:var(--cp-text-secondary); font-size:12px; line-height:1.6; }
 .helper { margin:0; color:var(--cp-text-secondary); font-size:12px; line-height:1.6; }
 .liveStatus { margin:0; color:var(--cp-danger); font-size:13px; line-height:1.5; }
 .srOnly { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
-@media(max-width:1200px) { .offerGrid,.priceList { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; } .offerBody { padding:16px 12px 8px; } }
-@media(max-width:600px) { .root { gap:12px; } .walletRow { padding:16px; } .offerGrid { grid-template-columns:minmax(0,1fr); } .priceList { gap:12px; } .priceList > div { padding:12px; } .priceList dt { align-items:flex-start; font-size:12px; } .priceList dd { font-size:18px; } .sectionHeading { align-items:flex-start; flex-direction:column; } .benefit { min-height:0; } }
+@media(max-width:1200px) { .offerGrid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; } .offerBody { padding:16px 12px 8px; } }
+@media(max-width:600px) { .root { gap:12px; } .walletRow { padding:16px; } .offerGrid { grid-template-columns:minmax(0,1fr); } .sectionHeading { align-items:flex-start; flex-direction:column; } .benefit { min-height:0; } }

@@ -1,6 +1,6 @@
 "use client";
 
-import {RefreshCw,Sparkles,FileText,Search,Text,Image} from 'lucide-react';
+import {RefreshCw,Sparkles} from 'lucide-react';
 import {useEffect,useRef,useState} from 'react';
 import {PlatformCheckoutButton} from '@/components/commercial-packages/PlatformCheckoutButton';
 import {readToshiCredits,type ToshiCreditOverview} from '@/lib/content-authoring-ui/credits-client';
@@ -19,12 +19,6 @@ function ArtificialIntelligenceSettingsWorkspace({canManage,storeId}:{canManage:
  const epoch=useRef(0);
  useEffect(()=>{const current=++epoch.current;const controller=new AbortController();setLoading(true);setError('');void readToshiCredits(controller.signal).then(value=>{if(current===epoch.current)setOverview(value);}).catch(()=>{if(!controller.signal.aborted&&current===epoch.current)setError('Toshi kredileri yüklenemedi. Yeniden deneyin.');}).finally(()=>{if(current===epoch.current)setLoading(false);});return()=>{epoch.current++;controller.abort();};},[storeId,revision]);
  const offers=overview?.offers.filter(offer=>OFFERS.has(offer.id))??[];
- const usage=overview?[
-  {label:'Ürün açıklaması',cost:overview.prices.description,Icon:FileText},
-  {label:'SEO başlığı',cost:overview.prices.seoTitle,Icon:Search},
-  {label:'SEO açıklaması',cost:overview.prices.seoDescription,Icon:Text},
-  {label:'Görsel alt metni',cost:overview.prices.imageAlt,perImage:true,Icon:Image},
- ]:[];
  return <section className={styles.root} aria-label="Toshi kredileri" aria-busy={loading}>
   <div className={styles.walletRow}><div className={styles.walletIdentity}><Sparkles aria-hidden="true"/><div><span>Kullanılabilir Toshi kredisi</span><strong>{overview?overview.wallet.available.toLocaleString('tr-TR'):loading?'…':'—'}</strong>{overview?<small>Toplam bakiye: {overview.wallet.balance.toLocaleString('tr-TR')} kredi</small>:null}</div></div><button type="button" className={styles.refreshButton} disabled={loading} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={16} aria-hidden="true"/>Yenile</button></div>
   {overview?.wallet.reserved?<p className={styles.helper}>{overview.wallet.reserved.toLocaleString('tr-TR')} kredi devam eden işlemler için ayrıldı.</p>:null}
@@ -42,10 +36,6 @@ function ArtificialIntelligenceSettingsWorkspace({canManage,storeId}:{canManage:
      </div>
     </article>;
    })}</div>:<p className={styles.helper}>Kredi paketleri şu anda görüntülenemiyor. Yenileyerek tekrar deneyin.</p>}
-   <div className={styles.sectionHeading}><h2>Kredi kullanımı</h2><span>Yalnızca seçtiğiniz alanlar için</span></div>
-   <dl className={styles.priceList}>{usage.map(({label,cost,perImage,Icon})=><div key={label}><dt><Icon size={20} aria-hidden="true"/>{label}</dt><dd data-usage-cost>{cost} kredi{perImage?' / görsel':''}</dd></div>)}</dl>
-   <div className={styles.usageExample}><Sparkles size={20} aria-hidden="true"/><div><strong>Ürün metni seti · {overview.prices.description+overview.prices.seoTitle+overview.prices.seoDescription} kredi</strong><p>Bir ürün açıklaması, SEO başlığı ve SEO açıklaması birlikte. Görsel alt metinleri ayrıca her görsel için {overview.prices.imageAlt} kredi.</p></div></div>
-   <p className={styles.helper}>Hazırlamadan önce seçtiğiniz alanların toplam kredisini görürsünüz. Paneli açmak ücretsizdir.</p>
   </>:null}
   <span className={styles.srOnly} role="status" aria-live="polite">{loading?'Krediler yükleniyor…':error}</span>
  </section>;

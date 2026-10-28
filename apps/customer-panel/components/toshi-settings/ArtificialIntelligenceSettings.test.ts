@@ -39,16 +39,15 @@ test('credit product cards map exact offer artwork and lead with the unchanged V
   assert.equal(card.querySelector('[data-credit-price]')?.getAttribute('data-credit-price'),'total');assert.equal(card.querySelector('[data-credit-price="net"]'),null);assert.match(card.textContent??'',/KDV dahil/);
  }
  const intents=calls.slice(-4)as any[];assert.deepEqual(intents.map(({kind,offerId,term,storeId})=>({kind,offerId,term,storeId})),overview.offers.map(offer=>({kind:'toshi_credit',offerId:offer.id,term:'once',storeId:'10000000-0000-4000-8000-000000000001'})));
- assert.match(container.textContent??'',/Toplam bakiye.*500/s);assert.match(container.textContent??'',/10 kredi/);assert.match(container.textContent??'',/Görsel alt metinleri ayrıca.*1 kredi/s);
+ assert.match(container.textContent??'',/Toplam bakiye.*500/s);assert.equal(container.querySelector('[data-usage-cost]'),null);assert.doesNotMatch(container.textContent??'',/Kredi kullanımı|Ürün metni seti|Yalnızca seçtiğiniz alanlar|Paneli açmak ücretsizdir/);
 }));
 
-test('credit counts, monetary rounding and usage explanations follow the API response',async()=>{
+test('credit counts and monetary rounding follow the API response',async()=>{
  const changed={...overview,wallet:{balance:1000,reserved:100,available:900},offers:overview.offers.map((offer,index)=>index?offer:{...offer,credits:750,netCents:24903}),prices:{description:9,seoTitle:3,seoDescription:4,imageAlt:2}};
  await mount(true,async(container)=>{
   const card=container.querySelector('[data-credit-offer="toshi-500"]');assert.ok(card);assert.match(card.querySelector('h3')?.textContent??'',/750 kredi/);
   assert.equal(card.querySelector('[data-credit-price="net"]'),null);assert.ok(card.querySelector('[data-credit-price="vat"]')?.textContent?.includes('49,81'));assert.ok(card.querySelector('[data-credit-price="total"]')?.textContent?.includes('298,84'));
-  assert.match(container.textContent??'',/900/);assert.match(container.textContent??'',/100 kredi devam eden/);assert.match(container.textContent??'',/16 kredi/);assert.match(container.textContent??'',/Görsel alt metinleri ayrıca.*2 kredi/s);
-  const costs=[...container.querySelectorAll('[data-usage-cost]')].map(node=>node.textContent);assert.deepEqual(costs,['9 kredi','3 kredi','4 kredi','2 kredi / görsel']);
+  assert.match(container.textContent??'',/900/);assert.match(container.textContent??'',/100 kredi devam eden/);
  },false,changed);
 });
 
