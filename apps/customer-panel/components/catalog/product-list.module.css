@@ -193,8 +193,9 @@
 .root:global(.catalog-page.product-operations-page) :global(.catalog-table td[data-label="Durum"] small) { max-width: none; margin-top: 4px; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.4; }
 .root:global(.catalog-page.product-operations-page) :global(.publish-switch) { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
 .root:global(.catalog-page.product-operations-page) :global(.publish-switch::before) { border: 1px solid var(--cp-text-secondary); background: var(--cp-soft); }
-.root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active::before) { background: var(--cp-graphite); }
+.root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active::before) { background: var(--cp-brand); }
 .root:global(.catalog-page.product-operations-page) :global(.publish-switch span) { border: 1px solid var(--cp-text-secondary); background: var(--cp-surface); box-shadow: none; }
+.root:global(.catalog-page.product-operations-page) :global(.publish-switch.is-active span) { border-color: var(--cp-graphite); }
 
 .rowActions { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }
 .root:global(.catalog-page.product-operations-page) .editAction:global(.icon-button) { display: inline-flex; width: auto; min-width: 0; height: 44px; flex: 0 1 auto; align-items: center; gap: 8px; border-color: transparent; border-radius: 8px; background: transparent; padding: 0 8px; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-control); }
