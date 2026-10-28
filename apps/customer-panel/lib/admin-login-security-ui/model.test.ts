@@ -29,10 +29,10 @@ test("settings navigation includes personal security without losing existing des
  assert.ok(SETTINGS_DESTINATIONS.some(item=>item.href==="/settings/security"));
  const{PANEL_NAVIGATION}=await import("../panel-ui/navigation.ts");assert.ok(PANEL_NAVIGATION.find(item=>item.key==="settings")?.children?.some(item=>item.href==="/settings/security"));
 });
-test("independent security link stays reachable in ordinary and cashier sidebar footer",async()=>{
+test("ordinary and cashier sidebar footers omit the repeated security shortcut",async()=>{
  const React=await import("react"),{renderToStaticMarkup}=await import("react-dom/server"),{compile}=await import("../../components/settings/design/design-editor-test-utils.ts");
  const {PanelSidebar}=compile<any>(new URL("../../components/panel/PanelSidebar.tsx",import.meta.url),{"next/link":{__esModule:true,default:({children,...props}:any)=>React.createElement("a",props,children)},"next/image":{__esModule:true,default:(props:any)=>React.createElement("img",props)},"./PanelNavigation":{PanelNavigation:()=>null},"./LogoutButton":{LogoutButton:()=>null},"./StoreSwitcher":{StoreSwitcher:()=>null}});
- for(const membershipLabel of ["Mağaza sahibi","Mağaza yöneticisi","İçerik editörü","Analist","Kasiyer"]){const html=renderToStaticMarkup(React.createElement(PanelSidebar,{mode:"desktop",model:{storeSlug:"butik",membershipLabel,locale:"tr",planCode:"basic",planVersion:1,entitlementStatus:"active",...(membershipLabel==="Kasiyer"?{navigationMode:"register"}:{})}}));assert.match(html,/href="\/settings\/security"/);assert.match(html,/Giriş güvenliği/);}
+ for(const membershipLabel of ["Mağaza sahibi","Mağaza yöneticisi","İçerik editörü","Analist","Kasiyer"]){const html=renderToStaticMarkup(React.createElement(PanelSidebar,{mode:"desktop",model:{storeSlug:"butik",membershipLabel,locale:"tr",planCode:"basic",planVersion:1,entitlementStatus:"active",...(membershipLabel==="Kasiyer"?{navigationMode:"register"}:{})}}));assert.doesNotMatch(html,/href="\/settings\/security"/);assert.doesNotMatch(html,/Giriş güvenliği/);}
 });
 test("uncertain delivery and security failures explain a safe next action without clearing forms",()=>{
  assert.match(securityErrorMessage("delivery_uncertain"),/Otomatik tekrar gönderilmedi/);

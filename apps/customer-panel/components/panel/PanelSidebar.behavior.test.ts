@@ -82,10 +82,23 @@ test("cashier brand links and navigation forwarding follow only an explicit over
       const brand = container.querySelector('a[aria-label="Celebix Panel ana sayfa"]')!;
       assert.equal(brand.getAttribute("href"), cashierOverviewAvailable === true ? "/" : "/orders/quick-links");
       assert.equal(container.querySelector("nav")?.getAttribute("data-overview-available"), String(cashierOverviewAvailable === true));
-      assert.ok(container.querySelector('a[href="/settings/security"]'));
+      assert.equal(container.querySelector('a[href="/settings/security"]'), null);
     }
     await render(MODEL);
     assert.equal(container.querySelector('a[aria-label="Celebix Panel ana sayfa"]')?.getAttribute("href"), "/");
+  });
+});
+
+test("desktop and drawer footers keep the brand and logout without a repeated security shortcut", async () => {
+  await mounted(async (container, _browser, render) => {
+    for (const mode of ["desktop", "drawer"] as const) {
+      await render(MODEL, { mode, open: true });
+      const footer = container.querySelector(".sidebarFooter")!;
+      assert.ok(footer.querySelector('a[aria-label="Celebix Panel ana sayfa"]'));
+      assert.ok(Array.from(footer.querySelectorAll("button")).some(button => button.textContent === "Çıkış"));
+      assert.doesNotMatch(footer.textContent ?? "", /Giriş güvenliği/);
+      assert.equal(footer.querySelector('a[href="/settings/security"]'), null);
+    }
   });
 });
 

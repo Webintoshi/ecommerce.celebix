@@ -30,6 +30,20 @@ function components(overrides:Record<string,unknown>={}){return compile<any>(new
  '@/lib/overview-ui/client':{overviewApi:{dashboard:async()=>analytics()}},
  '@/lib/analytics-ui/active-visitors':{createActiveVisitorPoller(){throw Error('no_new_polling');}},...overrides,
 });}
+test('overview keeps conversion secondary and task rows navigate without a duplicate media spotlight',async()=>{
+ const{PanelDashboardPresentation:Presentation}=components();
+ await withEditor(async({container,render})=>{
+  await render(React.createElement(Presentation,base));
+  assert.equal(container.querySelectorAll('[data-metric="sales"]').length,1);
+  assert.equal(container.querySelector('.salesCard [data-metric="conversion"]'),null);
+  assert.ok(container.querySelector('details [data-metric="conversion"]'));
+  assert.equal(container.querySelector('[aria-label="Öncelikli mağaza işi"]'),null);
+  const tasks=container.querySelectorAll('.attentionList li');assert.ok(tasks.length>0);
+  for(const task of tasks){const link=task.querySelector('a[href]');assert.ok(link);assert.ok(link!.querySelector('strong'));assert.ok(link!.getAttribute('aria-label'));}
+  assert.ok(container.querySelector('a[href="/products/new"]'));
+  assert.ok(container.querySelector('a[href="/orders/quick-links"]'));
+ });
+});
 test('same-period refresh keeps ready chart, product and order DOM while errors hide retained analytics',async()=>{
  const{PanelDashboardPresentation:Presentation}=components();
  await withEditor(async({container,render})=>{
