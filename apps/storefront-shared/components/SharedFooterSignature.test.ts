@@ -95,9 +95,11 @@ function assertSignature(container: HTMLElement) {
   assert.equal(container.querySelectorAll("footer").length, 1, "the signature does not introduce a nested footer");
   assert.equal(footer.querySelectorAll('[data-payment-brand-marks]').length, 1, "every footer branch receives one shared card-logo row");
   const mark = footer.querySelector<HTMLImageElement>('[data-payment-brand-marks] img');
-  assert.equal(mark?.getAttribute("src"), "/payment-marks/card-brands.svg");
-  assert.equal(mark?.getAttribute("width"), "324");
-  assert.equal(mark?.getAttribute("height"), "48");
+  const dark = footer.matches('.lf-footer, .store-footer:not([data-footer-tone]), [data-footer-tone="dark"], .hk-footer:not([data-tone="light"])');
+  assert.equal(mark?.getAttribute("src"), dark ? "/payment-marks/card-brands-on-dark.svg" : "/payment-marks/card-brands.svg");
+  assert.equal(footer.querySelectorAll('[data-payment-brand-marks] img').length, 1);
+  assert.equal(mark?.getAttribute("width"), "300");
+  assert.equal(mark?.getAttribute("height"), "32");
   for (const brand of ["Mastercard", "Visa", "TROY", "American Express"]) assert.ok(mark?.getAttribute("alt")?.includes(brand));
   const links = footer.querySelectorAll<HTMLAnchorElement>('a[href="https://celebix.net/tr/e-ticaret-paketleri"]');
   assert.equal(links.length, 1, "the actual footer contains exactly one Celebix signature");

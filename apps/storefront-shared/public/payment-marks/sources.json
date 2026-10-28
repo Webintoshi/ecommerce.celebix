@@ -2,8 +2,18 @@
   "asset": "card-brands.svg",
   "source": "User-supplied iyzico-logo-pack/footer_iyzico_ile_ode/Colored/logo_band_colored.svg",
   "sourceSha256": "d83e2725da0f5552b5350c15e355b4730a35bd6d80b987118e2434eb966257ee",
-  "outputSha256": "2c8921541b1bba80a10acae5c4dd77147687c4fc44abf72e8a20b4bed6e00dc5",
-  "preservedGroups": ["mastercard-seeklogo.com", "visa", "American_Express", "Troy-Logo"],
-  "adjustments": "Removed iyzico artwork. Preserved the four card groups and their required gradients unchanged. Translated the whole band onto a 324 by 48 white canvas with 12px horizontal and 8px vertical clear space.",
-  "notes": "Brand marks remain the property of their respective owners. Locally bundled SVG; no third-party asset requests."
+  "outputSha256": "77cf941d2ccfa05c417422f5071e17e9d6640cad5579491e80857976b299e348",
+  "preservedGroups": [
+    "mastercard-seeklogo.com",
+    "visa",
+    "American_Express",
+    "Troy-Logo"
+  ],
+  "adjustments": "Removed iyzico artwork and outer white canvas. Four original vector groups retain geometry and spacing on a transparent 300 by 32 canvas.",
+  "notes": "Brand marks remain the property of their respective owners. Locally bundled SVG; no third-party asset requests.",
+  "darkAsset": {
+    "file": "card-brands-on-dark.svg",
+    "sha256": "d64963ed34e4df608c73f9e5d49dc772ede088126291d87d63d3d91331b202a8",
+    "adjustments": "Only black/navy lettering changes to white for dark footer contrast. All geometry, Mastercard colors, Amex artwork and TROY turquoise remain unchanged."
+  }
 }

@@ -1,15 +1,15 @@
 import { SharedFooterSignature } from "./SharedFooterSignature";
 import styles from "./payment-trust.module.css";
 
-export function PaymentBrandMarks() {
+export function PaymentBrandMarks({ tone = "light" }: Readonly<{ tone?: "light" | "dark" }>) {
   return <div className={styles.marks} data-payment-brand-marks>
-    <img className={styles.band} src="/payment-marks/card-brands.svg" alt="Mastercard, Visa, American Express, TROY" width={324} height={48} loading="lazy" decoding="async" />
+    <img className={styles.band} src={tone === "dark" ? "/payment-marks/card-brands-on-dark.svg" : "/payment-marks/card-brands.svg"} alt="Mastercard, Visa, American Express, TROY" width={300} height={32} loading="lazy" decoding="async" />
   </div>;
 }
 
-export function FooterPaymentBranding() {
+export function FooterPaymentBranding({ tone = "light" }: Readonly<{ tone?: "light" | "dark" }>) {
   return <div className={styles.footer} data-footer-payment-branding>
-    <PaymentBrandMarks />
+    <PaymentBrandMarks tone={tone} />
     <SharedFooterSignature />
   </div>;
 }
