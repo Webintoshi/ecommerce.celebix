@@ -15,6 +15,8 @@ const tenantCases = [
   { name: "Guzide", id: "a828862c-4cc1-475a-89cc-5fbee31eb43f", footerClass: "guzide-footer" },
   { name: "Generic", id: "00000000-0000-4000-8000-000000000001", footerClass: "retail-footer" },
   { name: "Lilyum", id: "89e1e15f-8282-4e9b-ae3e-f417501bd54a", footerClass: "lf-footer" },
+  { name: "Hizli", id: "eae7be09-f362-4681-9df7-18de95eff4cf", footerClass: "hk-footer" },
+  { name: "Ezmeo", id: "7892a771-67a9-42d7-9b36-f4c3e8562e95", footerClass: "retail-footer" },
 ] as const;
 
 function storefront(id: string, name: string, legacy = false): PublicStorefront {
@@ -91,6 +93,12 @@ function assertSignature(container: HTMLElement) {
   const footer = container.querySelector("footer");
   assert.ok(footer);
   assert.equal(container.querySelectorAll("footer").length, 1, "the signature does not introduce a nested footer");
+  assert.equal(footer.querySelectorAll('[data-payment-brand-marks]').length, 1, "every footer branch receives one shared card-logo row");
+  for (const brand of ["mastercard", "visa", "troy", "amex"]) {
+    const mark = footer.querySelector<HTMLImageElement>(`[data-brand="${brand}"] img`);
+    assert.equal(mark?.getAttribute("src"), `/payment-marks/${brand}.svg`);
+    assert.ok(mark?.getAttribute("alt"));
+  }
   const links = footer.querySelectorAll<HTMLAnchorElement>('a[href="https://celebix.net/tr/e-ticaret-paketleri"]');
   assert.equal(links.length, 1, "the actual footer contains exactly one Celebix signature");
   const link = links[0];
@@ -114,7 +122,7 @@ for (const tenant of tenantCases) {
         assert.match(container.querySelector("footer")?.textContent ?? "", new RegExp(`© .*${tenant.name}`));
         if (!checkout) {
           assert.ok(container.querySelector('a[href="/urunler"]'), "the admin menu link keeps its Turkish storefront route");
-          if (tenant.name !== "Generic") assert.ok(container.querySelector('img[alt="Mağaza logosu"]'), "the tenant logo is preserved");
+          if (tenant.footerClass !== "retail-footer") assert.ok(container.querySelector('img[alt="Mağaza logosu"]'), "the tenant logo is preserved");
         }
       });
     });

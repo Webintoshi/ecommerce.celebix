@@ -1,0 +1,30 @@
+{
+  "assets": [
+    {
+      "name": "visa",
+      "source": "https://raw.githubusercontent.com/activemerchant/payment_icons/dfa616fd2370d55030bcbb16c3bd1031b5fae010/app/assets/images/payment_icons/visa.svg",
+      "sha256": "229b859539b38737ab4f47d3422aef50480a7b361d9b01ea47c0afc86b24854f",
+      "bytes": 3189
+    },
+    {
+      "name": "mastercard",
+      "source": "https://raw.githubusercontent.com/activemerchant/payment_icons/dfa616fd2370d55030bcbb16c3bd1031b5fae010/app/assets/images/payment_icons/master.svg",
+      "sha256": "769f705370cbc2e6e5be851ac34e0bdf7767e52b4257f4db05ddef684ad548eb",
+      "bytes": 1553
+    },
+    {
+      "name": "amex",
+      "source": "https://raw.githubusercontent.com/activemerchant/payment_icons/dfa616fd2370d55030bcbb16c3bd1031b5fae010/app/assets/images/payment_icons/american_express.svg",
+      "sha256": "3034ff7531fb0ccf3c0b0b0dd8aa812729b1eead6989aaadb6da2becf7db9c74",
+      "bytes": 1582
+    },
+    {
+      "name": "troy",
+      "source": "https://www.troyodeme.com/upload/cmspagefile/file/medya-merkezi/TROY-Logolar.zip",
+      "member": "TROY Logolar/SVG/TROY Logo.svg",
+      "sha256": "58ff5a28e91d31e928cdf00fba615ccc98edbb011d7f4562acdc3bed13ddca1e",
+      "bytes": 3220
+    }
+  ],
+  "notes": "Brand marks remain the property of their respective owners. Artwork is bundled locally without modification. TROY official positive logo; other marks from Shopify-maintained ActiveMerchant payment_icons."
+}

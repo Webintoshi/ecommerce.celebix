@@ -37,6 +37,7 @@ import { PromotionCouponField } from "./PromotionCouponField";
 import { createCheckoutQuoteQueue } from "../lib/checkout/quote-queue.ts";
 import { reconcileCheckoutQuote } from "../lib/checkout/reconcile-quote.ts";
 import { OrderBumpOffers } from "./OrderBumpOffers";
+import { CheckoutPaymentSecurity } from "./PaymentTrust";
 
 const EMPTY: CheckoutFormDraft = Object.freeze({
   firstName: "",
@@ -815,6 +816,7 @@ export function CheckoutForm({
               ? "Güvenli ödemeye geç"
               : "Siparişi tamamla"}
         </button>
+        <CheckoutPaymentSecurity cardPayment={!quotePending && quote?.paymentMethods.some(method => method.kind === "hosted_card" && paymentKind === "hosted_card") === true} />
         <Link className="shared-checkout-return" href={localizeStorefrontPath("/cart", locale)}><span aria-hidden="true">←</span> Sepete dön</Link>
       </footer>
     </form>

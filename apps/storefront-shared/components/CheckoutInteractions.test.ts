@@ -51,6 +51,28 @@ function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<
   return load<{ CheckoutForm: Form }>(new URL("./CheckoutForm.tsx", import.meta.url)).CheckoutForm;
 }
 
+test("checkout shows 3D Secure only for the selected quoted card method and keeps encryption wording for offline methods", async () => {
+  const Form = loadForm(async () => {
+    const selected = response([]);
+    const quote = { ...selected.quote, paymentMethods: [
+      ...selected.quote.paymentMethods,
+      { kind: "hosted_card", id: "30000000-0000-4000-8000-000000000001", label: "Kart", instructions: "Güvenli ödeme", providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: [] },
+      { kind: "bank_transfer", label: "Banka havalesi", instructions: "Havale ile ödeyin.", bankName: "Örnek Banka", accountHolder: "Örnek Mağaza", iban: "TR330006100519786457841326" },
+    ] };
+    return { quote, quoteDigest: digest(quote) };
+  });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart" }));
+    assert.match(container.querySelector('[data-checkout-payment-security]')?.textContent ?? '', /SSL \/ TLS/);
+    assert.equal(container.querySelector('[data-payment-three-d-secure]'), null);
+    await click('input[value="hosted_card"]');
+    assert.match(container.querySelector('[data-payment-three-d-secure]')?.textContent ?? '', /3D Secure/);
+    await click('input[value="bank_transfer"]');
+    assert.equal(container.querySelector('[data-payment-three-d-secure]'), null);
+    assert.ok(!container.querySelector('[data-checkout-payment-security]')?.textContent?.includes("256"));
+  });
+});
+
 test("checkout coupon application and removal re-quote the displayed total without submitting the order", async () => {
   const calls: string[][] = [];
   const Form = loadForm(async (_intent, codes) => { calls.push([...codes]); return response(codes); });

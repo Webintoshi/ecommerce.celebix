@@ -20,7 +20,7 @@ import { AlplerFooter } from "../themes/alpler/AlplerFooter";
 import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { SioraFooter } from "../themes/siora/SioraFooter";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
-import { SharedFooterSignature } from "./SharedFooterSignature";
+import { FooterPaymentBranding } from "./PaymentTrust";
 import { LilyumFooter } from "../themes/lilyum/LilyumFooter";
 import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 import { hizliThemeFor } from "../themes/hizli-kutu/theme.ts";
@@ -61,7 +61,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
     publicPolicyIndex(storefront.hostname),
     checkout ? Promise.resolve(Object.freeze([])) : publicRequiredPageIndex(storefront.hostname),
   ]);
-  const signature = <SharedFooterSignature />;
+  const signature = <FooterPaymentBranding />;
   if (checkout) {
     const groups = mergePublishedPolicyFooterGroups(
       storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4 ? storefront.presentation.footer.groups : LEGACY_GROUPS,
