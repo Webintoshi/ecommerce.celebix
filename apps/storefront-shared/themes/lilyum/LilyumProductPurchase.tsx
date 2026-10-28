@@ -1,6 +1,7 @@
 "use client";
 import { useCommercePolicy } from "../../components/CommercePolicyProvider";
 import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
+import { PurchaseActionLayout } from "../../components/PurchaseActionLayout";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
@@ -82,15 +83,14 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
           <span>{item.title}<small>{item.available ? "Stokta" : "Tükendi"}</small></span>{!pricesHidden ? <strong>{formatTry(item.priceCents)}</strong> : null}
         </label>)}
       </fieldset> : null}
-      {showQuantitySelector ? <div className="lf-product-quantity" aria-label="Adet seçimi"><span>Adet</span>
+      <PurchaseActionLayout className="lf-purchase-actions" quantity={showQuantitySelector ? <div className="lf-product-quantity" aria-label="Adet seçimi">
         <button type="button" aria-label="Adedi azalt" disabled={pending !== null || !available || quantity <= 1} onClick={() => setQuantity(value => decrementPurchaseQuantity(value, quantityLimit))}>−</button>
         <output aria-label="Adet" aria-live="polite">{quantity}</output>
         <button type="button" aria-label="Adedi artır" disabled={pending !== null || !available || quantity >= quantityLimit} onClick={() => setQuantity(value => incrementPurchaseQuantity(value, quantityLimit))}>+</button>
-      </div> : null}
-      <div className="lf-purchase-actions">
-        {!policy.hideAddToCart ? <button className="lf-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><LilyumIcon name="bag" />{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
-        {policy.checkoutAllowed ? <button className="lf-button lf-purchase-buy" type="button" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}<LilyumIcon name="arrow" /></button> : null}
-      </div>
+      </div> : null}>
+        {!policy.hideAddToCart ? <button className="lf-button" type="button" data-purchase-action="add" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
+        {policy.checkoutAllowed ? <button className="lf-button lf-purchase-buy" type="button" data-purchase-action="buy" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Hemen satın al"}</button> : null}
+      </PurchaseActionLayout>
       <p className="lf-purchase-status" role="status" aria-live="polite">{status}</p>
       <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />

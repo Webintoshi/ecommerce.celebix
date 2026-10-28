@@ -1,6 +1,7 @@
 "use client";
 import { useCommercePolicy } from "../../components/CommercePolicyProvider";
 import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
+import { PurchaseActionLayout } from "../../components/PurchaseActionLayout";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -77,12 +78,14 @@ export function HizliProductPurchase({ product, options, showQuantitySelector, q
     {product.merchandising?.highlights.length ? <ul className="hk-product-highlights">{product.merchandising.highlights.map(text => <li key={text}>{text}</li>)}</ul> : null}
     <div className="hk-purchase-options">
       {choices ? <label className="hk-option-label" htmlFor={`${id}-variant`}>Ölçü ve paket seçimi<select id={`${id}-variant`} value={selectedId} disabled={pending !== null} onChange={event => { if (!busy.current) { selectVariant(event.currentTarget.value); setQuantity(1); setStatus(""); } }}>{policy.enabled && product.variants.length > 1 ? <option value="" disabled>Ölçü ve paket seçin</option> : null}{product.variants.map(item => <option key={item.id} value={item.id} disabled={!item.available && !restock?.enabled}>{item.title}{!pricesHidden ? ` — ${formatTry(item.priceCents)}` : ""}{!item.available ? " · Tükendi" : ""}</option>)}</select></label> : null}
-      {showQuantitySelector ? <div className="hk-quantity" aria-label="Sipariş adedi seçimi"><span>{pieces ? "Paket sayısı" : "Sipariş adedi"}</span><div><button type="button" aria-label="Adedi azalt" disabled={pending !== null || !allowed || quantity <= 1} onClick={() => setQuantity(value => decrementPurchaseQuantity(value, limit))}>−</button><output aria-label="Sipariş adedi" aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || !allowed || quantity >= limit} onClick={() => setQuantity(value => incrementPurchaseQuantity(value, limit))}>+</button></div></div> : null}
     </div>
     {variant && Object.keys(variant.attributes).length ? <dl className="hk-product-attributes">{Object.entries(variant.attributes).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl> : null}
     {!pricesHidden && amount !== null ? <div className="hk-price" aria-live="polite"><strong>{formatTry(amount)}</strong>{variant?.compareAtCents && variant.compareAtCents > amount ? <del>{formatTry(variant.compareAtCents)}</del> : null}{unit !== undefined && unit >= 1 ? <span className="hk-unit-price">{formatTry(Math.round(unit))} / adet</span> : null}</div> : null}
     {!pricesHidden && amount !== null ? <div className="hk-total"><span>Toplam{pieces ? <small>{(pieces * quantity).toLocaleString("tr-TR")} adet</small> : null}</span><strong>{formatTry(amount * quantity)}</strong></div> : null}
-    <div className="hk-purchase-actions">{!policy.hideAddToCart ? <button className="hk-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><HizliIcon name="bag" />{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}{policy.checkoutAllowed ? <button type="button" className="hk-button hk-buy" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}<HizliIcon name="arrow" /></button> : null}</div>
+    <PurchaseActionLayout className="hk-purchase-actions" quantity={showQuantitySelector ? <div className="hk-quantity" aria-label="Sipariş adedi seçimi"><button type="button" aria-label="Adedi azalt" disabled={pending !== null || !allowed || quantity <= 1} onClick={() => setQuantity(value => decrementPurchaseQuantity(value, limit))}>−</button><output aria-label="Sipariş adedi" aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || !allowed || quantity >= limit} onClick={() => setQuantity(value => incrementPurchaseQuantity(value, limit))}>+</button></div> : null}>
+      {!policy.hideAddToCart ? <button className="hk-button" type="button" data-purchase-action="add" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
+      {policy.checkoutAllowed ? <button type="button" className="hk-button hk-buy" data-purchase-action="buy" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Hemen satın al"}</button> : null}
+    </PurchaseActionLayout>
     <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} className="hk-button" />
     {!allowed && pending === null ? <p className="hk-unavailable">{!variant && product.available ? "Ölçü ve paket seçin." : "Bu seçenek şu anda mevcut değil."}</p> : null}
     <p className="hk-purchase-status" role="status" aria-live="polite">{status}</p>

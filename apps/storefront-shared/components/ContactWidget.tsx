@@ -46,7 +46,7 @@ function environment(pathname: string, hostname: string): Environment {
   }
   // Güzide's purchase bar also appears on small tablets up to 900px.
   if (guzidePurchase) mobileOffset = Math.max(mobileOffset, 82);
-  for (const actions of document.querySelectorAll(".purchase-panel.is-mobile-sticky .purchase-actions, [data-lilyum-sticky-purchase]")) {
+  for (const actions of document.querySelectorAll(".purchase-panel.is-mobile-sticky [data-standard-purchase-actions], .purchase-panel.is-mobile-sticky .purchase-actions, [data-lilyum-sticky-purchase]")) {
     if (!visible(actions) || !["sticky", "fixed"].includes(window.getComputedStyle(actions).position)) continue;
     const bounds = actions.getBoundingClientRect();
     const baseBottom = window.innerHeight - mobileOffset - (device === "mobile" ? 16 : 24);

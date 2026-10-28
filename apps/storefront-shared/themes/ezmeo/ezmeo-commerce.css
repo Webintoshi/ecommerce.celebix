@@ -361,16 +361,16 @@
 
 /* Honor the published light/dark footer choice and all configured footer content. */
 .starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer[data-footer-tone="light"] {
-  --retail-footer-fg: var(--store-text, var(--ink));
-  --retail-footer-muted: var(--muted);
-  --retail-footer-line: var(--ezmeo-line);
-  background: var(--ezmeo-soft);
+  --retail-footer-fg: #202020;
+  --retail-footer-muted: #626262;
+  --retail-footer-line: rgb(32 32 32 / 18%);
+  background: color-mix(in srgb, var(--store-primary, #710F1C) 3%, #fff);
 }
 
 .starter-storefront[data-storefront-theme="ezmeo-deniz"] .retail-footer[data-footer-tone="dark"] {
-  --retail-footer-fg: var(--store-background, var(--paper));
-  --retail-footer-muted: color-mix(in srgb, var(--store-background, var(--paper)) 78%, var(--store-primary));
-  --retail-footer-line: color-mix(in srgb, var(--store-background, var(--paper)) 20%, transparent);
+  --retail-footer-fg: #fff;
+  --retail-footer-muted: color-mix(in srgb, #fff 78%, var(--store-primary, #710F1C));
+  --retail-footer-line: rgb(255 255 255 / 20%);
   background: var(--store-primary, var(--dark));
 }
 

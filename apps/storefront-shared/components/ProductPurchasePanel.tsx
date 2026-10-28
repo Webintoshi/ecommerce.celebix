@@ -1,6 +1,7 @@
 "use client";
 import { useCommercePolicy } from "./CommercePolicyProvider";
 import { WhatsAppOrderButton } from "./WhatsAppOrderButton";
+import { PurchaseActionLayout } from "./PurchaseActionLayout";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "./RestockAlerts";
 
 import { ezmeoVariantHeading, ezmeoVariantTitle } from "../themes/ezmeo/variant-labels.ts";
@@ -180,10 +181,7 @@ export function ProductPurchasePanel({
           </div>
         </fieldset>
       ) : null}
-      <div
-        className={`purchase-action-row${showQuantitySelector ? "" : " is-quantity-hidden"}`}
-      >
-        {showQuantitySelector ? (
+      <PurchaseActionLayout className="purchase-actions" quantity={showQuantitySelector ? (
           <div className="purchase-quantity" aria-label="Adet seçimi">
             <button
               type="button"
@@ -213,10 +211,10 @@ export function ProductPurchasePanel({
               +
             </button>
           </div>
-        ) : null}
-        <div className="purchase-actions">
+        ) : null}>
           {!policy.hideAddToCart ? <button
             className="store-button"
+            data-purchase-action="add"
             type="button"
             disabled={pending !== null || !allowed}
             onClick={(event) => void run("add", event.currentTarget)}
@@ -225,14 +223,14 @@ export function ProductPurchasePanel({
           </button> : null}
           {policy.checkoutAllowed ? <button
             className="store-button store-button-secondary"
+            data-purchase-action="buy"
             type="button"
             disabled={pending !== null || !allowed}
             onClick={(event) => void run("buy", event.currentTarget)}
           >
-            {pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}
+            {pending === "buy" ? "Hazırlanıyor…" : "Hemen satın al"}
           </button> : null}
-        </div>
-      </div>
+      </PurchaseActionLayout>
       <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />
       <p className="purchase-status" aria-live="polite">

@@ -170,12 +170,12 @@ test("detail gallery and mobile purchase stay keyboard and viewport safe", async
 });
 
 test("product summary follows the compact jewelry detail hierarchy", async () => {
-  const [experience, purchase, disclosures, styles, globalStyles] = await Promise.all([
+  const [experience, purchase, disclosures, styles, purchaseStyles] = await Promise.all([
     read("ProductDetailExperience.tsx"),
     read("ProductPurchasePanel.tsx"),
     read("ProductInformationDisclosures.tsx"),
     read("product-detail-experience.module.css"),
-    read("../app/globals.css"),
+    read("purchase-action-layout.module.css"),
   ]);
 
   assert.doesNotMatch(experience, />ÜRÜN DETAYI</u);
@@ -200,6 +200,7 @@ test("product summary follows the compact jewelry detail hierarchy", async () =>
   assert.match(mobileStyles, /[.]purchaseColumn h1\s*\{[^}]*white-space:\s*normal/u);
   assert.match(styles, /[.]purchaseColumn h1\s*\{[^}]*font-family:\s*Arial, Helvetica, sans-serif !important/u);
   assert.match(styles, /[.]disclosures\s*\{[^}]*display:\s*grid[^}]*border-top/u);
-  assert.match(globalStyles, /[.]purchase-actions\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/u);
-  assert.doesNotMatch(globalStyles, /[.]purchase-actions\s*\{\s*grid-template-columns:\s*1fr;\s*\}/u);
+  assert.match(purchase, /<PurchaseActionLayout/u);
+  assert.match(purchaseStyles, /grid-template-columns:\s*132px minmax\(0,\s*1fr\)/u);
+  assert.match(purchaseStyles, /\[data-purchase-action="buy"\]\s*\{[^}]*grid-column:\s*1 \/ -1[^}]*grid-row:\s*2/u);
 });

@@ -1,6 +1,7 @@
 "use client";
 import { useCommercePolicy } from "../../components/CommercePolicyProvider";
 import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
+import { PurchaseActionLayout } from "../../components/PurchaseActionLayout";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
@@ -132,8 +133,10 @@ export function SioraProductPurchase({ product, initialVariantId,storefrontId, l
       {needsChoice ? <button ref={selectorRef} className={styles.selector} type="button" disabled={pending !== null} onClick={(event) => openModal("options", event.currentTarget)} aria-haspopup="dialog"><span>{variant ? `${choiceLabel}: ${sioraOptionLabel(variant)}` : `${choiceLabel} seçin`}</span><Chevron /></button> : null}
       {sizeGuide ? <button type="button" className={styles.sizeHelp} onClick={(event) => openModal("guide", event.currentTarget)}><span aria-hidden="true">▱</span> {sizeGuideHeading}</button> : null}
       <div className={styles.price}>{!pricesHidden && compareAt && amount !== null && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}{!pricesHidden ? <span>{priceText}</span> : null}</div>
-      {showQuantitySelector ? <div className={styles.quantity} aria-label="Adet seçimi"><span>Adet</span><button type="button" aria-label="Adedi azalt" disabled={pending !== null || quantity <= 1} onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><output aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || quantity >= quantityLimit} onClick={() => setQuantity(Math.min(quantityLimit, quantity + 1))}>+</button></div> : null}
-      <div className={styles.actions} ref={purchaseRef}>{policy.checkoutAllowed ? <button type="button" disabled={pending !== null || !canPurchase} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}</button> : null}{!policy.hideAddToCart ? <button type="button" disabled={pending !== null || !canPurchase} onClick={(event) => void run("add", event.currentTarget)}><BagIcon />{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button> : null}</div>
+      <PurchaseActionLayout className={styles.actions} actionRef={purchaseRef} quantity={showQuantitySelector ? <div className={styles.quantity} aria-label="Adet seçimi"><button type="button" aria-label="Adedi azalt" disabled={pending !== null || quantity <= 1} onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><output aria-label="Adet" aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || quantity >= quantityLimit} onClick={() => setQuantity(Math.min(quantityLimit, quantity + 1))}>+</button></div> : null}>
+        {!policy.hideAddToCart ? <button type="button" data-purchase-action="add" disabled={pending !== null || !canPurchase} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button> : null}
+        {policy.checkoutAllowed ? <button type="button" data-purchase-action="buy" disabled={pending !== null || !canPurchase} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Hemen satın al"}</button> : null}
+      </PurchaseActionLayout>
       <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />
       <p className={styles.status} aria-live="polite" role="status">{status}</p>

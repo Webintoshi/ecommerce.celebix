@@ -124,7 +124,7 @@ for (const tenant of tenantCases) {
         assert.match(container.querySelector("footer")?.textContent ?? "", new RegExp(`© .*${tenant.name}`));
         if (!checkout) {
           assert.ok(container.querySelector('a[href="/urunler"]'), "the admin menu link keeps its Turkish storefront route");
-          if (tenant.footerClass !== "retail-footer") assert.ok(container.querySelector('img[alt="Mağaza logosu"]'), "the tenant logo is preserved");
+          assert.ok(container.querySelector('img[alt="Mağaza logosu"]'), "the tenant logo is preserved");
         }
       });
     });
@@ -142,4 +142,25 @@ test("legacy footer replaces its old text signature without changing navigation 
 test("the shipped signature is the exact supplied SVG asset", () => {
   const asset = readFileSync(new URL("../public/brand/celebix-dark.svg", import.meta.url));
   assert.equal(createHash("sha256").update(asset).digest("hex"), "216cd8cd8d0a4c4598af888618813cb595ac09604d084cc0290b5e35022500d0");
+});
+
+test("shared footer keeps the configured newsletter, actual social destinations and no empty link group", async () => {
+  const store = storefront(tenantCases[3].id, "Ortak mağaza");
+  assert.ok(store.presentation.schemaVersion === 3 || store.presentation.schemaVersion === 4);
+  const configured: PublicStorefront = { ...store, presentation: { ...store.presentation, footer: {
+    ...store.presentation.footer,
+    newsletter: { enabled: true, heading: "Mağazamızdan haber alın", body: "Yeni ürünlerimizi e-postanızda görün.", consentLabel: "E-posta duyurularına izin veriyorum." },
+    social: [{ network: "instagram", url: "https://www.instagram.com/fixture-store/" }],
+    groups: [...store.presentation.footer.groups, { heading: "Boş grup", links: [] }],
+  } } };
+  await renderFooter(configured, false, async container => {
+    assertSignature(container);
+    assert.equal(container.querySelectorAll('form').length, 1);
+    assert.equal(container.querySelector('#retail-newsletter-heading')?.textContent, "Mağazamızdan haber alın");
+    assert.ok(container.querySelector('button[aria-label="E-bültene kaydol"]'));
+    assert.ok(container.querySelector('a[href="https://www.instagram.com/fixture-store/"] svg'));
+    assert.equal(container.textContent?.includes("Boş grup"), false);
+    assert.equal(container.textContent?.includes("MAĞAZADAN HABERLER"), false);
+    assert.equal(container.querySelector('input[type="checkbox"]')?.hasAttribute('checked'), false);
+  });
 });

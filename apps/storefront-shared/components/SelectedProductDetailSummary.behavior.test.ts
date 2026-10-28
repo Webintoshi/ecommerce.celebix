@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
+import { productPath } from "../lib/storefront-routes.ts";
 import { createDefaultStarterThemeComposition, type PublicProduct, type StorefrontCommercePolicy } from "@celebix/saas-contracts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
@@ -30,7 +31,7 @@ function fixture(visualTheme?: string) {
     "@/lib/format.ts": { formatTry: money },
     "@/lib/analytics/events.ts": { emitStorefrontCommerceEvent() {} },
     "@/lib/public-product-ordering.ts": { availableProductsFirst: (items: unknown[]) => items },
-    "@/lib/storefront-routes.ts": { categoryPath: (_locale: string, slug: string) => `/kategori/${slug}` },
+    "@/lib/storefront-routes.ts": { productPath, categoryPath: (_locale: string, slug: string) => `/kategori/${slug}` },
     "@celebix/storefront-design-ui": summary,
     "./CartStatusProvider": { useCartStatus: () => ({ visualTheme, drawerOpen: false, async closeDrawerAndWait() { return true; }, openDrawer() {}, replaceCart() {} }) },
     "../themes/siora/useSioraPanelHistory": { useSioraPanelHistory: () => ({ open: () => true, async close() { return true; } }) },
