@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "222a6d76e74f6f0a7b8edf20476675fa80b399edb2d5858ec6a4e7de21d41e39",
+  "inputDigest": "c2f044c64db8384fa81b48441377bd5a019a873613e0fd1af158e6db293a93c9",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -1185,7 +1185,7 @@
     },
     {
       "path": "apps/owner/lib/platform-commerce/http.ts",
-      "sha256": "ee206b9627339e2b498d30d333c27ef9ea87b552cada333a3d070abb21515d73"
+      "sha256": "fdac216b7e8385c8407bb869cacff432b7beb62700e24bb78654217a2ed5859e"
     },
     {
       "path": "apps/owner/lib/platform-commerce/iyzico.ts",
@@ -1193,7 +1193,7 @@
     },
     {
       "path": "apps/owner/lib/platform-commerce/runtime.ts",
-      "sha256": "e85733a8ed4bb8c5caaf0a0d290e75ff540f52933a376528ee8754109ae23047"
+      "sha256": "80b50e7789431ea154ab2239fa8d540d936bdae6f5f4d3e38eb6a071097b988e"
     },
     {
       "path": "apps/owner/lib/platform-commerce/security.ts",
@@ -1201,7 +1201,7 @@
     },
     {
       "path": "apps/owner/lib/platform-commerce/service.ts",
-      "sha256": "3e59a14d6229ea8f5a124ec5b09fa5940e50ad92af04c617af13374bb7a44b93"
+      "sha256": "3047843266196317fddbd52f1e35a7d52c881f670e31097f97e6cfd73c2bda48"
     },
     {
       "path": "apps/owner/lib/platform-commerce/webhook.ts",
@@ -2912,6 +2912,10 @@
       "sha256": "f3e6677ca7a1724f5945f1a232d9d290c7850ed61636459a9c480cd35cbcee98"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610280289_toshi_public_test_checkout.up.sql",
+      "sha256": "d2c1f549df80e693a237dc55ecd9aecd8c5035d8266d349982aa7d8a92de91cb"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -2998,6 +3002,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/phase-toshi-credits-manifest.json",
       "sha256": "c1d8cf50fb704cb3f3165dfa52285e5882e0c9b2741fc9f50a3bd4e9f5964cc8"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/phase-toshi-public-test-checkout-manifest.json",
+      "sha256": "3b2be5991126c879f0e47ff5dfc1983eb8a0a837913de413590ae6e82bf8b222"
     },
     {
       "path": "apps/owner/scripts/sql/saas/phase-toshi-test-credit-offer-manifest.json",
