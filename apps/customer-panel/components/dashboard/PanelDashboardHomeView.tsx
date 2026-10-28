@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
-import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronDown, ChevronRight, LockKeyhole, Package, ShoppingBag, Store, Tag, UserPlus, Users } from "lucide-react";
+import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronDown, ChevronRight, LockKeyhole, Package, ShoppingBag, ShoppingCart, Store, Tag, UserPlus, Users } from "lucide-react";
 import {
   ANALYTICS_PERIODS,
   type AbandonedCartSummary,
@@ -465,7 +465,7 @@ function ActionItemsCard({ analyticsState, busy, onRetry, state, tasks }: Readon
     <aside className={`${styles.panelCard} ${styles.actionItemsCard}`} aria-labelledby="attention-title">
       <header className={styles.cardHeader}><div><h2 id="attention-title">Yapılacaklar</h2></div>{tasks.length > 0 ? <span>{tasks.length}</span> : null}</header>
       <div className={styles.taskBody} data-dashboard-body="tasks" aria-busy={busy}>
-      {tasks.length > 0 ? <ul className={styles.attentionList}>{tasks.map((task) => <li key={task.key}><Link href={task.href} aria-label={`${task.label}. ${task.actionLabel}`}><span className={styles.attentionIcon} aria-hidden="true">{task.key === "media" ? <Package /> : task.key === "orders" ? <ShoppingBag /> : task.key === "stock" ? <Store /> : <Users />}</span><span className={styles.attentionCopy}><strong>{task.label}</strong><small>{task.detail}</small></span><ChevronRight aria-hidden="true" /></Link></li>)}</ul> : null}
+      {tasks.length > 0 ? <ul className={styles.attentionList}>{tasks.map((task) => <li key={task.key}><Link href={task.href} aria-label={`${task.label}. ${task.detail}. ${task.actionLabel}`}><span className={styles.attentionIcon} aria-hidden="true">{task.key === "media" ? <Package /> : task.key === "orders" ? <ShoppingBag /> : task.key === "stock" ? <Store /> : <ShoppingCart />}</span><span className={styles.attentionCopy}><strong>{task.label}</strong><small>{task.detail}</small></span><ChevronRight aria-hidden="true" /></Link></li>)}</ul> : null}
       {analyticsState === "error" || analyticsState === "unsupported" ? <div className={styles.dataNotice}><span className={styles.dataNoticeIcon} aria-hidden="true"><Activity /></span><div><strong>Canlı veri alınamıyor</strong><small>Satış analizleri şu anda gösterilemiyor.</small></div></div> : null}
       {notice ? <div className={styles.taskNotice} role={isLoading ? "status" : "alert"}><span>{notice}</span>{isLoading ? null : <SummaryRetryButton onRetry={onRetry} />}</div> : null}
       {tasks.length === 0 && state === "loaded" ? <p className={styles.attentionEmpty}>Şu anda acil işlem görünmüyor.</p> : null}
