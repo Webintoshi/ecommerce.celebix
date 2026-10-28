@@ -74,23 +74,26 @@
 .catalogRoot :global(.button-primary),
 .catalogRoot :global(.product-detail-primary-action),
 .catalogRoot :global(.product-bulk-actions > button:not(:disabled)) {
-  border-color: var(--catalog-text);
-  background: var(--catalog-text);
-  color: var(--catalog-surface);
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
   box-shadow: none;
 }
 .catalogRoot :global(.command-button-primary:hover:not(:disabled)),
-.catalogRoot :global(.button-primary:hover:not(:disabled)) { border-color: var(--catalog-sidebar); background: var(--catalog-sidebar); }
+.catalogRoot :global(.button-primary:hover:not(:disabled)) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
 
 .primaryAction {
-  border-color: var(--cp-action-primary);
-  background: var(--cp-action-primary);
-  color: var(--cp-action-primary-text);
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
 }
 
 .primaryAction:hover {
-  border-color: var(--cp-action-primary-hover);
-  background: var(--cp-action-primary-hover);
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .catalogRoot :global(.product-bulk-actions > button:disabled),
@@ -658,29 +661,29 @@
   width: 44px;
   height: 44px;
   flex: 0 0 44px;
-  border: 1px solid var(--catalog-border);
-  border-radius: 8px;
-  background: var(--catalog-surface);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--catalog-surface);
+  background-clip: padding-box;
+  padding: 0;
   color: #64676B;
 }
 
-.catalogRoot:global(.product-operations-page) :global(.icon-button svg) { width: 17px; height: 17px; }
+.catalogRoot:global(.product-operations-page) :global(.icon-button svg) { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 
 .catalogRoot:global(.product-operations-page) :global(.icon-button:hover) {
-  border-color: rgba(254, 97, 0, 0.16);
-  background: rgba(254, 97, 0, 0.06);
+  background-color: var(--cp-brand-soft);
   color: var(--catalog-accent);
 }
 
 .catalogRoot:global(.product-operations-page) :global(.icon-button.danger) {
-  border-color: var(--catalog-border);
-  background: var(--catalog-surface);
+  border-color: transparent;
+  background-color: var(--catalog-surface);
   color: #64676B;
 }
 
 .catalogRoot:global(.product-operations-page) :global(.icon-button.danger:hover) {
-  border-color: #EBC1C4;
-  background: #FFF4F4;
+  background-color: color-mix(in srgb, var(--cp-danger) 6%, var(--cp-surface));
   color: #B4232C;
 }
 
@@ -819,43 +822,47 @@
 }
 
 /* Shared action controls; form fields and navigation retain their own styles. */
-.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button:not(.is-active)),
-.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button:not(.command-button-primary)),
 .catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select),
 .catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select),
-.catalogRoot:global(.product-operations-page) :global(.row-count-control),
-.catalogRoot:global(.product-operations-page) :global(.product-pagination .button) {
+.catalogRoot:global(.product-operations-page) :global(.row-count-control) {
   min-height: var(--cp-control-height);
   border-radius: var(--cp-control-radius);
   font-size: var(--cp-control-font-size);
   font-weight: var(--cp-font-weight-control);
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button:not(.is-active)),
-.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button:not(.command-button-primary)),
 .catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select),
 .catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select),
-.catalogRoot:global(.product-operations-page) :global(.row-count-control),
-.catalogRoot:global(.product-operations-page) :global(.product-pagination .button) { border-color: var(--cp-control-border); background: var(--cp-control-background); }
-.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button:not(.is-active):hover:not(:disabled)),
-.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button:not(.command-button-primary):hover:not(:disabled)),
+.catalogRoot:global(.product-operations-page) :global(.row-count-control) { border-color: var(--cp-control-border); background: var(--cp-control-background); }
 .catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select:hover),
 .catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select:hover:not(:disabled)),
-.catalogRoot:global(.product-operations-page) :global(.row-count-control:hover),
-.catalogRoot:global(.product-operations-page) :global(.product-pagination .button:hover:not(:disabled)) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.catalogRoot:global(.product-operations-page) :global(.row-count-control:hover) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
 .catalogRoot:global(.product-operations-page) :global(.command-button:focus-visible),
 .catalogRoot:global(.product-operations-page) :global(.command-select:focus-within),
 .catalogRoot:global(.product-operations-page) :global(.row-count-control:focus-within),
 .catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select:focus-visible),
 .catalogRoot:global(.product-operations-page) :global(.product-pagination .button:focus-visible) { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
-.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-toolbar > .command-button),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button),
+.catalogRoot:global(.product-operations-page) :global(.product-pagination .button),
 .catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > button) {
-  min-height: var(--cp-control-height);
-  border-radius: var(--cp-control-radius);
-  font-size: var(--cp-control-font-size);
+  min-height: var(--cp-button-height);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--cp-text-primary);
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
+  gap: var(--cp-button-gap);
   font-weight: var(--cp-font-weight-control);
   transition: background-color 140ms ease, border-color 140ms ease;
 }
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-button-primary:hover:not(:disabled)),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > button:not(:disabled)),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > button:hover:not(:disabled)) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
 .catalogRoot:global(.product-operations-page) :global(.row-count-control select) {
   font-size: var(--cp-control-font-size);
   font-weight: var(--cp-font-weight-control);

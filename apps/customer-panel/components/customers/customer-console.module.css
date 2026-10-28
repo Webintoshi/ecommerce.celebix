@@ -11,25 +11,28 @@
 .customerPrimaryAction, .customerEmptyAction, .customerExport, .customerLoadMore,
 .customerDetailAction, .primary, .button, .linkButton, .createCustomerCancel,
 .createCustomerSubmit, .segmentCreateButton, .tagCreateButton, .danger,
-.detailNavigation a, .archiveConfirm summary, .customerError button, .appliedFilters button {
-  display: inline-flex; min-height: 44px; max-width: 100%; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid var(--cp-control-border); border-radius: 8px; background: var(--cp-control-background);
-  padding: 8px 16px; color: var(--cp-text-primary); font: inherit; font-size: 14px;
-  font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none;
+.archiveConfirm summary, .customerError button, .appliedFilters button {
+  display: inline-flex; min-height: var(--cp-button-height); max-width: 100%; align-items: center; justify-content: center; gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size);
+  font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); text-decoration: none;
   cursor: pointer; user-select: none; -webkit-user-select: none;
   transition: background-color 140ms ease, border-color 140ms ease;
 }
 .customerPrimaryAction, .primary, .createCustomerSubmit,
-.segmentCreateButton, .tagCreateButton { border-color: var(--cp-action-primary); background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
+.segmentCreateButton, .tagCreateButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
 .customerPrimaryAction:hover:not(:disabled),
 .primary:hover:not(:disabled), .createCustomerSubmit:hover:not(:disabled),
-.segmentCreateButton:hover:not(:disabled), .tagCreateButton:hover:not(:disabled) { border-color: var(--cp-action-primary-hover); background: var(--cp-action-primary-hover); }
+.segmentCreateButton:hover:not(:disabled), .tagCreateButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
 .customerEmptyAction:hover, .customerExport:hover:not(:disabled), .customerLoadMore:hover:not(:disabled), .button:hover:not(:disabled),
 .linkButton:hover, .createCustomerCancel:hover, .detailNavigation a:hover,
-.customerDetailAction:hover, .customerError button:hover, .appliedFilters button:hover { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.customerDetailAction:hover, .customerError button:hover, .appliedFilters button:hover { background-color: var(--cp-soft); }
+.detailNavigation a { display: inline-flex; min-height: 44px; max-width: 100%; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--cp-control-border); border-radius: 8px; background: var(--cp-control-background); padding: 8px 16px; color: var(--cp-text-primary); font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; cursor: pointer; }
 .workspacePrimaryAction { display: inline-flex; min-width: 0; }
 .workspacePrimaryAction a { cursor: pointer; user-select: none; -webkit-user-select: none; }
-.customerPrimaryAction svg, .customerEmptyAction svg, .customerExport svg, .customerDetailAction svg { flex: none; width: 16px; height: 16px; }
+.customerPrimaryAction svg, .customerEmptyAction svg, .customerExport svg, .primary svg, .button svg { flex: none; width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.customerDetailAction { border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); }
+.customerDetailAction svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex: none; }
 .customerPrimaryAction:disabled, .customerExport:disabled, .customerLoadMore:disabled, .primary:disabled,
 .button:disabled, .createCustomerSubmit:disabled, .segmentCreateButton:disabled, .tagCreateButton:disabled,
 .danger:disabled { cursor: not-allowed; opacity: .5; }
@@ -43,7 +46,7 @@
 .orderHistoryRow:focus-visible, .summaryHeading a:focus-visible, .contactGrid a:focus-visible, .back:focus-visible {
   outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none;
 }
-.danger { border-color: color-mix(in srgb, var(--cp-danger) 24%, var(--cp-border)); background: transparent; color: var(--cp-danger); }
+.danger { background-color: transparent; color: var(--cp-danger); }
 .danger:hover:not(:disabled) { background: color-mix(in srgb, var(--cp-danger) 6%, var(--cp-surface)); }
 
 /* List: fixed summary footprint followed by one clear working surface. */
@@ -67,8 +70,8 @@
 .customerFilter select { flex: 1 1 auto; width: 100%; max-width: 200px; padding-right: 32px; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 .customerSearch:has(input:focus-visible), .customerFilter:has(select:focus-visible) { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none; }
 .customerSearch input:focus-visible, .customerFilter select:focus-visible { outline: 0; box-shadow: none; }
-.customerSearch button { align-self: stretch; flex: none; min-width: 44px; min-height: 44px; border: 0; border-left: 1px solid var(--cp-border); border-radius: 0 8px 8px 0; background: var(--cp-action-primary); padding: 8px 16px; color: var(--cp-action-primary-text); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; user-select: none; -webkit-user-select: none; }
-.customerSearch button:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
+.customerSearch button { align-self: center; flex: none; min-width: var(--cp-button-height); min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-button-primary-text); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: var(--cp-font-weight-control); cursor: pointer; user-select: none; -webkit-user-select: none; }
+.customerSearch button:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
 .customerSearch button:disabled { cursor: not-allowed; opacity: .5; }
 .customerSearch button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none; }
 .customerExport { white-space: nowrap; }
@@ -329,7 +332,7 @@
   .customerCardTotal { font-variant-numeric: tabular-nums; }
   .customerCard .customerTags { flex-wrap: wrap; max-width: 100%; overflow: visible; }
   .customerCard .customerTags span { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
-  .customerDetailAction { justify-self: end; font-size: 13px; }
+  .customerDetailAction { justify-self: end; }
   .customerSummaryRail, .contactGrid, .createCustomerGrid, .grid, .checks, .createCustomerConsents, .segmentCreateForm, .tagCreateForm { grid-template-columns: minmax(0, 1fr); }
   .profileSurface { padding: 16px; }
   .customerDetailTopbar { grid-template-columns: 44px minmax(0, 1fr) 96px; gap: 12px; }
@@ -379,7 +382,7 @@
   .createCustomerSectionHeader, .sectionHeader, .heading, .summaryHeading { flex-wrap: wrap; }
   .sectionHeader > div { min-width: 0; }
   .createCustomerActions, .actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .createCustomerCancel, .createCustomerSubmit, .actions .button, .actions .primary { width: 100%; padding-inline: 8px; font-size: 13px; }
+  .createCustomerCancel, .createCustomerSubmit, .actions .button, .actions .primary { width: 100%; }
   .addressEditorActions { flex-wrap: wrap; }
   .addressEditorActions .danger { width: 100%; }
   .customerCardFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }

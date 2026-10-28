@@ -69,8 +69,9 @@
 .empty strong { color: var(--analytics-ink); font-size: 16px; font-weight: var(--cp-font-weight-value); }
 .emptyTotal { color: var(--analytics-muted); font-size: 12px; font-variant-numeric: tabular-nums; font-weight: var(--cp-font-weight-helper); }
 .emptyAction { margin-top: 8px; }
-.emptyAction :is(a, button) { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer; }
-.emptyAction :is(a, button):hover { background: var(--analytics-soft); }
+.emptyAction :is(a, button) { display: inline-flex; min-width: 44px; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--analytics-ink); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer; }
+.emptyAction :is(a, button):hover { background-color: var(--cp-control-hover); }
+.emptyAction :is(a, button) svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 @media (max-width: 640px) {
   .panel { padding: 16px 16px 0; }
   .chartBody { grid-template-columns: 64px minmax(0, 1fr); }

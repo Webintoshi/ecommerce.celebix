@@ -171,7 +171,7 @@ test('dialog controls remain bounded and touch sized at mobile and desktop width
   for (const width of [390, 1024, 1440]) {
     const form = effectiveCss('components/settings/CashierSalesPermissions.module.css', '<form class="form"><fieldset class="group"><label class="field"><input/></label></fieldset></form>', '.form', width);
     assert.equal(form.minWidth, '0');
-    const button = effectiveCss('components/settings/CashierSalesPermissions.module.css', '<button class="primary">Kaydet</button>', '.primary', width); assert.equal(button.minHeight, '44px');
+    const button = effectiveCss('components/settings/CashierSalesPermissions.module.css', '<div style="--cp-button-height:44px"><button class="primary">Kaydet</button></div>', '.primary', width); assert.equal(button.minHeight, '44px');
   }
 });
 

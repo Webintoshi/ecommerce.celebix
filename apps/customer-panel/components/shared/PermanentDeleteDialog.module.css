@@ -17,8 +17,10 @@
 .acknowledge { display: flex; gap: 10px; align-items: flex-start; color: #475467; line-height: 1.45; }
 .acknowledge input { margin-top: 3px; accent-color: #b42318; }
 .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
-.cancel, .delete { min-height: 42px; border-radius: 10px; padding: 0 16px; font: inherit; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.cancel { border: 1px solid #d0d5dd; background: white; color: #344054; }
-.delete { border: 1px solid #b42318; background: #b42318; color: white; }
+.cancel, .delete { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.cancel { background-color: var(--cp-control-background); color: var(--cp-text-primary); }
+.delete { background-color: #b42318; color: #FFFFFF; }
+.cancel:hover:not(:disabled) { background-color: var(--cp-control-hover); }
+.delete:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
 .cancel:disabled, .delete:disabled { cursor: not-allowed; opacity: .55; }
 @media (max-width: 520px) { .layer { padding: 12px; align-items: end; } .dialog { max-height: calc(100vh - 24px); padding: 18px; border-radius: 18px 18px 10px 10px; } .actions { display: grid; grid-template-columns: 1fr; } }

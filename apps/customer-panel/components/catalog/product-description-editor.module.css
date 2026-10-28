@@ -45,13 +45,17 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 6px;
-  border: 0;
-  background: transparent;
-  padding: 5px 0;
+  gap: var(--cp-button-small-gap);
+  min-height: var(--cp-button-small-height);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: transparent;
+  background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
   color: var(--catalog-text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
   font-weight: var(--cp-font-weight-control);
   cursor: pointer;
 }
@@ -114,20 +118,22 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-height: 36px;
-  border: 1px solid var(--cp-brand, var(--catalog-accent));
-  border-radius: 8px;
-  padding: 8px 12px;
-  background: var(--cp-brand, var(--catalog-accent));
-  color: var(--cp-text-inverse, var(--catalog-surface));
+  gap: var(--cp-button-small-gap);
+  min-height: var(--cp-button-small-height);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  color: var(--cp-button-primary-text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
   font-weight: var(--cp-font-weight-control);
   white-space: nowrap;
   cursor: pointer;
 }
-.aiButton:hover { filter: brightness(.96); }
+.aiButton:hover { text-decoration: underline; text-underline-offset: 4px; }
 .aiButton:focus-visible { outline: 2px solid var(--catalog-text); outline-offset: 2px; }
 .aiButton svg { width: 16px; height: 16px; }
 
@@ -147,26 +153,26 @@
 
 .toolbarButton {
   display: inline-grid;
-  flex: 0 0 32px;
-  width: 32px;
-  height: 32px;
+  flex: 0 0 var(--cp-button-small-height);
+  width: var(--cp-button-small-height);
+  height: var(--cp-button-small-height);
   place-items: center;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  padding: 0;
+  background-color: transparent;
+  background-clip: padding-box;
   color: var(--catalog-text);
   cursor: pointer;
 }
 
 .toolbarButton:hover:not(:disabled) {
-  border-color: var(--catalog-border);
-  background: var(--catalog-surface);
+  background-color: var(--catalog-surface);
   color: var(--catalog-text);
 }
 
 .toolbarButton[aria-pressed="true"] {
-  border-color: rgb(254 97 0 / 28%);
-  background: #fff2e9;
+  background-color: var(--cp-brand-soft);
   color: #c94c00;
 }
 
@@ -349,29 +355,30 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 34px;
-  border: 1px solid var(--catalog-border);
-  border-radius: 6px;
-  background: var(--catalog-surface);
-  padding: 0 10px;
+  gap: var(--cp-button-small-gap);
+  min-height: var(--cp-button-small-height);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
   color: var(--catalog-text);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
   font-weight: var(--cp-font-weight-control);
   cursor: pointer;
 }
 
 .linkPanel button svg,
 .tableToolbar button svg {
-  width: 14px;
-  height: 14px;
+  width: var(--cp-button-small-icon-size);
+  height: var(--cp-button-small-icon-size);
 }
 
 .linkPanel .linkApply {
-  border-color: var(--catalog-text);
-  background: var(--catalog-text);
-  color: #fff;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
 }
 
 .linkPanel .linkRemove {
@@ -466,10 +473,6 @@
 
   .labelRow small {
     max-width: 255px;
-  }
-
-  .focusButton {
-    min-height: 32px;
   }
 
   .toolbar {

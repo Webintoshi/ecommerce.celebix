@@ -23,9 +23,7 @@
 }
 
 .toolbarButton,
-.blockSelect,
-.linkControls button,
-.tableTools button {
+.blockSelect {
   min-height: 44px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -44,9 +42,7 @@
   place-items: center;
 }
 
-.toolbarButton svg,
-.linkControls button svg,
-.tableTools button svg {
+.toolbarButton svg {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
@@ -60,9 +56,7 @@
   background: var(--cp-surface, var(--surface));
 }
 
-.toolbarButton:hover:not(:disabled),
-.linkControls button:hover,
-.tableTools button:hover {
+.toolbarButton:hover:not(:disabled) {
   background: var(--cp-surface, var(--surface));
   border-color: var(--cp-border, var(--border));
 }
@@ -145,7 +139,11 @@
 .linkControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; }
 .linkControls input { flex: 1 1 240px; min-width: 0; width: 100%; min-height: 44px; border: 1px solid var(--cp-border, var(--border)); border-radius: 8px; background: var(--cp-surface, var(--surface)); padding: 0 12px; color: inherit; font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .linkControls button,
-.tableTools button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 0 12px; border-color: var(--cp-border, var(--border)); }
+.tableTools button { display: inline-flex; align-items: center; justify-content: center; min-height: var(--cp-button-small-height); gap: var(--cp-button-small-gap); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; color: inherit; font: inherit; font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.linkControls button:hover, .tableTools button:hover { background-color: var(--cp-control-hover); }
+.linkControls button svg, .tableTools button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex-shrink: 0; }
+.linkControls button:first-of-type { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.linkControls button:first-of-type:hover { background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
 .linkPanel > p { margin: 0; color: var(--danger); font-size: 13px; }
 .tableTools { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px; border-bottom: 1px solid var(--cp-border, var(--border)); }
 .tableTools button:last-child { color: var(--danger); }

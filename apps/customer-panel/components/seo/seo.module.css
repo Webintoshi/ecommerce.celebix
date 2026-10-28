@@ -8,17 +8,17 @@
 .toolbar{justify-content:space-between}.tabs{gap:4px}
 .tabs a{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 12px;border-radius:8px;color:var(--cp-text-secondary);font-size:13px;font-weight:var(--cp-font-weight-control)}
 .tabs a[aria-current="page"]{background:var(--cp-soft);color:var(--cp-text-primary)}
-.workspace button,.dialogButton,.button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 16px;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface);color:var(--cp-text-primary);font:inherit;font-size:13px;font-weight:var(--cp-font-weight-control);cursor:pointer;text-decoration:none}
-.workspace button:hover:not(:disabled),.dialogButton:hover:not(:disabled),.button:hover:not(:disabled){background:var(--cp-soft)}
+.workspace button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 16px;border:1px solid var(--cp-border);border-radius:8px;background-color:var(--cp-surface);color:var(--cp-text-primary);font:inherit;font-size:13px;font-weight:var(--cp-font-weight-control);cursor:pointer;text-decoration:none}
+.workspace button:hover:not(:disabled),.dialogButton:hover:not(:disabled),.button:hover:not(:disabled){background-color:var(--cp-soft)}
 .workspace button:disabled,.dialogButton:disabled,.button:disabled{opacity:.5;cursor:default}
-.workspace .primary,.primary{background:var(--cp-action-primary);color:var(--cp-action-primary-text);border-color:var(--cp-action-primary)}
-.workspace .primary:hover:not(:disabled),.primary:hover:not(:disabled){background:var(--cp-action-primary-hover)}
+.workspace .primary,.primary{background-color:var(--cp-button-primary);color:var(--cp-button-primary-text)}
+.workspace .primary:hover:not(:disabled),.primary:hover:not(:disabled){background-color:var(--cp-button-primary);text-decoration:underline;text-underline-offset:4px}
 .workspace a:focus-visible,.workspace button:focus-visible,.workspace input:focus-visible,.workspace select:focus-visible,.workspace textarea:focus-visible,.workspace summary:focus-visible,.dialogButton:focus-visible,.form button:focus-visible,.form input:focus-visible,.form textarea:focus-visible,.form select:focus-visible,.form summary:focus-visible{outline:2px solid var(--cp-brand);outline-offset:4px}
-.workspace .iconButton,.iconButton{width:44px;min-width:44px;height:44px;padding:0;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--cp-border);border-radius:8px;background:var(--cp-surface);color:var(--cp-text-secondary);cursor:pointer}
-.iconButton svg{width:16px;height:16px}.button svg,.dialogButton svg{width:16px;height:16px;flex:none}
+.workspace .iconButton,.iconButton{width:var(--cp-button-height);min-width:44px;height:var(--cp-button-height);padding:0;display:inline-flex;align-items:center;justify-content:center;border:var(--cp-button-hit-inset) solid transparent;border-radius:var(--cp-button-radius);background-color:var(--cp-control-background);background-clip:padding-box;color:var(--cp-text-secondary);cursor:pointer}
+.iconButton svg{width:var(--cp-button-icon-size);height:var(--cp-button-icon-size)}.button svg,.dialogButton svg{width:var(--cp-button-icon-size);height:var(--cp-button-icon-size);flex:none}
 .workspace .textLink,.textLink{display:inline-flex;align-items:center;gap:8px;min-height:44px;border-color:transparent;background:transparent;padding:8px 0;font-size:12px;color:var(--cp-text-primary);text-decoration:none;cursor:pointer}
 .textLink svg{width:14px;height:14px}.workspace .textLink:hover:not(:disabled),.textLink:hover:not(:disabled){background:transparent;text-decoration:underline;text-underline-offset:4px}
-.workspace .small,.small{font-size:12px;padding:8px 12px}
+.workspace .small,.small{font-size:var(--cp-button-small-font-size);line-height:var(--cp-button-small-line-height);padding:var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);gap:var(--cp-button-small-gap)}
 .muted,.countHint{color:var(--cp-text-secondary)}
 .countHint{font-weight:var(--cp-font-weight-helper)}.countHint{font-size:12px;font-weight:var(--cp-font-weight-helper)}
 .readonlyNote,.status{padding:12px 16px;border-radius:8px;background:var(--cp-soft);font-size:13px;color:var(--cp-text-secondary)}
@@ -194,22 +194,39 @@
 .tableWrap,.linkMap{position:relative;isolation:isolate}
 
 /* Shared action controls; form fields and navigation retain their own styles. */
-.workspace .primary, .primary {
+.workspace .primary, .primary, .workspace .button, .button, .dialogButton, .workspace .empty button, .workspace .footRow .actions button, .workspace .settingsFooter .actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cp-button-height);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  gap: var(--cp-button-gap);
+  font: inherit;
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
+  font-weight: var(--cp-font-weight-control);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 140ms ease;
+}
+.toolbar select, .filterBar select, .sectionHead select {
   min-height: var(--cp-control-height);
   border-radius: var(--cp-control-radius);
   font-size: var(--cp-control-font-size);
   font-weight: var(--cp-font-weight-control);
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-.workspace .button:not(.primary), .workspace .empty button:not(.primary), .workspace .footRow .actions button:not(.primary), .workspace .settingsFooter .actions button:not(.primary), .toolbar select, .filterBar select, .sectionHead select {
-  min-height: var(--cp-control-height);
-  border-radius: var(--cp-control-radius);
-  font-size: var(--cp-control-font-size);
-  font-weight: var(--cp-font-weight-control);
-  transition: background-color 140ms ease, border-color 140ms ease;
-}
-.workspace .button:not(.primary), .workspace .empty button:not(.primary), .workspace .footRow .actions button:not(.primary), .workspace .settingsFooter .actions button:not(.primary), .toolbar select, .filterBar select, .sectionHead select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
-.workspace .button:not(.primary):hover:not(:disabled), .workspace .empty button:not(.primary):hover:not(:disabled), .workspace .footRow .actions button:not(.primary):hover:not(:disabled), .workspace .settingsFooter .actions button:not(.primary):hover:not(:disabled), .toolbar select:hover:not(:disabled), .filterBar select:hover:not(:disabled), .sectionHead select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.toolbar select, .filterBar select, .sectionHead select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.toolbar select:hover:not(:disabled), .filterBar select:hover:not(:disabled), .sectionHead select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.workspace .button:not(.primary), .workspace .empty button:not(.primary), .workspace .footRow .actions button:not(.primary), .workspace .settingsFooter .actions button:not(.primary) { background-color: var(--cp-control-background); }
+.dialogButton:not(.primary), .button:not(.primary) { background-color: var(--cp-control-background); color: var(--cp-text-primary); }
+.workspace .button:not(.primary):hover:not(:disabled), .workspace .empty button:not(.primary):hover:not(:disabled), .workspace .footRow .actions button:not(.primary):hover:not(:disabled), .workspace .settingsFooter .actions button:not(.primary):hover:not(:disabled) { background-color: var(--cp-control-hover); }
+.workspace .button.small, .button.small { border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); gap: var(--cp-button-small-gap); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
+.workspace .button.small svg, .button.small svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.workspace .settingsFooter .primary { min-height: var(--cp-button-large-height); border-width: var(--cp-button-large-hit-inset); padding: var(--cp-button-large-padding-y) var(--cp-button-large-padding-x); font-size: var(--cp-button-large-font-size); line-height: var(--cp-button-large-line-height); }
 .workspace .button:focus-visible, .workspace .empty button:focus-visible, .workspace .footRow .actions button:focus-visible, .workspace .settingsFooter .actions button:focus-visible, .workspace .primary:focus-visible, .primary:focus-visible, .toolbar select:focus-visible, .filterBar select:focus-visible, .sectionHead select:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 @media (max-width: 640px) { .toolbar select, .filterBar select, .sectionHead select { font-size: 16px; } }
 

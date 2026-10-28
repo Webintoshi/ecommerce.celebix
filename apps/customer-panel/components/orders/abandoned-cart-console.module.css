@@ -21,18 +21,18 @@
 .selectControl > svg { position: absolute; top: 50%; left: 12px; width: 14px; height: 14px; transform: translateY(-50%); color: var(--cp-text-secondary); pointer-events: none; }
 .selectControl select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 8px 8px 8px 32px; color: var(--cp-text-primary); font: inherit; font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .search button, .clearFilters, .appliedFilters button, .rowAction, .detailLink, .loadMore, .error button,
-.actions button, .contactActions button, .recoveryLink button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); cursor: pointer; font: inherit; font-size: 12px; text-decoration: none; }
+.actions button, .contactActions button, .recoveryLink button { display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); cursor: pointer; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); text-decoration: none; }
 .search button, .appliedFilters button, .rowAction, .detailLink, .error button, .actions button, .contactActions button, .recoveryLink button { font-weight: var(--cp-font-weight-control); }
 .clearFilters, .loadMore { font-weight: var(--cp-font-weight-control); }
-.search button { border-width: 0 0 0 1px; border-radius: 0 8px 8px 0; }
+.search button { border-radius: var(--cp-button-radius); }
 .surface :is(button, a, select):focus-visible, .detailToolbar :is(button, a):focus-visible,
 .panel :is(button, a, input):focus-visible, .recoveryLink :is(button, input):focus-visible,
 .detailState button:focus-visible, .back:focus-visible, .desktopTable:focus-visible { outline: 2px solid var(--cp-graphite); outline-offset: 3px; }
-.surface button:hover:not(:disabled), .actions button:hover:not(:disabled), .contactActions button:hover:not(:disabled), .recoveryLink button:hover:not(:disabled) { background: var(--cp-canvas); }
+.surface button:hover:not(:disabled), .actions button:hover:not(:disabled), .contactActions button:hover:not(:disabled), .recoveryLink button:hover:not(:disabled) { background-color: var(--cp-canvas); }
 .surface button:disabled, .actions button:disabled, .contactActions button:disabled, .recoveryLink button:disabled { cursor: default; opacity: .5; }
 .appliedFilters { display: flex; grid-column: 1 / -1; align-items: center; justify-content: space-between; gap: 16px; color: var(--cp-text-secondary); font-size: 12px; }
 .appliedFilters > span { overflow-wrap: anywhere; }
-.appliedFilters button { border-color: transparent; background: transparent; }
+.appliedFilters button { border-color: transparent; background-color: transparent; }
 .loading { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 24px 0; color: var(--cp-text-secondary); font-size: 13px; }
 .loading > svg, .detailLoading > svg { width: 18px; height: 18px; animation: spin 1s linear infinite; }
 .loadingRows { display: grid; grid-column: 1 / -1; gap: 12px; width: 100%; padding-top: 16px; }
@@ -61,9 +61,9 @@
 .activityCell time { font-variant-numeric: tabular-nums; }
 .numericHeading, .totalCell, .actionHeading, .actionCell { text-align: right!important; }
 .totalCell strong { font-size: 13px; font-weight: var(--cp-font-weight-value); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rowAction, .detailLink { border-color: transparent; background: transparent; padding: 0 8px; }
-.rowAction svg, .detailLink svg { width: 14px; height: 14px; }
-.rowAction:hover, .detailLink:hover { background: var(--cp-surface); }
+.rowAction, .detailLink { background-color: transparent; border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); }
+.rowAction svg, .detailLink svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.rowAction:hover, .detailLink:hover { background-color: var(--cp-surface); }
 .mobileCards { display: none; }
 .cartCard { display: grid; min-width: 0; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--cp-border); }
 .cardHeading { display: flex; min-width: 0; align-items: start; justify-content: space-between; gap: 12px; }
@@ -81,9 +81,9 @@
 .detailIdentity { display: grid; min-width: 0; gap: 4px; font-size: 13px; font-weight: var(--cp-font-weight-control); overflow-wrap: anywhere; }
 .detailIdentity small { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
-.actions svg { width: 16px; height: 16px; }
-.actions .primaryAction { border-color: var(--cp-graphite); background: var(--cp-graphite); color: var(--cp-text-inverse); font-weight: var(--cp-font-weight-control); }
-.actions .primaryAction:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
+.actions svg, .search button svg, .contactActions svg, .recoveryLink button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
+.actions .primaryAction { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); font-weight: var(--cp-font-weight-control); }
+.actions .primaryAction:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
 .inlineError, .notice { margin: 0; border-left: 2px solid var(--cp-border); background: var(--cp-surface); padding: 12px 16px; color: var(--cp-text-primary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .inlineError { border-color: var(--cp-danger); }
 .notice { border-color: var(--cp-success); }

@@ -8,20 +8,22 @@
 .detailRoot h2, .detailRoot p { margin: 0; }
 .detailRoot button:disabled { opacity: .5; cursor: not-allowed; }
 .detailRoot :is(button, a) svg { flex: none; }
-.iconButton, .disabledIcon { display: inline-flex; flex: none; width: 44px; height: 44px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--cp-text-secondary); text-decoration: none; cursor: pointer; }
-.iconButton:hover { border-color: var(--cp-border); background: var(--cp-soft); color: var(--cp-text-primary); }
+.iconButton, .disabledIcon { display: inline-flex; flex: none; width: var(--cp-button-small-height); height: var(--cp-button-small-height); align-items: center; justify-content: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; padding: 0; color: var(--cp-text-secondary); text-decoration: none; cursor: pointer; }
+.iconButton:hover { background-color: var(--cp-soft); color: var(--cp-text-primary); }
 .disabledIcon { opacity: .4; cursor: default; }
-.primaryButton, .secondaryButton, .quietButton, .dangerButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--cp-control-border); border-radius: 8px; background: var(--cp-control-background); padding: 8px 16px; color: var(--cp-text-primary); font-family: inherit; font-size: 14px; font-weight: var(--cp-font-weight-control); line-height: 1.4; cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease; }
-.primaryButton { border-color: var(--cp-action-primary); background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
-.primaryButton:hover:not(:disabled) { border-color: var(--cp-action-primary-hover); background: var(--cp-action-primary-hover); }
-.secondaryButton:hover:not(:disabled) { border-color: var(--cp-control-hover); }
-.quietButton { border-color: transparent; background: transparent; padding-inline: 8px; color: var(--cp-text-secondary); font-size: 13px; }
-.quietButton:hover:not(:disabled) { background: var(--cp-soft); color: var(--cp-text-primary); }
-.dangerButton { border-color: var(--cp-danger); background: var(--cp-danger); color: var(--cp-surface); }
+.primaryButton, .secondaryButton, .quietButton, .dangerButton { display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font-family: inherit; font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease; }
+.primaryButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.primaryButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.secondaryButton:hover:not(:disabled) { background-color: var(--cp-control-hover); }
+.quietButton { background-color: transparent; border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-secondary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); }
+.quietButton:hover:not(:disabled) { background-color: var(--cp-soft); color: var(--cp-text-primary); }
+.dangerButton { background-color: var(--cp-danger); color: var(--cp-surface); }
+.primaryButton svg, .secondaryButton svg, .dangerButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.quietButton svg, .iconButton svg, .disabledIcon svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .detailRoot .dangerText { color: var(--cp-danger); }
 .orderTopbar { display: flex; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
 .orderIdentity { display: flex; min-width: 0; align-items: center; gap: 12px; }
-.orderIdentity > .iconButton { border-color: var(--cp-border); background: var(--cp-surface); }
+.orderIdentity > .iconButton { border-color: transparent; background-color: var(--cp-surface); }
 .orderIdentity > div { min-width: 0; }
 .identityLine { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px 12px; }
 .identityLine > strong { color: var(--cp-text-primary); font-size: 22px; font-weight: var(--cp-font-weight-heading); line-height: 1.3; letter-spacing: -.025em; overflow-wrap: anywhere; }
@@ -29,7 +31,7 @@
 .orderIdentity time { display: block; margin-top: 4px; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .archiveState { color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-helper); }
 .headerActions { display: flex; min-width: 0; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-left: auto; }
-.headerActions > .iconButton, .moreMenu > summary { border-color: var(--cp-border); background: var(--cp-surface); }
+.headerActions > .iconButton, .moreMenu > summary { border-color: transparent; background-color: var(--cp-surface); }
 .neighbors { display: flex; gap: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); }
 .neighbors .iconButton, .neighbors .disabledIcon { width: 44px; height: 44px; border: 0; }
 .neighbors > :first-child { border-radius: 8px 0 0 8px; }

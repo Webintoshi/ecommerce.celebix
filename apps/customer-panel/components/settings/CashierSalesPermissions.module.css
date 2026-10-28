@@ -12,9 +12,11 @@
 .field{display:grid;gap:8px;min-width:0;font-size:14px}
 .field input{box-sizing:border-box;min-width:0;width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--cp-border,#e7e2dd);border-radius:8px;background:var(--cp-surface,#fffdfc);color:var(--cp-text-primary,#292724);font:inherit; font-weight:var(--cp-font-weight-body)}
 .field small,.helper{margin:0;color:var(--cp-text-secondary,#68645e);font-size:13px;line-height:1.6}
-.primary,.secondary{box-sizing:border-box;min-height:44px;max-width:100%;padding:10px 16px;border:1px solid var(--cp-border,#e7e2dd);border-radius:8px;font:inherit;font-size:14px;line-height:1.5;cursor:pointer; font-weight:var(--cp-font-weight-control)}
-.primary{background:var(--cp-control-primary-bg,#292724);color:var(--cp-control-primary-text,#fff);border-color:var(--cp-control-primary-bg,#292724)}
-.secondary{background:var(--cp-surface,#fffdfc);color:var(--cp-text-primary,#292724)}
+.primary,.secondary{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:var(--cp-button-gap);min-height:var(--cp-button-height);max-width:100%;padding:var(--cp-button-padding-y) var(--cp-button-padding-x);border:var(--cp-button-hit-inset) solid transparent;border-radius:var(--cp-button-radius);background-clip:padding-box;font:inherit;font-size:var(--cp-button-font-size);line-height:var(--cp-button-line-height);cursor:pointer;font-weight:var(--cp-font-weight-control)}
+.primary{background-color:var(--cp-button-primary);color:var(--cp-button-primary-text)}
+.primary:hover:not(:disabled){text-decoration:underline;text-underline-offset:3px}
+.secondary{background-color:var(--cp-soft);color:var(--cp-text-primary,#292724)}
+.secondary:hover:not(:disabled){background-color:var(--cp-border)}
 .primary:disabled,.secondary:disabled,.group:disabled{opacity:.55;cursor:default}
 .primary:focus-visible,.secondary:focus-visible,.field input:focus-visible,.check input:focus-visible{outline:2px solid var(--cp-control-focus,#6d6862);outline-offset:3px}
 .actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;min-width:0}

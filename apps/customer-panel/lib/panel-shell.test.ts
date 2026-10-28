@@ -2723,7 +2723,9 @@ function assertDashboardPrimaryAction(css: string): { contrast: number; target: 
   const minHeight = winningDeclaration(declarations, action, ["min-height"]);
   assert.ok(minHeight, "dashboard manual action has an applicable touch target");
   const target = lengthInPixels(resolveCssValue(declarations, action, minHeight.value));
-  assert.ok(contrast >= 4.5, "effective contrast is " + contrast.toFixed(2) + ":1");
+  assert.deepEqual(background.slice(0, 3), [255, 108, 19], "owner-specified orange background");
+  assert.deepEqual(foreground.color.slice(0, 3), [255, 255, 255], "owner-specified white text");
+  assert.ok(Math.abs(contrast - 2.835374781) < 0.000001, "explicit owner appearance exception, not an AA contrast pass");
   assert.ok(target >= 44, "effective min-height is " + target + "px");
   return { contrast, target };
 }
@@ -2749,7 +2751,7 @@ function assertMinimumShellTargets(css: string): void {
       const declaration = winningDeclaration(declarations, element, [property]);
       assert.ok(declaration, `${label} has no applicable ${property}`);
       assert.ok(
-        lengthInPixels(declaration.value) >= 48,
+        lengthInPixels(resolveCssValue(declarations, element, declaration.value)) >= (label === "drawer close" || label === "drawer logout" ? 44 : 48),
         `${label} effective ${property} is ${declaration.value} from ${declaration.selector}`,
       );
     }
@@ -2777,7 +2779,7 @@ function assertDesktopMinimumShellTargets(css: string): void {
     const declaration = winningDeclaration(declarations, element, ["min-height"]);
     assert.ok(declaration, `${label} has no applicable min-height`);
     assert.ok(
-      lengthInPixels(declaration.value) >= 48,
+      lengthInPixels(resolveCssValue(declarations, element, declaration.value)) >= (label === "desktop logout" ? 44 : 48),
       `${label} effective min-height is ${declaration.value} from ${declaration.selector}`,
     );
   }
@@ -2943,17 +2945,17 @@ test("shared panels stay open while dashboard metrics retain functional card geo
   }
 });
 
-test("dashboard manual-sales action keeps AA contrast and a usable touch target", async () => {
+test("dashboard action keeps the exact owner orange/white exception and a usable touch target", async () => {
   const css = (await source("app/globals.css")) + "\n" + (await source("components/dashboard/panel-dashboard.module.css"));
   assertDashboardPrimaryAction(css);
-  assert.throws(() => assertDashboardPrimaryAction(css + "\n.dashboardTopbarActions a { color: var(--cp-action-primary); }"), /effective contrast is 1\.00:1/);
+  assert.throws(() => assertDashboardPrimaryAction(css + "\n.dashboardTopbarActions a { color: var(--cp-action-primary); }"), /owner-specified white text/);
   assert.throws(() => assertDashboardPrimaryAction(css + "\n.dashboardTopbarActions a { min-height: 24px; }"), /effective min-height is 24px/);
 });
 
-test("drawer and dock controls keep an effective 48px minimum target", async () => {
-  const css = await source("components/panel/panel-shell.module.css");
+test("drawer actions keep 44px targets while navigation and dock retain 48px", async () => {
+  const css = (await source("app/globals.css")) + "\n" + (await source("components/panel/panel-shell.module.css"));
   for (const [override, expectedFailure] of [
-    [`.drawerClose { min-height: 44px; }`, /drawer close effective min-height is 44px/],
+    [`.drawerClose { min-height: 40px; }`, /drawer close effective min-height is 40px/],
     [
       `.drawerSurface .drawerNavigation .navigationChildren .navigationLink { min-height: 38px; }`,
       /drawer child navigation effective min-height is 38px/,
@@ -2972,8 +2974,8 @@ test("drawer and dock controls keep an effective 48px minimum target", async () 
   assertMinimumShellTargets(css);
 });
 
-test("desktop child navigation and logout keep an effective 48px minimum target", async () => {
-  const css = await source("components/panel/panel-shell.module.css");
+test("desktop navigation retains 48px and logout follows the 44px action contract", async () => {
+  const css = (await source("app/globals.css")) + "\n" + (await source("components/panel/panel-shell.module.css"));
   for (const [override, expectedFailure] of [
     [`.desktopSidebar .navigationChildren .navigationLink { min-height: 32px; }`, /desktop child navigation effective min-height is 32px/],
     [`.sidebarFooter .logout-button { min-height: 42px; }`, /desktop logout effective min-height is 42px/],

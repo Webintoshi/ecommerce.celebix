@@ -74,11 +74,11 @@ test("read-only archived busy and growth-locked detail keep independent permissi
   });
 });
 
-test("search action uses filled graphite and inverse text with a dark hover", () => {
-  const html = '<div style="--cp-action-primary:rgb(43,43,43);--cp-action-primary-text:rgb(255,253,252);--cp-action-primary-hover:rgb(32,28,25);--cp-soft:rgb(240,237,232);--cp-text-primary:rgb(43,43,43)"><div class="customerSearch"><input><button type="submit">Ara</button></div></div>';
+test("search action uses the owner orange and pure white action tokens", () => {
+  const html = '<div style="--cp-button-primary:rgb(255,108,19);--cp-button-primary-text:rgb(255,255,255);--cp-soft:rgb(240,237,232);--cp-text-primary:rgb(43,43,43)"><div class="customerSearch"><input><button type="submit">Ara</button></div></div>';
   const css = effectiveCss("components/customers/customer-console.module.css", html, "button");
-  assert.equal(css.backgroundColor, "rgb(43, 43, 43)");
-  assert.equal(css.color, "rgb(255, 253, 252)");
+  assert.equal(css.backgroundColor, "rgb(255, 108, 19)");
+  assert.equal(css.color, "rgb(255, 255, 255)");
   assert.equal(css.cursor, "pointer");
-  assert.match(source("components/customers/customer-console.module.css"), /customerSearch button:hover[^}]*var\(--cp-action-primary-hover\)/);
+  assert.match(source("components/customers/customer-console.module.css"), /customerSearch button:hover[^}]*var\(--cp-button-primary\)/);
 });

@@ -53,8 +53,7 @@
 }
 
 .rangeBar button,
-.metricTabs button,
-.error button {
+.metricTabs button {
   min-width: 48px;
   min-height: 34px;
   border: 1px solid transparent;
@@ -155,9 +154,20 @@
 }
 
 .error button {
-  border-color: #DDE3EA;
-  background: #FFFFFF;
+  min-height: var(--cp-button-small-height);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  color: var(--cp-text-primary);
+  font: inherit;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
+  font-weight: var(--cp-font-weight-control);
+  cursor: pointer;
 }
+.error button:hover { background-color: var(--cp-control-hover); }
 
 .metrics {
   display: grid;

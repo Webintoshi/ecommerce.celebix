@@ -9,7 +9,10 @@
 .root button { font:inherit; cursor:pointer; min-height:44px; }
 .root button:disabled { cursor:default; opacity:.5; }
 .root button:focus-visible { outline:2px solid var(--cp-graphite); outline-offset:3px; }
-.refreshButton { display:inline-flex; align-items:center; gap:8px; background:var(--cp-surface); border:1px solid var(--cp-border); border-radius:8px; padding:8px 12px; font-size:13px!important; color:var(--cp-text-primary); }
+.root .refreshButton, .root .purchaseButton { box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center; min-height:var(--cp-button-height); gap:var(--cp-button-gap); border:var(--cp-button-hit-inset) solid transparent; border-radius:var(--cp-button-radius); padding:var(--cp-button-padding-y) var(--cp-button-padding-x); background-clip:padding-box; font-size:var(--cp-button-font-size); line-height:var(--cp-button-line-height); font-weight:var(--cp-font-weight-control); }
+.refreshButton { background-color:var(--cp-soft); color:var(--cp-text-primary); }
+.refreshButton svg, .purchaseButton svg { width:var(--cp-button-icon-size); height:var(--cp-button-icon-size); flex-shrink:0; }
+.refreshButton:hover:not(:disabled) { background-color:var(--cp-border); }
 .sectionHeading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; margin-top:8px; }
 .sectionHeading h2 { margin:0; font-size:16px; font-weight:var(--cp-font-weight-heading); }
 .sectionHeading > span { color:var(--cp-text-secondary); font-size:12px; }
@@ -26,8 +29,8 @@
 .offerPrices .offerTotal { display:block; }
 .offerTotal dt { font-size:12px; }
 .offerTotal dd { margin-top:4px; font-size:24px; line-height:1.3; font-weight:var(--cp-font-weight-value); }
-.purchaseButton { display:flex; align-items:center; justify-content:center; width:100%; background:var(--cp-action-primary); color:var(--cp-action-primary-text); padding:8px 12px; border:1px solid var(--cp-action-primary); border-radius:8px; font-size:13px!important; font-weight:var(--cp-font-weight-control)!important; }
-.purchaseButton:hover:not(:disabled) { background:var(--cp-action-primary-hover); }
+.purchaseButton { width:100%; background-color:var(--cp-button-primary); color:var(--cp-button-primary-text); }
+.purchaseButton:hover:not(:disabled) { text-decoration:underline; text-underline-offset:3px; }
 .offerBody [role='alert'] { margin:8px 0 0; color:var(--cp-danger); font-size:12px; line-height:1.5; }
 .helper { margin:0; color:var(--cp-text-secondary); font-size:12px; line-height:1.6; }
 .liveStatus { margin:0; color:var(--cp-danger); font-size:13px; line-height:1.5; }

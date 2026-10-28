@@ -1637,22 +1637,37 @@ button:disabled.primaryButton,
   .printActions { display: none; }
   .printPage { max-width: none; }
 }
-.primaryAction {
-  align-items: center;
-  background: #FE6100;
-  border-radius: 6px;
-  color: #fff;
-  display: inline-flex;
-  font-size: .78rem;
-  font-weight: var(--cp-font-weight-control);
-  min-height: 38px;
-  padding: 0 .85rem;
-  text-decoration: none;
+.primaryAction, .exportButton, .loadMore, .errorState button,
+.primaryButton, .detailLink, .noteList button, .notificationList button,
+.filterPanel .searchField button, .filterPanel .exportButton,
+.searchField button, .compactForm .primaryButton, .noteForm .primaryButton,
+.noteList .noteMeta button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: var(--cp-button-height); min-width: var(--cp-button-height);
+  border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height); gap: var(--cp-button-gap);
+  font-weight: var(--cp-font-weight-control); text-decoration: none;
 }
-
-.primaryAction:hover {
-  background: #E95800;
+.primaryAction, .primaryButton, .compactForm .primaryButton, .noteForm .primaryButton,
+.searchField button, .filterPanel .searchField button,
+.primaryAction:hover, .primaryButton:hover:not(:disabled), .compactForm .primaryButton:hover:not(:disabled), .noteForm .primaryButton:hover:not(:disabled),
+.searchField button:hover:not(:disabled), .filterPanel .searchField button:hover {
+  border-color: transparent; background-color: var(--cp-button-primary); background-clip: padding-box; color: var(--cp-button-primary-text);
 }
+.exportButton:hover, .filterPanel .exportButton:hover:not(:disabled),
+.noteList .noteMeta button:hover, .notificationList button:hover {
+  border-color: transparent; background-clip: padding-box;
+}
+.primaryAction:hover, .primaryButton:hover:not(:disabled), .searchField button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.primaryAction svg, .primaryButton svg, .exportButton svg, .searchField button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
+.noteList .noteMeta button, .notificationList button, .detailLink {
+  border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap);
+}
+.noteList .noteMeta button { color: var(--cp-danger); }
 
 @media (min-width: 641px) and (max-width: 1024px) {
   .filterPanel .toolbar {
@@ -1684,8 +1699,8 @@ button:disabled.primaryButton,
 /* Browser preview chrome; the physical document keeps its existing print rules. */
 @media screen {
   .printPage { min-width: 0; width: calc(100% - 32px); gap: 24px; margin: 24px auto; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 24px; color: var(--cp-text-primary); }
-  .printActions button { min-height: 44px; border-color: var(--cp-action-primary); background: var(--cp-action-primary); padding: 0 16px; color: var(--cp-action-primary-text); font-weight: var(--cp-font-weight-control); }
-  .printActions button:hover { background: var(--cp-action-primary-hover); }
+  .printActions button { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-button-primary-text); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: var(--cp-font-weight-control); }
+  .printActions button:hover { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
   .printActions button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 3px; }
   .printHeading { gap: 16px; border-bottom: 1px solid var(--cp-border); padding-bottom: 20px; }
   .printHeading p { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); text-transform: none; }

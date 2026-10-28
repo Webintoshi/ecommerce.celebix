@@ -52,21 +52,28 @@
 .tab:hover { color: var(--analytics-ink); }
 .activeTab { background: var(--analytics-surface); color: var(--analytics-ink); box-shadow: 0 1px 3px rgb(43 43 43 / 7%); }
 .quickControls { flex: 0 0 auto; justify-content: flex-end; gap: 8px; }
-.quickControls select, .compareButton, .filterDisclosure > summary, .outlineAction,
-.advancedControls button, .filterGrid button, .errorState button {
+.quickControls select, .filterDisclosure > summary {
   display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
   border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 8px 12px;
   color: var(--analytics-ink); font-size: var(--cp-control-font-size); font-weight: var(--cp-font-weight-control); line-height: 1.5; text-decoration: none; cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease;
 }
+.compareButton, .outlineAction, .advancedControls button, .filterGrid button, .errorState button, .filterClose {
+  display: inline-flex; min-width: 44px; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--analytics-ink); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.compareButton svg, .outlineAction svg, .advancedControls button svg, .filterGrid button svg, .errorState button svg, .filterClose svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .periodControl { position: relative; display: inline-flex; min-width: 184px; max-width: 100%; }
 .periodControl select { width: 100%; min-width: 0; appearance: none; padding-inline: 40px; }
 .periodControl > svg { position: absolute; top: 50%; left: 12px; width: 16px; height: 16px; transform: translateY(-50%); color: var(--analytics-muted); pointer-events: none; }
 .periodControl > svg:last-child { right: 12px; left: auto; }
 .periodControl select:hover { border-color: var(--cp-control-hover); }
-.compareButton[aria-pressed="true"], .filterDisclosure[open] > summary { border-color: var(--analytics-ink); background: var(--analytics-soft); }
-.compareButton:hover, .outlineAction:hover, .filterDisclosure > summary:hover,
-.advancedControls button:hover { border-color: var(--cp-control-hover); background: var(--analytics-soft); }
+.compareButton[aria-pressed="true"] { background-color: var(--cp-control-hover); }
+.filterDisclosure[open] > summary { border-color: var(--analytics-ink); background: var(--analytics-soft); }
+.compareButton:hover, .outlineAction:hover, .advancedControls button:hover { background-color: var(--cp-control-hover); }
+.filterDisclosure > summary:hover { border-color: var(--cp-control-hover); background: var(--analytics-soft); }
 .contextRow { min-height: 24px; align-items: flex-start; gap: 12px; }
 .dataStatus { display: flex; min-width: 0; min-height: 24px; flex: 1 1 0; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--analytics-ink); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .contextMeta { color: var(--analytics-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); overflow-wrap: anywhere; }
@@ -86,16 +93,16 @@
   border: 1px solid var(--analytics-line); border-radius: 12px; background: var(--analytics-surface); padding: 16px;
   box-shadow: 0 8px 32px color-mix(in srgb, var(--analytics-ink) 14%, transparent);
 }
-.filterClose { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: center; margin: 0 0 12px auto; border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font-size: 14px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.filterClose:hover { background: var(--analytics-soft); }
+.filterClose { position: sticky; top: 0; z-index: 1; margin: 0 0 12px auto; }
+.filterClose:hover { background-color: var(--cp-control-hover); }
 .filterGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 12px; }
 .filterGrid label, .advancedControls label { display: grid; min-width: 0; align-content: start; gap: 4px; color: var(--analytics-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .filterGrid :is(input, select), .advancedControls input { display: block; min-width: 0; width: 100%; max-width: 100%; min-height: 44px; border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .filterGrid select {
   font-weight: var(--cp-font-weight-control);
 }
-.filterGrid button { grid-column: 1 / -1; align-self: end; border-color: var(--analytics-action); background: var(--analytics-action); color: var(--analytics-inverse); }
-.filterGrid button:hover { border-color: var(--analytics-action-hover); background: var(--analytics-action-hover); }
+.filterGrid button { grid-column: 1 / -1; align-self: end; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.filterGrid button:hover { background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
 .clearFilters { margin-top: 8px; padding: 8px 4px; color: var(--analytics-ink); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; font-weight: var(--cp-font-weight-control); }
 .advancedControls { display: grid; gap: 12px; margin-top: 16px; border-top: 1px solid var(--analytics-line); padding-top: 16px; }
 .advancedControls form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 12px; }

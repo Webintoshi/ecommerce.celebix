@@ -51,7 +51,8 @@
 .transferCell { white-space: nowrap; }
 .rowActions { min-width: 160px; }
 .rowActions > * { display: flex; width: fit-content; margin-left: auto; }
-.rowActions :global(.button) { font-size: 12px; }
+.rowActions :global(.button) { border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); gap: var(--cp-button-small-gap); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
+.rowActions :global(.button) svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .productLink { min-height: 44px; display: inline-flex; align-items: center; justify-content: start; gap: 4px; font-size: 12px; font-weight: var(--cp-font-weight-control); color: var(--cp-text-secondary); text-decoration: none; }
 .productLink:hover { color: var(--cp-text-primary); text-decoration: underline; text-underline-offset: 4px; }
 .productLink:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
@@ -60,7 +61,7 @@
 .rowError { font-size: 12px; line-height: 1.6; margin-top: 8px; }
 .rowError p { color: var(--cp-warning); margin: 0; }
 .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 16px; font-size: 12px; color: var(--cp-text-secondary); }
-.pagination :global(.button) { min-width: 0; font-size: 13px; }
+.pagination :global(.button) { min-width: 0; border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); gap: var(--cp-button-small-gap); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
 .help { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; font-weight: var(--cp-font-weight-helper); }
 .empty { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: center; gap: 32px; padding: 24px 0; border-bottom: 1px solid var(--cp-border); color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .emptyArtwork { display: block; width: 180px; height: auto; }

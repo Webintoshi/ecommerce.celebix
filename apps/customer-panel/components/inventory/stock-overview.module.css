@@ -8,13 +8,14 @@
 .search { flex: 1 1 240px; }
 .filter { flex: 0 1 160px; }
 .threshold { flex: 0 1 96px; }
-.toolbar button, .rowActions button, .state button, .listContext button { min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; padding: 8px 12px; background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.toolbar button:hover:not(:disabled), .rowActions button:hover:not(:disabled), .state button:hover:not(:disabled), .listContext button:hover:not(:disabled) { background: var(--cp-soft); }
+.toolbar button, .rowActions button, .state button, .listContext button { display: inline-flex; align-items: center; justify-content: center; min-width: var(--cp-button-height); min-height: var(--cp-button-height); gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); background-color: var(--cp-soft); background-clip: padding-box; color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.toolbar button:hover:not(:disabled), .rowActions button:hover:not(:disabled), .state button:hover:not(:disabled), .listContext button:hover:not(:disabled) { background-color: var(--cp-border); }
+.toolbar button svg, .rowActions button svg, .state button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .toolbar button:disabled, .rowActions button:disabled { opacity: .5; cursor: default; }
 .toolbar input:focus-visible, .toolbar select:focus-visible, .overview button:focus-visible, .identity a:focus-visible, .table:focus-visible, .state button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .toolbar input[aria-invalid="true"] { border-color: var(--cp-danger); }
 .listContext { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; color: var(--cp-text-secondary); font-size: 13px; }
-.listContext button { margin-left: auto; background: transparent; border-color: transparent; }
+.listContext button { margin-left: auto; background-color: transparent; }
 .table { max-width: 100%; overflow-x: auto; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }
 .table table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th { padding: 12px 16px; background: var(--cp-soft); color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-control); text-align: left; white-space: nowrap; }

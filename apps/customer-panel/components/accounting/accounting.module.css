@@ -101,9 +101,16 @@
 .toolbar{align-items:end;padding-bottom:8px}
 .filterField input,.filterField select,.search input{background:var(--cp-surface);border-color:var(--cp-border);height:44px}
 .filterField select{max-width:100%}
-.primary,.secondary,.quiet,.iconButton{font-weight:var(--cp-font-weight-control);border-radius:var(--cp-control-radius);min-height:44px}
-.secondary{background:var(--cp-control-background);border-color:transparent}
-.secondary:hover:not(:disabled){background:var(--cp-control-hover)}
+.primary,.secondary,.quiet,.iconButton{font-weight:var(--cp-font-weight-control);border-radius:var(--cp-button-radius);min-height:var(--cp-button-height);border:var(--cp-button-hit-inset) solid transparent;background-clip:padding-box;padding:var(--cp-button-padding-y) var(--cp-button-padding-x);gap:var(--cp-button-gap);font-size:var(--cp-button-font-size);line-height:var(--cp-button-line-height)}
+.primary{background-color:var(--cp-button-primary);color:var(--cp-button-primary-text)}
+.primary:hover:not(:disabled){background-color:var(--cp-button-primary);background-clip:padding-box;text-decoration:underline;text-underline-offset:4px}
+.primary svg,.secondary svg,.quiet svg,.iconButton svg{width:var(--cp-button-icon-size);height:var(--cp-button-icon-size);flex-shrink:0}
+.iconButton{width:var(--cp-button-height);padding:0}
+.dialogActions .primary{min-height:var(--cp-button-large-height);border-width:var(--cp-button-large-hit-inset);padding:var(--cp-button-large-padding-y) var(--cp-button-large-padding-x);gap:var(--cp-button-large-gap);font-size:var(--cp-button-large-font-size);line-height:var(--cp-button-large-line-height)}
+.dialogActions .primary svg{width:var(--cp-button-large-icon-size);height:var(--cp-button-large-icon-size)}
+.secondary{background-color:var(--cp-control-background);border-color:transparent}
+.secondary:hover:not(:disabled){background-color:var(--cp-control-hover);background-clip:padding-box}
+.quiet:hover:not(:disabled),.iconButton:hover:not(:disabled){background-color:var(--cp-control-hover);background-clip:padding-box}
 .quiet{color:var(--cp-text-primary)}
 .console :is(button,input,select,a,summary):focus-visible,.dialog :is(button,input,select,a,summary):focus-visible{outline:2px solid var(--cp-control-focus);outline-offset:4px}
 .section{gap:12px}
@@ -128,7 +135,7 @@
 .tableScroll tr:hover td{background:color-mix(in srgb,var(--cp-soft) 40%,transparent)}
 .rowActions{gap:4px 8px}
 .rowActions .secondary{white-space:normal;text-align:left;justify-content:flex-start}
-.rowActions .quiet{font-size:12px;white-space:normal;text-align:left;justify-content:flex-start}
+.rowActions .quiet{white-space:normal;text-align:left;justify-content:flex-start}
 .accountCards{grid-template-columns:repeat(3,minmax(0,1fr));gap:0 24px;border-top:1px solid var(--cp-border)}
 .accountCard{border:0;border-radius:0;background:transparent;padding:24px 0;border-bottom:1px solid var(--cp-border);align-content:start}
 .accountCard>b{font-size:28px;line-height:1.25;overflow-wrap:anywhere}
@@ -155,7 +162,7 @@
 .dialog{background:var(--cp-canvas);border-color:var(--cp-border)}
 .dialogHeader{background:var(--cp-canvas);position:sticky;top:0;z-index:2;padding:20px 24px}
 .dialogHeader h2{font-size:18px;line-height:1.4;overflow-wrap:anywhere}
-.dialogHeader .iconButton{background:var(--cp-soft);flex-shrink:0}
+.dialogHeader .iconButton{background-color:var(--cp-soft);flex-shrink:0}
 .dialogBody{gap:20px;padding:24px}
 .field>span{font-weight:var(--cp-font-weight-control);line-height:1.5}
 .field input,.field select{background:var(--cp-surface);font-variant-numeric:tabular-nums}
@@ -219,7 +226,7 @@
  .cashIntro{grid-template-columns:minmax(0,1fr);gap:16px}.cashIntroArtwork{width:124px;justify-self:center}.cashCurrent{padding:20px 0;min-height:0}.cashMetrics{grid-template-columns:repeat(2,minmax(0,1fr))}.cashMetrics dd{font-size:22px}
  .cashDifferences>div{display:flex;align-items:start;justify-content:space-between;gap:16px}.cashDifferences dt{max-width:60%}.cashDifferences dd{text-align:right;font-size:13px}
  .desktopRecords{display:none}.mobileRecords{display:grid;min-width:0}.mobileRecords .cashDetails{max-width:none;min-width:0;width:100%}.mobileRecordActions .secondary{flex:1}
- .supplierPayments li{gap:12px}.supplierPayments .quiet{padding-left:0}
+ .supplierPayments li{gap:12px}
 }
 .mobileRecord>p{margin:0;font-size:13px;line-height:1.6;color:var(--cp-text-secondary);overflow-wrap:anywhere}
 .mobileRecord>small,.mobileRecordMetrics dd>small{display:block;margin-top:4px;font-size:12px;line-height:1.5;font-weight:var(--cp-font-weight-helper);color:var(--cp-text-secondary)}

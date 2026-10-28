@@ -21,8 +21,9 @@
 .dialog :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none; }
 .header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--order-border); padding: 16px 24px; background: var(--order-surface); }
 .header h2 { margin: 0; font-size: 18px; font-weight: var(--cp-font-weight-heading); letter-spacing: -.02em; }
-.header button { width: 44px; min-width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--order-border); border-radius: 8px; background: var(--cp-control-background); color: var(--order-muted); cursor: pointer; }
-.header button:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-canvas); color: var(--order-text); }
+.header button { width: var(--cp-button-small-height); min-width: var(--cp-button-small-height); height: var(--cp-button-small-height); display: grid; place-items: center; padding: 0; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; color: var(--order-muted); cursor: pointer; }
+.header button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.header button:hover:not(:disabled) { background-color: var(--cp-canvas); color: var(--order-text); }
 .header button:disabled { opacity: .5; cursor: wait; }
 .body { padding: 20px 24px 24px; min-width: 0; }
 .footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--order-border); padding: 16px 24px; background: var(--order-surface); position: sticky; bottom: 0; }

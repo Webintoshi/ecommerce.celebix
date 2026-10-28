@@ -27,10 +27,11 @@
 .switchRow input:disabled { opacity: .6; }
 .savebar { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 20px 0; }
 .savebar p { margin: 0; color: var(--settings-muted, var(--muted)); font-size: 13px; line-height: 1.6; }
-.primary, .secondary { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-height: 44px; padding: 8px 16px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.primary { border-color: var(--settings-action, var(--text)); background: var(--settings-action, var(--text)); color: var(--settings-inverse, var(--surface)); }
-.primary:hover { background: var(--settings-action-hover, var(--text)); }
-.secondary:hover { background: var(--settings-canvas, var(--canvas)); }
+.primary, .secondary { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-height: var(--cp-button-height); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; color: inherit; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.primary:hover { background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
+.primary svg, .secondary svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.secondary:hover { background-color: var(--cp-control-hover); }
 .root button:disabled { cursor: not-allowed; opacity: .5; }
 .settingsGrid:disabled :is(input:not([type="checkbox"]), select) { cursor: not-allowed; opacity: .65; }
 .root :is(button, input, select):focus-visible { outline: 2px solid var(--settings-action, var(--text)); outline-offset: 3px; }

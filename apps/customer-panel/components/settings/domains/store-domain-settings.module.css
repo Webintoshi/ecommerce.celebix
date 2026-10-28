@@ -14,10 +14,10 @@
 .addControls { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
 .addControls input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; padding: 8px 12px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-body); }
 .page :is(input, button, summary, a):focus-visible { outline: 2px solid var(--settings-action, var(--text)); outline-offset: 3px; }
-.add button, .actions button, .replacement button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; padding: 8px 16px; background: var(--settings-surface, var(--surface)); color: inherit; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.add button { border-color: var(--settings-action, var(--text)); background: var(--settings-action, var(--text)); color: var(--settings-inverse, var(--surface)); }
-.add button:hover { background: var(--settings-action-hover, var(--text)); }
-.actions button:hover, .replacement button:hover { background: var(--settings-canvas, var(--canvas)); }
+.add button, .actions button, .replacement button, .error button { box-sizing: border-box; display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); background-color: var(--cp-soft); background-clip: padding-box; color: inherit; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.add button { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.add button:hover:not(:disabled), .actions button:hover:not(:disabled), .replacement button:hover:not(:disabled), .error button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.add button svg, .actions button svg, .replacement button svg, .error button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .page button:disabled { cursor: not-allowed; opacity: .5; }
 .preview { grid-column: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
 .preview span { display: grid; min-width: 0; gap: 4px; font-size: 13px; overflow-wrap: anywhere; }
@@ -31,7 +31,7 @@
 .add .aliasNote { grid-column: 2; margin: 0; font-weight: var(--cp-font-weight-helper); }
 
 .error { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 16px 0; color: var(--settings-danger, var(--danger)); font-size: 13px; line-height: 1.6; }
-.error button { flex: 0 0 auto; min-height: 44px; border: 0; background: transparent; color: inherit; font: inherit; font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.error button { flex: 0 0 auto; }
 .list { display: grid; min-width: 0; }
 .replacement { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--settings-border, var(--border)); }
 .replacement > div { display: flex; min-width: 0; align-items: center; gap: 12px; }
@@ -79,7 +79,9 @@
 .dnsRow span { display: grid; min-width: 0; gap: 4px; }
 .dnsRow small { color: var(--settings-muted, var(--muted)); font-size: 11px; }
 .dnsRow code { color: inherit; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; overflow-wrap: anywhere; }
-.dnsRow button { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid var(--settings-border, var(--border)); border-radius: 8px; background: var(--settings-surface, var(--surface)); color: inherit; cursor: pointer; }
+.dnsRow button { box-sizing: border-box; display: grid; width: var(--cp-button-small-height); height: var(--cp-button-small-height); place-items: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: 0; background-color: var(--cp-soft); background-clip: padding-box; color: inherit; cursor: pointer; }
+.dnsRow button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.dnsRow button:hover:not(:disabled) { background-color: var(--cp-border); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 24px 0 0 56px; }
 .actions .remove { color: var(--settings-danger, var(--danger)); }
 .fallbacks { padding: 16px 0; border-bottom: 1px solid var(--settings-border, var(--border)); }

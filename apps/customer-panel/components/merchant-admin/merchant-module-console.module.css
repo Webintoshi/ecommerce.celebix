@@ -45,19 +45,21 @@
 .iconButton,
 .iconDanger {
   display: inline-flex;
-  min-width: 48px;
-  min-height: 48px;
+  min-width: 44px;
+  min-height: var(--cp-button-height);
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  border: 1px solid #E7E2DD;
-  border-radius: 8px;
-  background: #FFFDFC;
-  padding: 0 1rem;
+  gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
   color: #2B2B2B;
   cursor: pointer;
   font: inherit;
-  font-size: 0.82rem;
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
   font-weight: var(--cp-font-weight-control);
 }
 
@@ -66,25 +68,26 @@
 .danger svg,
 .iconButton svg,
 .iconDanger svg {
-  width: 18px;
-  height: 18px;
+  width: var(--cp-button-icon-size);
+  height: var(--cp-button-icon-size);
 }
 
 .primary {
-  border-color: #2B2B2B;
-  background: #2B2B2B;
-  color: #FFFDFC;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
 }
+.primary:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.button:hover:not(:disabled), .iconButton:hover:not(:disabled) { background-color: var(--cp-control-hover); }
 
 .danger,
 .iconDanger {
-  border-color: #fecaca;
+  background-color: #fff1f0;
   color: #9f282d;
 }
 
 .iconButton,
 .iconDanger {
-  width: 48px;
+  width: var(--cp-button-height);
   padding: 0;
 }
 
@@ -419,31 +422,33 @@
 .workflowAction,
 .workflowCancel {
   display: inline-flex;
-  min-width: 48px;
-  min-height: 48px;
+  min-width: 44px;
+  min-height: var(--cp-button-height);
   align-self: flex-start;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  border: 1px solid #fdba74;
-  border-radius: 8px;
-  background: #fff7ed;
-  padding: 0 0.8rem;
-  color: #9a3412;
+  gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--cp-button-primary-text);
   cursor: pointer;
   font: inherit;
-  font-size: 0.75rem;
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
   font-weight: var(--cp-font-weight-control);
 }
 
 .workflowCancel {
-  border-color: #fecaca;
-  background: #FFFDFC;
+  background-color: #fff1f0;
   color: #9f282d;
 }
 
 .workflowAction svg,
-.workflowCancel svg { width: 17px; height: 17px; }
+.workflowCancel svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.workflowAction:hover:not(:disabled), .workflowCancel:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
 .workflowAction:disabled,
 .workflowCancel:disabled { cursor: not-allowed; opacity: 0.52; }
 .workflowAction:focus-visible,

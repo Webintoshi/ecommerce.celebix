@@ -10,3 +10,18 @@
 .stableListRegion { min-width: 0; min-height: 340px; }
 @media (max-width: 700px) { .stableListRegion { min-height: 480px; } }
 .preview{font-weight:400}
+.toolbar button, .primary, .fields button, .formColumn > button, .notice button, .empty button, .picker > button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: var(--cp-button-height); gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control);
+}
+.rowActions button {
+  display: inline-flex; align-items: center; justify-content: center; min-height: var(--cp-button-small-height); gap: var(--cp-button-small-gap);
+  border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-primary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height);
+}
+.toolbar button:hover, .rowActions button:hover, .fields button:hover, .notice button:hover, .empty button:hover, .picker > button:hover { background-color: var(--cp-control-hover); background-clip: padding-box; }
+.primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.primary:hover:not(:disabled), .toolbar .primary:hover:not(:disabled), .fields .primary:hover:not(:disabled) { background-color: var(--cp-button-primary); background-clip: padding-box; text-decoration: underline; text-underline-offset: 4px; }
+.toolbar button svg, .primary svg, .fields button svg, .formColumn > button svg, .notice button svg, .empty button svg, .picker > button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.rowActions button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }

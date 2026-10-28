@@ -44,9 +44,7 @@
 }
 
 .period,
-.periodActive,
-.exports button,
-.retry {
+.periodActive {
   min-height: 36px;
   border: 1px solid transparent;
   border-radius: .35rem;
@@ -74,15 +72,32 @@
 
 .exports button,
 .retry {
-  border-color: #DDE3EA;
-  background: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cp-button-small-height);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  gap: var(--cp-button-small-gap);
+  color: var(--cp-text-primary);
+  font: inherit;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
+  font-weight: var(--cp-font-weight-control);
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 .exports button:hover:not(:disabled),
 .retry:hover {
-  border-color: #C8D0DA;
-  background: #F8FAFC;
+  background-color: var(--cp-control-hover);
 }
+
+.exports button svg,
+.retry svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 
 .period:disabled,
 .periodActive:disabled,

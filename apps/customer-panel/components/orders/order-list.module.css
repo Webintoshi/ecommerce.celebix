@@ -31,22 +31,23 @@
 .searchField input::-webkit-search-cancel-button { -webkit-appearance: none; }
 .toolbarActions { display: flex; flex: none; min-width: 0; align-items: center; gap: 8px; margin-left: auto; }
 .button, .exportButton, .loadMore, .primaryAction, .quietButton, .iconButton {
-  display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid var(--cp-control-border); border-radius: 8px; background: var(--cp-control-background);
-  padding: 8px 16px; color: var(--cp-text-primary); font-family: inherit; font-size: 14px;
-  font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; white-space: nowrap;
+  display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font-family: inherit; font-size: var(--cp-button-font-size);
+  font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); text-decoration: none; white-space: nowrap;
   cursor: pointer; transition: background-color 140ms ease, border-color 140ms ease;
 }
-.button:hover:not(:disabled), .exportButton:hover:not(:disabled), .loadMore:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
-.primaryAction { border-color: var(--cp-action-primary); background: var(--cp-action-primary); color: var(--cp-action-primary-text); }
-.primaryAction:hover { border-color: var(--cp-action-primary-hover); background: var(--cp-action-primary-hover); }
-.button svg, .exportButton svg, .loadMore svg, .primaryAction svg, .quietButton svg { width: 16px; height: 16px; flex: none; }
-.iconButton { width: 44px; min-width: 44px; padding: 0; color: var(--cp-text-secondary); background: transparent; }
-.iconButton:hover:not(:disabled) { color: var(--cp-text-primary); background: var(--cp-soft); }
-.quietButton { background: transparent; padding-inline: 12px; color: var(--cp-text-secondary); font-size: 13px; }
-.quietButton:hover:not(:disabled) { color: var(--cp-text-primary); background: var(--cp-soft); }
-.toolbarActions > .iconButton { border-color: var(--cp-border); background: var(--cp-surface); }
-.toolbarActions > .iconButton:hover:not(:disabled) { background: var(--cp-canvas); }
+.button:hover:not(:disabled), .exportButton:hover:not(:disabled), .loadMore:hover:not(:disabled) { background-color: var(--cp-soft); }
+.primaryAction { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.primaryAction:hover { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.button svg, .exportButton svg, .loadMore svg, .primaryAction svg, .quietButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
+.iconButton { width: 44px; min-width: 44px; border-width: var(--cp-button-small-hit-inset); padding: 0; color: var(--cp-text-secondary); background-color: transparent; }
+.iconButton:hover:not(:disabled) { color: var(--cp-text-primary); background-color: var(--cp-soft); }
+.quietButton { background-color: transparent; border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-secondary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); }
+.quietButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.quietButton:hover:not(:disabled) { color: var(--cp-text-primary); background-color: var(--cp-soft); }
+.toolbarActions > .iconButton { background-color: var(--cp-control-background); }
+.toolbarActions > .iconButton:hover:not(:disabled) { background-color: var(--cp-canvas); }
 .viewbar { display: flex; min-width: 0; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--cp-border); padding: 0 20px 16px; }
 .statusShortcuts { display: flex; min-width: 0; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: thin; border-radius: 8px; }
 .shortcut, .activeShortcut { display: inline-flex; flex: none; min-height: 44px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 8px; background: transparent; padding: 8px 12px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); line-height: 1.4; white-space: nowrap; }
@@ -54,13 +55,13 @@
 .activeShortcut { background: var(--cp-soft); color: var(--cp-text-primary); }
 .shortcut:focus-visible, .activeShortcut:focus-visible { outline-offset: -2px; }
 .viewTools { display: flex; flex: none; align-items: center; gap: 8px; }
-.viewTools > .quietButton { border-color: var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); }
+.viewTools > .quietButton { background-color: var(--cp-control-background); color: var(--cp-text-primary); }
 .filterCount { display: grid; place-items: center; min-width: 20px; height: 20px; border-radius: 4px; background: var(--cp-soft); color: var(--cp-text-primary); font-size: 12px; font-weight: var(--cp-font-weight-value); }
 .sortControl { display: flex; align-items: center; gap: 8px; color: var(--cp-text-secondary); }
 .sortControl svg { width: 16px; height: 16px; }
 .sortControl select { max-width: 176px; min-width: 0; min-height: 44px; border: 1px solid var(--cp-control-border); border-radius: 8px; background: var(--cp-control-background); padding: 8px 12px; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .appliedFilters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; border-bottom: 1px solid var(--cp-border); padding: 8px 20px; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
-.appliedFilters .quietButton { margin-left: auto; padding-inline: 8px; font-size: 12px; }
+.appliedFilters .quietButton { margin-left: auto; }
 .dataSurface { min-width: 0; }
 .desktopTable { width: 100%; min-width: 0; max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
 .desktopTable table { width: 100%; min-width: 960px; border-collapse: collapse; font-size: 13px; }
@@ -81,8 +82,8 @@
 .desktopTable .totalCell { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .totalCell strong { font-size: 14px; font-weight: var(--cp-font-weight-value); }
 .actionCell { width: 56px; }
-.rowDetailLink { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-secondary); text-decoration: none; }
-.rowDetailLink:hover { color: var(--cp-text-primary); background: var(--cp-soft); }
+.rowDetailLink { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background: var(--cp-surface); background-clip: padding-box; color: var(--cp-text-secondary); text-decoration: none; }
+.rowDetailLink:hover { color: var(--cp-text-primary); background-color: var(--cp-soft); }
 .statusBadge { display: inline-flex; }
 .statusBadge > span { display: inline-flex; min-height: 28px; align-items: center; gap: 6px; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: var(--cp-font-weight-body); white-space: nowrap; }
 .statusBadge svg { width: 12px; height: 12px; }
@@ -145,8 +146,8 @@
   .cardMeta { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
   .cardMeta > span { display: inline-flex; align-items: center; gap: 6px; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); line-height: 1.5; }
   .cardMeta svg { width: 14px; height: 14px; }
-  .detailLink { display: inline-flex; flex: none; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border-radius: 8px; background: var(--cp-soft); padding: 8px 12px; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-control); text-decoration: none; }
-  .detailLink:hover { background: var(--cp-border); }
+  .detailLink { display: inline-flex; flex: none; min-width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); align-items: center; justify-content: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-soft); background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-primary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; }
+  .detailLink:hover { background-color: var(--cp-border); }
   .loading::before { display: none; }
 }
 @media (min-width: 1025px) { .mobileCards { display: none; } }
@@ -161,7 +162,7 @@
   .toolbarActions > .iconButton:first-child { margin-right: auto; }
   .exportButton { width: 44px; min-width: 44px; padding: 0; }
   .exportButton span { display: none; }
-  .primaryAction { padding-inline: 12px; font-size: 13px; }
+  .primaryAction { padding-inline: var(--cp-button-padding-x); }
   .viewbar { gap: 12px; padding: 0 16px 16px; }
   .statusShortcuts { width: 100%; }
   .viewTools { width: 100%; justify-content: space-between; margin: 0; }

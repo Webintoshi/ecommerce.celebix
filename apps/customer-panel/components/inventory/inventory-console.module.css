@@ -559,14 +559,17 @@
 }
 
 .pageAction a {
-  border-color: var(--inventory-text);
-  background: var(--inventory-text);
-  color: var(--inventory-surface);
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
 }
 
 .pageAction a:hover {
-  border-color: var(--inventory-sidebar);
-  background: var(--inventory-sidebar);
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 @media (max-width: 1024px) {
@@ -683,6 +686,52 @@
 .locationCard :is(code, p) { grid-column: 1; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
 .locationActions { grid-column: 2; grid-row: 1 / span 4; align-self: center; }
 .locationActions button { color: var(--cp-text-primary); font-size: 13px; }
+.actions button, .error button, .desktopFormTable button, .mobileFormCards button,
+.receiptForm button, .secondaryAction, .listToolbar button,
+.locationCreate button, .locationActions button, .locationRenameActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cp-button-height);
+  min-height: var(--cp-button-height);
+  gap: var(--cp-button-gap);
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-soft);
+  background-clip: padding-box;
+  color: var(--cp-text-primary);
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
+}
+:is(.actions, .error, .desktopFormTable, .mobileFormCards, .receiptForm, .listToolbar,
+.locationCreate, .locationActions, .locationRenameActions) button:hover:not(:disabled),
+.secondaryAction:hover:not(:disabled) {
+  border-color: transparent;
+  background-color: var(--cp-border);
+  background-clip: padding-box;
+}
+.actions .primary, .receiptForm .primary, .locationRenameActions button[type="submit"] {
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  color: var(--cp-button-primary-text);
+  border-color: transparent;
+}
+.actions .primary:hover:not(:disabled), .receiptForm .primary:hover:not(:disabled),
+.locationRenameActions button[type="submit"]:hover:not(:disabled) {
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  color: var(--cp-button-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+:is(.actions, .receiptForm, .locationRenameActions) .primary:active {
+  text-decoration-thickness: 2px;
+}
+:is(.actions, .error, .desktopFormTable, .mobileFormCards, .receiptForm, .listToolbar,
+.locationCreate, .locationActions, .locationRenameActions) button svg,
+.secondaryAction svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .locationRenameDialog { padding: 24px; }
 .locationRenameDialog h3 { color: var(--cp-text-primary); font-size: 18px; font-weight: var(--cp-font-weight-heading); }
 .locationRenameDialog > p { margin-top: 8px; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.5; }

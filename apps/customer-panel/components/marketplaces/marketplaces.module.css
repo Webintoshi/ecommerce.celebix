@@ -16,8 +16,7 @@
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; }
 .sectionHeading { width: 100%; }
 .sectionHeading h2 { flex: 1; margin: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
-.workspace .sectionHeading > :is(a, button) { min-height: var(--cp-control-height); border-radius: var(--cp-control-radius); font-size: var(--cp-control-font-size); font-weight: var(--cp-font-weight-control); }
-.workspace .sectionHeading > button { min-width: var(--cp-control-height); background: var(--cp-control-background); }
+.workspace .sectionHeading > :is(a, button) { min-height: var(--cp-button-height); border-radius: var(--cp-button-radius); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); }
 .sectionHeading p { margin: 4px 0 0; color: var(--cp-text-secondary); font-size: 12px; }
 .workspace :is([data-merchant-toolbar], [data-merchant-workspace]) { min-width: 0; }
 .workspace [data-merchant-toolbar] { padding-top: 0; }

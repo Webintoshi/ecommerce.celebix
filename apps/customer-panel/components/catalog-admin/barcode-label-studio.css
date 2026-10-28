@@ -56,21 +56,28 @@
 .barcode-studio .barcode-steps button svg { width: 14px; height: 14px; }
 
 /* Shared controls override the legacy global button decoration only here. */
-.barcode-studio :is(.button, .barcode-history-button, .barcode-preset-row > button, .barcode-selection-status > button, .barcode-missing-action > button, .barcode-actionbar > div > button, .barcode-fix-action, .preview-placeholder button, .blocking-errors button, .barcode-pagination button, .quantity-modes button, .hidden-selection button, .barcode-size-options button) {
+.barcode-studio :is(.quantity-modes button, .barcode-size-options button) {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-width: 44px; min-height: 44px; border: 1px solid var(--barcode-border);
   border-radius: 8px; padding: 8px 12px; background: var(--barcode-surface);
   color: var(--barcode-text); box-shadow: none; font-size: 12px;
   font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; transform: none;
 }
-.barcode-studio :is(.button, .barcode-history-button, .barcode-preset-row > button, .barcode-selection-status > button, .barcode-missing-action > button, .barcode-actionbar > div > button, .barcode-fix-action, .preview-placeholder button, .blocking-errors button, .barcode-pagination button, .quantity-modes button, .hidden-selection button, .barcode-size-options button):hover:not(:disabled) { border-color: var(--barcode-text); background: var(--barcode-canvas); box-shadow: none; transform: none; }
-.barcode-studio .button.button-primary { border-color: var(--barcode-text); background: var(--barcode-text); color: var(--barcode-surface); }
-.barcode-studio .button.button-primary:hover:not(:disabled) { border-color: var(--barcode-sidebar); background: var(--barcode-sidebar); color: var(--barcode-surface); }
-.barcode-studio :is(.button-quiet, .button.quiet, .clear-selection) { border-color: transparent; background: transparent; color: var(--barcode-muted); box-shadow: none; }
-.barcode-studio :is(.button-quiet, .button.quiet, .clear-selection):hover:not(:disabled) { border-color: transparent; background: var(--barcode-selected); color: var(--barcode-text); }
+.barcode-studio :is(.button, .barcode-history-button, .barcode-preset-row > button, .barcode-selection-status > button, .barcode-missing-action > button, .barcode-actionbar > div > button, .barcode-fix-action, .preview-placeholder button, .blocking-errors button, .barcode-pagination button, .hidden-selection button) {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap);
+  min-width: var(--cp-button-height); min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); background-color: var(--cp-control-background); background-clip: padding-box;
+  color: var(--barcode-text); box-shadow: none; font-size: var(--cp-button-font-size);
+  font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); text-decoration: none; transform: none;
+}
+.barcode-studio :is(.button, .barcode-history-button, .barcode-preset-row > button, .barcode-selection-status > button, .barcode-missing-action > button, .barcode-actionbar > div > button, .barcode-fix-action, .preview-placeholder button, .blocking-errors button, .barcode-pagination button, .quantity-modes button, .hidden-selection button, .barcode-size-options button):hover:not(:disabled) { background-color: var(--barcode-canvas); box-shadow: none; transform: none; }
+.barcode-studio .button.button-primary { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.barcode-studio .button.button-primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.barcode-studio :is(.button-quiet, .button.quiet, .clear-selection) { border-color: transparent; background-color: transparent; color: var(--barcode-muted); box-shadow: none; }
+.barcode-studio :is(.button-quiet, .button.quiet, .clear-selection):hover:not(:disabled) { border-color: transparent; background-color: var(--barcode-selected); color: var(--barcode-text); }
 .barcode-studio .button-danger,
 .barcode-studio .button-quiet-danger { color: var(--danger, #b72d31); border-color: var(--barcode-border); background: var(--barcode-surface); }
-.barcode-studio .button svg { width: 16px; height: 16px; flex: none; }
+.barcode-studio .button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .barcode-studio :is(.barcode-toolbar input, .barcode-toolbar select, .editor-card input:not([type="checkbox"]), .editor-card select, .quantity-modes input, .barcode-pagination select, .barcode-actionbar select, .barcode-history-dialog input:not([type="checkbox"]), .barcode-history-dialog select, .output-panel input:not([type="checkbox"]), .output-panel select) {
   width: 100%; min-width: 0; max-width: 100%; min-height: 44px;
   border: 1px solid var(--barcode-border); border-radius: 8px;
@@ -128,8 +135,8 @@
 .barcode-studio .missing-badge { display: inline-flex; align-items: center; gap: 4px; padding: 0; background: transparent; color: var(--barcode-muted); font-size: 12px; font-weight: var(--cp-font-weight-body); }
 .barcode-studio .invalid-barcode-badge { display: block; margin-top: 4px; color: var(--danger, #b72d31); font-size: 11px; font-weight: var(--cp-font-weight-helper); overflow-wrap: anywhere; }
 .barcode-studio .quantity-input { width: 72px; min-height: 44px; border: 1px solid var(--barcode-border); border-radius: 8px; padding: 8px; background: var(--barcode-surface); color: var(--barcode-text); font-size: 13px; font-variant-numeric: tabular-nums; }
-.barcode-studio .icon-action { display: inline-grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--barcode-muted); }
-.barcode-studio .icon-action:hover:not(:disabled) { background: var(--barcode-selected); color: var(--barcode-text); }
+.barcode-studio .icon-action { display: inline-grid; width: var(--cp-button-small-height); height: var(--cp-button-small-height); place-items: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; padding: 0; color: var(--barcode-muted); }
+.barcode-studio .icon-action:hover:not(:disabled) { background-color: var(--barcode-selected); color: var(--barcode-text); }
 .barcode-studio :is(.barcode-skeleton, .barcode-empty) { display: grid; justify-items: center; align-content: center; gap: 12px; min-height: 280px; padding: 40px 16px; color: var(--barcode-muted); text-align: center; }
 .barcode-studio .barcode-empty h2 { color: var(--barcode-text); }
 .barcode-studio .barcode-empty p { max-width: 400px; overflow-wrap: anywhere; }
@@ -164,8 +171,8 @@
 .barcode-studio .field-row > div { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; min-width: 0; }
 .barcode-studio .field-row > div > input[type="number"] { width: 64px; }
 .barcode-studio .field-row select { width: 88px; }
-.barcode-studio .field-row button { display: inline-grid; width: 44px; height: 44px; flex: none; place-items: center; border: 0; border-radius: 8px; padding: 0; background: transparent; color: var(--barcode-muted); }
-.barcode-studio .field-row button:hover:not(:disabled) { color: var(--barcode-text); background: var(--barcode-selected); }
+.barcode-studio .field-row button { display: inline-grid; width: var(--cp-button-small-height); height: var(--cp-button-small-height); flex: none; place-items: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: 0; background-color: transparent; background-clip: padding-box; color: var(--barcode-muted); }
+.barcode-studio .field-row button:hover:not(:disabled) { color: var(--barcode-text); background-color: var(--barcode-selected); }
 .barcode-studio .field-row button svg { width: 16px; height: 16px; }
 .barcode-studio .field-row .auto-shrink { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
 .barcode-studio .field-row:has(.barcode-field-settings[open]) { grid-template-columns: minmax(0, 1fr); }
@@ -259,7 +266,8 @@
 .barcode-studio .barcode-actionbar > div:first-child > span { color: var(--barcode-muted); font-size: 12px; }
 .barcode-studio .barcode-actionbar strong { font-size: 13px; font-weight: var(--cp-font-weight-value); }
 .barcode-studio .barcode-actionbar small { font-size: 12px; font-weight: var(--cp-font-weight-helper); }
-.barcode-studio .barcode-actionbar .button-primary { min-width: 160px; }
+.barcode-studio .barcode-actionbar .button-primary { min-width: 160px; min-height: var(--cp-button-large-height); border-width: 0; padding: var(--cp-button-large-padding-y) var(--cp-button-large-padding-x); font-size: var(--cp-button-large-font-size); line-height: var(--cp-button-large-line-height); gap: var(--cp-button-large-gap); }
+.barcode-studio .barcode-actionbar .button-primary svg { width: var(--cp-button-large-icon-size); height: var(--cp-button-large-icon-size); }
 
 /* Native history modal, scoped through its owning studio. */
 .barcode-studio .barcode-history-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 0; overflow: auto; border: 1px solid var(--barcode-border); border-radius: 12px; background: var(--barcode-surface); color: var(--barcode-text); box-shadow: 0 16px 40px rgb(32 28 25 / 16%); }
@@ -360,7 +368,6 @@
   .barcode-studio .barcode-actionbar strong { font-size: 12px; }
   .barcode-studio .barcode-actionbar small { max-width: 140px; font-size: 11px; font-weight: var(--cp-font-weight-helper); }
   .barcode-studio .barcode-actionbar > div:last-child { flex-wrap: nowrap; }
-  .barcode-studio .barcode-actionbar :is(.button, button) { padding-inline: 8px; font-size: 12px; }
   .barcode-studio .barcode-actionbar .button-primary { min-width: 0; }
   .barcode-studio .barcode-history-dialog > header,
   .barcode-studio .barcode-history-dialog > footer { padding: 16px; }

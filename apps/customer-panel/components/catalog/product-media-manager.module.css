@@ -136,13 +136,15 @@ section.root:global(.product-detail-section) {
   width: 44px;
   height: 44px;
   place-items: center;
-  border: 1px solid var(--catalog-border, #e7e2dd);
-  border-radius: 7px;
-  background: var(--catalog-surface, #fffdfc);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--catalog-surface, #fffdfc);
+  background-clip: padding-box;
+  padding: 0;
   color: var(--catalog-text, #2b2b2b);
 }
 .orderControls button:hover:not(:disabled), .cardActions button:hover:not(:disabled) {
-  background: var(--catalog-canvas, #f8f7f5);
+  background-color: var(--catalog-canvas, #f8f7f5);
 }
 .orderControls svg, .cardActions svg { width: 16px; height: 16px; stroke-width: 1.8; }
 .cardHeading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 4px; padding-top: 4px; }
@@ -263,22 +265,24 @@ section.root:global(.product-detail-section) {
   min-height: 44px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--catalog-border, #e7e2dd);
-  border-radius: 8px;
-  background: var(--catalog-surface, #fffdfc);
-  padding: 0 12px;
+  gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
   color: var(--catalog-text, #2b2b2b);
-  font-size: 12px;
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
   font-weight: var(--cp-font-weight-control);
   white-space: nowrap;
 }
-.quietButton:hover:not(:disabled) { background: var(--catalog-canvas, #f8f7f5); }
-.darkButton { border-color: var(--catalog-text, #2b2b2b); background: var(--catalog-text, #2b2b2b); color: var(--catalog-surface, #fffdfc); }
-.darkButton:hover:not(:disabled) { background: var(--cp-action-primary-hover, #201c19); }
-.dangerButton { border-color: var(--danger, #b72d31); background: var(--danger, #b72d31); color: white; }
+.quietButton:hover:not(:disabled) { background-color: var(--catalog-canvas, #f8f7f5); }
+.darkButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.darkButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.dangerButton { background-color: var(--cp-danger); color: white; }
 .dangerButton:hover:not(:disabled) { filter: brightness(.92); }
-.quietButton svg, .dangerButton svg { width: 16px; height: 16px; stroke-width: 1.8; }
+.quietButton svg, .dangerButton svg, .darkButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); stroke-width: 1.8; }
 
 .error, .notice {
   display: flex;

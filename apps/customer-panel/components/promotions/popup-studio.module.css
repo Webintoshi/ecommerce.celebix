@@ -520,7 +520,7 @@
 .cartEditor .enabled input { position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: 0; opacity: 0; z-index: 1; cursor: pointer; }
 .switchTrack { position: absolute; left: 0; top: 10px; width: 40px; height: 24px; border-radius: 24px; background: var(--cp-border); }
 .switchTrack::after { content: ''; position: absolute; left: 4px; top: 4px; width: 16px; height: 16px; border-radius: 50%; background: var(--cp-surface); }
-.cartEditor .enabled input:checked + .switchTrack { background: var(--cp-action-primary); }
+.cartEditor .enabled input:checked + .switchTrack { background: var(--cp-graphite); }
 .cartEditor .enabled input:checked + .switchTrack::after { transform: translateX(16px); }
 .cartEditor .enabled input:focus-visible + .switchTrack { outline: 2px solid var(--cp-control-focus); outline-offset: 3px; }
 .cartEditor .enabled input:disabled + .switchTrack { opacity: .5; }
@@ -617,7 +617,7 @@
 .popupEditor .editorTop > .field { max-width: 460px; }
 .popupEditor .enabled { position: relative; padding-left: 52px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .popupEditor .enabled input { position: absolute; left: 0; top: 0; width: 44px; height: 44px; margin: 0; opacity: 0; z-index: 1; cursor: pointer; }
-.popupEditor .enabled input:checked + .switchTrack { background: var(--cp-action-primary); }
+.popupEditor .enabled input:checked + .switchTrack { background: var(--cp-graphite); }
 .popupEditor .enabled input:checked + .switchTrack::after { transform: translateX(16px); }
 .popupEditor .enabled input:focus-visible + .switchTrack { outline: 2px solid var(--cp-control-focus); outline-offset: 3px; }
 .popupEditor .enabled input:disabled + .switchTrack { opacity: .5; }

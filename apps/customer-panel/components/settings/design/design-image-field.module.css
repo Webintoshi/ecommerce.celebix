@@ -21,11 +21,10 @@
 .progress { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--cp-surface) 80%, transparent); }
 .progress svg { width: 24px; height: 24px; color: var(--cp-graphite); }
 .controls { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-.textButton, .iconButton, .retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 8px; padding: 8px; background: transparent; color: var(--cp-text-primary); font-size: 12px; line-height: 1.4; }
-.textButton:not(:disabled):hover, .iconButton:hover { background: var(--cp-soft); }
-.textButton svg, .iconButton svg { width: 16px; height: 16px; flex: 0 0 16px; }
-.retryButton { border-color: var(--cp-border); padding-inline: 12px; background: var(--cp-surface); font-weight: var(--cp-font-weight-control); }
-.retryButton:not(:disabled):hover { background: var(--cp-soft); }
+.field .textButton, .field .iconButton, .field .retryButton { box-sizing: border-box; display: inline-flex; min-width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); align-items: center; justify-content: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); background-color: var(--cp-soft); background-clip: padding-box; color: var(--cp-text-primary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
+.field .iconButton { width: var(--cp-button-small-height); padding: 0; }
+.textButton:not(:disabled):hover, .iconButton:not(:disabled):hover, .retryButton:not(:disabled):hover { text-decoration: underline; text-underline-offset: 3px; background-color: var(--cp-border); }
+.textButton svg, .iconButton svg, .retryButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex: 0 0 var(--cp-button-small-icon-size); }
 .error { display: grid; gap: 4px; border-inline-start: 2px solid var(--cp-danger); padding-inline-start: 12px; }
 .error p { margin: 0; color: var(--cp-danger); font-size: 12px; line-height: 1.5; }
 .errorActions { display: flex; gap: 8px; flex-wrap: wrap; }

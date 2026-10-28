@@ -46,17 +46,22 @@
 }
 
 .headerPrimary a {
-  min-height: 44px;
-  border-color: var(--cp-text-primary);
-  border-radius: 8px;
-  background: var(--cp-text-primary);
-  color: var(--cp-surface);
+  min-height: var(--cp-button-height);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--cp-button-primary-text);
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
 }
 
 .headerPrimary a:hover {
-  border-color: var(--cp-action-primary-hover);
-  background: var(--cp-action-primary-hover);
-  color: var(--cp-surface);
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .pageHeader p,
@@ -118,10 +123,7 @@
 }
 
 .kpiHeader button,
-.steps button,
-.rowActions button,
-.rowActions a,
-.inlineActions a {
+.steps button {
   min-height: 44px;
   border: 1px solid var(--cp-border);
   border-radius: 8px;
@@ -388,13 +390,24 @@
   min-width: 13rem;
 }
 
-.rowActions button,
-.rowActions a {
-  min-height: 44px;
-  border: 0;
-  background: transparent;
+.rowActions > button,
+.rowActions > a,
+.inlineActions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cp-button-small-height);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: transparent;
+  background-clip: padding-box;
   color: var(--cp-text-primary);
-  padding: 4px;
+  gap: var(--cp-button-small-gap);
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  font: inherit;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
+  font-weight: var(--cp-font-weight-control);
   text-decoration: underline;
   text-decoration-color: var(--cp-border);
   text-underline-offset: 3px;
@@ -1185,23 +1198,30 @@
 .secondaryButton,
 .dangerButton,
 .textButton {
-  min-height: 44px;
-  border-radius: 8px;
-  padding: 8px 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cp-button-height);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  gap: var(--cp-button-gap);
   font: inherit;
-  font-size: 0.875rem;
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
   font-weight: var(--cp-font-weight-control);
 }
 
 .primaryButton {
-  border: 1px solid var(--cp-action-primary);
-  background: var(--cp-action-primary);
-  color: var(--cp-action-primary-text);
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
 }
 
 .primaryButton:hover:not(:disabled) {
-  border-color: var(--cp-action-primary-hover);
-  background: var(--cp-action-primary-hover);
+  background-color: var(--cp-button-primary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 .primaryButton:disabled,
@@ -1213,20 +1233,17 @@
 }
 
 .secondaryButton {
-  border: 1px solid var(--cp-border);
-  background: var(--cp-surface);
+  background-color: var(--cp-control-background);
   color: var(--cp-text-primary);
 }
 
 .dangerButton {
-  border: 1px solid color-mix(in srgb, var(--cp-danger) 24%, var(--cp-border));
-  background: color-mix(in srgb, var(--cp-danger) 6%, var(--cp-surface));
+  background-color: color-mix(in srgb, var(--cp-danger) 6%, var(--cp-surface));
   color: var(--cp-danger);
 }
 
 .textButton {
-  border: 0;
-  background: transparent;
+  background-color: transparent;
   color: var(--cp-text-primary);
   text-decoration: underline;
   text-decoration-color: var(--cp-border);
@@ -1543,7 +1560,7 @@
 .mobileCards article { border: 0; border-bottom: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 0; }
 .mobileCards article > .rowActions { flex-direction: row; justify-content: flex-start; flex-wrap: wrap; }
 .batchForm { border: 0; border-block: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding-inline: 0; }
-.info > button, .warning > button, .warning > a { display: inline-flex; align-items: center; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); padding: 8px 12px; font: inherit; font-weight: var(--cp-font-weight-control); }
+.info > button, .warning > button, .warning > a { display: inline-flex; align-items: center; justify-content: center; min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; color: var(--cp-text-primary); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); gap: var(--cp-button-gap); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); }
 @media (max-width: 1100px) { .kpis article:nth-child(3) { border-right: 0; } .kpis article:nth-child(-n + 3) { border-bottom: 1px solid var(--cp-border); } .filters { grid-template-columns: minmax(0, 1fr) auto auto; } .search { grid-column: auto; } }
 @media (max-width: 1024px) { .sticky { border-left: 0; border-top: 1px solid var(--cp-border); padding: 16px 0; } }
 @media (max-width: 760px) { .pageHeader, .editorHeader, .stepPanel, .simulator { padding-inline: 0; } .kpis article:nth-child(3) { border-right: 1px solid var(--cp-border); } .kpis article:nth-child(even) { border-right: 0; } .kpis article:nth-child(4) { border-bottom: 1px solid var(--cp-border); } .filters { grid-template-columns: minmax(0, 1fr) auto; } .search { grid-column: 1 / -1; } .filterDetails[open] summary { grid-column: 1; grid-row: 2; } .filterDetails[open] + button { grid-column: 2; grid-row: 2; } .filterFields, .reportGrid { grid-template-columns: minmax(0, 1fr); } .actionBar { position: static; border-radius: 8px; } .saveState { flex-basis: 100%; } .kpiHeader > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; } .kpiHeader button { padding-inline: 8px; } }
@@ -1553,22 +1570,20 @@
 .picker p { font-size: 13px; }
 
 /* Shared action controls; form fields and navigation retain their own styles. */
-.primaryButton, .secondaryButton {
+.filters select, .filterDetails summary {
   min-height: var(--cp-control-height);
   border-radius: var(--cp-control-radius);
   font-size: var(--cp-control-font-size);
   font-weight: var(--cp-font-weight-control);
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-.secondaryButton, .filters select, .filterDetails summary {
-  min-height: var(--cp-control-height);
-  border-radius: var(--cp-control-radius);
-  font-size: var(--cp-control-font-size);
-  font-weight: var(--cp-font-weight-control);
-  transition: background-color 140ms ease, border-color 140ms ease;
-}
-.secondaryButton, .filters select, .filterDetails summary { border-color: var(--cp-control-border); background: var(--cp-control-background); }
-.secondaryButton:hover:not(:disabled), .filters select:hover:not(:disabled), .filterDetails summary:hover { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.filters select, .filterDetails summary { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.filters select:hover:not(:disabled), .filterDetails summary:hover { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.secondaryButton:hover:not(:disabled) { background-color: var(--cp-control-hover); }
+.primaryButton svg, .secondaryButton svg, .dangerButton svg, .textButton svg, .headerPrimary a svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.rowActions > button svg, .rowActions > a svg, .inlineActions a svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.actionBar .primaryButton { min-height: var(--cp-button-large-height); border-width: var(--cp-button-large-hit-inset); padding: var(--cp-button-large-padding-y) var(--cp-button-large-padding-x); gap: var(--cp-button-large-gap); font-size: var(--cp-button-large-font-size); line-height: var(--cp-button-large-line-height); }
+.actionBar .primaryButton svg { width: var(--cp-button-large-icon-size); height: var(--cp-button-large-icon-size); }
 .list .secondaryButton:focus-visible, .editor :is(.primaryButton, .secondaryButton):focus-visible, .list .filters select:focus-visible, .list .filterDetails summary:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 @media (max-width: 640px) { .filters select { font-size: 16px; } }
 

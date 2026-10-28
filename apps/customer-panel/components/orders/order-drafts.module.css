@@ -4,14 +4,17 @@
 .listToolbar > span, .editorToolbar > span { color: var(--cp-text-secondary); font-size: 12px; }
 .primaryAction, .secondaryAction, .primaryLink, .recordLink, .loadMore, .primaryButton,
 .secondaryButtons button, .lineRow button, .error button, .confirmation button {
-  display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface);
-  padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 12px; font-weight: var(--cp-font-weight-control);
+  display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control);
   text-decoration: none; cursor: pointer;
 }
-.primaryAction, .primaryButton, .primaryLink { border-color: var(--cp-graphite); background: var(--cp-graphite); color: var(--cp-text-inverse); }
-.primaryAction:hover, .primaryButton:hover:not(:disabled), .primaryLink:hover { background: var(--cp-action-primary-hover); }
-.secondaryAction:hover, .recordLink:hover, .loadMore:hover:not(:disabled), .secondaryButtons button:hover:not(:disabled), .lineRow button:hover:not(:disabled) { background: var(--cp-canvas); }
+.primaryAction, .primaryButton, .primaryLink { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.primaryAction:hover, .primaryButton:hover:not(:disabled), .primaryLink:hover { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.secondaryAction:hover, .recordLink:hover, .loadMore:hover:not(:disabled), .secondaryButtons button:hover:not(:disabled), .lineRow button:hover:not(:disabled) { background-color: var(--cp-canvas); }
+.primaryAction svg, .primaryButton svg, .primaryLink svg, .secondaryAction svg, .loadMore svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
+.recordLink, .lineRow button { border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); }
+.recordLink svg, .lineRow button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex: none; }
 .listSurface :is(a, button):focus-visible, .editorWorkspace :is(a, button, input, select, textarea):focus-visible,
 .editorToolbar a:focus-visible, .listToolbar a:focus-visible, .desktopTable:focus-visible, .error button:focus-visible { outline: 2px solid var(--cp-graphite); outline-offset: 3px; }
 .listSurface button:disabled, .editorWorkspace button:disabled { cursor: default; opacity: .5; }
@@ -36,7 +39,7 @@
 .draftNumber:hover { text-decoration: underline; text-underline-offset: 4px; }
 .lineCount, .totalCell { font-variant-numeric: tabular-nums; }
 .inventoryPolicy { color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; }
-.recordLink { border-color: transparent; background: transparent; padding: 0 8px; font-weight: var(--cp-font-weight-control); }
+.recordLink { background-color: transparent; font-weight: var(--cp-font-weight-control); }
 .mobileCards { display: none; }
 .draftCard { display: grid; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--cp-border); }
 .cardHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -80,7 +83,7 @@
 .lineIdentity { display: grid; align-self: center; min-width: 0; gap: 4px; overflow-wrap: anywhere; }
 .lineIdentity strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); }
 .lineIdentity span { color: var(--cp-text-secondary); font-size: 12px; }
-.lineRow button { border-color: transparent; background: transparent; color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-control); }
+.lineRow button { border-color: transparent; background-color: transparent; color: var(--cp-text-secondary); font-weight: var(--cp-font-weight-control); }
 .inlineEmpty, .summaryHint, .choiceWarning { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; }
 .inlineEmpty { padding: 24px 0; }
 .choiceWarning { padding: 12px; border-left: 2px solid var(--cp-brand); }
@@ -100,7 +103,7 @@
 .summaryTotal dt { color: var(--cp-text-primary); }
 .summaryHint { font-size: 12px; }
 .secondaryButtons { display: grid; gap: 8px; }
-.secondaryButtons .dangerButton, .confirmation .dangerButton { border-color: color-mix(in srgb, var(--cp-danger) 24%, var(--cp-border)); color: var(--cp-danger); background: var(--cp-surface); }
+.secondaryButtons .dangerButton, .confirmation .dangerButton { color: var(--cp-danger); background-color: color-mix(in srgb, var(--cp-danger) 6%, var(--cp-surface)); }
 .confirmation { width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 24px; color: var(--cp-text-primary); }
 .confirmation::backdrop { background: color-mix(in srgb, var(--cp-graphite) 40%, transparent); }
 .confirmation h2 { margin: 0; font-size: 18px; font-weight: var(--cp-font-weight-heading); }
@@ -126,7 +129,7 @@
 }
 @media (prefers-reduced-motion: reduce) { .loadingRows span, .editorLoading i { animation-duration: .01ms; } }
 
-.choiceRetry { min-height: 44px; border: 0; border-radius: 8px; background: transparent; padding: 0 8px; color: var(--cp-text-primary); font: inherit; text-decoration: underline; cursor: pointer; font-weight: var(--cp-font-weight-control); }
+.choiceRetry { min-height: var(--cp-button-small-height); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); text-decoration: underline; cursor: pointer; font-weight: var(--cp-font-weight-control); }
 @media (max-width: 1024px) { .editorToolbar { gap: 12px; } }
 .editorLoading{grid-template-columns:minmax(0,1fr) minmax(280px,320px);gap:24px;padding:0;min-width:0}
 .editorLoading>div{display:grid;gap:24px;min-width:0}

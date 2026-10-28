@@ -54,14 +54,15 @@
 .lineHeading > div { display: grid; gap: 4px; min-width: 0; }
 .lineHeading strong { font-size: 14px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .lineFields { display: grid; grid-template-columns: 80px minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
-.primary, .secondary, .icon { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--edit-border); border-radius: 8px; background: var(--cp-surface); color: var(--edit-text); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); padding: 0 16px; cursor: pointer; }
-.primary { background: var(--cp-action-primary); color: var(--cp-action-primary-text); border-color: var(--cp-action-primary); }
-.primary:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
-.secondary { background: var(--cp-control-background); }
-.secondary:hover:not(:disabled), .icon:hover:not(:disabled) { background: var(--cp-canvas); border-color: var(--cp-control-hover); }
-.textButton { display: inline-flex; align-items: center; min-height: 44px; max-width: 100%; width: fit-content; padding: 8px 12px; border: 1px solid var(--edit-border); border-radius: 8px; color: var(--edit-text); background: var(--cp-control-background); font: inherit; font-size: 12px; line-height: 1.5; text-align: left; cursor: pointer; font-weight: var(--cp-font-weight-control); }
-.textButton:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-canvas); }
-.icon { width: 44px; flex: none; padding: 0; color: var(--edit-muted); border-color: transparent; }
+.primary, .secondary, .icon { display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap); min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; color: var(--edit-text); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); cursor: pointer; }
+.primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.secondary:hover:not(:disabled), .icon:hover:not(:disabled) { background-color: var(--cp-canvas); }
+.textButton { display: inline-flex; align-items: center; min-height: var(--cp-button-small-height); max-width: 100%; width: fit-content; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); color: var(--edit-text); background-color: var(--cp-control-background); background-clip: padding-box; font: inherit; font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); text-align: left; cursor: pointer; font-weight: var(--cp-font-weight-control); }
+.textButton:hover:not(:disabled) { background-color: var(--cp-canvas); text-decoration: underline; }
+.icon { width: var(--cp-button-small-height); flex: none; padding: 0; color: var(--edit-muted); border-width: var(--cp-button-small-hit-inset); }
+.primary svg, .secondary svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
+.icon svg, .textButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex: none; }
 .drawer button:disabled { cursor: not-allowed; opacity: .5; }
 .summary { position: sticky; top: 16px; padding: 20px; border: 1px solid var(--edit-border); background: var(--cp-canvas); border-radius: 12px; }
 .summary .fields { grid-template-columns: 1fr; }

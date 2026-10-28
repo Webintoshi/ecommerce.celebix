@@ -1,5 +1,7 @@
 # Customer panel interface rules
 
+- Action buttons follow the owner's current [button design contract](DESIGN.md): full-round capsules, explicit size tokens, and exact orange/white primaries. Keep button tokens separate from field tokens; older skill defaults for graphite primaries and 8px action corners are superseded for these buttons.
+
 - Direct implementation requests include coding, verification and rollout to all shared Customer Panel applications; do not require the user to repeat a deployment request. Preserve an explicitly requested HTML/visual approval stage. Coordinate one release owner before changing shared refs, pins or deployment queues, and report live completion only after the intended applications' running source and live acceptance are verified.
 
 - A successful Save/Apply must create or update the real record and apply its intended effect directly. Do not add a customer-facing save-draft then publish/activate/confirm sequence. New valid product and blog/page saves publish by default; deliberate hide/archive choices remain available. Preserve explicit physical receipt, stock-count completion and payment collection actions, operation keys, form buffers and safe retry recovery. Opening an old draft must never publish it without an explicit Save/Apply.

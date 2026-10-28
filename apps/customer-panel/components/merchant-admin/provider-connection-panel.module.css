@@ -5,7 +5,9 @@
 .panel section > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 12px 0; }
 .panel h2 { margin: 0; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .panel button, .panel input { min-height: 44px; }
-.panel button { border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 16px; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); color: var(--cp-text-primary); cursor: pointer; }
+.panel button { display: inline-flex; align-items: center; justify-content: center; min-height: var(--cp-button-height); gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); color: var(--cp-text-primary); cursor: pointer; }
+.panel button:hover:not(:disabled) { background-color: var(--cp-control-hover); }
+.panel button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .panel :is(button, input, summary):focus-visible { outline: 2px solid var(--cp-brand); outline-offset: 3px; }
 .panel button:disabled { cursor: default; opacity: .5; }
 .disabled { padding: 16px 0; border-top: 1px solid var(--cp-border); font-size: 13px; }
@@ -22,6 +24,7 @@
 .form label { display: grid; gap: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .form input { width: 100%; min-width: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-weight: var(--cp-font-weight-body); }
 .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
-.actions .primary { background: var(--cp-soft); }
+.actions .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.actions .primary:hover:not(:disabled) { background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
 .actions .danger { color: var(--cp-danger); }
 @media (max-width: 640px) { .form { grid-template-columns: minmax(0, 1fr); } .summary { flex-direction: column; } .actions button { flex: 1 1 140px; } }

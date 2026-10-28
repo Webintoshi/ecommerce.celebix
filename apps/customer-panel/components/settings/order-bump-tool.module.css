@@ -30,8 +30,9 @@
 .ruleName strong { overflow-wrap: anywhere; }
 .order { width: 24px; flex: 0 0 24px; color: var(--cp-text-secondary); text-align: center; }
 .rowActions, .selections li > div { display: flex; flex-shrink: 0; gap: 4px; }
-.iconButton { display: grid; place-items: center; width: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--cp-text-primary); }
-.iconButton:hover:not(:disabled) { background: var(--cp-surface); }
+.iconButton { box-sizing: border-box; display: grid; place-items: center; width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); padding: 0; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-soft); background-clip: padding-box; color: var(--cp-text-primary); }
+.iconButton:hover:not(:disabled) { background-color: var(--cp-surface); }
+.iconButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .empty { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; padding: 20px 0; color: var(--cp-text-secondary); }
 .empty > span { flex-basis: 100%; font-size: 12px; }
 .ruleDetails { display: grid; gap: 24px; border-top: 1px solid var(--cp-border); padding-top: 24px; }

@@ -12,12 +12,13 @@
 .summary strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .summary small { color: var(--shipping-secondary); font-size: 12px; }
 .status { display: inline-flex; align-items: center; gap: 8px; color: var(--shipping-secondary); font-size: 12px; }
-.button { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--shipping-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 8px 12px; color: var(--shipping-text); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); line-height: 1.4; cursor: pointer; text-decoration: none; }
-.button:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--shipping-canvas); }
+.button { box-sizing: border-box; display: inline-flex; min-width: var(--cp-button-height); min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-soft); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--shipping-text); font: inherit; font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); cursor: pointer; text-decoration: none; }
+.button:hover:not(:disabled) { background-color: var(--shipping-canvas); text-decoration: underline; text-underline-offset: 3px; }
+.button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .button:disabled { opacity: .5; cursor: not-allowed; }
 .button:focus-visible, .option input:focus-visible, .result a:focus-visible, .packageForm input:focus-visible { outline: 2px solid var(--shipping-focus); outline-offset: 2px; }
-.button.primary { background: var(--cp-action-primary); border-color: var(--cp-action-primary); color: var(--cp-action-primary-text); }
-.button.primary:hover:not(:disabled) { background: var(--cp-action-primary-hover); }
+.button.primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.button.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); }
 .danger { color: var(--danger); }
 .packageForm fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 0; border: 0; padding: 0; }
 .packageForm legend { margin-bottom: 16px; color: var(--shipping-text); font-size: 13px; font-weight: var(--cp-font-weight-control); }

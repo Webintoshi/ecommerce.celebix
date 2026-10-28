@@ -16,13 +16,13 @@
 .page { display: grid; min-width: 0; gap: 24px; background: transparent; }
 .srOnly { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
 .commandBar, .dialogActions, .drawerActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.primaryButton, .secondaryButton, .plannedButton, .iconButton { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-surface); padding: 8px 16px; color: var(--pay-text); cursor: pointer; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); line-height: 1.4; }
-.primaryButton { border-color: var(--pay-text); background: var(--pay-text); color: var(--pay-surface); }
-.primaryButton:hover:not(:disabled) { filter: brightness(.85); }
-.secondaryButton:hover:not(:disabled), .iconButton:hover:not(:disabled) { background: var(--pay-soft); border-color: var(--pay-muted); }
-.plannedButton { background: transparent; color: var(--pay-muted); }
-.iconButton { width: 44px; flex: 0 0 44px; padding: 0; }
-.primaryButton svg, .secondaryButton svg, .iconButton svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.primaryButton, .secondaryButton, .plannedButton, .iconButton { box-sizing: border-box; display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-soft); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--pay-text); cursor: pointer; font: inherit; font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); }
+.primaryButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.primaryButton:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.secondaryButton:hover:not(:disabled), .iconButton:hover:not(:disabled) { background-color: var(--pay-soft); }
+.plannedButton { background-color: transparent; color: var(--pay-muted); }
+.iconButton { width: var(--cp-button-height); flex: 0 0 var(--cp-button-height); padding: 0; }
+.primaryButton svg, .secondaryButton svg, .iconButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: 0 0 auto; }
 .primaryButton:disabled, .secondaryButton:disabled, .plannedButton:disabled, .iconButton:disabled { cursor: not-allowed; opacity: .5; }
 .page :is(button, input, textarea, select, summary, a):focus-visible, .dialogLayer :is(button, input, textarea, select, a):focus-visible, .drawerLayer :is(button, input, textarea, select, a):focus-visible { outline: 2px solid var(--pay-brand); outline-offset: 2px; }
 .paymentSummary { display: flex; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
@@ -82,7 +82,8 @@
 .methodType { color: var(--pay-muted); font-size: 13px; }
 .emergencyReason { display: block; max-width: 240px; margin-top: 4px; overflow-wrap: anywhere; color: var(--pay-danger); font-size: 12px; line-height: 1.6; }
 .methodActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
-.methodActions > .secondaryButton { white-space: nowrap; padding-inline: 12px; }
+.methodActions > .secondaryButton { white-space: nowrap; min-height: var(--cp-button-small-height); border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); gap: var(--cp-button-small-gap); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
+.methodActions > .secondaryButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .methodActionMenu { position: relative; }
 .methodActionMenu > summary { display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--pay-text); cursor: pointer; list-style: none; }
 .methodActionMenu > summary::-webkit-details-marker { display: none; }
@@ -181,10 +182,10 @@
 .paytrModeControl input:disabled { cursor: not-allowed; opacity: .5; }
 .secretField { position: relative; display: block; }
 .secretField input { padding-right: 52px; }
-.fieldIconButton { position: absolute; top: 50%; right: 0; display: grid; width: 44px; height: 44px; place-items: center; transform: translateY(-50%); border: 0; border-radius: 8px; background: transparent; color: var(--pay-muted); cursor: pointer; }
-.fieldIconButton:hover:not(:disabled) { color: var(--pay-text); background: var(--pay-soft); }
+.fieldIconButton { box-sizing: border-box; position: absolute; top: 50%; right: 0; display: grid; width: var(--cp-button-small-height); height: var(--cp-button-small-height); place-items: center; transform: translateY(-50%); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; color: var(--pay-muted); cursor: pointer; }
+.fieldIconButton:hover:not(:disabled) { color: var(--pay-text); background-color: var(--pay-soft); }
 .fieldIconButton:disabled { cursor: not-allowed; opacity: .5; }
-.fieldIconButton svg { width: 16px; height: 16px; }
+.fieldIconButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .callbackCard { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; border-top: 1px solid var(--pay-border); padding-top: 24px; }
 .callbackCard > span { display: grid; gap: 4px; }
 .callbackCard strong { font-size: 13px; }
@@ -224,9 +225,9 @@
 .orderEditor li strong { overflow-wrap: anywhere; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .orderEditor li small { color: var(--pay-muted); font-size: 12px; }
 .orderEditor li > div { display: flex; gap: 4px; }
-.orderEditor li button { display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--pay-text); cursor: pointer; }
-.orderEditor li button:hover:not(:disabled) { background: var(--pay-soft); }
-.orderEditor li button svg { width: 16px; height: 16px; }
+.orderEditor li button { box-sizing: border-box; display: grid; width: var(--cp-button-small-height); height: var(--cp-button-small-height); place-items: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; color: var(--pay-text); cursor: pointer; }
+.orderEditor li button:hover:not(:disabled) { background-color: var(--pay-soft); }
+.orderEditor li button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .orderEditor li button span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 .orderEditor li button:disabled { cursor: not-allowed; opacity: .5; }
 .checkoutPreview { min-width: 0; border-left: 1px solid var(--pay-border); background: var(--pay-canvas); padding: 24px; }
@@ -303,7 +304,6 @@
 }
 @media (max-width: 420px) {
   .commandBar { gap: 8px; }
-  .commandBar .primaryButton, .commandBar .secondaryButton { padding-inline: 12px; font-size: 12px; }
   .callbackCard { grid-template-columns: minmax(0, 1fr); }
   .callbackCard .secondaryButton { grid-column: 1; grid-row: auto; justify-self: start; }
   .orderEditor li { grid-template-columns: auto minmax(0, 1fr); }

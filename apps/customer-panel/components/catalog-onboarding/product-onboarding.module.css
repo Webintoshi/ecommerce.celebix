@@ -845,7 +845,34 @@
 .createWorkspace .stickySummary > strong { font-size: 17px; }
 .createWorkspace .summaryMissing :is(span, a),
 .createWorkspace .summaryReady { font-size: 12px; }
-.createWorkspace .editorActions button { min-height: 48px; font-size: 14px; }
+.primary, .secondary, .advanced,
+.createWorkspace .editorActions button,
+.editSettings :is(.editActionBar, .railActionBar) button,
+.categoryForm > .primary {
+  min-height: var(--cp-button-height);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--cp-text-primary);
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
+  gap: var(--cp-button-gap);
+  box-shadow: none;
+}
+.primary, .primary:hover:not(:disabled),
+.createWorkspace .editorActions .primary, .createWorkspace .editorActions .primary:hover:not(:disabled),
+.editSettings :is(.editActionBar, .railActionBar) .primary, .editSettings :is(.editActionBar, .railActionBar) .primary:hover:not(:disabled) {
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  color: var(--cp-button-primary-text);
+}
+.primary:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.primary svg, .secondary svg, .advanced svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.iconButton { min-width: var(--cp-button-small-height); width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: 0; }
+.iconButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 @media (max-width: 700px) {
   .createWorkspace .sections :global(.onboarding-variant-primary-fields),
   .createWorkspace .sections :global(.onboarding-variant-builder[data-layout="multiple"] .onboarding-variant-primary-fields) { grid-template-columns: repeat(2, minmax(0, 1fr)); }

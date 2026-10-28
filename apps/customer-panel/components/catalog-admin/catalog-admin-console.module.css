@@ -52,7 +52,7 @@
 .brandLogoUpload svg,.brandLogoUpload > label svg { width: 18px; height: 18px; }
 .brandLogoUpload .brandLogoRemove { border-color: #fecaca; color: #9f282d; }
 .actions { display: flex; flex-wrap: wrap; gap: .65rem; }
-.button,.primary,.danger { display: inline-flex; min-width: 42px; min-height: 42px; align-items: center; justify-content: center; border: 1px solid #ffd7bf; border-radius: 7px; background: #fff; padding: 0 1rem; color: #a94300; cursor: pointer; font: inherit; font-size: .8rem; font-weight: var(--cp-font-weight-control); transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease; }
+.button,.primary,.danger { display: inline-flex; min-width: var(--cp-button-height); min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); cursor: pointer; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); transition: background-color 140ms ease; }
 .primary { border-color: #fe6100; background: #fe6100; color: #fff; }
 .danger { border-color: #fecaca; color: #9f282d; }
 .button:hover:not(:disabled) { border-color: #fe6100; background: #fff8f3; }
@@ -210,8 +210,8 @@
 .button:focus-visible,
 .primary:focus-visible,
 .danger:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 2px; }
-.primary { border-color: var(--catalog-text); background: var(--catalog-text); color: var(--catalog-surface); box-shadow: none; }
-.primary:hover:not(:disabled) { border-color: var(--catalog-sidebar); background: var(--catalog-sidebar); }
+.primary { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); box-shadow: none; }
+.primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
 .button { border-color: var(--catalog-border); color: var(--catalog-text); }
 .button:hover:not(:disabled) { border-color: var(--catalog-text); background: var(--catalog-canvas); }
 .item { min-height: 64px; border-bottom-color: var(--catalog-border); }
@@ -745,22 +745,31 @@
 }
 
 /* Shared action controls; form fields and navigation retain their own styles. */
-.workspace :is(.button, .primary, .secondaryButton) {
+.workspace :is(.button, .primary, .secondaryButton, .danger) {
+  min-height: var(--cp-button-height);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
+  gap: var(--cp-button-gap);
+  font-weight: var(--cp-font-weight-control);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+.workspace :is(.filterField, .brandSort) select {
   min-height: var(--cp-control-height);
   border-radius: var(--cp-control-radius);
   font-size: var(--cp-control-font-size);
   font-weight: var(--cp-font-weight-control);
   transition: background-color 140ms ease, border-color 140ms ease;
 }
-.workspace :is(.button, .secondaryButton):not(.primary):not(.danger), .workspace :is(.filterField, .brandSort) select {
-  min-height: var(--cp-control-height);
-  border-radius: var(--cp-control-radius);
-  font-size: var(--cp-control-font-size);
-  font-weight: var(--cp-font-weight-control);
-  transition: background-color 140ms ease, border-color 140ms ease;
-}
-.workspace :is(.button, .secondaryButton):not(.primary):not(.danger), .workspace :is(.filterField, .brandSort) select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
-.workspace :is(.button, .secondaryButton):not(.primary):not(.danger):hover:not(:disabled), .workspace :is(.filterField, .brandSort) select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
+.workspace :is(.button, .secondaryButton):not(.primary):not(.danger) { background-color: var(--cp-control-background); }
+.workspace :is(.button, .secondaryButton):not(.primary):not(.danger):hover:not(:disabled) { border-color: transparent; background-color: var(--cp-soft); }
+.workspace .primary, .workspace .primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.workspace :is(.button, .primary, .secondaryButton, .danger) svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
+.workspace :is(.filterField, .brandSort) select { border-color: var(--cp-control-border); background: var(--cp-control-background); }
+.workspace :is(.filterField, .brandSort) select:hover:not(:disabled) { border-color: var(--cp-control-hover); background: var(--cp-control-background); }
 .workspace :is(.button, .primary, .secondaryButton):focus-visible, .workspace :is(.filterField, .brandSort) select:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 @media (max-width: 640px) { .workspace :is(.filterField, .brandSort) select { font-size: 16px; } }
 

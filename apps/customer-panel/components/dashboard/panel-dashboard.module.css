@@ -45,24 +45,25 @@
 .dashboardTopbarActions { flex-shrink: 0; margin-left: auto; }
 .dashboardTopbarActions a {
   display: inline-flex;
-  min-height: var(--cp-control-height);
+  min-height: var(--cp-button-height);
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--cp-brand);
-  border-radius: var(--cp-control-radius);
-  background: var(--cp-brand);
-  padding: 8px 16px;
-  color: var(--cp-graphite);
-  font-size: 14px;
+  gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--cp-button-primary-text);
+  font-size: var(--cp-button-font-size);
   font-weight: var(--cp-font-weight-control);
-  line-height: 1.4;
+  line-height: var(--cp-button-line-height);
   box-shadow: none;
   transform: none;
 }
-.dashboardTopbarActions a:hover:not([aria-disabled="true"]) { background: color-mix(in srgb, var(--cp-brand) 94%, var(--cp-surface)); border-color: var(--cp-graphite); }
-.dashboardTopbarActions a:active { background: color-mix(in srgb, var(--cp-brand) 90%, var(--cp-surface)); text-decoration: underline; text-underline-offset: 4px; }
-.dashboardTopbarActions a svg { width: 16px; height: 16px; flex: none; }
+.dashboardTopbarActions a:hover:not([aria-disabled="true"]) { text-decoration: underline; text-underline-offset: 4px; }
+.dashboardTopbarActions a:active { text-decoration-thickness: 2px; }
+.dashboardTopbarActions a svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 
 .liveVisitors { display: flex; min-width: 0; min-height: 44px; align-items: center; gap: 8px; padding: 0 4px; }
 .liveVisitors svg { width: 16px; height: 16px; flex: none; color: var(--dash-muted); }
@@ -135,8 +136,8 @@
 .chartError span, .emptyState > span { color: var(--dash-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .salesEmptyArtwork { width: min(220px, 80%); height: auto; margin-bottom: 4px; }
 .smallArtwork { width: 112px; height: 80px; margin-bottom: 4px; }
-.retryButton { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 8px 12px; color: var(--dash-ink); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.retryButton:hover:not(:disabled) { border-color: var(--cp-control-hover); }
+.retryButton { display: inline-flex; min-width: var(--cp-button-height); min-height: var(--cp-button-height); align-items: center; justify-content: center; border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--dash-ink); font: inherit; font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); cursor: pointer; }
+.retryButton:hover:not(:disabled) { background-color: var(--cp-control-hover); }
 
 .taskBody { min-height: 176px; }
 .attentionList, .productList { margin: 0; padding: 0; list-style: none; }
@@ -247,13 +248,13 @@
 .sliceNotice:empty { visibility: hidden; }
 
 .quickActions { display: grid; min-width: 0; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.quickAction, .quickActionPrimary { display: grid; min-width: 0; min-height: 44px; grid-template-columns: 16px minmax(0, 1fr); align-items: center; gap: 12px; border: 1px solid var(--dash-line); border-radius: 8px; background: var(--dash-surface); padding: 12px 16px; color: var(--dash-ink); text-decoration: none; }
-.quickAction > svg, .quickActionPrimary > svg { width: 16px; height: 16px; color: var(--dash-muted); }
+.quickAction, .quickActionPrimary { display: grid; min-width: 0; min-height: var(--cp-button-small-height); grid-template-columns: var(--cp-button-small-icon-size) minmax(0, 1fr); align-items: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--dash-ink); text-decoration: none; }
+.quickAction > svg, .quickActionPrimary > svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); color: var(--dash-muted); }
 .quickAction > span, .quickActionPrimary > span { display: grid; min-width: 0; gap: 4px; }
-.quickAction strong, .quickActionPrimary strong { color: var(--dash-ink); font-size: 13px; font-weight: var(--cp-font-weight-control); overflow-wrap: anywhere; }
+.quickAction strong, .quickActionPrimary strong { color: var(--dash-ink); font-size: var(--cp-button-small-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-small-line-height); overflow-wrap: anywhere; }
 .quickAction small, .quickActionPrimary small { color: var(--dash-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
-.quickAction:hover, .quickActionPrimary:hover { background: var(--dash-soft); }
-.quickAction:active, .quickActionPrimary:active, .attentionList a:active { background: color-mix(in srgb, var(--dash-ink) 8%, var(--dash-surface)); }
+.quickAction:hover, .quickActionPrimary:hover { background-color: var(--cp-control-hover); }
+.quickAction:active, .quickActionPrimary:active, .attentionList a:active { background-color: color-mix(in srgb, var(--dash-ink) 8%, var(--dash-surface)); }
 .conversionNotice { display: flex; flex-wrap: wrap; gap: 8px 20px; margin: 0; border-top: 1px solid var(--dash-line); padding-top: 16px; font-size: 13px; }
 .conversionNotice span { color: var(--dash-muted); }
 .singleColumn { grid-template-columns: minmax(0, 1fr); }
@@ -346,9 +347,8 @@
   .kpiCard strong { font-size: 22px; }
   .focusArtwork { width: 80px; flex-basis: 80px; }
   .orderStatusBody { gap: 12px; }
-  .quickAction, .quickActionPrimary { grid-template-columns: 16px minmax(0, 1fr); gap: 8px; padding: 12px; }
+  .quickAction, .quickActionPrimary { grid-template-columns: var(--cp-button-small-icon-size) minmax(0, 1fr); gap: var(--cp-button-small-gap); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); }
   .cashierQuickActions { grid-template-columns: minmax(0, 1fr); }
-  .cashierQuickActions .quickAction { border-left: 0; border-top: 1px solid var(--dash-line); }
 }
 
 .operationsGrid.singleColumn, .detailGrid.singleColumn, .insightGrid.singleColumn, .quickActions.singleColumn { grid-template-columns: minmax(0, 1fr); }

@@ -20,12 +20,13 @@
 .status.pending { color: var(--settings-warning, var(--text)); }
 .status.warning { color: var(--settings-danger, var(--danger)); }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.actions button, .save { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--ship-border); border-radius: 8px; padding: 8px 16px; background: var(--ship-surface); color: var(--ship-text); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.actions button, .save { box-sizing: border-box; display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); background-color: var(--cp-soft); background-clip: padding-box; color: var(--ship-text); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.actions button svg, .save svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .actions button:disabled, .save:disabled { cursor: not-allowed; opacity: .5; }
 .page :is(button, input, select):focus-visible { outline: 2px solid var(--ship-brand); outline-offset: 2px; }
-.actions .refresh { width: 44px; padding: 0; border-color: transparent; background: transparent; color: var(--ship-muted); }
-.actions .refresh:hover:not(:disabled) { background: var(--ship-surface); }
-.actions .remove { border-color: transparent; background: transparent; color: var(--settings-danger, var(--danger)); }
+.actions .refresh { width: var(--cp-button-height); padding: 0; background-color: var(--cp-soft); color: var(--ship-muted); }
+.actions .refresh:hover:not(:disabled) { background-color: var(--ship-surface); }
+.actions .remove { background-color: color-mix(in srgb, var(--cp-danger) 10%, var(--cp-surface)); color: var(--settings-danger, var(--danger)); }
 .formSection { display: grid; grid-template-columns: 180px minmax(0, 1fr); align-items: start; gap: 32px; border-top: 1px solid var(--ship-border); padding: 32px 0; }
 .sectionLabel { min-width: 0; }
 .sectionLabel h2 { margin: 0; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
@@ -40,8 +41,8 @@
 .toggle b { font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .toggle small { color: var(--ship-muted); font-size: 12px; line-height: 1.6; }
 .saveRow { display: flex; justify-content: flex-end; padding-bottom: 24px; }
-.save { justify-self: end; border-color: var(--settings-action, var(--ship-text)); background: var(--settings-action, var(--ship-text)); color: var(--settings-inverse, var(--ship-surface)); }
-.save:hover:not(:disabled) { background: var(--settings-action-hover, var(--ship-text)); }
+.save { justify-self: end; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.save:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .connectionControls { display: grid; min-width: 0; gap: 20px; }
 .tokenForm { max-width: 640px; }
 .tokenControl { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--ship-border); border-radius: 8px; background: var(--ship-surface); padding-left: 12px; color: var(--ship-muted); }
@@ -60,5 +61,5 @@
 .spinner { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1024px) { .formSection { grid-template-columns: 140px minmax(0, 1fr); gap: 24px; } .fields { gap: 16px; } }
-@media (max-width: 640px) { .formSection { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 24px 0; } .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; } .fields select, .tokenControl input { font-size: 16px; } .sectionLabel p { margin-top: 4px; } .actions { gap: 8px; } .actions button { font-size: 12px; padding-inline: 12px; } }
+@media (max-width: 640px) { .formSection { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 24px 0; } .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; } .fields select, .tokenControl input { font-size: 16px; } .sectionLabel p { margin-top: 4px; } .actions { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

@@ -2,8 +2,8 @@
 .picker legend { padding: 0 6px; font-weight: var(--cp-font-weight-control); }
 .hint { margin: 0; color: #667085; font-size: 13px; font-weight: var(--cp-font-weight-helper); }
 .intro, .valueHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.intro button, .valueHeading button { min-height: 40px; border: 1px solid #E7E2DD; border-radius: 9px; background: #FFFDFC; padding: 0 12px; color: #2B2B2B; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.intro button:hover, .valueHeading button:hover { border-color: #FE6100; background: #fff8f3; }
+.intro button, .valueHeading button, .valueEntry button, .editorActions button, .newValues button { min-height: var(--cp-button-small-height); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.intro button:hover, .valueHeading button:hover { background-color: var(--cp-soft); }
 .intro button:disabled { opacity: .5; cursor: not-allowed; }
 .notice { margin: 0; border-radius: 8px; background: #edf8f1; padding: 10px 12px; color: #176b41; font-size: 13px; }
 .attributes, .values > div, .combinations > div { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -20,14 +20,13 @@
 .inlineEditor input { min-height: 44px; border: 1px solid #E7E2DD; border-radius: 9px; background: #fff; padding: 0 12px; font: inherit; font-weight: var(--cp-font-weight-body); }
 .editorHeading, .editorActions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .editorHeading strong { font-size: 15px; }
-.editorHeading button { width: 36px; height: 36px; border: 0; background: transparent; color: #667085; font-size: 24px; cursor: pointer; }
+.editorHeading button { width: var(--cp-button-small-height); height: var(--cp-button-small-height); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: 0; background-color: transparent; background-clip: padding-box; color: var(--cp-text-secondary); font-size: 24px; cursor: pointer; }
 .valueEntry { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
-.valueEntry button, .editorActions button { min-height: 44px; border: 1px solid #E7E2DD; border-radius: 9px; background: #fff; padding: 0 14px; color: #2B2B2B; font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .editorActions { justify-content: flex-end; }
-.editorActions button:last-child { border-color: #2B2B2B; background: #2B2B2B; color: #fff; }
+.editorActions button:last-child { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.editorActions button:last-child:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
 .editorActions button:disabled { opacity: .5; cursor: not-allowed; }
 .newValues { display: flex; flex-wrap: wrap; gap: 6px; }
-.newValues button { min-height: 34px; border: 1px solid #FE6100; border-radius: 999px; background: #fff; padding: 0 10px; color: #2B2B2B; font-size: 12px; cursor: pointer; }
 .saveHint { margin: 0; color: #667085; font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .picker :is(input, button):focus-visible { outline: 3px solid #FE6100; outline-offset: 2px; }
 .error { margin: 0; color: #ae3422; font-size: 13px; font-weight: var(--cp-font-weight-helper); }

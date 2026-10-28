@@ -276,17 +276,18 @@
   --pricing-surface: #FFFDFC;
 }
 
-.pageAction a,
-.empty a {
-  border-color: var(--pricing-text, #2B2B2B);
-  background: var(--pricing-text, #2B2B2B);
-  color: var(--pricing-surface, #FFFDFC);
+.pageAction a {
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
 }
 
-.pageAction a:hover,
-.empty a:hover {
-  border-color: var(--pricing-sidebar, #201C19);
-  background: var(--pricing-sidebar, #201C19);
+.pageAction a:hover {
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  color: var(--cp-button-primary-text);
+  text-decoration: underline;
+  text-underline-offset: 4px;
 }
 
 @media (max-width: 1024px) {
@@ -340,6 +341,39 @@
 .editor :is(input, select, button), .actions button { min-width: 0; min-height: 44px; font-size: 14px; }
 .editor :is(input, select) { width: 100%; }
 .editor button, .actions button { font-size: 13px; font-weight: var(--cp-font-weight-control); justify-self: start; padding: 0 16px; }
+.editor button, .actions button, .listToolbar button, .error button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cp-button-height);
+  min-height: var(--cp-button-height);
+  gap: var(--cp-button-gap);
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-soft);
+  background-clip: padding-box;
+  color: var(--cp-text-primary);
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
+}
+.editor button:hover:not(:disabled), .actions button:hover:not(:disabled),
+.listToolbar button:hover:not(:disabled), .error button:hover:not(:disabled) {
+  border-color: transparent;
+  background-color: var(--cp-border);
+  background-clip: padding-box;
+}
+.actions .primary, .actions .primary:hover:not(:disabled) {
+  border-color: transparent;
+  background-color: var(--cp-button-primary);
+  background-clip: padding-box;
+  color: var(--cp-button-primary-text);
+}
+.actions .primary:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.actions .primary:active { text-decoration-thickness: 2px; }
+.editor button svg, .actions button svg, .listToolbar button svg, .error button svg {
+  width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0;
+}
 .editor :is(input, select, button, summary):focus-visible, .actions button:focus-visible, .tableScroll:focus-visible { outline: 2px solid var(--cp-text-primary); outline-offset: 2px; }
 .ruleRows { gap: 20px; }
 .ruleRow { min-width: 0; gap: 16px; border: 0; border-top: 1px solid var(--cp-border); border-radius: 0; background: transparent; padding: 16px 0 0; }
@@ -395,8 +429,8 @@
 .tableScroll[hidden] { display: none !important; }
 .cardHeading a { min-width: 0; overflow-wrap: anywhere; }
 .ruleDetails summary span { margin-left: 12px; color: var(--cp-text-secondary); font-size: 12px; }
-.empty a { border-color: var(--cp-border); background: var(--cp-surface); color: var(--cp-text-primary); }
-.empty a:hover { border-color: var(--cp-text-secondary); background: var(--cp-soft); }
+.empty a { border-color: transparent; background-color: var(--cp-soft); color: var(--cp-text-primary); }
+.empty a:hover { background-color: var(--cp-border); }
 
 .listBody { min-height: 360px; }
 .listLoading { display: grid; align-content: start; }

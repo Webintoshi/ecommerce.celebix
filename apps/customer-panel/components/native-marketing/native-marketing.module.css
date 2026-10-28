@@ -32,7 +32,7 @@
 .field textarea { resize:vertical; }
 .field small { color:var(--cp-text-secondary); font-weight:var(--cp-font-weight-helper); }
 .switch { display:flex; align-items:flex-start; gap:12px; min-height:44px; cursor:pointer; font-size:14px; }
-.switch input { width:20px; height:20px; margin:0; accent-color:var(--cp-action-primary); flex:none; }
+.switch input { width:20px; height:20px; margin:0; accent-color:var(--cp-graphite); flex:none; }
 .switch span { display:grid; gap:8px; }
 .switch small { color:var(--cp-text-secondary); line-height:1.6; font-size:13px; }
 .products { min-width:0; border:1px solid var(--cp-border); border-radius:10px; padding:16px; display:grid; gap:12px; }
@@ -44,7 +44,7 @@
 .productList span { display:grid; gap:4px; flex:1; min-width:0; font-size:13px; overflow-wrap:anywhere; }
 .productList small { color:var(--cp-text-secondary); }
 .selectedProducts li { font-size:13px; justify-content:space-between; }
-.selectedProducts button { border:0; background:transparent; color:var(--cp-text-primary); min-height:44px; text-decoration:underline; cursor:pointer; }
+.selectedProducts button { min-height:var(--cp-button-small-height); border:var(--cp-button-small-hit-inset) solid transparent; border-radius:var(--cp-button-radius); background-color:transparent; background-clip:padding-box; padding:var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color:var(--cp-text-primary); font-size:var(--cp-button-small-font-size); line-height:var(--cp-button-small-line-height); text-decoration:underline; cursor:pointer; }
 .previewPanel { display:grid; gap:16px; border:1px solid var(--cp-border); border-radius:12px; padding:16px; background:var(--cp-surface); min-width:0; }
 .previewHeading { display:grid; gap:8px; overflow-wrap:anywhere; }
 .previewHeading small { color:var(--cp-text-secondary); }
@@ -69,7 +69,10 @@
 .fixedBrand { display:grid; gap:8px; border-block:1px solid var(--cp-border); padding:16px 0; font-size:14px; }
 .fixedBrand small { color:var(--cp-text-secondary); line-height:1.6; }
 .blockPalette { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
-.blockPalette button,.blockActions button,.historyActions button { min-height:44px; border:1px solid var(--cp-border); border-radius:8px; background:var(--cp-surface); color:var(--cp-text-primary); padding:8px; font:inherit; font-size:13px; cursor:pointer; font-weight:var(--cp-font-weight-control); }
+.blockPalette button { min-height:44px; border:1px solid var(--cp-border); border-radius:8px; background:var(--cp-surface); color:var(--cp-text-primary); padding:8px; font:inherit; font-size:13px; cursor:pointer; font-weight:var(--cp-font-weight-control); }
+.blockActions button,.historyActions button { display:inline-flex; align-items:center; justify-content:center; min-height:var(--cp-button-small-height); min-width:44px; border:var(--cp-button-small-hit-inset) solid transparent; border-radius:var(--cp-button-radius); background-color:var(--cp-control-background); background-clip:padding-box; color:var(--cp-text-primary); padding:var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); gap:var(--cp-button-small-gap); font:inherit; font-size:var(--cp-button-small-font-size); line-height:var(--cp-button-small-line-height); cursor:pointer; font-weight:var(--cp-font-weight-control); }
+.blockActions button:hover:not(:disabled),.historyActions button:hover:not(:disabled),.selectedProducts button:hover:not(:disabled) { background-color:var(--cp-control-hover); }
+.blockActions button svg,.historyActions button svg { width:var(--cp-button-small-icon-size); height:var(--cp-button-small-icon-size); }
 .builder button:disabled { cursor:default; opacity:.5; }
 .blockPalette button { text-align:left; display:flex; align-items:center; justify-content:space-between; gap:4px; }
 .blockPalette button span { color:var(--cp-text-secondary); }

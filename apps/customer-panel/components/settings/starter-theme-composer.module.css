@@ -320,19 +320,24 @@
 }
 
 .sectionToolbar button {
+  box-sizing: border-box;
   display: grid;
-  width: 42px;
-  height: 42px;
+  width: var(--cp-button-small-height);
+  height: var(--cp-button-small-height);
   place-items: center;
-  border: 1px solid #d8dde5;
-  border-radius: 9px;
-  color: #344054;
-  background: #fff;
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  padding: 0;
+  color: var(--cp-text-primary);
+  background-color: var(--cp-soft);
+  background-clip: padding-box;
+  cursor: pointer;
 }
 
 .sectionToolbar button svg,
 .actions button svg,
-.addBar button svg { width: 18px; height: 18px; }
+.addBar button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
+.sectionToolbar button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .sectionToolbar button:disabled { opacity: .35; }
 .sectionCard textarea { min-height: 100px; resize: vertical; }
 .wide { grid-column: 1 / -1; }
@@ -349,20 +354,27 @@
 
 .addBar button,
 .actions button {
+  box-sizing: border-box;
   display: inline-flex;
-  min-height: 48px;
+  min-height: var(--cp-button-height);
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border-radius: 10px;
-  padding: 0 17px;
+  gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  background-clip: padding-box;
   font: inherit;
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
   font-weight: var(--cp-font-weight-control);
+  cursor: pointer;
 }
 
 .addBar button,
-.secondary { border: 1px solid #cfd6e1; color: #263142; background: #fff; }
-.primary { border: 1px solid #ff6500; color: #17120e; background: #ff6500; }
+.secondary { color: var(--cp-text-primary); background-color: var(--cp-soft); }
+.actions .primary { color: var(--cp-button-primary-text); background-color: var(--cp-button-primary); }
+.addBar button:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 
 .actions {
   position: sticky;
@@ -506,22 +518,28 @@
 
 .entryToolbar button,
 .entryAdd {
+  box-sizing: border-box;
   display: inline-flex;
-  min-height: 44px;
+  min-height: var(--cp-button-small-height);
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  border: 1px solid #cfd6e1;
-  border-radius: 9px;
-  padding: 0 12px;
-  color: #344054;
-  background: #fff;
+  gap: var(--cp-button-small-gap);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  color: var(--cp-text-primary);
+  background-color: var(--cp-soft);
+  background-clip: padding-box;
   font: inherit;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
   font-weight: var(--cp-font-weight-control);
+  cursor: pointer;
 }
 
 .entryToolbar button svg,
-.entryAdd svg { width: 17px; height: 17px; }
+.entryAdd svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex-shrink: 0; }
+.entryToolbar button:hover:not(:disabled), .entryAdd:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .entryToolbar button:disabled,
 .entryAdd:disabled { opacity: .42; }
 .entryAdd { justify-self: start; }
@@ -538,18 +556,23 @@
 
 .footerLink > button,
 .socialList button {
+  box-sizing: border-box;
   display: grid;
-  width: 46px;
-  height: 46px;
+  width: var(--cp-button-small-height);
+  height: var(--cp-button-small-height);
   place-items: center;
-  border: 1px solid #e8b8b8;
-  border-radius: 9px;
-  color: #b42318;
-  background: #fff;
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  padding: 0;
+  color: var(--cp-danger);
+  background-color: color-mix(in srgb, var(--cp-danger) 10%, var(--cp-surface));
+  background-clip: padding-box;
+  cursor: pointer;
 }
 
 .footerLink > button svg,
-.socialList button svg { width: 18px; height: 18px; }
+.socialList button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.footerLink > button:hover:not(:disabled), .socialList button:hover:not(:disabled) { outline: 1px solid currentColor; outline-offset: 1px; }
 .socialList { display: grid; gap: 8px; margin-top: 12px; }
 
 .socialList > div {
@@ -585,7 +608,6 @@
   .footerLink > button { justify-self: end; }
   .sectionToolbar { align-items: flex-start; }
   .sectionToolbar > div:last-child { gap: 4px; }
-  .sectionToolbar button { width: 40px; height: 40px; }
   .addBar { align-items: stretch; flex-direction: column; }
   .actions { bottom: 72px; }
   .actions button { flex: 1; }
@@ -630,7 +652,6 @@
 .embeddedShell .entryCard legend { padding: 0; color: var(--cp-text-primary); font-size: 12px; }
 .embeddedShell .footerLink { grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .embeddedShell .footerLink > button { justify-self: end; }
-.embeddedShell .entryToolbar button, .embeddedShell .entryAdd { min-height: 44px; border-color: var(--cp-border); border-radius: 8px; color: var(--cp-text-primary); background: var(--cp-surface); font-size: 12px; }
 .embeddedShell .entryAdd { justify-self: stretch; }
 .embeddedShell .socialList > div, .embeddedShell .twoColumns { border-color: var(--cp-border); }
 .embeddedShell .error { margin: 0; border-color: var(--cp-danger); padding: 12px; color: var(--cp-danger); background: var(--cp-surface); }
@@ -655,15 +676,17 @@
 .embeddedShell .navigationLabel > span { overflow-wrap: anywhere; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .embeddedShell .navigationLabel small { color: var(--cp-text-secondary); font-size: 12px; }
 .embeddedShell .navigationActions { display: flex; flex: none; align-items: center; gap: 0; }
-.embeddedShell .navigationGrip, .embeddedShell .navigationActions button { display: grid; width: 44px; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: 8px; padding: 0; color: var(--cp-text-secondary); background: transparent; cursor: pointer; }
+.embeddedShell .navigationGrip, .embeddedShell .navigationActions button { box-sizing: border-box; display: grid; width: var(--cp-button-small-height); min-width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); place-items: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: 0; color: var(--cp-text-secondary); background-color: transparent; background-clip: padding-box; cursor: pointer; }
 .embeddedShell .navigationGrip { cursor: grab; }
 .embeddedShell .navigationGrip:active { cursor: grabbing; }
-.embeddedShell .navigationGrip svg, .embeddedShell .navigationActions svg, .embeddedShell .navigationAdd svg { width: 16px; height: 16px; }
-.embeddedShell .navigationGrip:hover, .embeddedShell .navigationActions button:hover { color: var(--cp-text-primary); background: var(--cp-soft); }
+.embeddedShell .navigationGrip svg, .embeddedShell .navigationActions svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.embeddedShell .navigationAdd svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
+.embeddedShell .navigationGrip:hover, .embeddedShell .navigationActions button:hover { color: var(--cp-text-primary); background-color: var(--cp-soft); }
 .embeddedShell .navigationActions button:disabled, .embeddedShell .navigationGrip:disabled, .embeddedShell .navigationAdd button:disabled { opacity: .4; cursor: default; }
 .embeddedShell .navigationEmpty { margin: 0; border: 1px dashed var(--cp-border); border-radius: 8px; padding: 12px; color: var(--cp-text-secondary); font-size: 13px; }
 .embeddedShell .navigationAdd { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; align-items: end; gap: 8px; }
-.embeddedShell .navigationAdd button, .embeddedShell .resourceError button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 4px; border: 1px solid var(--cp-border); border-radius: 8px; padding: 8px 12px; color: var(--cp-text-primary); background: var(--cp-surface); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.embeddedShell .navigationAdd button, .embeddedShell .resourceError button { box-sizing: border-box; display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); background-color: var(--cp-soft); background-clip: padding-box; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
+.embeddedShell .navigationAdd button:hover:not(:disabled), .embeddedShell .resourceError button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .embeddedShell .resourceError { display: grid; justify-items: start; gap: 8px; margin-bottom: 16px; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 900px) and (min-width: 641px) {
