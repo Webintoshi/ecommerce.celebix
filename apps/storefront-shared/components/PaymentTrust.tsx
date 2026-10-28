@@ -1,18 +1,9 @@
 import { SharedFooterSignature } from "./SharedFooterSignature";
 import styles from "./payment-trust.module.css";
 
-const BRANDS = [
-  { key: "mastercard", label: "Mastercard" },
-  { key: "visa", label: "Visa" },
-  { key: "troy", label: "TROY" },
-  { key: "amex", label: "American Express" },
-] as const;
-
 export function PaymentBrandMarks() {
-  return <div className={styles.marks} role="list" aria-label="Ödeme ağları" data-payment-brand-marks>
-    {BRANDS.map(brand => <span className={styles.mark} role="listitem" data-brand={brand.key} key={brand.key}>
-      <img src={`/payment-marks/${brand.key}.svg`} alt={brand.label} width={48} height={30} loading="lazy" decoding="async" />
-    </span>)}
+  return <div className={styles.marks} data-payment-brand-marks>
+    <img className={styles.band} src="/payment-marks/card-brands.svg" alt="Mastercard, Visa, American Express, TROY" width={324} height={48} loading="lazy" decoding="async" />
   </div>;
 }
 

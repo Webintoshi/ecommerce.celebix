@@ -94,11 +94,11 @@ function assertSignature(container: HTMLElement) {
   assert.ok(footer);
   assert.equal(container.querySelectorAll("footer").length, 1, "the signature does not introduce a nested footer");
   assert.equal(footer.querySelectorAll('[data-payment-brand-marks]').length, 1, "every footer branch receives one shared card-logo row");
-  for (const brand of ["mastercard", "visa", "troy", "amex"]) {
-    const mark = footer.querySelector<HTMLImageElement>(`[data-brand="${brand}"] img`);
-    assert.equal(mark?.getAttribute("src"), `/payment-marks/${brand}.svg`);
-    assert.ok(mark?.getAttribute("alt"));
-  }
+  const mark = footer.querySelector<HTMLImageElement>('[data-payment-brand-marks] img');
+  assert.equal(mark?.getAttribute("src"), "/payment-marks/card-brands.svg");
+  assert.equal(mark?.getAttribute("width"), "324");
+  assert.equal(mark?.getAttribute("height"), "48");
+  for (const brand of ["Mastercard", "Visa", "TROY", "American Express"]) assert.ok(mark?.getAttribute("alt")?.includes(brand));
   const links = footer.querySelectorAll<HTMLAnchorElement>('a[href="https://celebix.net/tr/e-ticaret-paketleri"]');
   assert.equal(links.length, 1, "the actual footer contains exactly one Celebix signature");
   const link = links[0];
