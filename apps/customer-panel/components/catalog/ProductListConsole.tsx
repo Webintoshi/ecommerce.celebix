@@ -803,7 +803,7 @@ export function ProductListConsole({
     <div className="hemenaku-product-commandbar product-operations-commandbar" aria-label="Ürün sayfası işlemleri">
       {canImport ? <Link className="command-button" href="/products/bulk-upload"><FileUp aria-hidden="true" />İçe Aktar</Link> : null}
       <button className="command-button" type="button" disabled={visibleRows.length === 0 || busy || loading || loadingMore} onClick={exportVisibleRows}><Download aria-hidden="true" />Dışa Aktar</button>
-      {canManage ? <Link className={`command-button command-button-primary ${catalogStyles.primaryAction}`} href="/products/new"><Plus aria-hidden="true" />Ürün Ekle</Link> : null}
+      {canManage ? <Link className={`command-button command-button-primary ${catalogStyles.primaryAction} ${listStyles.primaryAction}`} href="/products/new"><Plus aria-hidden="true" />Ürün Ekle</Link> : null}
     </div>
     );
   }

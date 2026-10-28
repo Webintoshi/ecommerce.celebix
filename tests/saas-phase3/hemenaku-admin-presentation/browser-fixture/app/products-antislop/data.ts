@@ -46,7 +46,9 @@ export function createFixtureProducts(): FixtureProductRecord[] {
         updatedAt: new Date(Date.UTC(2026, 9, 2, 9, offset)).toISOString(),
       },
       variant: {
-        variantId: fixtureId("ac600000", index), sku: `ORNEK-${number}`, priceCents: 39_900 + index * 500,
+        variantId: fixtureId("ac600000", index),
+        sku: index === 123 ? "ORNEK-123-UZUN-SKU-".padEnd(64, "X") : index === 122 ? "ORNEK-122-DENIM-COLOR" : `ORNEK-${number}`,
+        priceCents: 39_900 + index * 500,
         ...(index % 3 === 0 ? { compareAtCents: 49_900 + index * 500 } : {}),
         stockTracking, stockQuantity: stockTracking ? index % 5 === 0 ? 0 : index % 9 + 1 : 0,
       },
