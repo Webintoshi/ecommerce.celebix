@@ -2,7 +2,7 @@ import "server-only";
 
 import { isCommerceBridgeTimestampFresh, verifyCommerceBridgeSignature } from "./security.ts";
 
-export type PlatformCommerceAction = "redeem" | "read" | "start" | "callback" | "webhook";
+export type PlatformCommerceAction = "redeem" | "read" | "start" | "callback" | "webhook" | "public_test";
 export type PlatformCommerceHttpOptions = Readonly<{
   key: Buffer;
   now: () => Date;
@@ -104,7 +104,7 @@ export function createPlatformCommerceHttpHandler(options: PlatformCommerceHttpO
         const parsed = JSON.parse(raw) as unknown;
         if (!plainObject(parsed) || Object.keys(parsed).length !== 2
           || Object.keys(parsed).some((name) => name !== "action" && name !== "payload")
-          || !["redeem", "read", "start", "callback", "webhook"].includes(parsed.action as string)
+          || !["redeem", "read", "start", "callback", "webhook", "public_test"].includes(parsed.action as string)
           || !plainObject(parsed.payload) || duplicateJsonKeys(raw)) return failure(400);
         envelope = parsed;
       } catch { return failure(400); }

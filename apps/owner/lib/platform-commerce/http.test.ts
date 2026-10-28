@@ -64,10 +64,10 @@ test('real server fetch may supply sec-fetch-mode cors without weakening bridge 
 test("every supported action uses the same authenticated transport", async () => {
   const actions: string[] = [];
   const handler = createPlatformCommerceHttpHandler({ key: KEY, now: () => NOW, execute: async (action) => { actions.push(action); return { ok: true }; } });
-  for (const action of ["redeem", "read", "start", "callback"]) {
+  for (const action of ["redeem", "read", "start", "callback", "public_test"]) {
     assert.equal((await handler(request(JSON.stringify({ action, payload: {} })))).status, 200);
   }
-  assert.deepEqual(actions, ["redeem", "read", "start", "callback"]);
+  assert.deepEqual(actions, ["redeem", "read", "start", "callback", "public_test"]);
 });
 
 test("missing, stale, forged or browser authentication cannot invoke commerce", async () => {

@@ -13,6 +13,27 @@ const attempt=(status='initializing')=>({attemptId:ATTEMPT,status,requestDigest:
 const ready=()=>({...attempt('ready'),tokenDigest:commerceDigest(TOKEN),sealedProvider:sealCommercePayload(provider,KEY,`provider:${ATTEMPT}`),expiresAt:provider.expiresAt});
 const config=(command:any,gateway:any)=>({command,gateway,dataKey:KEY,credentialFingerprint:FINGERPRINT,now:()=>new Date('2026-10-26T10:05:00Z')});
 
+test('public test creates only a fixed one-credit order from exact server-attested fields without payment dispatch',async()=>{
+ const input={operationId:ORDER,storeSelector:'test-magazasi',sessionDigest:SESSION,ipDigest:'d'.repeat(64)},calls:any[]=[];
+ const selected={...order,kind:'toshi_credit',offerId:'toshi-test-1',offerName:'Toshi 1 Kredi',netCents:83,vatCents:17,totalCents:100,status:'pending',attempt:null};
+ const service=createPlatformCommerceService(config(async(action:any,args:any)=>{calls.push({action,args});return{outcome:'created',result_payload:{order:selected,attempt:null}};},{initialize:async()=>assert.fail('must not call payment provider'),retrieve:async()=>assert.fail('must not retrieve')}));
+ const result=await service.execute('public_test' as never,input);assert.equal((result as any).status,'created');assert.equal((result as any).order.totalCents,100);assert.equal((result as any).order.offerId,'toshi-test-1');
+ assert.deepEqual(calls,[{action:'public_test',args:input}]);
+ for(const bad of [{...input,storeId:ORDER},{...input,totalCents:1},{...input,offerId:'toshi-500'},{...input,storeSelector:'https://evil.test/'},{...input,ipDigest:'forged'}])await assert.rejects(service.execute('public_test' as never,bad));
+ assert.equal(calls.length,1);
+});
+test('public test exposes only closed business rejections and rejects a wrong native offer',async()=>{
+ const input={operationId:ORDER,storeSelector:'test-magazasi',sessionDigest:SESSION,ipDigest:'d'.repeat(64)};
+ for(const code of ['store_unavailable','rate_limited','operation_mismatch']){
+  const service=createPlatformCommerceService(config(async()=>({outcome:code,result_payload:null}),{}));
+  assert.deepEqual(await service.execute('public_test' as never,input),{status:'rejected',code});
+ }
+ for(const selected of [order,{...order,kind:'toshi_credit',offerId:'toshi-test-1',netCents:1,vatCents:0,totalCents:1}]){
+  const service=createPlatformCommerceService(config(async()=>({outcome:'created',result_payload:{order:selected,attempt:null}}),{}));
+  await assert.rejects(service.execute('public_test' as never,input));
+ }
+});
+
 test('a ready attempt resumes its own provider page without another initialize call',async()=>{
  let initialized=0;
  const service=createPlatformCommerceService(config(async()=>({outcome:'attempt_replayed',result_payload:{order,attempt:ready()}}),{initialize:async()=>{initialized++;throw Error('must not initialize');},retrieve:async()=>({status:'unknown'})}));

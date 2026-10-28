@@ -1,0 +1,41 @@
+{
+  "migrationId": "native289",
+  "description": "Fixed one-credit public paid gift to an existing AI-eligible store; no merchant identity or access grant",
+  "up": "202610280289_toshi_public_test_checkout.up.sql",
+  "down": "202610280289_toshi_public_test_checkout.down.sql",
+  "assertions": "202610280289_toshi_public_test_checkout_assertions.sql",
+  "dependencies": [
+    "native288"
+  ],
+  "isolatedAcceptance": "node --experimental-transform-types apps/owner/scripts/sql/saas/toshi-public-test-checkout.native.test.mjs",
+  "financialPolicy": {
+    "offerId": "toshi-test-1",
+    "credits": 1,
+    "netCents": 83,
+    "vatCents": 17,
+    "totalCents": 100,
+    "autoGrant": false,
+    "providerVerifiedOnly": true,
+    "ipLimit": 30,
+    "ipRollingMinutes": 15,
+    "globalLimit": 300,
+    "globalRollingMinutes": 60,
+    "rateRetentionHours": 2,
+    "checkoutSessionHours": 24,
+    "rollback": "forward-only"
+  },
+  "artifacts": [
+    {
+      "file": "202610280289_toshi_public_test_checkout.up.sql",
+      "sha256": "d2c1f549df80e693a237dc55ecd9aecd8c5035d8266d349982aa7d8a92de91cb"
+    },
+    {
+      "file": "202610280289_toshi_public_test_checkout.down.sql",
+      "sha256": "ee98c04579ea148db43103d09a91c9f979eff78d3fb6ed94df082766dc07226d"
+    },
+    {
+      "file": "202610280289_toshi_public_test_checkout_assertions.sql",
+      "sha256": "ea979be8e7be42b7fae1382da31980031dd594e1a19ca62c2ea6d0819958d099"
+    }
+  ]
+}

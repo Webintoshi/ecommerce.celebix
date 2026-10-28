@@ -14,12 +14,14 @@ export interface PublicCommerceOrder {
 }
 type StartResult = { status: 'ready'; paymentUrl: string } | { status: 'pending' | 'unknown' | 'failed'; code?: string };
 type CallbackResult = { orderId: string; state: PublicCommerceOrder['state'] };
+export type PublicTestResult = {status:'created';order:PublicCommerceOrder}|{status:'rejected';code:'store_unavailable'|'rate_limited'|'operation_mismatch'};
 export interface PlatformCommerceService {
+  execute(action: 'public_test', payload: unknown): Promise<PublicTestResult>;
   execute(action: 'redeem' | 'read', payload: unknown): Promise<{ order: PublicCommerceOrder }>;
   execute(action: 'start', payload: unknown): Promise<StartResult>;
   execute(action: 'callback', payload: unknown): Promise<CallbackResult>;
   execute(action: 'webhook', payload: unknown): Promise<{ok:true}>;
-  execute(action: 'redeem' | 'read' | 'start' | 'callback' | 'webhook', payload: unknown): Promise<{ order: PublicCommerceOrder } | StartResult | CallbackResult | {ok:true}>;
+  execute(action: 'redeem' | 'read' | 'start' | 'callback' | 'webhook' | 'public_test', payload: unknown): Promise<{ order: PublicCommerceOrder } | StartResult | CallbackResult | {ok:true} | PublicTestResult>;
 }
 interface Dependencies {
   command: CommerceCommand; gateway: PlatformIyzicoGateway; dataKey: Buffer;
@@ -116,7 +118,18 @@ export function createPlatformCommerceService(deps: Dependencies): PlatformComme
     return context(await deps.command('finish', { ...proof, proofDigest: commerceDigest(JSON.stringify(proof)),
       ...(value.attempt.tokenDigest === null ? {sealedProvider:sealCommercePayload({token,credentialFingerprint:deps.credentialFingerprint},deps.dataKey,`provider:${attemptId}`)} : {}) }));
   }
-  async function execute(action: 'redeem' | 'read' | 'start' | 'callback' | 'webhook', payload: unknown): Promise<unknown> {
+  async function execute(action: 'redeem' | 'read' | 'start' | 'callback' | 'webhook' | 'public_test', payload: unknown): Promise<unknown> {
+    if(action==='public_test'){
+      const raw=exact(payload,['operationId','storeSelector','sessionDigest','ipDigest']);
+      const operationId=uuid(raw.operationId),storeSelector=text(raw.storeSelector,253),sessionDigest=digest(raw.sessionDigest),ipDigest=digest(raw.ipDigest);
+      if(storeSelector!==storeSelector.toLowerCase()||!(/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(storeSelector)||/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(storeSelector)))unavailable();
+      const result=await deps.command('public_test',{operationId,storeSelector,sessionDigest,ipDigest});
+      if(['store_unavailable','rate_limited','operation_mismatch'].includes(result.outcome)&&result.result_payload===null)return{status:'rejected',code:result.outcome};
+      if(!['created','operation_replayed'].includes(result.outcome))unavailable();
+      const value=context(result),selected=value.order;
+      if(selected.kind!=='toshi_credit'||selected.offerId!=='toshi-test-1'||selected.term!=='once'||selected.netCents!==83||selected.vatBps!==2000||selected.vatCents!==17||selected.totalCents!==100||selected.currency!=='TRY')unavailable();
+      return{status:'created',order:publicOrder(value)};
+    }
     if (action === 'webhook') {
       const raw = exact(payload,['body','signature']);
       if (typeof raw.body !== 'string' || Buffer.byteLength(raw.body,'utf8')>16_384 || typeof raw.signature !== 'string' || !DIGEST.test(raw.signature) || !deps.verifyWebhook) unavailable();
