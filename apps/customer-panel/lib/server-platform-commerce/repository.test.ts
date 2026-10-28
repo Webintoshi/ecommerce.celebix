@@ -7,9 +7,9 @@ const ID='11111111-1111-4111-8111-111111111111',OP='22222222-2222-4222-8222-2222
 const KEY=new Uint8Array(32).fill(7),PLAN=COMMERCIAL_PACKAGES[0]!;
 const context={schemaVersion:1,requestId:'test',principal:{id:ID,issuer:'https://auth.test/oidc',subject:'test'},store:{id:ID,slug:'test',status:'active'},membership:{id:ID,role:'store_owner',status:'active'},entitlements:{schemaVersion:1,planId:PLAN.id,planCode:PLAN.code,version:PLAN.version,status:'active',features:['orders','catalog'],limits:{products:100,staff:1,storageBytes:1000},validFrom:'2026-01-01T00:00:00.000Z'},locale:'tr-TR'} as TenantContext;
 const intent={kind:'tool' as const,offerId:'restock',term:'once' as const,operationId:OP};
-function setup(options:{outcome?:string;loseCommit?:boolean;foreign?:boolean;credit?:boolean}={}){
+function setup(options:{outcome?:string;loseCommit?:boolean;foreign?:boolean;credit?:boolean;testCredit?:boolean}={}){
  const queries:{text:string;values?:unknown[]}[]=[],released:unknown[]=[];let connections=0;
- const client={async query(text:string,values?:unknown[]){queries.push({text,values});if(text==='COMMIT'&&options.loseCommit)throw Error('private transport');return{rows:text.includes('saas.platform_checkout_create')?[{outcome:options.outcome??'created',result_payload:{orderId:ORDER,storeId:options.foreign?OP:ID,kind:options.credit?'toshi_credit':'tool',offerId:options.credit?'toshi-500':'restock',term:'once',netCents:options.credit?24900:99000,vatBps:2000,vatCents:options.credit?4980:19800,totalCents:options.credit?29880:118800,currency:'TRY'}}]:[],rowCount:1,command:'SELECT',oid:0,fields:[]};},release(value?:unknown){released.push(value);}};
+ const client={async query(text:string,values?:unknown[]){queries.push({text,values});if(text==='COMMIT'&&options.loseCommit)throw Error('private transport');return{rows:text.includes('saas.platform_checkout_create')?[{outcome:options.outcome??'created',result_payload:{orderId:ORDER,storeId:options.foreign?OP:ID,kind:options.credit?'toshi_credit':'tool',offerId:options.testCredit?'toshi-test-1':options.credit?'toshi-500':'restock',term:'once',netCents:options.testCredit?83:options.credit?24900:99000,vatBps:2000,vatCents:options.testCredit?17:options.credit?4980:19800,totalCents:options.testCredit?100:options.credit?29880:118800,currency:'TRY'}}]:[],rowCount:1,command:'SELECT',oid:0,fields:[]};},release(value?:unknown){released.push(value);}};
  const repository=createPostgresPlatformCommerceRepository({pool:{connect:async()=>{connections++;return client;}},handoffKey:KEY,timeouts:{poolCheckoutMs:100,statementMs:200,lockMs:100,idleTransactionMs:200}});
  return{repository,queries,released,connections:()=>connections};
 }
@@ -43,4 +43,15 @@ test('credit offers use once-only checkout and owner or admin authority without 
  const s=setup({credit:true});
  for(const bad of [{...selected,term:'annual'},{...selected,offerId:'toshi-501'},{...selected,credits:500},{...selected,netCents:1}])assert.throws(()=>parsePlatformCheckoutIntent(bad));
  await assert.rejects(()=>s.repository.createCheckout({tenantContext:{...context,membership:{...context.membership,role:'editor'}},now:NOW,intent:selected}));assert.equal(s.connections(),0);
+});
+
+test('one TRY test offer is server-priced and uses the same authenticated signed handoff',async()=>{
+ const selected={kind:'toshi_credit' as const,offerId:'toshi-test-1',term:'once' as const,operationId:OP};
+ for(const role of ['store_owner','admin']as const){
+  const s=setup({credit:true,testCredit:true});
+  assert.equal((await s.repository.createCheckout({tenantContext:{...context,membership:{...context.membership,role}},now:NOW,intent:selected})).orderId,ORDER);
+  const call=s.queries.find(q=>q.text.includes('saas.platform_checkout_create'))!;
+  assert.deepEqual(JSON.parse(call.values![8]as string),{kind:'toshi_credit',offerId:'toshi-test-1',term:'once'});
+ }
+ for(const bad of [{...selected,totalCents:100},{...selected,netCents:83},{...selected,credits:100},{...selected,term:'monthly'}])assert.throws(()=>parsePlatformCheckoutIntent(bad));
 });

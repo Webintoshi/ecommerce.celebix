@@ -97,6 +97,37 @@ test("redeems a destination-bound POST and installs only the host session cookie
   assert.doesNotMatch(response.headers.get("location") ?? "", /v1\./);
 });
 
+test('an exact central-login purchase hint redirects only after destination-bound redemption', async () => {
+  const current = fixture();
+  const response = await current.handler(request({url: `${ORIGIN}/auth/handoff?purchase=toshi-test-1`}));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get('location'), `${ORIGIN}/settings/artificial-intelligence?purchase=toshi-test-1`);
+  assert.equal(current.redeemCalls, 1);
+  assert.deepEqual(current.redemptionInput, {credential: HANDOFF, destinationHostname: HOSTNAME, now: NOW});
+  assert.equal(response.headers.getSetCookie().length, 1);
+  assert.doesNotMatch(response.headers.get('location')!, /v1\.|amount|storeId|returnTo/);
+  const rejected = fixture({redemption: Object.freeze({kind: 'unauthenticated'})});
+  const denied = await rejected.handler(request({url: `${ORIGIN}/auth/handoff?purchase=toshi-test-1`}));
+  assert.equal(denied.status, 409);
+  assert.equal(denied.headers.has('location'), false);
+  assert.equal(denied.headers.has('set-cookie'), false);
+});
+
+test('purchase hints cannot attach to signup, missing-origin, or store-switch handoffs', async () => {
+  for (const origin of [OWNER, ORIGIN, null]) {
+    const current = fixture();
+    const denied = await current.handler(request({url: `${ORIGIN}/auth/handoff?purchase=toshi-test-1`, origin}));
+    assert.equal(denied.status, 400);
+    assert.equal(current.redeemCalls, 0);
+    assert.equal(denied.headers.has('location'), false);
+  }
+  for (const search of ['?purchase=toshi-500', '?purchase=toshi-test-1&purchase=toshi-test-1', '?purchase=toshi-test-1&returnTo=https://evil.example']) {
+    const current = fixture();
+    assert.equal((await current.handler(request({url: `${ORIGIN}/auth/handoff${search}`}))).status, 400);
+    assert.equal(current.redeemCalls, 0);
+  }
+});
+
 test("destination handoff preserves thirty-day authority and remaining time on day twenty-nine", async () => {
   for (const [issuedAt, expiresAt, maxAge] of [
     [NOW.toISOString(), new Date(NOW.getTime() + 2_592_000_000).toISOString(), 2_592_000],

@@ -7,13 +7,13 @@ import * as jsx from 'react/jsx-runtime';
 import {Window} from 'happy-dom';
 import ts from 'typescript';
 const overview={wallet:{balance:500,reserved:7,available:493},offers:[{id:'toshi-500',credits:500,netCents:24900},{id:'toshi-2500',credits:2500,netCents:99900},{id:'toshi-10000',credits:10000,netCents:299900},{id:'toshi-50000',credits:50000,netCents:1249900}],prices:{description:7,seoTitle:1,seoDescription:2,imageAlt:1}};
-async function mount(canManage:boolean,verify:(container:HTMLElement,calls:unknown[],switchStore:(storeId:string)=>Promise<void>)=>Promise<void>,failure:boolean|number=false,value=overview){
+async function mount(canManage:boolean,verify:(container:HTMLElement,calls:unknown[],switchStore:(storeId:string)=>Promise<void>)=>Promise<void>,failure:boolean|number=false,value=overview,autoStartTestPurchase=false){
  const browser=new Window({url:'https://panel.test/settings/artificial-intelligence'});const globals=new Map<string,PropertyDescriptor|undefined>();
  for(const [key,value]of Object.entries({window:browser,document:browser.document,navigator:browser.navigator,HTMLElement:browser.HTMLElement,IS_REACT_ACT_ENVIRONMENT:true})){globals.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,value});}
  const output=ts.transpileModule(await readFile(new URL('./ArtificialIntelligenceSettings.tsx',import.meta.url),'utf8'),{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;const compiled={exports:{} as Record<string,unknown>};const calls:unknown[]=[];let creditReads=0;
  Function('require','module','exports',output)((name:string)=>{if(name==='react')return React;if(name==='react/jsx-runtime')return jsx;if(name==='lucide-react')return new Proxy({},{get:()=>()=>null});if(name==='@/lib/content-authoring-ui/credits-client')return {readToshiCredits:async()=>{const read=creditReads++;if(failure===true||typeof failure==='number'&&read>=failure)throw Error();return value;}};if(name==='@/components/commercial-packages/PlatformCheckoutButton')return {PlatformCheckoutButton:(props:any)=>{calls.push(props);return createElement('button',{type:'button',disabled:props.disabled},props.label);}};if(name.endsWith('.css'))return {default:{}};throw Error(name);},compiled,compiled.exports);
  const {createRoot}=await import('react-dom/client');const container=browser.document.createElement('div');browser.document.body.append(container);const root=createRoot(container as unknown as HTMLElement);
- try{await act(async()=>root.render(createElement(compiled.exports.ArtificialIntelligenceSettings as React.ComponentType<any>,{canManage,storeId:'10000000-0000-4000-8000-000000000001'})));await verify(container as unknown as HTMLElement,calls,async(storeId)=>{await act(async()=>root.render(createElement(compiled.exports.ArtificialIntelligenceSettings as React.ComponentType<any>,{canManage,storeId})));});}finally{await act(async()=>root.unmount());for(const [key,value]of globals)value?Object.defineProperty(globalThis,key,value):Reflect.deleteProperty(globalThis,key);await browser.happyDOM.close();}
+ try{await act(async()=>root.render(createElement(compiled.exports.ArtificialIntelligenceSettings as React.ComponentType<any>,{canManage,storeId:'10000000-0000-4000-8000-000000000001',autoStartTestPurchase})));await verify(container as unknown as HTMLElement,calls,async(storeId)=>{await act(async()=>root.render(createElement(compiled.exports.ArtificialIntelligenceSettings as React.ComponentType<any>,{canManage,storeId,autoStartTestPurchase})));});}finally{await act(async()=>root.unmount());for(const [key,value]of globals)value?Object.defineProperty(globalThis,key,value):Reflect.deleteProperty(globalThis,key);await browser.happyDOM.close();}
 }
 test('wallet screen shows real available/reserved balance and canonical credit offers through existing checkout',async()=>mount(true,async(container,calls)=>{
  assert.match(container.textContent??'',/493/);assert.match(container.textContent??'',/7 kredi devam eden/);assert.equal(container.querySelectorAll('article').length,4);
@@ -55,3 +55,18 @@ test('a failed refresh retains the known wallet and offers with an actionable er
  const refresh=container.querySelector('button');assert.ok(refresh);await act(async()=>refresh.click());
  assert.match(container.querySelector('[role="alert"]')?.textContent??'',/yüklenemedi/);assert.match(container.textContent??'',/493/);assert.equal(container.querySelectorAll('article').length,4);assert.equal(refresh.disabled,false);
 },1));
+
+test('one-credit test product shows the exact one TRY VAT-inclusive checkout without weakening purchase authority',async()=>{
+ const value={...overview,offers:[{id:'toshi-test-1',credits:1,netCents:83},...overview.offers]};
+ for(const canManage of [true,false])await mount(canManage,async(container,calls)=>{
+  const card=container.querySelector('[data-credit-offer="toshi-test-1"]');assert.ok(card);
+  assert.match(card.querySelector('h3')?.textContent??'',/1 kredi/);
+  assert.ok(card.querySelector('[data-credit-price="total"]')?.textContent?.includes('1,00'));
+  assert.ok(card.querySelector('[data-credit-price="vat"]')?.textContent?.includes('0,17'));
+  assert.match(card.textContent??'',/Deneme|deneme/);
+  const intent=(calls as any[]).find(call=>call.offerId==='toshi-test-1');assert.ok(intent);
+  assert.equal(intent.kind,'toshi_credit');assert.equal(intent.term,'once');assert.equal(intent.disabled,!canManage);assert.equal(intent.autoStart,canManage);
+  assert.ok((calls as any[]).filter(call=>call.offerId!=='toshi-test-1').every(call=>call.autoStart===false));
+  assert.equal(container.querySelectorAll('article').length,5);
+ },false,value,true);
+});

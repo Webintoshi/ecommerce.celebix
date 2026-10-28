@@ -1,5 +1,6 @@
 export const TOSHI_CREDIT_PRICES = Object.freeze({ description: 7, seoTitle: 1, seoDescription: 2, imageAlt: 1 } as const);
 export const TOSHI_CREDIT_OFFERS = Object.freeze([
+  Object.freeze({ id: 'toshi-test-1', credits: 1, netCents: 83 }),
   Object.freeze({ id: 'toshi-500', credits: 500, netCents: 24_900 }),
   Object.freeze({ id: 'toshi-2500', credits: 2_500, netCents: 99_900 }),
   Object.freeze({ id: 'toshi-10000', credits: 10_000, netCents: 299_900 }),

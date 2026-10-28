@@ -8,6 +8,7 @@ import {createAdminSecurityBridge} from "../../../../packages/saas-data/src/admi
 import {createAdminIngressVerifier} from "../../../../packages/saas-data/src/admin-login-security/ingress.ts";
 import { createAdminSecurityBridgeHandlers, createAdminLoginSecurityHandlers } from "./handler.ts";
 import { createAdminLoginSecurityTransport } from "./transport.ts";
+import { merchantPurchaseSearch, type MerchantPurchaseHint } from '../merchant-phone/purchase-hint.ts';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const TIMEOUTS=Object.freeze({poolCheckoutMs:2000,statementMs:5000,lockMs:5000,idleTransactionMs:5000});
 function invalid():never {throw new Error("admin_login_security_unavailable");}
@@ -23,6 +24,7 @@ export function resolveAdminLoginIngress(source:Record<string,string|undefined>,
 }
 export function createAdminSecurityCompletionTransfer(options:Readonly<{
  sessionPolicy?:'store_whatsapp';
+ purchaseHint?:MerchantPurchaseHint;
  clock:()=>Date;
  randomBytes:(size:number)=>Uint8Array;
  repository:{
@@ -30,6 +32,7 @@ export function createAdminSecurityCompletionTransfer(options:Readonly<{
   recoverIssuedHandoff(input:{operationId:string;credential:string;destinationHostname:string;now:Date}):Promise<unknown>;
  };
 }>){
+ if(merchantPurchaseSearch(options.purchaseHint)&&options.sessionPolicy!=='store_whatsapp')invalid();
  const maximumSessionMs=options.sessionPolicy==='store_whatsapp'?STORE_ADMIN_SESSION_MAX_AGE_MS:8*60*60_000;
  return async(completion:unknown,_request:Request):Promise<Response>=>{
  const row=exact(completion,["sessionCredential","sessionIssuedAt","sessionExpiresAt","destinationStoreId","destinationOrigin","handoffCredential","handoffId","handoffOperationId"]),now=options.clock();
@@ -50,7 +53,7 @@ export function createAdminSecurityCompletionTransfer(options:Readonly<{
  }
  const issued=exact(result,["kind","credential","destinationOrigin","expiresAt"]);
  if((issued.kind!=="handoff_issued"&&issued.kind!=="operation_replayed")||issued.credential!==candidate||issued.destinationOrigin!==destinationOrigin||typeof issued.expiresAt!=="string"||new Date(issued.expiresAt).toISOString()!==issued.expiresAt||Date.parse(issued.expiresAt)<=now.getTime()||Date.parse(issued.expiresAt)>now.getTime()+120000)invalid();
- return createCrossHostHandoffAutoPostResponse({destinationOrigin,handoffCredential:String(issued.credential),randomBytes:options.randomBytes});
+ return createCrossHostHandoffAutoPostResponse({destinationOrigin,handoffCredential:String(issued.credential),randomBytes:options.randomBytes,...(options.purchaseHint?{purchaseHint:options.purchaseHint}:{})});
 };}
 export async function initializeAdminLoginSecurityHandlers(config:CustomerPanelStagingAuthConfig){
  const [{default:pg},{createPostgresCrossHostSessionHandoffRepository},{createPanelSessionPersistenceApproval}]=await Promise.all([import("pg"),import("../cross-host-session-handoff/postgres-repository.ts"),import("../panel-session-persistence/activation.ts")]);

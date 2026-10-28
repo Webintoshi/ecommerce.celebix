@@ -52,6 +52,20 @@ test('invalid completion purpose fails before current actor resolution or broker
  assert.equal(actorCalls,0);assert.equal(brokerCalls,0);
 });
 
+test('purchase hints are rejected on binding, signup, state and OTP routes before native access',async()=>{
+ let actors=0,calls=0;
+ const options={requireActor:async()=>{actors++;return 'private-actor';},authenticateIngress:()=>({authenticated:true}),transport:{command:async()=>{calls++;return {schemaVersion:1 as const,code:'not_ready' as const};}}};
+ const handlers=createMerchantPhoneHandlers(options),browser=Buffer.alloc(32,7).toString('base64url');
+ const cookie=`__Host-celebix_merchant_browser=${browser}; __Host-celebix_merchant_purpose=bind_phone`;
+ const denied=await handlers.complete(request('/auth/merchant-phone/complete?purchase=toshi-test-1',{headers:{cookie}}));
+ assert.equal(denied.status,403);assert.equal(actors,0);assert.equal(calls,0);
+ assert.equal((await handlers.state(request('/api/merchant-login/state?purchase=toshi-test-1'))).status,403);
+ assert.equal((await handlers.verify(request('/api/merchant-login/verify?purchase=toshi-test-1',{method:'POST'}))).status,403);
+ const signup=createMerchantPhoneHandlers({...options,purpose:'signup'});
+ assert.equal((await signup.complete(request('/auth/merchant-phone/complete?purchase=toshi-test-1',{headers:{cookie}}))).status,403);
+ assert.equal(calls,0);
+});
+
 test('staff delete bridges only row identity and version behind actor, CSRF and operation checks',async()=>{
  const staffId='33333333-3333-4333-8333-333333333333',calls:any[]=[];
  const handlers=createMerchantPhoneHandlers({randomBytes:size=>new Uint8Array(size).fill(7),requireActor:async()=> 'private-actor',authenticateIngress:()=>({authenticated:true}),transport:{async command(input){calls.push(input);return {schemaVersion:1,code:'ok',state:{version:4,enabled:true,staff:[]}};}}});

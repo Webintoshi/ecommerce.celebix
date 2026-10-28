@@ -1,0 +1,40 @@
+{
+  "migrationId": "native288",
+  "description": "Additive one-credit Toshi test product at exactly one TRY including VAT through existing verified checkout",
+  "up": "202610280288_toshi_test_credit_offer.up.sql",
+  "down": "202610280288_toshi_test_credit_offer.down.sql",
+  "assertions": "202610280288_toshi_test_credit_offer_assertions.sql",
+  "dependencies": [
+    "native283",
+    "native287"
+  ],
+  "isolatedAcceptance": "node --experimental-transform-types apps/owner/scripts/sql/saas/toshi-test-credit-offer.native.test.mjs",
+  "offer": {
+    "id": "toshi-test-1",
+    "credits": 1,
+    "netCents": 83,
+    "vatBps": 2000,
+    "vatCents": 17,
+    "totalCents": 100
+  },
+  "financialPolicy": {
+    "grantOnlyAfterVerifiedPayment": true,
+    "oncePerCheckoutOrder": true,
+    "autoGrant": false,
+    "rollback": "forward-only"
+  },
+  "artifacts": [
+    {
+      "file": "202610280288_toshi_test_credit_offer.up.sql",
+      "sha256": "f3e6677ca7a1724f5945f1a232d9d290c7850ed61636459a9c480cd35cbcee98"
+    },
+    {
+      "file": "202610280288_toshi_test_credit_offer.down.sql",
+      "sha256": "def4002d8bd151ca6fdfda91c9a72c8cc53ae74a95945ed211cd1e9407ecea87"
+    },
+    {
+      "file": "202610280288_toshi_test_credit_offer_assertions.sql",
+      "sha256": "c96ef1ca1e2ebde62a222533cdc80febd2f142da6f2d9cf261098fe190ab9313"
+    }
+  ]
+}

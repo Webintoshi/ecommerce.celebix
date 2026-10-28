@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "be648a0b017e34bc8dad9e9b502bb2eddd044c3773090a45066b4067848a71aa",
+  "inputDigest": "222a6d76e74f6f0a7b8edf20476675fa80b399edb2d5858ec6a4e7de21d41e39",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -85,11 +85,11 @@
     },
     {
       "path": "apps/customer-panel/components/auth/MerchantPhoneLoginForm.tsx",
-      "sha256": "a24046efbec66e941ab81f168c44d869a4e8ca822a6afbc9d41153011473963f"
+      "sha256": "92e124ce1339fd4ca4c1b08344be188cb6c571ec0771514dcd8e831005358c3f"
     },
     {
       "path": "apps/customer-panel/components/auth/TenantLogin.tsx",
-      "sha256": "a6a93c2b9928d9f9b00f0e3b9e4b1605ebcd3f1e969caf108bc2613be813bd84"
+      "sha256": "039a2ae35703763bb1c09ab5a2706fdaced8cff999fcab6e94928d2290a6743c"
     },
     {
       "path": "apps/customer-panel/components/auth/merchant-phone-login-client.ts",
@@ -105,7 +105,7 @@
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/runtime.ts",
-      "sha256": "d0e93d9f0b659461bf1cafe9eba520529523fd6162341ea69bf67c34271f7ce9"
+      "sha256": "2bdba28e93d7dfa109fb0f89a2e0aed2e4625c44687fa0f07a6ec9c0e8189959"
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/transport.ts",
@@ -113,7 +113,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-auto-post.ts",
-      "sha256": "a2f8f825194f40fbf2cd32df195e8864119d653a480e966053e50abbea605d21"
+      "sha256": "4f354d43b9f6f1f43b4107f6391e004bfa91e19572ebd4eb765721f325eea90c"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-default.ts",
@@ -121,7 +121,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-http.ts",
-      "sha256": "3536dde4283fb95036fd0524f38e6d777ff79a276e1977263b0761c1f70350ff"
+      "sha256": "e1b3b0fc319f43f93a2c197321b1fc0bb5f4235d940b511069a17fad8f670a5d"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-session-handoff/postgres-repository.ts",
@@ -129,11 +129,15 @@
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/handler.ts",
-      "sha256": "1200cb943863686a017abcd67ac93f76e0084e9cd4da0fad2052611704c216ca"
+      "sha256": "3f7f4fdd57599ef793acde3600d7c3bea4e63edc0fbeace0a3feca649007142c"
+    },
+    {
+      "path": "apps/customer-panel/lib/merchant-phone/purchase-hint.ts",
+      "sha256": "97e4a0a22a20e97cf6c99197e1c11769cc092a96a8dbefc7f1a8e7b196504204"
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/runtime.ts",
-      "sha256": "012ce2dfe8346ec18650e44d119d5da7aa5bc8162e2b500b9519ee0ad72f317e"
+      "sha256": "d96b3f69bd1dc27be8ceb0c8501d2d6c3b85673f170a9efc2b26303ff7ccbff2"
     },
     {
       "path": "apps/customer-panel/lib/panel-auth-authority/bootstrap-request-authority.ts",
@@ -957,7 +961,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/completion.ts",
-      "sha256": "219e23d570a78bdd42495931a6311600e898b24da47a19c6ad6feae2be526ff5"
+      "sha256": "6f5edfb6cf1ae7c8da21e63d46815882966d7af2667f742c32cb249aab57286e"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/config.ts",
@@ -2904,6 +2908,10 @@
       "sha256": "6103855020d216770a453b6cb75e9397fe3b2632234688452adad7fd829c65e2"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610280288_toshi_test_credit_offer.up.sql",
+      "sha256": "f3e6677ca7a1724f5945f1a232d9d290c7850ed61636459a9c480cd35cbcee98"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -2990,6 +2998,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/phase-toshi-credits-manifest.json",
       "sha256": "c1d8cf50fb704cb3f3165dfa52285e5882e0c9b2741fc9f50a3bd4e9f5964cc8"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/phase-toshi-test-credit-offer-manifest.json",
+      "sha256": "f1e01c5965bf9e465d3ce447c1312f8c59ddb2fb156d7f9538cf8d0d26c2624c"
     },
     {
       "path": "apps/owner/scripts/sql/saas/phase2a1-manifest.json",
@@ -4253,7 +4265,7 @@
     },
     {
       "path": "packages/saas-contracts/src/toshi/credits.ts",
-      "sha256": "7b10a7417801ee068450fef26942e4b92f6862a2404f2a868a4c60359fd3c59d"
+      "sha256": "58d8d167155e7aa18da85c3011cf637f176a6800a45ca6e4f653265df6191335"
     },
     {
       "path": "packages/saas-contracts/src/toshi/index.ts",

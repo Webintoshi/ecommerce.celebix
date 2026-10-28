@@ -6,6 +6,7 @@ import {CUSTOMER_PANEL_STAGING_AUTH_ENVIRONMENT_FIELDS,parseCustomerPanelStaging
 import {validatePersistentPanelSessionCredential} from '../panel-session-completion/cookie.ts';
 import type {ServerPanelAccessResult} from '../server-panel-access/access.ts';
 import {createMerchantPhoneHandlers,MerchantActorUnavailable,isMerchantInternalListener} from './handler.ts';
+import {merchantPurchaseHintFromSearch} from './purchase-hint.ts';
 type Environment=Readonly<Record<string,string|undefined>>;
 type ActorInput=Readonly<{credential:string|null;hostname:string;requestId:string;now:Date}>;
 type ActorResolver=(input:ActorInput)=>Promise<ServerPanelAccessResult>;
@@ -61,7 +62,8 @@ export function createMerchantPhoneRuntime(options:Readonly<{source:Environment;
     if(options.getHandoffRepository)repository=await options.getHandoffRepository();
     else{const {resolveDefaultServerAdminHostAuthRuntime}=await import('../server-admin-host-auth/default.ts');const runtime=await resolveDefaultServerAdminHostAuthRuntime();if(!runtime||runtime.access.panelOrigin!==config.auth.authority.panelOrigin)invalid();repository=runtime.handoffs;}
     const {createMerchantSessionCompletion}=await import('../../../owner/lib/merchant-whatsapp/completion.ts');
-    const transfer=createMerchantSessionCompletion({repository,clock,randomBytes:size=>new Uint8Array(randomBytes(size)),secret:config.auth.keys.callbackInternal,handoffKeyId:config.auth.keys.handoffKeyId,allowedPurpose:'login'});
+    const purchaseHint=merchantPurchaseHintFromSearch(new URL(completedRequest.url).search);
+    const transfer=createMerchantSessionCompletion({repository,clock,randomBytes:size=>new Uint8Array(randomBytes(size)),secret:config.auth.keys.callbackInternal,handoffKeyId:config.auth.keys.handoffKeyId,allowedPurpose:'login',...(purchaseHint?{purchaseHint}:{})});
     return transfer({request:completedRequest,completion,operationId:completion.sessionId});
    };
    const handlers=createMerchantPhoneHandlers({transport,clock,authenticateIngress,completeSession,requireActor:()=>resolveMerchantPhoneActor(request,{resolve:options.resolveActor??defaultActor,clock})});

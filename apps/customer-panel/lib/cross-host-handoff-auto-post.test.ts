@@ -55,3 +55,13 @@ test("rejects non-canonical origins, malformed credentials, and weak randomness"
     randomBytes: () => new Uint8Array(17),
   }));
 });
+
+test('the bounded purchase hint appears only on the trusted form action', async()=>{
+ const input={destinationOrigin:DESTINATION,handoffCredential:HANDOFF,randomBytes:(size:number)=>new Uint8Array(size).fill(1)};
+ const response=createCrossHostHandoffAutoPostResponse({...input,purchaseHint:'toshi-test-1'});
+ const html=await response.text();
+ assert.match(html,new RegExp(`action="${DESTINATION}/auth/handoff\\?purchase=toshi-test-1"`));
+ assert.deepEqual([...html.matchAll(/<input\b[^>]*\bname="([^"]+)"/g)].map(row=>row[1]),['handoff']);
+ assert.match(response.headers.get('content-security-policy')!,new RegExp(`form-action ${DESTINATION}`));
+ assert.throws(()=>createCrossHostHandoffAutoPostResponse({...input,purchaseHint:'https://evil.example' as never}));
+});

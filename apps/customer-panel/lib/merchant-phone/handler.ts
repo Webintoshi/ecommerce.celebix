@@ -2,6 +2,7 @@ import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {isIP} from 'node:net';
 import type {MerchantInternalInput,MerchantInternalResult,MerchantCompletion} from '../../../owner/lib/merchant-whatsapp/service.ts';
 import {serializePersistentPanelSessionCookie} from '../panel-session-completion/cookie.ts';
+import {merchantPurchaseHintFromSearch,merchantPurchaseDestination} from './purchase-hint.ts';
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
 class Unauthorized extends Error{}
 export class MerchantActorUnavailable extends Error{}
@@ -15,7 +16,7 @@ function token(value:unknown){if(typeof value!=='string'||!/^[A-Za-z0-9_-]{43}$/
 function same(left:string,right:string){const a=Buffer.from(left),b=Buffer.from(right);return a.length===b.length&&timingSafeEqual(a,b);}
 // Next listener URLs do not replace routed public Host/Origin authority.
 export function isMerchantInternalListener(url:URL){const hostname=url.hostname.replace(/^\[|\]$/gu,'');return !hostname.includes('.')||isIP(hostname)!==0;}
-function origin(request:Request){const url=new URL(request.url),raw=request.headers.get('host');if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.search||url.hash)invalid();const publicUrl=new URL('https://'+(raw??url.host));if(publicUrl.host!==(raw??url.host)||publicUrl.port||publicUrl.username||publicUrl.password||publicUrl.pathname!=='/'||publicUrl.search||publicUrl.hash||!publicUrl.hostname.includes('.'))invalid();if(url.protocol==='https:'&&!isMerchantInternalListener(url)&&url.origin!==publicUrl.origin)invalid();return publicUrl;}
+function origin(request:Request,allowPurchase=false){const url=new URL(request.url),raw=request.headers.get('host');if(!['http:','https:'].includes(url.protocol)||url.username||url.password||(!allowPurchase&&url.search)||url.hash)invalid();const publicUrl=new URL('https://'+(raw??url.host));if(publicUrl.host!==(raw??url.host)||publicUrl.port||publicUrl.username||publicUrl.password||publicUrl.pathname!=='/'||publicUrl.search||publicUrl.hash||!publicUrl.hostname.includes('.'))invalid();if(url.protocol==='https:'&&!isMerchantInternalListener(url)&&url.origin!==publicUrl.origin)invalid();return publicUrl;}
 async function body(request:Request){if(request.headers.get('content-type')!=='application/json'||!request.body)invalid();const reader=request.body.getReader(),chunks:Uint8Array[]=[];let length=0;try{for(;;){const next=await reader.read();if(next.done)break;length+=next.value.length;if(length>4096){await reader.cancel();invalid();}chunks.push(next.value);}const value=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));if(!value||typeof value!=='object'||Array.isArray(value))invalid();return value as Record<string,unknown>;}finally{reader.releaseLock();}}
 function exact(row:Record<string,unknown>,required:readonly string[],optional:readonly string[]=[]){if(required.some(k=>!Object.hasOwn(row,k))||Object.keys(row).some(k=>![...required,...optional].includes(k)))invalid();return row;}
 function loginState(state:unknown){if(!state||typeof state!=='object'||Array.isArray(state))invalid();const s=state as Record<string,unknown>;exact(s,['phase'],['maskedPhone','expiresAt','resendAt']);if(!['phone','code'].includes(String(s.phase)))invalid();if(s.maskedPhone!==undefined&&(typeof s.maskedPhone!=='string'||s.maskedPhone.length>80))invalid();for(const k of ['expiresAt','resendAt'])if(s[k]!==undefined&&(typeof s[k]!=='string'||!Number.isFinite(Date.parse(s[k]))||new Date(s[k]).toISOString()!==s[k]))invalid();return s;}
@@ -32,8 +33,10 @@ export function createMerchantPhoneHandlers(options:Readonly<{
  async function actor(){try{return await options.requireActor();}catch(e){if(e instanceof MerchantActorUnavailable)throw e;throw new Unauthorized();}}
  async function handle(request:Request,action:'state'|'start'|'resend'|'verify'|'complete',bind=false):Promise<Response>{
   try{
-   const publicOrigin=origin(request),url=new URL(request.url),path=action==='complete'?'/auth/merchant-phone/complete':`${prefix}/${bind?'bind/':''}${action}`;
+   const publicOrigin=origin(request,action==='complete'&&!signup),url=new URL(request.url),path=action==='complete'?'/auth/merchant-phone/complete':`${prefix}/${bind?'bind/':''}${action}`;
    if(url.pathname!==path||(action==='state'||action==='complete'?request.method!=='GET':request.method!=='POST'))invalid();
+   let purchaseHint:ReturnType<typeof merchantPurchaseHintFromSearch>;
+   try{purchaseHint=action==='complete'?merchantPurchaseHintFromSearch(url.search):undefined;}catch{invalid();}
    if(bind&&signup)invalid();
    if(action==='complete'&&request.headers.get('sec-fetch-site')==='cross-site')invalid();
    const mutating=action!=='state'&&action!=='complete';
@@ -44,6 +47,7 @@ export function createMerchantPhoneHandlers(options:Readonly<{
    const savedPurpose=action==='complete'?cookie(request,names.purpose):undefined;
    if(savedPurpose!==undefined&&!['login','bind_phone'].includes(savedPurpose))invalid();
    const purpose=action==='complete'?(savedPurpose==='bind_phone'?'bind_phone':'login'):bind?'bind_phone':signup?'signup':'login';
+   if(purchaseHint!==undefined&&purpose!=='login')invalid();
    const credential=purpose==='bind_phone'?await actor():undefined;
    const command:MerchantInternalInput={schemaVersion:1,action,purpose,hostname:publicOrigin.hostname,browserCredential:browser,...(cookie(request,names.pending)?{pendingCookie:cookie(request,names.pending)}:{}),...(credential?{sessionCredential:credential}:{})};
    let input=command;
@@ -63,7 +67,7 @@ export function createMerchantPhoneHandlers(options:Readonly<{
     if(completion.destinationOrigin!==publicOrigin.origin){
      if(!options.completeSession)invalid();final=secure(await options.completeSession(completion,request));
     }else{
-     final=secure(new Response(null,{status:303,headers:{location:purpose==='bind_phone'?'/settings/security':'/','set-cookie':serializePersistentPanelSessionCookie({credential:completion.sessionCredential,issuedAt:completion.sessionIssuedAt,expiresAt:completion.sessionExpiresAt,now:clock()})}}));
+     final=secure(new Response(null,{status:303,headers:{location:purpose==='bind_phone'?'/settings/security':merchantPurchaseDestination(purchaseHint),'set-cookie':serializePersistentPanelSessionCookie({credential:completion.sessionCredential,issuedAt:completion.sessionIssuedAt,expiresAt:completion.sessionExpiresAt,now:clock()})}}));
     }
     if(final.status<400){for(const name of [names.pending,names.browser,names.csrf,names.purpose])final.headers.append('set-cookie',clearCookie(name));}return final;
    }

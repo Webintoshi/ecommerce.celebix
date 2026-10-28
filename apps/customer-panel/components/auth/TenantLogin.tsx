@@ -5,8 +5,9 @@ import { MerchantPhoneLoginForm } from "./MerchantPhoneLoginForm.tsx";
 import styles from "./TenantLogin.module.css";
 
 import type { TenantAdminLoginModel } from "../../lib/tenant-admin-login-model.ts";
+import type { MerchantPurchaseHint } from "../../lib/merchant-phone/purchase-hint.ts";
 
-export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }>) {
+export function TenantLogin({ model, purchaseHint }: Readonly<{ model: TenantAdminLoginModel; purchaseHint?: MerchantPurchaseHint }>) {
   return (
     <main className={`tenant-login-page ${styles.page}`}>
       <header className={`tenant-login-header ${styles.header}`}>
@@ -17,7 +18,7 @@ export function TenantLogin({ model }: Readonly<{ model: TenantAdminLoginModel }
       <section className={`tenant-login-entry ${styles.entry}`} aria-labelledby="tenant-login-name">
         <div className={`tenant-login-content ${styles.content}`}>
           <h2 className={styles.entryTitle}>Giriş</h2>
-          <MerchantPhoneLoginForm inline />
+          <MerchantPhoneLoginForm inline purchaseHint={purchaseHint} />
           <nav className={styles.actions} aria-label="Mağaza açılışı">
             <Link className={styles.action} data-login-action="store" href="https://ecommerce.celebix.co/kayit" prefetch={false}>
               <Store className={styles.glyph} aria-hidden="true" size={40} strokeWidth={1.5} />

@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';import test from 'node:test';
 import {createMerchantSignupCompletion,createMerchantSessionCompletion} from './completion.ts';
+import {createAdminSecurityCompletionTransfer} from '../../../customer-panel/lib/admin-login-security/runtime.ts';
+test('signup and legacy MFA factories cannot opt into the purchase hint',()=>{
+ const options={secret:Buffer.alloc(32,4),handoffKeyId:'handoff1',clock:()=>new Date('2026-10-13T10:00:00Z'),randomBytes:(size:number)=>new Uint8Array(size).fill(5),repository:{recoverIssuedHandoff:async()=>{throw Error('must not read');},issuePreparedHandoff:async()=>{throw Error('must not write');}},purchaseHint:'toshi-test-1' as const};
+ assert.throws(()=>createMerchantSignupCompletion(options));
+ assert.throws(()=>createMerchantSessionCompletion({...options,allowedPurpose:'signup'}));
+ assert.throws(()=>createAdminSecurityCompletionTransfer(options));
+});
 test('signup transfers one deterministic prepared handoff and retains the original session expiry on retry',async()=>{
  const op='12345678-1234-4234-8234-123456789abc',credential='v1.session1.'+Buffer.alloc(32,3).toString('base64url'),calls:any[]=[];let saved:any=null;
  const transfer=createMerchantSignupCompletion({secret:Buffer.alloc(32,4),handoffKeyId:'handoff1',clock:()=>new Date('2026-10-13T10:00:00.000Z'),randomBytes:size=>new Uint8Array(size).fill(5),repository:{async recoverIssuedHandoff(input){calls.push({action:'recover',...input});return saved??{kind:'unauthenticated'};},async issuePreparedHandoff(input){calls.push({action:'issue',...input});saved=Object.freeze({kind:'handoff_issued',credential:input.candidateCredential,destinationOrigin:'https://admin.shop.com',expiresAt:'2026-10-13T10:02:00.000Z'});return saved;}}});

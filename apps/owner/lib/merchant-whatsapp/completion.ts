@@ -6,6 +6,7 @@ type TransferOptions=Parameters<typeof createAdminSecurityCompletionTransfer>[0]
  * Its native prepared write/recovery cannot issue another panel session. */
 export function createMerchantSessionCompletion(options:TransferOptions&Readonly<{secret:Uint8Array;handoffKeyId:string;allowedPurpose?:'signup'|'login'}>){
  if(options.secret.length!==32||!/^[A-Za-z0-9._-]{1,64}$/u.test(options.handoffKeyId))throw Error('merchant_completion_invalid');
+ if(options.purchaseHint!==undefined&&options.allowedPurpose!=='login')throw Error('merchant_completion_invalid');
  const key=Buffer.from(options.secret),transfer=createAdminSecurityCompletionTransfer({...options,sessionPolicy:'store_whatsapp'});
  return async(input:Readonly<{request:Request;completion:MerchantCompletion;operationId:string}>)=>{
   const c=input.completion;

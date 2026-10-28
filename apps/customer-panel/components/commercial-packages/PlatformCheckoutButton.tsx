@@ -1,10 +1,10 @@
 'use client';
-import {useRef,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const send=(url:string,init:RequestInit)=>fetch(url,init),newId=()=>crypto.randomUUID();
-type Props=Readonly<{storeId:string;kind:'package'|'tool'|'toshi_credit';offerId:string;term:'monthly'|'annual'|'once';label?:string;disabled?:boolean;className?:string;fetcher?:typeof send;createOperationId?:()=>string}>;
-export function PlatformCheckoutButton({storeId,kind,offerId,term,label='Güvenli ödemeye geç',disabled=false,className='button button-primary',fetcher=send,createOperationId=newId}:Props){
- const working=useRef(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expired,setExpired]=useState(false);
+type Props=Readonly<{storeId:string;kind:'package'|'tool'|'toshi_credit';offerId:string;term:'monthly'|'annual'|'once';label?:string;disabled?:boolean;autoStart?:boolean;className?:string;fetcher?:typeof send;createOperationId?:()=>string}>;
+export function PlatformCheckoutButton({storeId,kind,offerId,term,label='Güvenli ödemeye geç',disabled=false,autoStart=false,className='button button-primary',fetcher=send,createOperationId=newId}:Props){
+ const working=useRef(false),autoStarted=useRef(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[expired,setExpired]=useState(false);
  async function start(){
   if(working.current||disabled)return;working.current=true;setBusy(true);setError('');setExpired(false);
   try{
@@ -31,5 +31,10 @@ export function PlatformCheckoutButton({storeId,kind,offerId,term,label='Güvenl
   }catch{setError('Ödeme sayfası açılamadı. Aynı işlemi yeniden deneyin.');}
   finally{working.current=false;setBusy(false);}
  }
+ useEffect(()=>{
+  if(autoStart&&!disabled&&!autoStarted.current&&kind==='toshi_credit'&&offerId==='toshi-test-1'&&term==='once'){
+   autoStarted.current=true;void start();
+  }
+ },[autoStart,disabled,kind,offerId,term]);
  return <div><button type="button" className={className} disabled={disabled||busy} onClick={()=>void start()}>{busy?'Ödeme hazırlanıyor…':expired?'Yeni satın alma oluştur':error?'Aynı işlemi yeniden dene':label}</button>{error?<p role="alert">{error}</p>:null}</div>;
 }

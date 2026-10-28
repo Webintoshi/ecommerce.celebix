@@ -3,13 +3,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createMerchantPhoneLoginClient, MERCHANT_COMPLETE_PATH, merchantLoginMessage, MerchantPhoneLoginError, normalizeMerchantPhone, type MerchantPhoneLoginClient, type MerchantPhoneLoginState } from './merchant-phone-login-client.ts';
 import { PHONE_COUNTRIES, composePhoneNumber, splitPhoneNumber } from '../../../storefront-shared/lib/checkout-phone.ts';
 import styles from './MerchantPhoneLoginForm.module.css';
+import { merchantPurchaseSearch, type MerchantPurchaseHint } from '../../lib/merchant-phone/purchase-hint.ts';
 function seconds(value: string | null | undefined, now: number) { return value ? Math.max(0, Math.ceil((Date.parse(value) - now) / 1000)) : 0; }
-export function MerchantPhoneLoginForm({ client: provided, clock = Date.now, completionMessage = 'Mağaza erişiminiz hazırlanıyor…', navigate = (path: string) => window.location.assign(path), inline = false }: Readonly<{
+export function MerchantPhoneLoginForm({ client: provided, clock = Date.now, completionMessage = 'Mağaza erişiminiz hazırlanıyor…', navigate = (path: string) => window.location.assign(path), inline = false, purchaseHint }: Readonly<{
     client?: MerchantPhoneLoginClient;
     clock?: () => number;
     navigate?: (path: string) => void;
     completionMessage?: string;
     inline?: boolean;
+    purchaseHint?: MerchantPurchaseHint;
 }>) {
     const client = useMemo(() => provided ?? createMerchantPhoneLoginClient(), [provided]);
     const [country, setCountry] = useState(PHONE_COUNTRIES[0]!);
@@ -27,8 +29,8 @@ export function MerchantPhoneLoginForm({ client: provided, clock = Date.now, com
     } }); return () => { active = false; mounted.current = false; }; }, [client]);
     useEffect(() => { if (state?.phase === 'complete' && !completed.current) {
         completed.current = true;
-        navigate(MERCHANT_COMPLETE_PATH);
-    } }, [state?.phase, navigate]);
+        navigate(`${MERCHANT_COMPLETE_PATH}${merchantPurchaseSearch(purchaseHint)}`);
+    } }, [state?.phase, navigate, purchaseHint]);
     useEffect(() => { if (state && !busy)
         input.current?.focus(); }, [state?.phase, busy]);
     useEffect(() => { if (!state || state.phase === 'complete')

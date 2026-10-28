@@ -1,4 +1,5 @@
 import { parseExactAdminHttpsOrigin } from "@celebix/saas-data";
+import { merchantPurchaseSearch, type MerchantPurchaseHint } from './merchant-phone/purchase-hint.ts';
 
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
 const TOKEN = /^[A-Za-z0-9_-]{43}$/;
@@ -42,11 +43,12 @@ export function createCrossHostHandoffAutoPostResponse(input: Readonly<{
   destinationOrigin: string;
   handoffCredential: string;
   randomBytes(size: number): Uint8Array;
+  purchaseHint?: MerchantPurchaseHint;
 }>): Response {
   const destinationOrigin = canonicalOrigin(input?.destinationOrigin);
   const handoffCredential = canonicalCredential(input?.handoffCredential);
   const nonce = createNonce(input?.randomBytes);
-  const action = `${destinationOrigin}/auth/handoff`;
+  const action = `${destinationOrigin}/auth/handoff${merchantPurchaseSearch(input?.purchaseHint)}`;
   const policy = [
     "default-src 'none'",
     "base-uri 'none'",

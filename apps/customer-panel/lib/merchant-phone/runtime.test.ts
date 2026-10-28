@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';import test from 'node:test';import {createHmac} from 'node:crypto';
 import {createMerchantPhoneRuntime,resolveMerchantPhoneConfig,resolveMerchantPhoneActor} from './runtime.ts';
+import {createCrossHostHandoffHttpHandler} from '../cross-host-handoff-http.ts';
 const NOW=new Date('2026-10-13T12:00:00.000Z'),OP='11111111-1111-4111-8111-111111111111',HOST='shop.staging.celebix.site',ORIGIN=`https://${HOST}`,CREDENTIAL=`v1.session1.${Buffer.alloc(32,3).toString('base64url')}`;
 function source(){const env:any={CELEBIX_MERCHANT_WHATSAPP_ENABLED:'true',CELEBIX_ADMIN_LOGIN_INGRESS_KEY_HEX:Buffer.alloc(32,8).toString('hex'),CELEBIX_SAAS_AUTH_MODE:'approved_staging',CELEBIX_DEPLOYMENT_TIER:'staging',CELEBIX_STAGING_ACTIVATION_ID:'staging_auth0101',CELEBIX_OWNER_ORIGIN:'https://staging-owner.celebix.site',CELEBIX_PANEL_ORIGIN:'https://staging-panel.celebix.site',CELEBIX_PLATFORM_DOMAIN_SUFFIX:'staging.celebix.site',CELEBIX_SAAS_DATABASE_URL:'postgresql://fixture:fixture@postgres.internal/celebix_saas_staging_auth?sslmode=require',CELEBIX_SAAS_DATABASE_NAME:'celebix_saas_staging_auth',CELEBIX_LOGTO_END_SESSION_ENDPOINT:'https://auth.celebix.co/oidc/session/end',CELEBIX_LOGTO_CLIENT_ID:'fixture'};for(const[index,name]of ['BROWSER_INTERNAL','CALLBACK_INTERNAL','HANDOFF','SESSION'].entries()){env[`CELEBIX_${name}_KEY_ID`]=`${name.toLowerCase()}.v1`;env[`CELEBIX_${name}_KEY_B64URL`]=Buffer.alloc(32,index+1).toString('base64url');}return env;}
 function actor(){return{kind:'authenticated',session:{activeStoreId:OP,principal:{id:OP}},tenantContext:{principal:{id:OP},store:{id:OP,status:'active'},membership:{role:'admin',status:'active'},resolvedHost:{hostname:'canonical.staging.celebix.site'}}}as any;}
@@ -31,3 +32,45 @@ test('WhatsApp completion uses the original thirty-day limit and remaining cooki
  }
 });
 test('configured central completion issues one prepared HTML handoff, tenant requests cannot transfer elsewhere',async()=>{const central='https://staging-panel.celebix.site',target='https://admin.shop.example.test',completion={sessionCredential:CREDENTIAL,sessionId:OP,sessionIssuedAt:NOW.toISOString(),sessionExpiresAt:new Date(NOW.getTime()+2592000000).toISOString(),destinationStoreId:OP,destinationOrigin:target,purpose:'login' as const};const calls:any[]=[];let issued:any=null;const handoffs={async recoverIssuedHandoff(input:any){calls.push({action:'recover',...input});return issued??{kind:'unauthenticated'};},async issuePreparedHandoff(input:any){calls.push({action:'issue',...input});issued={kind:'handoff_issued',credential:input.candidateCredential,destinationOrigin:target,expiresAt:new Date(NOW.getTime()+120000).toISOString()};return issued;}};const run=createMerchantPhoneRuntime({source:source(),clock:()=>NOW,getHandoffRepository:async()=>handoffs,createTransport:()=>({command:async(input)=>input.action==='complete'?{schemaVersion:1,code:'complete',completion}:{schemaVersion:1,code:'ok',state:{phase:'phone'}}})});const centralRequest=(path:string,cookie?:string)=>new Request('http://customer-panel:3400'+path,{headers:{host:new URL(central).host,...(cookie?{cookie}:{})}});const state=await run('state',centralRequest('/api/merchant-login/state')),cookie=state.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');const first=await run('complete',centralRequest('/auth/merchant-phone/complete',cookie));assert.equal(first.status,200);assert.match(first.headers.get('content-type')!,/text\/html/);const html=await first.text();assert.match(html,new RegExp(`action="${target}/auth/handoff"`));assert.equal(html.includes(CREDENTIAL),false);assert.equal(first.headers.getSetCookie().some(value=>value.startsWith('__Host-celebix_panel=')),false);const retry=await run('complete',centralRequest('/auth/merchant-phone/complete',cookie));assert.equal(retry.status,200);assert.equal(calls.filter(value=>value.action==='issue').length,1);assert.equal(calls[0].operationId,calls.at(-1).operationId);const other=new Request('https://other.staging.celebix.site/auth/merchant-phone/complete',{headers:{host:'other.staging.celebix.site',cookie}});const denied=await run('complete',other);assert.equal(denied.status,403);assert.equal(calls.length,3);assert.equal(denied.headers.get('location'),null);});
+
+test('hinted central login keeps one prepared handoff and installs a session before fixed purchase navigation',async()=>{
+ const central='https://staging-panel.celebix.site',target='https://admin.shop.example.test',commands:any[]=[],writes:any[]=[];
+ const completion={sessionCredential:CREDENTIAL,sessionId:OP,sessionIssuedAt:NOW.toISOString(),sessionExpiresAt:new Date(NOW.getTime()+2592000000).toISOString(),destinationStoreId:OP,destinationOrigin:target,purpose:'login' as const};
+ let issued:any=null;
+ const run=createMerchantPhoneRuntime({source:source(),clock:()=>NOW,getHandoffRepository:async()=>({
+  recoverIssuedHandoff:async()=>issued??{kind:'unauthenticated'},
+  issuePreparedHandoff:async input=>{writes.push(input);return issued={kind:'handoff_issued',credential:input.candidateCredential,destinationOrigin:target,expiresAt:new Date(NOW.getTime()+120000).toISOString()};},
+ }),createTransport:()=>({command:async input=>{commands.push(input);return input.action==='complete'?{schemaVersion:1,code:'complete',completion}:{schemaVersion:1,code:'ok',state:{phase:'phone'}};}})});
+ const centralRequest=(path:string,cookie?:string)=>new Request('http://customer-panel:3400'+path,{headers:{host:new URL(central).host,...(cookie?{cookie}:{})}});
+ const state=await run('state',centralRequest('/api/merchant-login/state')),cookie=state.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
+ const first=await run('complete',centralRequest('/auth/merchant-phone/complete?purchase=toshi-test-1',cookie));
+ assert.equal(first.status,200);
+ const html=await first.text();
+ assert.match(html,/action="https:\/\/admin.shop.example.test\/auth\/handoff\?purchase=toshi-test-1"/);
+ assert.equal(html.includes(CREDENTIAL),false);
+ assert.deepEqual(Object.keys(commands.at(-1)).sort(),['action','browserCredential','hostname','purpose','schemaVersion']);
+ assert.equal((await run('complete',centralRequest('/auth/merchant-phone/complete?purchase=toshi-test-1',cookie))).status,200);
+ assert.equal(writes.length,1,'navigation hint must not create another login/handoff operation');
+ let redeemed=0;
+ const destination=createCrossHostHandoffHttpHandler({clock:()=>NOW,maximumBodyBytes:1024,resolveRuntime:async()=>({
+  access:{panelOrigin:central},ownerOrigin:'https://staging-owner.celebix.site',adminDomains:{resolvePublicBrand:async()=>({kind:'resolved'})},
+  handoffs:{redeemHandoff:async(input:any)=>{redeemed++;assert.equal(input.credential,issued.credential);return Object.freeze({kind:'redeemed',sessionCredential:CREDENTIAL,session:Object.freeze({sessionId:OP,familyId:OP,principalId:OP,activeStoreId:OP,version:1,issuedAt:NOW.toISOString(),rotatedAt:NOW.toISOString(),expiresAt:completion.sessionExpiresAt})});}},
+ })});
+ const response=await destination(new Request(target+'/auth/handoff?purchase=toshi-test-1',{method:'POST',headers:{host:new URL(target).host,origin:central,'content-type':'application/x-www-form-urlencoded'},body:new URLSearchParams({handoff:issued.credential}).toString()}));
+ assert.equal(response.status,303);assert.equal(redeemed,1);
+ assert.equal(response.headers.get('location'),target+'/settings/artificial-intelligence?purchase=toshi-test-1');
+ assert.equal(response.headers.getSetCookie()[0],`__Host-celebix_panel=${CREDENTIAL}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000`);
+});
+
+test('same-host login continues to one fixed purchase path only after private completion',async()=>{
+ const completion={sessionCredential:CREDENTIAL,sessionId:OP,sessionIssuedAt:NOW.toISOString(),sessionExpiresAt:new Date(NOW.getTime()+7200000).toISOString(),destinationStoreId:OP,destinationOrigin:ORIGIN,purpose:'login' as const};
+ let valid=true,calls=0;
+ const run=createMerchantPhoneRuntime({source:source(),clock:()=>NOW,createTransport:()=>({command:async input=>{calls++;return input.action==='complete'?(valid?{schemaVersion:1,code:'complete',completion}:{schemaVersion:1,code:'fresh_login_required'}):{schemaVersion:1,code:'ok',state:{phase:'phone'}};}})});
+ const state=await run('state',request('/api/merchant-login/state')),cookie=state.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
+ const response=await run('complete',request('/auth/merchant-phone/complete?purchase=toshi-test-1',{headers:{cookie}}));
+ assert.equal(response.status,303);assert.equal(response.headers.get('location'),'/settings/artificial-intelligence?purchase=toshi-test-1');
+ assert.ok(response.headers.getSetCookie().some(value=>value.startsWith('__Host-celebix_panel=')));
+ const before=calls;assert.equal((await run('complete',request('/auth/merchant-phone/complete?purchase=toshi-test-1&returnTo=https://evil.example',{headers:{cookie}}))).status,403);assert.equal(calls,before);
+ valid=false;const denied=await run('complete',request('/auth/merchant-phone/complete?purchase=toshi-test-1',{headers:{cookie}}));
+ assert.equal(denied.status,401);assert.equal(denied.headers.has('location'),false);assert.equal(denied.headers.has('set-cookie'),false);
+});

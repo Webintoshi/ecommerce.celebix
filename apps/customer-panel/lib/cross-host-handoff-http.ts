@@ -6,6 +6,7 @@ import {
 } from "@celebix/saas-data";
 
 import { serializePersistentPanelSessionCookie } from "./panel-session-completion/cookie.ts";
+import { merchantPurchaseHintFromSearch, merchantPurchaseDestination, type MerchantPurchaseHint } from './merchant-phone/purchase-hint.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
@@ -46,16 +47,16 @@ function timestamp(value: unknown): string {
   return normalized;
 }
 
-function canonicalRequest(request: Request): { hostname: string; origin: string } {
+function canonicalRequest(request: Request): { hostname: string; origin: string; purchaseHint?: MerchantPurchaseHint } {
   if (request.method !== "POST") throw new Error("invalid");
   const url = new URL(request.url);
   if (
     !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.pathname !== "/auth/handoff" ||
-    url.search || url.hash
+    url.hash
   ) throw new Error("invalid");
   const hostname = normalizeAdminRequestHostname(request.headers.get("host"));
   parseExactAdminHttpsOrigin(`https://${hostname}`);
-  return { hostname, origin: `https://${hostname}` };
+  return { hostname, origin: `https://${hostname}`, purchaseHint: merchantPurchaseHintFromSearch(url.search) };
 }
 
 async function boundedBody(request: Request, maximumBytes: number): Promise<string> {
@@ -118,7 +119,7 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
   ) throw new Error("cross_host_handoff_http_invalid");
 
   return async function handle(request: Request): Promise<Response> {
-    let authority: { hostname: string; origin: string };
+    let authority: { hostname: string; origin: string; purchaseHint?: MerchantPurchaseHint };
     try { authority = canonicalRequest(request); }
     catch { return json("admin_handoff_request_invalid", 400); }
 
@@ -132,6 +133,7 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
       if (!(trustedNow instanceof Date) || !Number.isFinite(trustedNow.getTime())) throw new Error("unavailable");
       if (!authority.hostname.startsWith("admin.")) parseCanonicalAdminOriginFromPanelOrigin(authority.origin, runtime.access?.panelOrigin);
       const requestOrigin = request.headers.get("origin");
+      if (authority.purchaseHint && requestOrigin !== runtime.access?.panelOrigin) return json('admin_handoff_request_invalid', 400);
       if (requestOrigin !== null && requestOrigin !== "null" && requestOrigin !== runtime.access?.panelOrigin && requestOrigin !== runtime.ownerOrigin && requestOrigin !== authority.origin) throw new Error("invalid");
       const brand = await runtime.adminDomains?.resolvePublicBrand({ hostname: authority.hostname, now: trustedNow });
       if (!brand || brand.kind !== "resolved") throw new Error("invalid");
@@ -168,7 +170,7 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
         now: trustedNow,
       });
       return new Response(null, { status: 303, headers: {
-        location: `${authority.origin}/`,
+        location: `${authority.origin}${merchantPurchaseDestination(authority.purchaseHint)}`,
         "set-cookie": cookie,
         "cache-control": "no-store",
         "referrer-policy": "no-referrer",
