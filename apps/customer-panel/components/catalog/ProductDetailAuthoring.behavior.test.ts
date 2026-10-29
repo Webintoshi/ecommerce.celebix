@@ -174,7 +174,7 @@ test("unsaved new variant facts are explicit and cancelling their form invalidat
 
 test("variant removal uses normal archive CAS and invalidates an earlier actual AI preview",async()=>withDetail(async h=>{
  await h.click("Open authoring preview");await h.click("Seçilenleri hazırla · 7 kredi");await act(async()=>h.resolveGeneration());assert.equal(h.authoring().capture().request.currentDraft.variants.length,1);
- const archive=h.container.querySelector<HTMLButtonElement>('[aria-label="Aktif varyantlar"] .text-danger-button')!;assert.ok(archive);await act(async()=>archive.click());await h.click("Varyantı arşivle");
+ const menu=h.container.querySelector<HTMLDetailsElement>('[aria-label="Aktif varyantlar"] details[data-variant-menu]')!;assert.ok(menu);await act(async()=>menu.querySelector("summary")!.click());const archive=[...menu.querySelectorAll("button")].find(button=>button.textContent==="Arşivle");assert.ok(archive);await act(async()=>archive.click());assert.equal(menu.open,false);await h.click("Varyantı arşivle");
  assert.deepEqual(h.variantRequests,[{archive:existingVariant.id,expectedVersion:3}]);assert.deepEqual(h.authoring().capture().request.currentDraft.variants,[]);assert.deepEqual(h.seoDraft().currentDraft.variants,[]);
  await h.click("Açıklama alanına uygula");assert.equal(h.container.querySelector<HTMLTextAreaElement>('[name="description"]')!.value,"Saved description");assert.equal(h.container.querySelector('[data-description-origin]')!.getAttribute("data-description-origin"),JSON.stringify(priorOrigin));assert.match(h.container.textContent??"",/Alanlar değişti/);assert.equal(h.requests.length,0);
 },[existingVariant],true));

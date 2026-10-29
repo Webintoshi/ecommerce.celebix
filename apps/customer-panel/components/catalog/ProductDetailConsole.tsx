@@ -155,6 +155,7 @@ function ProductDetailConsoleWorkspace({
   const deletionIntentRef = useRef<Readonly<{ productId: string; expectedVersion: number; confirmation: string; operationId: string }> | undefined>(undefined);
   const archiveDialogRef = useRef<HTMLDivElement>(null);
   const actionMenuRef = useRef<HTMLDetailsElement>(null);
+  const variantSectionRef = useRef<HTMLElement>(null);
   const salesSavingRef = useRef(false);
   const mutationLockedRef = useRef(false);
   const archiveCancelButtonRef = useRef<HTMLButtonElement>(null);
@@ -436,11 +437,13 @@ function ProductDetailConsoleWorkspace({
   useEffect(() => {
     function closeMenu(event: PointerEvent | globalThis.KeyboardEvent) {
       if (event.type === "keydown" && (event as globalThis.KeyboardEvent).key !== "Escape") return;
-      if (event.type === "pointerdown" && actionMenuRef.current?.contains(event.target as Node)) return;
-      const summary = actionMenuRef.current?.querySelector<HTMLElement>("summary");
-      const restoreFocus = Boolean(actionMenuRef.current?.open && (event.type === "keydown" || actionMenuRef.current.contains(document.activeElement)));
-      actionMenuRef.current?.removeAttribute("open");
-      if (restoreFocus) summary?.focus();
+      const menus = [actionMenuRef.current, ...Array.from(variantSectionRef.current?.querySelectorAll<HTMLDetailsElement>("details[data-variant-menu][open]") ?? [])];
+      for (const menu of menus) {
+        if (!menu?.open || (event.type === "pointerdown" && menu.contains(event.target as Node))) continue;
+        const restoreFocus = event.type === "keydown" || menu.contains(document.activeElement);
+        menu.removeAttribute("open");
+        if (restoreFocus) menu.querySelector<HTMLElement>("summary")?.focus();
+      }
     }
     document.addEventListener("pointerdown", closeMenu);
     document.addEventListener("keydown", closeMenu);
@@ -848,12 +851,12 @@ function ProductDetailConsoleWorkspace({
 
           <ProductMediaManager productId={productId} canManage={canManage && !archived} canArchive={canArchive} onActiveMediaChange={receiveActiveMedia} onAuthoringMediaBridgeChange={receiveMediaAuthoringBridge} />
 
-          <section id="product-variants" className={styles.variants} aria-labelledby="variants-title">
+          <section ref={variantSectionRef} id="product-variants" className={styles.variants} aria-labelledby="variants-title">
             <div className={styles.sectionHeader}>
               <h2 ref={variantsHeadingRef} tabIndex={-1} id="variants-title">Varyantlar <span className={styles.count}>{variants.length}</span></h2>
-              {canManage && !archived ? <div className={styles.variantActions}>
+              {canManage && !archived ? <div className={styles.variantHeaderActions}>
                 <button className="button button-secondary" type="button" onClick={() => { if (!canDiscardVariantChanges()) return; const opening = !creatingAttributeVariants; closeDetailEditors(); setShowMeasurementValidation(false); setCreatingAttributeVariants(opening); }} disabled={busy !== "" || merchandisingState !== "ready" || !onboarding}>Niteliklerden ekle</button>
-                <button className="button button-secondary" type="button" onClick={() => openExclusiveEditor("variant-create")} disabled={creatingVariant || merchandisingState !== "ready" || !onboarding}><Plus aria-hidden="true" /> Varyant ekle</button>
+                <button className="button button-primary" type="button" onClick={() => openExclusiveEditor("variant-create")} disabled={creatingVariant || merchandisingState !== "ready" || !onboarding}><Plus aria-hidden="true" /> Varyant ekle</button>
               </div> : null}
             </div>
 
@@ -874,31 +877,33 @@ function ProductDetailConsoleWorkspace({
             {busy==="variant-order"?<p className={styles.variantOrderFeedback} role="status">Varyant sırası kaydediliyor…</p>:null}
             <ProductVariantGalleryEditor productId={productId} media={(activeMedia ?? []).filter(item => item.publicUrl).map(item => ({id:item.id,url:item.publicUrl!,altText:item.altText,variantId:item.variantId}))} variants={variants} canManage={canManage && !archived}>
             {({thumbnail}) => <CatalogSortArea ids={variants.filter(variant=>variant.status!=="archived").map(variant=>variant.id)} onMove={moveVariant} disabled={!canManage||archived||busy!==""||salesSaving||merchandisingState!=="ready"||!variantOrder||Boolean(variantOrderIntentRef.current)} layout="list" label="Varyant sırası" getLabel={id=>variants.find(variant=>variant.id===id)?.title??id}><div className={styles.variantRows} aria-label="Aktif varyantlar">
+              {variants.length > 0 ? <div className={styles.variantHeader} aria-hidden="true"><span>Varyant</span><span>Fiyat</span><span>Stok</span><span>SKU / Barkod</span><span /></div> : null}
               {variants.length === 0 ? <div className="empty-variants"><strong>Aktif varyant yok</strong><p>Ürünü satışa hazırlamak için bir varyant ekleyin.</p></div> : variants.map((variant) => (
                 <CatalogSortItem id={variant.id} as="article" className={styles.variantRow} key={variant.id}>{drag=><>
-                  <div className={styles.variantIdentity}>{canManage&&!archived?<button {...drag.handleProps} className={styles.variantSortHandle}><GripVertical aria-hidden="true" /></button>:null}{thumbnail(variant.id)}<div><strong>{variant.title}</strong><small>v{variant.version}</small></div></div>
+                  <div className={styles.variantRowSummary}>
+                      <div className={styles.variantIdentity}>{canManage&&!archived?<button {...drag.handleProps} className={styles.variantSortHandle}><GripVertical aria-hidden="true" /></button>:null}{thumbnail(variant.id)}<div><strong title={variant.title}>{variant.title}</strong><span className="sr-only">Sürüm {variant.version}</span>{measurementSummary(variant.measurements).length ? <small className={styles.variantMeasurements} title={measurementSummary(variant.measurements).join(" · ")}>{measurementSummary(variant.measurements).join(" · ")}</small> : null}</div></div>
+                      <div className={styles.variantPrice}>
+                        <span className={styles.variantCellLabel}>Fiyat</span><strong>{displayVariantPrice(variant, product.currency)}</strong>
+                        {variant.compareAtCents !== undefined && currentVariantPrice(variant) !== null && variant.compareAtCents > currentVariantPrice(variant)! ? <small><span className="sr-only">Karşılaştırma fiyatı </span><del>{formatTurkishMoney(variant.compareAtCents, product.currency)}</del></small> : null}
+                        <small title={taxRead?.variants.find(item=>item.variantId===variant.id)?.taxSource==='product' ? 'Ürünün KDV oranı' : undefined}>{taxRead?taxLabel(taxRead.variants.find(item=>item.variantId===variant.id)?.effectiveTax??null):'KDV bilgisi alınamadı'}</small>
+                      </div>
+                      <div className={styles.variantStock}><span className={styles.variantCellLabel}>Stok</span><strong>{variant.stockTracking ? String(variant.stockQuantity) + " adet" : "Takip dışı"}</strong></div>
+                      <div className={styles.variantCodes}><span title={variant.sku}><span className="sr-only">SKU </span>{variant.sku || "SKU eklenmemiş"}</span><small title={variant.barcode}><ScanBarcode aria-hidden="true" /><span className="sr-only">Barkod </span>{variant.barcode || "Barkod eklenmemiş"}</small></div>
+                      <div className={styles.variantActions}>
+                        {canManage && !archived ? <button className={styles.smallAction} type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)} disabled={merchandisingState !== "ready" || !onboarding} aria-label={variant.title + " varyantını düzenle"} aria-expanded={editingVariant === variant.id}>Düzenle</button> : null}
+                        {pricingUpgradeAvailable && !archived ? <CommercialFeatureLink capability="reference_pricing" /> : null}
+                        {(canReadPricing || canArchive) && !archived ? <details className={`${styles.more} ${styles.variantMore}`} data-variant-menu><summary aria-label={variant.title + " varyant işlemleri"} title="Diğer işlemler"><MoreHorizontal aria-hidden="true" /></summary><div className={styles.moreMenu}>
+                          {canReadPricing ? <button type="button" aria-expanded={pricingVariantId === variant.id} onClick={(event) => { if (!canDiscardVariantChanges()) return; const menu = event.currentTarget.closest("details"); menu?.removeAttribute("open"); menu?.querySelector<HTMLElement>("summary")?.focus(); closeDetailEditors(); setPricingVariantId(variant.id); }}>Fiyat yöntemi</button> : null}
+                          {canArchive ? <button className={styles.dangerAction} type="button" onClick={(event) => { const menu = event.currentTarget.closest("details"); archiveTriggerRef.current = menu?.querySelector<HTMLElement>("summary") ?? event.currentTarget; menu?.removeAttribute("open"); setArchiveVariant(variant); }}>Arşivle</button> : null}
+                        </div></details> : null}
+                      </div>
+                  </div>
                   {editingVariant === variant.id && canManage && !archived ? (
                     <form ref={editedVariantFormRef} className="catalog-form inset-form" onSubmit={(event) => void updateVariant(event, variant)} onChange={() => markDetailDirty("variant-edit")} key={variant.version}>
                       <fieldset disabled={busy !== "" || merchandisingState !== "ready"}><VariantFields taxAvailable={Boolean(taxRead?.variants.some(item=>item.variantId===variant.id))} tax={taxRead?.variants.find(item=>item.variantId===variant.id)} productTax={taxRead?.tax??null} showMeasurementValidation={showMeasurementValidation} variant={variant} skuPrefix={onboarding?.options.skuPrefix} onBarcodeGenerated={() => markDetailDirty("variant-edit")} /></fieldset>
                       <div className="form-actions"><button className="button button-secondary" type="button" onClick={() => { if (canDiscardDetailChanges("variant-edit")) setEditingVariant(undefined); }}>Vazgeç</button><button className="button button-primary" type="submit" disabled={busy !== "" || merchandisingState !== "ready"}>{busy === "variant-" + variant.id ? "Kaydediliyor…" : "Varyantı kaydet"}</button></div>
                     </form>
-                  ) : (
-                    <>
-                      <div className={styles.variantValues}>
-                        <span><small>Fiyat</small><strong>{displayVariantPrice(variant, product.currency)}</strong></span>
-                        <span><small>KDV</small><strong>{taxRead?taxLabel(taxRead.variants.find(item=>item.variantId===variant.id)?.effectiveTax??null):'Bilgi alınamadı'}</strong>{taxRead?.variants.find(item=>item.variantId===variant.id)?.taxSource==='product'?<small>Üründen</small>:null}</span>
-                        <span><small>Karşılaştırma</small><strong>{variant.compareAtCents === undefined || currentVariantPrice(variant) === null || variant.compareAtCents <= currentVariantPrice(variant)! ? "—" : formatTurkishMoney(variant.compareAtCents, product.currency)}</strong></span>
-                        <span><small>Stok</small><strong>{variant.stockTracking ? String(variant.stockQuantity) + " adet" : "Takip dışı"}</strong></span>
-                      </div>
-                      <div className={styles.variantCodes}><span>{variant.sku ? "SKU " + variant.sku : "SKU eklenmemiş"}</span><small><ScanBarcode aria-hidden="true" /> {variant.barcode || "Barkod eklenmemiş"}</small></div>
-                      {measurementSummary(variant.measurements).length ? <div className={styles.variantCodes} aria-label="Ölçü ve teknik bilgiler">{measurementSummary(variant.measurements).map((measurement) => <small key={measurement}>{measurement}</small>)}</div> : null}
-                      <div className={styles.variantActions}>
-                        {canManage && !archived ? <button className={styles.smallAction} type="button" onClick={() => openExclusiveEditor("variant-edit", variant.id)} disabled={merchandisingState !== "ready" || !onboarding} aria-label={variant.title + " varyantını düzenle"}><Pencil aria-hidden="true" /></button> : null}
-                        {pricingUpgradeAvailable && !archived ? <CommercialFeatureLink capability="reference_pricing" /> : null}{canReadPricing && !archived ? <button className={styles.smallAction} type="button" aria-expanded={pricingVariantId === variant.id} onClick={() => { if (!canDiscardVariantChanges()) return; closeDetailEditors(); setPricingVariantId(variant.id); }}>Fiyat yöntemi</button> : null}
-                        {canArchive && !archived ? <button className="text-danger-button" type="button" onClick={(event) => { archiveTriggerRef.current = event.currentTarget; setArchiveVariant(variant); }}>Arşivle</button> : null}
-                      </div>
-                    </>
-                  )}
+                  ) : null}
                   {pricingVariantId === variant.id && canReadPricing && !archived ? <VariantPricingPolicyControl variantId={variant.id} variantVersion={variant.version} fixedPriceCents={variant.priceCents} measurements={variant.measurements} canManage={canManagePricing} onSaved={() => void load()} onClose={() => setPricingVariantId(undefined)} /> : null}
                 </>}</CatalogSortItem>
               ))}
