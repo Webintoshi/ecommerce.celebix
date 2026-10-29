@@ -50,7 +50,7 @@ export function ProductClassificationPicker({
         {open ? <div className={styles.classificationPopover}>
           <label className={styles.classificationSearch}>
             <Search aria-hidden="true" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={searchLabel} autoComplete="off" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label={searchLabel} placeholder={searchLabel} autoComplete="off" />
           </label>
           {selected.length ? <div className={styles.classificationChips} aria-label={`${label} seçimleri`}>
             {selected.map((id) => {

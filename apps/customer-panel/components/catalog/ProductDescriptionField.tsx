@@ -346,7 +346,7 @@ export function ProductDescriptionField({
           </div>
         ) : null}
 
-        <EditorContent editor={editor} />
+        <EditorContent editor={editor} className={styles.contentSlot} />
       </div>
 
       {authoring && !aiAvailable && !readOnly ? <CommercialFeatureLink capability="ai" /> : null}

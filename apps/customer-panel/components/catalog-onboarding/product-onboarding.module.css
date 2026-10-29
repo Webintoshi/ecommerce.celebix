@@ -523,34 +523,43 @@
 .organizationGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .organizationGrid > label { display: grid; gap: 5px; color: #475467; font-size: 10px; font-weight: var(--cp-font-weight-control); }
 .classificationField { min-width: 0; }
-.classificationPicker { position: relative; border: 1px solid #dce2e9; border-radius: 7px; background: #fff; }
-.classificationPicker[open] { border-color: #fe6100; box-shadow: 0 0 0 3px rgb(254 97 0 / 9%); }
+.classificationPicker { position: relative; min-width: 0; border: 0; background: transparent; }
+.classificationPicker[open] { box-shadow: none; }
 .classificationPicker > summary {
   display: flex;
+  min-width: 0;
   min-height: 42px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  border: 1px solid var(--cp-border);
+  border-radius: var(--cp-button-radius);
+  background: var(--cp-surface);
   padding: 0 10px;
   cursor: pointer;
   list-style: none;
 }
 .classificationPicker > summary::-webkit-details-marker { display: none; }
+.classificationPicker > summary:hover { background: var(--cp-canvas); }
+.classificationPicker > summary:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .classificationPicker > summary > span { display: grid; min-width: 0; gap: 1px; }
 .classificationPicker > summary strong { color: #475467; font-size: 10px; }
 .classificationPicker > summary small { color: #98a2b3; font-size: 8px; font-weight: var(--cp-font-weight-helper); }
-.classificationPicker > summary svg { width: 14px; color: #7a8495; transition: transform 150ms ease; }
+.classificationPicker > summary svg { width: 16px; height: 16px; flex: 0 0 16px; color: var(--cp-text-secondary); transition: transform 150ms ease; }
 .classificationPicker[open] > summary > svg { transform: rotate(180deg); }
-.classificationPopover { display: grid; gap: 7px; border-top: 1px solid #e7ebf0; padding: 8px; }
-.classificationSearch { display: flex; min-height: 38px; align-items: center; gap: 7px; border: 1px solid #dce2e9; border-radius: 6px; padding: 0 9px; color: #98a2b3; }
+.classificationPopover { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 8px; }
+.classificationSearch { display: flex; min-width: 0; min-height: 44px; align-items: center; gap: 8px; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); padding: 0 12px; color: var(--cp-text-secondary); }
+.classificationSearch:focus-within { border-color: var(--cp-control-focus); }
 .classificationSearch svg { width: 14px; flex: 0 0 14px; }
-.classificationSearch input { min-height: 36px !important; border: 0 !important; padding: 0 !important; outline: 0; box-shadow: none !important; }
-.classificationChips { display: flex; flex-wrap: wrap; gap: 5px; }
+.classificationSearch input { flex: 1 1 0; width: 0; min-width: 0; max-width: 100%; min-height: 40px !important; border: 0 !important; background: transparent; padding: 0 !important; outline: 0; box-shadow: none !important; font: inherit; font-size: 14px; }
+.classificationChips { display: flex; min-width: 0; flex-wrap: wrap; gap: 6px; }
 .classificationChips button { display: inline-flex; min-height: 28px; align-items: center; gap: 5px; border: 1px solid #ffd0b0; border-radius: 999px; background: #fff7f2; padding: 0 8px; color: #a94700; font-size: 8px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.classificationChips svg { width: 10px; }
-.classificationOptions { display: grid; max-height: 220px; overflow-y: auto; border: 1px solid #e7ebf0; border-radius: 6px; }
+.classificationChips button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+.classificationChips svg { width: 14px; height: 14px; flex: 0 0 14px; }
+.classificationOptions { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); max-height: 240px; overflow-y: auto; border: 1px solid var(--cp-border); border-radius: 8px; }
 .classificationOptions label {
   display: grid;
+  min-width: 0;
   min-height: 36px;
   grid-template-columns: 18px minmax(0, 1fr) 16px;
   align-items: center;
@@ -563,8 +572,9 @@
   content-visibility: auto;
 }
 .classificationOptions label:last-child { border-bottom: 0; }
+.classificationOptions label > span { min-width: 0; overflow-wrap: anywhere; }
 .classificationOptions label:hover, .classificationOptions .classificationSelected { background: #fff8f4; color: #a94700; }
-.classificationOptions input { width: 15px !important; min-height: 15px !important; accent-color: #fe6100; }
+.classificationOptions input { width: 16px !important; height: 16px; min-height: 16px !important; margin: 0; accent-color: var(--cp-button-primary); }
 .classificationOptions svg { width: 12px; }
 .classificationOptions p { margin: 0; padding: 14px; color: #7a8495; font-size: 9px; text-align: center; }
 .advancedGroups { display: grid; gap: 7px; }
@@ -722,7 +732,7 @@
 .editField input:focus-visible,
 .editField select:focus-visible,
 .editField textarea:focus-visible { outline: 2px solid var(--catalog-accent); outline-offset: 1px; }
-.editSettings .classificationPicker { border-color: var(--catalog-border); border-radius: 8px; background: var(--catalog-surface); }
+.editSettings .classificationPicker { border: 0; background: transparent; }
 .editSettings .classificationPicker > summary { min-height: 44px; padding: 8px 12px; }
 .editSettings .classificationPicker > summary strong { color: var(--catalog-text); font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .editSettings .classificationPicker > summary small { color: #667085; font-size: 12px; font-weight: var(--cp-font-weight-helper); }
@@ -746,29 +756,29 @@
 
 /* Product detail: a compact inline rail, while the existing tabbed editor stays unchanged. */
 .railSettings { width: 100%; min-width: 0; gap: 0; background: transparent; color: #2b2b2b; }
-.railHeading { padding: 2px 0 15px; }
+.railHeading { padding: 0 0 20px; }
 .railHeading h2 { margin: 0; color: #2b2b2b; font-size: 16px; font-weight: var(--cp-font-weight-heading); line-height: 1.25; letter-spacing: -.02em; }
 .railFieldset { display: grid; min-width: 0; margin: 0; border: 0; padding: 0; }
 .railFieldset:disabled { opacity: .65; }
-.railGroup { display: grid; gap: 13px; min-width: 0; border-top: 1px solid #e4d5c9; padding: 17px 0; }
-.railGroup h3, .railResourceGroup h4 { margin: 0; color: #5a5550; font-size: 12px; font-weight: var(--cp-font-weight-heading); line-height: 1.35; }
+.railGroup { display: grid; gap: 16px; min-width: 0; border-top: 1px solid var(--cp-border); padding: 20px 0; }
+.railGroup h3, .railResourceGroup h4 { margin: 0; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-heading); line-height: 1.35; }
 .railFields { display: grid; gap: 13px; min-width: 0; }
-.railSettings .editField { gap: 6px; color: #5a5550; font-size: 11px; font-weight: var(--cp-font-weight-control); }
+.railSettings .editField { gap: 8px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .railSettings .editField input, .railSettings .editField select, .railSettings .editField textarea { min-height: 40px; border-color: #ded6cf; border-radius: 7px; background: #fffdfc; padding: 8px 10px; color: #2b2b2b; font-size: 12px; }
 .railSettings .editField textarea { min-height: 84px; }
-.railSettings .classificationPicker { border-color: #ded6cf; border-radius: 7px; background: #fffdfc; }
-.railSettings .classificationPicker > summary { min-height: 40px; padding: 7px 10px; }
-.railSettings .classificationPicker > summary strong { color: #5a5550; font-size: 11px; font-weight: var(--cp-font-weight-control); }
-.railSettings .classificationPicker > summary small { color: #8c857e; font-size: 10px; font-weight: var(--cp-font-weight-helper); }
-.railSettings .classificationPopover { padding: 9px; }
-.railSettings .classificationOptions label { min-height: 38px; font-size: 11px; }
-.railSettings .classificationChips button { min-height: 27px; border-color: #ded6cf; border-radius: 6px; background: #f8f7f5; color: #4c4742; font-size: 10px; }
+.railSettings .classificationPicker { border: 0; background: transparent; }
+.railSettings .classificationPicker > summary { min-height: 56px; padding: 8px 16px; }
+.railSettings .classificationPicker > summary strong { color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-control); }
+.railSettings .classificationPicker > summary small { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
+.railSettings .classificationPopover { padding: 8px; }
+.railSettings .classificationOptions label { min-height: 44px; font-size: 13px; }
+.railSettings .classificationChips button { min-height: 36px; border-color: var(--cp-border); background: var(--cp-canvas); color: var(--cp-text-primary); font-size: 12px; padding: 6px 10px; }
 .railSettings .editOptionList { gap: 0; }
 .railSettings .editOptionList label { min-height: 43px; gap: 9px; border: 0; border-radius: 0; border-bottom: 1px solid #eee8e3; background: transparent; padding: 6px 0; color: #37332f; }
 .railSettings .editOptionList label:has(input:checked) { border-color: #eee8e3; background: transparent; }
 .railSettings .editOptionList label:last-child { border-bottom: 0; }
 .railSettings .editOptionList input { width: 16px; height: 16px; flex-basis: 16px; accent-color: #2b2b2b; }
-.railSettings .editOptionList label > span { font-size: 11px; font-weight: var(--cp-font-weight-control); }
+.railSettings .editOptionList label > span { overflow-wrap: anywhere; font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .railSettings .editOptionList small { color: #8c857e; font-size: 10px; font-weight: var(--cp-font-weight-helper); }
 .railSettings .editOptionList p { color: #77716b; font-size: 11px; }
 .railAdvanced { min-width: 0; border-top: 1px solid #e4d5c9; }
