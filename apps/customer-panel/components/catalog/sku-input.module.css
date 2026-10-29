@@ -1,5 +1,5 @@
 .field { min-width: 0; }
-.entry { display: flex; align-items: stretch; min-width: 0; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); overflow: hidden; }
+.entry { display: flex; align-items: stretch; min-width: 0; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); overflow: hidden; }
 .entry > span { display: flex; align-items: center; flex: none; padding: 0 12px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); background: var(--cp-control-background); border-right: 1px solid var(--cp-border); white-space: nowrap; }
 .entry input { flex: 1; min-width: 0; min-height: 44px; border: 0 !important; border-radius: 0; box-shadow: none !important; background: transparent; }
 .entry:focus-within { outline: 1px solid var(--cp-control-focus); outline-offset: 1px; }

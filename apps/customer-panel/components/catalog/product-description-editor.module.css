@@ -161,7 +161,7 @@
   height: 32px;
   min-height: 32px;
   border: 1px solid var(--catalog-border);
-  border-radius: 6px;
+  border-radius: var(--cp-button-radius);
   background: var(--catalog-surface);
   padding: 0 27px 0 9px;
   color: var(--catalog-text);
@@ -555,7 +555,6 @@
   .aiButton, .focusButton, .toolbar .blockSelect { min-height: 44px; }
   .toolbarButton { width: 44px; height: 44px; flex-basis: 44px; }
 }
-.blockSelect { border-radius: var(--cp-button-radius); }
 
 @container product-description (max-width: 520px) {
   .toolbar { grid-template-columns: minmax(0, 1fr); gap: 4px; }

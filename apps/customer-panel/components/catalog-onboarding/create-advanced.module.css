@@ -1,4 +1,5 @@
 .root {
+  composes: controls from "../catalog/product-controls.module.css";
   --create-canvas: var(--cp-canvas);
   --create-surface: var(--cp-surface);
   --create-ink: var(--cp-text-primary);
@@ -19,13 +20,13 @@
 .field, .barcodeField { display: grid; gap: 8px; min-width: 0; color: var(--create-ink); font-size: 13px; font-weight: 500; }
 .field > span:first-child, .barcodeField > label { color: var(--create-muted, #736b63); }
 .field :is(input, select, textarea), .barcodeField input, .picker :is(input:not([type="checkbox"]), select, textarea) {
-  width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--create-line, #e7e2dd); border-radius: 8px; background: var(--create-surface, #fffdfc); padding: 10px 12px; color: var(--create-ink, #2b2b2b); font: inherit; font-size: 14px; font-weight: 400;
+  width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--create-line, #e7e2dd); border-radius: var(--cp-control-radius); background: var(--create-surface, #fffdfc); padding: 10px 16px; color: var(--create-ink, #2b2b2b); font: inherit; font-size: 14px; font-weight: 400;
 }
 .field :is(input, select, textarea):is(select), .picker :is(input:not([type="checkbox"]), select, textarea):is(select) {
   border-radius: var(--cp-button-radius);
   font-weight: 500;
 }
-.field textarea { resize: vertical; }
+.field textarea, .picker textarea { border-radius: 12px; resize: vertical; }
 .field input::placeholder { color: var(--create-muted, #736b63); }
 .field .titleInput { min-height: 44px; font-size: 14px; font-weight: 500; }
 .root :is(button, summary):focus-visible, .picker :is(button, summary):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 3px; }
@@ -41,7 +42,7 @@
 .moneyField input { padding-left: 32px; font-variant-numeric: tabular-nums; }
 .standardVariant, .standardRow { display: grid; gap: 16px; min-width: 0; }
 .variantIdentity { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: start; gap: 16px; min-width: 0; }
-.barcodeField > span { min-height: 44px; border-color: var(--create-line); border-radius: 8px; }
+.barcodeField > span { min-height: 44px; border-color: var(--create-line); border-radius: var(--cp-control-radius); }
 .barcodeField > span > input { min-width: 0; font-size: 13px; }
 .root .barcodeField > span > button { align-self: center; min-height: 36px; height: 36px; margin: 3px; padding: 0 12px; border: 0; font-size: 13px; font-weight: 500; }
 .barcodeField > label { color: var(--create-muted, #736b63); font-size: 13px; font-weight: 500; }
@@ -77,7 +78,7 @@
 .thumbnailSelect[aria-pressed="true"] { outline: 2px solid var(--create-ink); outline-offset: -2px; }
 .thumbnailCover { position: absolute; bottom: 4px; left: 4px; padding: 2px 4px; border-radius: 3px; background: var(--create-surface); color: var(--create-ink); font-size: 10px; }
 .mediaOrderControls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.mediaOrderControls button { display: grid; place-items: center; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--create-muted); }
+.mediaOrderControls button { display: grid; place-items: center; min-height: 44px; padding: 0; border: 0; border-radius: var(--cp-button-radius); background: transparent; color: var(--create-muted); }
 .mediaOrderControls button:hover:not(:disabled) { background: var(--create-canvas); }
 .mediaOrderControls svg { width: 16px; height: 16px; }
 .thumbnails img { width: 100%; height: 100%; object-fit: cover; }
@@ -103,7 +104,7 @@
 .variantName { align-self: center; min-width: 0; font-size: 12px; font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .variantRow > .priceStock { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
 .variantRow > .priceStock > .field > span:first-child { position: static; width: auto; height: auto; white-space: normal; }
-.variantRow .field input { min-height: 44px; padding: 8px 12px; font-size: 14px; }
+.variantRow .field input { min-height: 44px; padding: 8px 16px; font-size: 14px; }
 .variantRow .moneyField input { padding-left: 24px; }
 .variantRow .moneyField > span { left: 8px; }
 .variantRow .variantIdentity { grid-column: 1 / -1; gap: 16px; }
@@ -124,8 +125,7 @@
 .railBlock h2 { font-size: 13px; margin-bottom: 16px; }
 .railFields { display: grid; gap: 16px; }
 .rail .field :is(input, select) { font-size: 14px; }
-.rail :global([class*="classificationPicker"]) { border-color: var(--create-line); border-radius: 8px; background: var(--create-surface); }
-.rail :global([class*="classificationPicker"]) > summary { min-height: 44px; padding: 8px 12px; }
+.rail :global([class*="classificationPicker"]) > summary { min-height: 44px; }
 .rail :global([class*="classificationPicker"]) > summary strong { font-size: 12px; color: var(--create-muted, #736b63); }
 .rail :global([class*="classificationPicker"]) > summary small { font-size: 11px; color: var(--create-muted); font-weight: var(--cp-font-weight-helper); }
 .rail :global([class*="classificationPopover"]) { padding: 12px; }
@@ -161,7 +161,7 @@
 .picker .intro button, .valueHeading button { border: 0; padding: 0 4px; min-height: 44px; background: transparent; color: var(--create-muted, #736b63); font-size: 13px; font-weight: 500; }
 .hint { margin: 0; color: var(--create-muted, #736b63); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .attributes, .values > div:not(.valueHeading), .combinations > div, .newValues { display: flex; flex-wrap: wrap; gap: 8px; }
-.attributes label, .values label, .combinations label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid transparent; border-radius: 8px; background: var(--cp-control-background); color: var(--create-ink); font-size: 13px; cursor: pointer; }
+.attributes label, .values label, .combinations label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 12px; border: 1px solid transparent; border-radius: var(--cp-button-radius); background: var(--cp-control-background); color: var(--create-ink); font-size: 13px; cursor: pointer; }
 .attributes label:has(input:checked), .values label:has(input:checked), .combinations label:has(input:checked) { border-color: var(--create-muted, #736b63); background: var(--create-canvas, #f8f7f5); color: var(--create-ink, #2b2b2b); }
 .values, .combinations { display: grid; gap: 8px; }
 .values strong, .combinations strong { font-size: 12px; font-weight: var(--cp-font-weight-value); }

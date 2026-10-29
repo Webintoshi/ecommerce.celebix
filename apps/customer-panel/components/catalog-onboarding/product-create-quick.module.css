@@ -1,4 +1,4 @@
-.workspace { color: var(--catalog-text); min-width: 0; }
+.workspace { composes: controls from "../catalog/product-controls.module.css"; color: var(--catalog-text); min-width: 0; }
 .workspace.workspace[role="region"] { background: transparent; max-height: none; overflow: visible; border-radius: 0; }
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .workspace form { padding: 0; gap: 24px; }
@@ -26,7 +26,7 @@
 .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; gap: 16px; }
 .workspace label { color: var(--catalog-text); gap: 8px; font-size: 13px; font-weight: 500; min-width: 0; }
 .workspace label > span b { color: var(--catalog-text); }
-.workspace input, .workspace select { min-height: 44px; min-width: 0; padding: 0 12px; border-color: var(--catalog-border); border-radius: 8px; background: var(--catalog-surface); color: var(--catalog-text); font-size: 14px; }
+.workspace input, .workspace select { min-height: 44px; min-width: 0; padding: 0 16px; border-color: var(--catalog-border); border-radius: var(--cp-control-radius); background: var(--catalog-surface); color: var(--catalog-text); font-size: 14px; }
 .workspace input { font-weight: 400; }
 .workspace select { font-weight: 500; }
 .workspace.workspace input:focus, .workspace.workspace select:focus { border-color: var(--cp-control-focus); box-shadow: none; outline: none; }

@@ -239,7 +239,7 @@ section.root:global(.product-detail-section) {
   min-width: 0;
   height: 42px;
   border: 1px solid var(--catalog-border, #e7e2dd);
-  border-radius: 8px;
+  border-radius: var(--cp-control-radius);
   background: var(--catalog-surface, #fffdfc);
   padding: 0 10px;
   color: var(--catalog-text, #2b2b2b);

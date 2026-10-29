@@ -1,4 +1,4 @@
-.picker { display: grid; gap: 12px; min-width: 0; margin: 0 0 16px; border: 1px solid #E7E2DD; border-radius: 14px; background: #FFFDFC; padding: 16px; color: #2B2B2B; }
+.picker { composes: controls from "../catalog/product-controls.module.css"; display: grid; gap: 12px; min-width: 0; margin: 0 0 16px; border: 1px solid #E7E2DD; border-radius: 14px; background: #FFFDFC; padding: 16px; color: #2B2B2B; }
 .picker legend { padding: 0 6px; font-weight: 500; }
 .hint { margin: 0; color: #667085; font-size: 13px; font-weight: var(--cp-font-weight-helper); }
 .intro, .valueHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -7,17 +7,17 @@
 .intro button:disabled { opacity: .5; cursor: not-allowed; }
 .notice { margin: 0; border-radius: 8px; background: #edf8f1; padding: 10px 12px; color: #176b41; font-size: 13px; }
 .attributes, .values > div, .combinations > div { display: flex; flex-wrap: wrap; gap: 8px; }
-.attributes label, .values label, .combinations label { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; border: 1px solid #E7E2DD; border-radius: 10px; padding: 7px 10px; cursor: pointer; }
+.attributes label, .values label, .combinations label { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; border: 1px solid #E7E2DD; border-radius: var(--cp-button-radius); padding: 7px 10px; cursor: pointer; }
 
 .values, .combinations { display: grid; gap: 8px; }
 .values strong, .combinations strong { font-size: 13px; }
 .combinations small { color: #667085; }
 .defaults { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .defaults label { display: grid; gap: 5px; font-size: 12px; font-weight: 500; }
-.defaults input { min-width: 0; min-height: 44px; border: 1px solid #E7E2DD; border-radius: 10px; padding: 8px 11px; font: inherit; font-weight: var(--cp-font-weight-body); }
+.defaults input { min-width: 0; min-height: 44px; border: 1px solid #E7E2DD; border-radius: var(--cp-control-radius); padding: 8px 16px; font: inherit; font-weight: var(--cp-font-weight-body); }
 .inlineEditor { display: grid; gap: 12px; border-block: 1px solid var(--cp-border); padding: 16px 0; }
 .inlineEditor > label, .valueEntry label { display: grid; gap: 6px; color: #2B2B2B; font-size: 13px; font-weight: 500; }
-.inlineEditor input { min-height: 44px; border: 1px solid #E7E2DD; border-radius: 9px; background: #fff; padding: 0 12px; font: inherit; font-weight: var(--cp-font-weight-body); }
+.inlineEditor input { min-height: 44px; border: 1px solid #E7E2DD; border-radius: var(--cp-control-radius); background: #fff; padding: 0 16px; font: inherit; font-weight: var(--cp-font-weight-body); }
 .editorHeading, .editorActions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .editorHeading strong { font-size: 15px; }
 .editorHeading button { width: var(--cp-button-small-height); height: var(--cp-button-small-height); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: 0; background-color: transparent; background-clip: padding-box; color: var(--cp-text-secondary); font-size: 24px; cursor: pointer; }
