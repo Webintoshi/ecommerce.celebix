@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CatalogSortArea, CatalogSortItem } from "@/components/catalog/CatalogSortArea";
-import { ArrowLeft, ArrowRight, GripVertical, ImagePlus, Package, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, GripVertical, ImagePlus, X } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -331,7 +331,7 @@ export function ProductQuickCreateDialog({
         {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
         <fieldset disabled={submitting || options === null || Boolean(createdProductId)} className={workspace.layout}>
           <div className={workspace.mediaColumn}>
-            <div className={workspace.cover}>{activeImage ? <><img src={activeImage.preview} alt={activeImage.altText || `${activeImageIndex + 1}. ürün görseli`} draggable={false} /><span className={workspace.coverTag}>{activeImageIndex === 0 ? "Kapak" : `${activeImageIndex + 1}. görsel`}</span></> : <Package aria-hidden="true" />}</div>
+            <button type="button" className={workspace.cover} onClick={() => imageInputRef.current?.click()} aria-label="Ürün görseli ekle">{activeImage ? <><img src={activeImage.preview} alt={activeImage.altText || `${activeImageIndex + 1}. ürün görseli`} draggable={false} /><span className={workspace.coverTag}>{activeImageIndex === 0 ? "Kapak" : `${activeImageIndex + 1}. görsel`}</span></> : <ImagePlus aria-hidden="true" />}</button>
             <span>Görseller · {images.length}</span>
             <button type="button" className={workspace.mediaButton} onClick={() => imageInputRef.current?.click()}><ImagePlus aria-hidden="true" />Görsel ekle</button>
             <input ref={imageInputRef} type="file" tabIndex={-1} className={workspace.srOnly} multiple accept="image/jpeg,image/png,image/webp" onChange={selectImage} aria-label="Ürün görselleri seç" />
@@ -355,26 +355,27 @@ export function ProductQuickCreateDialog({
           <ProductPriceBasis value={priceBasis} onChange={setPriceBasis} price={price} tax={safeTaxChoice(taxChoice)}/>
           <div className={workspace.identifiers}><SkuInput skuPrefix={options?.skuPrefix} value={sku} onChange={setSku} /><BarcodeInput value={barcode} onChange={setBarcode} reservationIdentity={barcodeIdentityRef.current} actionLabel="Oluştur" onBusyChange={setBarcodeBusy} /></div>
           </>}
-          <label className={styles.wide}>
-            <span>Kategori</span>
-            <select ref={categoryRef} name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.currentTarget.value)} disabled={!categoryRows.length || (draftSession?.current.categoryIds.length ?? 0) > 1} aria-describedby="quick-category-hint">
-              <option value="">Kategori seçin</option>{categoryRows.map(({ category, label }) => <option key={category.id} value={category.id}>{label}</option>)}
-            </select>
-            <small id="quick-category-hint" className={styles.fieldHint}>Satışa açmak için gerekli</small>
-          </label>
           {!hasVariantDraft ? <ProductMeasurementFields value={measurements} onChange={setMeasurements} showValidation={showMeasurementValidation} /> : null}
           {images.length ? <div className={`${styles.previewList} ${styles.wide}`}>{images.map((image, index) => <div className={styles.preview} key={image.localId}><img src={image.preview} alt={`${index + 1}. yüklenecek ürün görseli önizlemesi`} draggable={false} /><label><span>{index + 1}. görsel alt metni</span><input maxLength={500} value={image.altText} onChange={(event) => changeAltText(index, event.target.value)} placeholder="Ürün görselini kısaca anlatın" /></label></div>)}</div> : null}
           {submitting && images.length ? <div className={`${styles.progress} ${styles.wide}`} role="status"><span>Görseller yükleniyor</span><progress max="100" value={progress}>{progress}%</progress><b>{progress}%</b></div> : null}
           </div>
+          <aside className={workspace.categoryColumn} aria-label="Sınıflandırma">
+            <label className={workspace.categoryField}>
+              <span>Kategori <b aria-hidden="true">*</b></span>
+              <select ref={categoryRef} name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.currentTarget.value)} disabled={!categoryRows.length || (draftSession?.current.categoryIds.length ?? 0) > 1} aria-describedby="quick-category-hint">
+                <option value="">Kategori seçin</option>{categoryRows.map(({ category, label }) => <option key={category.id} value={category.id}>{label}</option>)}
+              </select>
+              <small id="quick-category-hint" className={workspace.srOnly}>Satışa açmak için gerekli</small>
+            </label>
+          </aside>
         </fieldset>
 
         <p className={`${styles.loading} ${workspace.optionsStatus}`} role="status">{options === null ? "Ürün seçenekleri yükleniyor…" : ""}</p>
         {requiresDetailed ? <div className={workspace.detailedNotice} role="status"><span>Ayrıntıların korunuyor. Kaydı detaylı formdan tamamla.</span><button type="button" onClick={onAdvanced} disabled={submitting || barcodeBusy}>Detaylı forma dön</button></div> : null}
-        {!requiresDetailed && (!title.trim() || parseTurkishMoneyToCents(price) === null || !categoryId) ? <p className={workspace.readiness}>Satışa açmak için: {[!title.trim() ? "Ürün adı" : "", parseTurkishMoneyToCents(price) === null ? "Fiyat" : "", !categoryId ? "Kategori" : ""].filter(Boolean).join(" · ")}</p> : null}
         <div className={styles.actions}>
           {recovery ? <button type="button" className={styles.secondary} onClick={() => void retryMedia()} disabled={submitting}>Görselleri yeniden yükle</button> : null}
           {createdProductId ? <Link className={styles.secondary} href={`/products/${createdProductId}`}>Ürüne git</Link> : null}
-          {mode === "dialog" ? <button type="button" className={styles.advanced} onClick={onAdvanced} disabled={submitting || barcodeBusy}>Gelişmiş ürün eklemeye geç</button> : <button type="button" className={workspace.cancel} onClick={requestClose} disabled={submitting || barcodeBusy}>Vazgeç</button>}
+          {mode === "dialog" ? <button type="button" className={styles.advanced} onClick={onAdvanced} disabled={submitting || barcodeBusy}>Detaylı forma geç</button> : <button type="button" className={workspace.cancel} onClick={requestClose} disabled={submitting || barcodeBusy}>Vazgeç</button>}
 
           <button type="submit" name="intent" value="publish" className={styles.primary} disabled={submitting || barcodeBusy || options === null || requiresDetailed || Boolean(createdProductId)}>{submitting ? "Kaydediliyor…" : "Kaydet"}</button>
         </div>

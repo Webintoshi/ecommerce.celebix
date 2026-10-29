@@ -10,6 +10,7 @@ import { buildVariantMatrix } from "@/lib/catalog-onboarding-ui/variant-matrix";
 import type { VariantDraft } from "./ProductVariantBuilder";
 import styles from "./attribute-variant-picker.module.css";
 import createStyles from "./create-advanced.module.css";
+import checkboxStyles from "@/components/shared/selection-checkbox.module.css";
 
 type Editor = Readonly<{ kind: "new" }> | Readonly<{ kind: "existing"; id: string }>;
 
@@ -200,8 +201,8 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
     {error ? <p role="alert" className={ui.error}>{error}{!resources.length && !loading ? <button type="button" onClick={() => setLoadRevision((current) => current + 1)}>Tekrar dene</button> : null}</p> : null}
     {notice ? <p role="status" className={ui.notice}>{notice}</p> : null}
     </div>
-    <div className={ui.attributes} aria-busy={loading}>{choices.map((choice) => <label key={choice.id}><input type="checkbox" checked={selectedIds.includes(choice.id)} disabled={!selectedIds.includes(choice.id) && selectedIds.length >= 3} onChange={() => toggleAttribute(choice)} /> {choice.name}</label>)}</div>
-    {selectedChoices.map((choice) => <div key={choice.id} className={ui.values} role="group" aria-label={`${choice.name} değerleri`}><div className={ui.valueHeading}><strong>{choice.name}</strong><button type="button" onClick={() => openEditor({ kind: "existing", id: choice.id })}>{choice.name} için değer ekle</button></div><div>{choice.values.map((item) => <label key={item}><input type="checkbox" checked={(selectedValues[choice.id] ?? []).includes(item)} onChange={() => toggleValue(choice, item)} /> {item}</label>)}</div></div>)}
+    <div className={ui.attributes} aria-busy={loading}>{choices.map((choice) => <label key={choice.id}><input className={checkboxStyles.checkbox} type="checkbox" checked={selectedIds.includes(choice.id)} disabled={!selectedIds.includes(choice.id) && selectedIds.length >= 3} onChange={() => toggleAttribute(choice)} /> {choice.name}</label>)}</div>
+    {selectedChoices.map((choice) => <div key={choice.id} className={ui.values} role="group" aria-label={`${choice.name} değerleri`}><div className={ui.valueHeading}><strong>{choice.name}</strong><button type="button" onClick={() => openEditor({ kind: "existing", id: choice.id })}>{choice.name} için değer ekle</button></div><div>{choice.values.map((item) => <label key={item}><input className={checkboxStyles.checkbox} type="checkbox" checked={(selectedValues[choice.id] ?? []).includes(item)} onChange={() => toggleValue(choice, item)} /> {item}</label>)}</div></div>)}
     {editor ? <section className={ui.inlineEditor} aria-label="Nitelik düzenleyici" onKeyDown={(event) => { if (event.key === "Escape") { event.preventDefault(); closeEditor(); } }}>
       <div className={ui.editorHeading}><strong>{editor.kind === "new" ? "Yeni nitelik oluştur" : `${choices.find((choice) => choice.id === editor.id)?.name ?? "Nitelik"} için değer ekle`}</strong><button type="button" onClick={closeEditor} aria-label="Nitelik düzenleyiciyi kapat">×</button></div>
       {editor.kind === "new" ? <label>Nitelik adı<input value={editorName} maxLength={120} placeholder="Örn. Renk" onChange={(event) => setEditorName(event.target.value)} /></label> : null}
@@ -216,7 +217,7 @@ export function AttributeVariantPicker({ value, onChange, onAttributeIdsChange, 
     {matrix?.ok ? <div className={ui.combinations} role="group" aria-label="Satılacak kombinasyonlar"><strong>Satılacak kombinasyonlar ({selectedKeys.size} seçili)</strong><div>{matrix.value.map((candidate) => {
       const key = variantAttributeKey(candidate.attributes);
       const exists = existingKeys.has(key);
-      return <label key={key}><input type="checkbox" checked={selectedKeys.has(key) || exists} disabled={exists} onChange={() => toggleCombination(key)} /><span>{candidate.title}</span>{exists ? <small>Zaten var</small> : null}</label>;
+      return <label key={key}><input className={checkboxStyles.checkbox} type="checkbox" checked={selectedKeys.has(key) || exists} disabled={exists} onChange={() => toggleCombination(key)} /><span>{candidate.title}</span>{exists ? <small>Zaten var</small> : null}</label>;
     })}</div></div> : null}
   </fieldset>;
 }

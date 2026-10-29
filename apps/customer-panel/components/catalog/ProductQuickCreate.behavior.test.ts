@@ -437,7 +437,7 @@ test("page mode does not trap Tab and barcode reservation blocks saving and deta
     await act(async () => { (container.querySelector('button[aria-label="Dahili barkod oluştur"]') as HTMLButtonElement).click(); });
     assert.equal(busy.at(-1), true);
     assert.equal((container.querySelector('button[value="publish"]') as HTMLButtonElement).disabled, true);
-    const handoff = [...container.querySelectorAll("button")].find((button) => button.textContent === "Gelişmiş ürün eklemeye geç")!;
+    const handoff = [...container.querySelectorAll("button")].find((button) => button.textContent === "Detaylı forma geç")!;
     assert.equal(handoff.disabled, true);
     await act(async () => { handoff.click(); });
     await submit(container, browser, "publish");

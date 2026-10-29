@@ -130,7 +130,7 @@ export function ProductCreateForm({ initialMode = "choose", initialProductKind, 
       <h1 className={styles.srOnly} id="create-title">Yeni ürün oluştur</h1>
       <div className={styles.navigation}>
         {mode === "choose" ? <Link className={styles.backLink} href="/products"><ArrowLeft aria-hidden="true" />Ürünlere dön</Link> : <button type="button" className={styles.backLink} disabled={busy} onClick={() => mode === "advanced" && advancedKind !== null ? selectProductKind(null) : selectMode("choose")}><ArrowLeft aria-hidden="true" />{mode === "advanced" && advancedKind !== null ? "Ürün yapısına dön" : "Yöntemlere dön"}</button>}
-        {mode !== "choose" ? <span className={styles.draftState}>Kaydedilmedi</span> : null}
+        {mode !== "choose" && productDraftIsDirty(draftSession) ? <span className={styles.draftState}>Kaydedilmedi</span> : null}
       </div>
       {error ? <div className="feedback feedback-error" role="alert"><div><strong>Seçenekler yüklenemedi</strong><p>{error}</p><button type="button" onClick={() => setLoadRevision((revision) => revision + 1)}>Tekrar dene</button></div></div> : null}
       {mode === "choose" ? <div className={styles.createChoices} role="group" aria-label="Ürün yükleme yöntemi">

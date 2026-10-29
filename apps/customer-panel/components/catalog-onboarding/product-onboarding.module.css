@@ -905,3 +905,6 @@
 .railSettings .editField select, .classificationSearch,
 .editSettings .classificationSearch, .editSettings .classificationChips button,
 .railSettings .classificationChips button { border-radius: var(--cp-button-radius); }
+
+.sections :global(.onboarding-variant-identifiers) { display: grid; grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; min-width: 0; }
+@media (max-width: 560px) { .sections :global(.onboarding-variant-identifiers) { grid-template-columns: minmax(0, 1fr); } }

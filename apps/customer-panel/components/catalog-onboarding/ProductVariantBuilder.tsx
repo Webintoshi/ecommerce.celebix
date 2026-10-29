@@ -7,6 +7,7 @@ import { SkuInput } from "@/components/catalog/SkuInput";
 import { BarcodeInput } from "@/components/catalog/BarcodeInput";
 import { parseTurkishMoneyToCents } from "@/lib/catalog-onboarding-ui/forms";
 import createStyles from "./create-advanced.module.css";
+import checkboxStyles from "@/components/shared/selection-checkbox.module.css";
 import { ProductMeasurementFields } from "@/components/catalog/ProductMeasurementFields";
 import type { ProductMeasurementDraft } from "@/lib/catalog-ui/product-measurements";
 import type {ProductTaxChoice} from '@celebix/saas-contracts';
@@ -113,7 +114,7 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, produ
             {showShipping ? <><label className={createStyles.field}><span>Kargo desi</span><input inputMode="decimal" value={variant.shippingDesi} onChange={(event) => change(index, { shippingDesi: event.target.value })} /></label><label className={createStyles.field}><span>GTİP / HS kodu</span><input maxLength={32} value={variant.hsCode} onChange={(event) => change(index, { hsCode: event.target.value })} /></label></> : null}
           </div>
           {showValidation && invalidDetails ? <p className={createStyles.fieldError}>Varyant adı, KDV ve ek satış alanlarını kontrol edin.</p> : null}
-          <div className={createStyles.variantDetailFooter}><label className={createStyles.check}><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label>{allowMultiple ? <button className={createStyles.dangerAction} type="button" disabled={disableStructureChanges} onClick={() => { if (window.confirm(`${variant.title || "Bu varyant"} ve girilmiş satış bilgileri kaldırılacak. Devam edilsin mi?`)) onChange(Object.freeze(variants.filter((_, position) => position !== index))); }}><Trash2 aria-hidden="true" />Kaldır</button> : null}</div>
+          <div className={createStyles.variantDetailFooter}><label className={createStyles.check}><input className={checkboxStyles.checkbox} type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label>{allowMultiple ? <button className={createStyles.dangerAction} type="button" disabled={disableStructureChanges} onClick={() => { if (window.confirm(`${variant.title || "Bu varyant"} ve girilmiş satış bilgileri kaldırılacak. Devam edilsin mi?`)) onChange(Object.freeze(variants.filter((_, position) => position !== index))); }}><Trash2 aria-hidden="true" />Kaldır</button> : null}</div>
         </div>
       </details>
       <ProductMeasurementFields value={variant.measurements ?? {}} onChange={(measurements) => change(index, { measurements })} showValidation={showValidation} labelPrefix={allowMultiple ? variant.title : ""} />
@@ -130,12 +131,12 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, produ
       </header>
       <div className="onboarding-variant-primary-fields">
         {allowMultiple && !simplified ? <label className="onboarding-variant-title"><span>Varyant adı *</span><input required value={variant.title} maxLength={200} onChange={(event) => change(index, { title: event.target.value })} /></label> : null}
-        <SkuInput skuPrefix={skuPrefix} value={variant.sku} onChange={(sku) => change(index, { sku })} />
+        <div className="onboarding-variant-identifiers"><SkuInput skuPrefix={skuPrefix} value={variant.sku} onChange={(sku) => change(index, { sku })} /><BarcodeInput value={variant.barcode} reservationIdentity={reservationOwnerFor(createRowKeys[index]!)} onBusyChange={onBarcodeBusyChange} onChange={(barcode) => change(index, { barcode })} /></div>
         <label><span>Satış fiyatı *</span><input required inputMode="decimal" placeholder="0,00" value={variant.price} onChange={(event) => change(index, { price: event.target.value })} /></label>
         <label><span>Stok</span><input inputMode="numeric" value={variant.stockQuantity} onChange={(event) => change(index, { stockQuantity: event.target.value })} /></label>
         {!simplified ? <label><span>Karşılaştırma</span><input inputMode="decimal" placeholder="0,00" value={variant.compareAt} onChange={(event) => change(index, { compareAt: event.target.value })} /></label> : null}
       </div>
-      {!simplified ? <label className="onboarding-check onboarding-continue-selling"><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label> : null}
+      {!simplified ? <label className="onboarding-check onboarding-continue-selling"><input className={checkboxStyles.checkbox} type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label> : null}
       <details className="onboarding-variant-advanced">
         <summary><span>Diğer bilgiler</span><ChevronDown aria-hidden="true" /></summary>
         <div className="onboarding-editor-grid">
@@ -143,10 +144,9 @@ export function ProductVariantBuilder({ variants, onChange, allowMultiple, produ
           <ProductPriceBasis value={variant.priceBasis??'included'} onChange={priceBasis=>change(index,{priceBasis})} price={variant.price} tax={effectiveTaxForChoice(productTax,variant.taxChoice??'')}/>
           {allowMultiple && simplified ? <label className="onboarding-variant-title"><span>Varyant adı</span><input required value={variant.title} maxLength={200} onChange={(event) => change(index, { title: event.target.value })} /></label> : null}
           {simplified ? <label><span>Karşılaştırma fiyatı</span><input inputMode="decimal" placeholder="0,00" value={variant.compareAt} onChange={(event) => change(index, { compareAt: event.target.value })} /></label> : null}
-          <BarcodeInput value={variant.barcode} reservationIdentity={reservationOwnerFor(createRowKeys[index]!)} onBusyChange={onBarcodeBusyChange} onChange={(barcode) => change(index, { barcode })} />
           <label><span>Maliyet</span><input inputMode="decimal" value={variant.cost} onChange={(event) => change(index, { cost: event.target.value })} /><small>Girilen maliyete KDV eklenmez.</small></label>
           {showShipping ? <><label><span>Kargo desi</span><input inputMode="decimal" value={variant.shippingDesi} onChange={(event) => change(index, { shippingDesi: event.target.value })} /></label><label><span>GTİP / HS kodu</span><input maxLength={32} value={variant.hsCode} onChange={(event) => change(index, { hsCode: event.target.value })} /></label></> : null}
-          {simplified ? <label className="onboarding-check onboarding-continue-selling"><input type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label> : null}
+          {simplified ? <label className="onboarding-check onboarding-continue-selling"><input className={checkboxStyles.checkbox} type="checkbox" checked={variant.continueSellingWhenOutOfStock} onChange={(event) => change(index, { continueSellingWhenOutOfStock: event.target.checked })} /><span>Stok bitince satışa devam et</span></label> : null}
         </div>
       </details>
       <ProductMeasurementFields value={variant.measurements ?? {}} onChange={(measurements) => change(index, { measurements })} showValidation={showValidation} labelPrefix={allowMultiple ? variant.title : ""} />
