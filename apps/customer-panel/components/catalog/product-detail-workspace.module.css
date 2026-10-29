@@ -144,6 +144,8 @@
 .variantMore summary { width: 36px; height: 36px; border-width: 2px; background-color: transparent; }
 .variantMore .moreMenu { min-width: 160px; }
 .variantMore .moreMenu button { font-weight: 500; white-space: nowrap; }
+.variantMore .moreMenu a { display: flex; max-width: 240px; gap: 8px; padding: 8px; color: var(--detail-ink); font-size: 12px; font-weight: 500; line-height: 1.5; text-decoration: none; }
+.variantMore .moreMenu a:hover { background-color: var(--cp-canvas); }
 .variantMore summary:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .root .variants :global(.inset-form) { min-width: 0; border: 0; border-top: 1px solid var(--detail-line); border-radius: 0; background: transparent; margin: 10px 0; padding: 17px 0; box-shadow: none; }
 .root .variants :global(.catalog-form fieldset),
