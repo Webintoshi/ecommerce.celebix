@@ -10,7 +10,7 @@ import { ProductGrid } from "./ProductGrid";
 
 type Page = Readonly<{ items: readonly PublicProduct[]; total: number; nextOffset: number | null }>;
 type Snapshot = Page & Readonly<{ updatedAt: number; baseIds: readonly string[] }>;
-// Tab-memory only, keyed by merchant host, commerce policy and complete catalog selection.
+// Tab-memory only, keyed by merchant host, public settings and complete catalog selection.
 const snapshots = new Map<string, Snapshot>();
 const TTL = 5 * 60 * 1000;
 function append(first: readonly PublicProduct[], next: readonly PublicProduct[]) {
@@ -27,7 +27,8 @@ function readPage(value: unknown, offset: number): Page {
 export function CatalogProductList(props: ProductExplorerProps & Readonly<{ emptyMessage?: string }>) {
   const policy = useCommercePolicy();
   const policyKey = `${policy.version}:${Number(policy.enabled)}:${Number(policy.hidePrices)}:${Number(policy.hideAddToCart)}:${Number(policy.checkoutAllowed)}`;
-  const key = `${catalogHref(props.path, props.selection, props.selection.offset)}:commerce:${policyKey}`;
+  const reviewsEnabled = props.products.some(product => product.reviewSummary !== undefined);
+  const key = `${catalogHref(props.path, props.selection, props.selection.offset)}:commerce:${policyKey}:reviews:${Number(reviewsEnabled)}`;
   return <InfiniteProducts key={key} {...props} catalogKey={key} />;
 }
 

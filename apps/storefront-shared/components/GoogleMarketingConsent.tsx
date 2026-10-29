@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import type { PublicGoogleMarketingProjection } from "../../../packages/saas-contracts/src/google-marketing/index.ts";
-import { createGoogleMarketingClient, type GoogleConsent, type GoogleMarketingClient } from "../lib/google-marketing.ts";
+import { createGoogleMarketingClient, parseStoredGoogleConsent, type GoogleConsent, type GoogleMarketingClient } from "../lib/google-marketing.ts";
 import { GOOGLE_MARKETING_PAYMENT_CAPTURED_EVENT } from "../lib/google-marketing-events.ts";
 import { STOREFRONT_COMMERCE_EVENT, type PublicCommerceEvent } from "../lib/analytics/events.ts";
 
@@ -67,7 +67,9 @@ export function GoogleMarketingConsent(props: Readonly<{ storeId: string; hostna
     const commerce = (event: Event) => { if (event instanceof window.CustomEvent) runtime.commerce(event.detail as PublicCommerceEvent); };
     window.addEventListener(STOREFRONT_COMMERCE_EVENT, commerce);
     const storage = (event: StorageEvent) => {
-      if (event.key === `celebix:google-consent:v1:${props.storeId}:${props.hostname}`) reloadDocument();
+      if (event.storageArea && event.storageArea !== window.localStorage) return;
+      if (event.key !== null && event.key !== `celebix:google-consent:v1:${props.storeId}:${props.hostname}`) return;
+      if (parseStoredGoogleConsent(event.newValue) !== runtime.consent()) reloadDocument();
     };
     window.addEventListener("storage", storage);
     return () => {

@@ -184,12 +184,12 @@ test("public policy index remains exactly seven body-free definitions", async ()
 });
 
 test("public search and favorite resolution parse only canonical product projections", async () => {
-  const searchReader = new Client((text) => text.includes("public_search_products") ? [{ outcome: "found", result_payload: { items: [PRODUCT_PROJECTION], nextCursor: "2026-07-31T12:00:00.000Z|71000000-0000-4000-8000-000000000071" } }] : []);
+  const searchReader = new Client((text) => text.includes("public_product_review_summaries") ? [{ outcome: "found", result_payload: { enabled: false, items: [] } }] : text.includes("public_search_products") ? [{ outcome: "found", result_payload: { items: [PRODUCT_PROJECTION], nextCursor: "2026-07-31T12:00:00.000Z|71000000-0000-4000-8000-000000000071" } }] : []);
   const search = await publicRepository(new Pool([searchReader])).search({ hostname: HOST, now: NOW, query: "altın", limit: 24 });
   assert.equal(search.items[0]?.id, PRODUCT);
   assert.deepEqual(call(searchReader, "public_search_products").values, [HOST, NOW, "altın", 24, null]);
 
-  const resolveReader = new Client((text) => text.includes("public_resolve_product_ids") ? [{ outcome: "found", result_payload: { items: [PRODUCT_PROJECTION] } }] : []);
+  const resolveReader = new Client((text) => text.includes("public_product_review_summaries") ? [{ outcome: "found", result_payload: { enabled: false, items: [] } }] : text.includes("public_resolve_product_ids") ? [{ outcome: "found", result_payload: { items: [PRODUCT_PROJECTION] } }] : []);
   const resolved = await publicRepository(new Pool([resolveReader])).resolveProductIds({ hostname: HOST, now: NOW, productIds: [PRODUCT] });
   assert.equal(resolved[0]?.id, PRODUCT);
   assert.deepEqual(call(resolveReader, "public_resolve_product_ids").values, [HOST, NOW, [PRODUCT]]);

@@ -29,8 +29,8 @@ function track(container: HTMLElement) {
   const node = container.querySelector<HTMLElement>("[data-ezmeo-gallery-track]")!;
   assert.ok(node);
   Object.defineProperty(node, "clientWidth", { configurable: true, value: 320 });
-  node.scrollTo = (options: ScrollToOptions | number) => {
-    if (typeof options !== "number") node.scrollLeft = options.left ?? node.scrollLeft;
+  node.scrollTo = (options?: ScrollToOptions | number) => {
+    if (typeof options !== "number") node.scrollLeft = options?.left ?? node.scrollLeft;
     node.dispatchEvent(new window.Event("scroll", { bubbles: true }));
   };
   return node;
@@ -138,8 +138,8 @@ test("opening zoom interrupts an unfinished arrow movement and keeps the photo t
     const viewport = track(container);
     await React.act(async () => window.dispatchEvent(new window.Event("resize")));
     let pending: number | null = null;
-    viewport.scrollTo = (options: ScrollToOptions | number) => {
-      if (typeof options === "number") return;
+    viewport.scrollTo = (options?: ScrollToOptions | number) => {
+      if (typeof options === "number" || options === undefined) return;
       if (options.behavior === "smooth") pending = options.left ?? 0;
       else { pending = null; viewport.scrollLeft = options.left ?? 0; viewport.dispatchEvent(new window.Event("scroll", { bubbles: true })); }
     };
@@ -160,7 +160,7 @@ test("resizing keeps the active photo aligned and its thumbnail fully inside the
     Object.defineProperty(strip, "clientWidth", { configurable: true, value: 400 });
     Object.defineProperty(selected, "offsetLeft", { configurable: true, value: 80 });
     Object.defineProperty(selected, "offsetWidth", { configurable: true, value: 72 });
-    strip.scrollTo = (options: ScrollToOptions | number) => { if (typeof options !== "number") strip.scrollLeft = options.left ?? strip.scrollLeft; };
+    strip.scrollTo = (options?: ScrollToOptions | number) => { if (typeof options !== "number") strip.scrollLeft = options?.left ?? strip.scrollLeft; };
     await click('[aria-label="Sonraki görsel"]');
     assert.equal(strip.scrollLeft, 0);
     Object.defineProperty(viewport, "clientWidth", { configurable: true, value: 240 });

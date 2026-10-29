@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
-import type { Window } from "happy-dom";
+import { Window } from "happy-dom";
 import type { PublicGoogleMarketingProjection } from "../../../packages/saas-contracts/src/google-marketing/index.ts";
 import { componentLoader, withProductBrowser as withBaseProductBrowser } from "./product-variant-media-test-utils.ts";
 import { STOREFRONT_COMMERCE_EVENT } from "../lib/analytics/events.ts";
@@ -140,6 +140,154 @@ function localGoogleScripts() {
 }
 function storedConsent(value: "granted" | "denied") {
   window.localStorage.setItem(`celebix:google-consent:v1:${props.storeId}:${props.hostname}`, JSON.stringify({ version: 1, value, expires: Date.now() + 60000 }));
+}
+const consentKey = `celebix:google-consent:v1:${props.storeId}:${props.hostname}`;
+async function withConsentTabs(value: "granted" | "denied", run: (tabs: Readonly<{
+  mount(index: number): Promise<void>;
+  remount(index: number): Promise<void>;
+  choose(index: number, value: "granted" | "denied"): Promise<void>;
+  flush(): Promise<void>;
+  write(index: number, value: string | null, key?: string): void;
+  windows: Window[];
+  reloads: number[];
+  saved: Map<string, string>;
+}>) => Promise<void>) {
+  const Consent = component(), { createRoot } = await import("react-dom/client");
+  const previous = { window: globalThis.window, document: globalThis.document, requestAnimationFrame: globalThis.requestAnimationFrame, cancelAnimationFrame: globalThis.cancelAnimationFrame };
+  const saved = new Map([[consentKey, JSON.stringify({ version: 1, value, expires: Date.now() + 60000 })]]);
+  const windows = [0, 1].map(() => new Window({ url: "https://fixture.invalid/products/example", settings: { disableJavaScriptFileLoading: true, handleDisabledFileLoadingAsSuccess: true } }));
+  const reloads = [0, 0], events: Array<{ index: number; key: string; oldValue: string | null; newValue: string | null }> = [];
+  const activate = (index: number) => {
+    const browser = windows[index]!;
+    Object.assign(globalThis, { window: browser, document: browser.document, requestAnimationFrame: browser.requestAnimationFrame.bind(browser), cancelAnimationFrame: browser.cancelAnimationFrame.bind(browser), IS_REACT_ACT_ENVIRONMENT: true });
+    return browser;
+  };
+  function write(index: number, value: string | null, key = consentKey) {
+    const oldValue = saved.get(key) ?? null;
+    if (oldValue === value) return;
+    if (value === null) saved.delete(key); else saved.set(key, value);
+    events.push({ index: index === 0 ? 1 : 0, key, oldValue, newValue: value });
+  }
+  const roots = windows.map((browser, index) => {
+    activate(index);
+    Object.defineProperty(browser, "localStorage", { configurable: true, value: {
+      getItem: (key: string) => saved.get(key) ?? null,
+      setItem: (key: string, value: string) => write(index, value, key),
+      removeItem: (key: string) => write(index, null, key),
+    } });
+    Object.defineProperty(browser.location, "reload", { configurable: true, value: () => { reloads[index]!++; } });
+    markDocumentNonce(props.nonce);
+    const container = browser.document.createElement("div"); browser.document.body.append(container);
+    return createRoot(container as unknown as HTMLElement);
+  });
+  try {
+    await run({
+      windows, reloads, saved, write,
+      async mount(index) { activate(index); await React.act(async () => roots[index]!.render(React.createElement(React.StrictMode, null, React.createElement(Consent, props)))); },
+      async remount(index) {
+        activate(index); await React.act(async () => roots[index]!.render(null));
+        await React.act(async () => roots[index]!.render(React.createElement(React.StrictMode, null, React.createElement(Consent, props))));
+      },
+      async choose(index, value) {
+        const browser = activate(index);
+        await openPreferences();
+        const button = browser.document.querySelector(`[data-google-consent="${value}"]`) as unknown as HTMLButtonElement;
+        assert.ok(button);
+        await React.act(async () => button.click());
+      },
+      async flush() {
+        while (events.length) {
+          const next = events.shift()!, browser = activate(next.index);
+          await React.act(async () => browser.dispatchEvent(new browser.StorageEvent("storage", { key: next.key, ...(next.oldValue !== null ? { oldValue: next.oldValue } : {}), ...(next.newValue !== null ? { newValue: next.newValue } : {}), url: "https://fixture.invalid/products/example", storageArea: browser.localStorage })));
+        }
+      },
+    });
+  } finally {
+    for (const [index, root] of roots.entries()) { activate(index); await React.act(async () => root.unmount()); await windows[index]!.happyDOM.close(); }
+    Object.assign(globalThis, previous);
+  }
+}
+for (const choice of ["granted", "denied"] as const) {
+  test(`opening a second tab with saved ${choice} consent leaves both documents stable`, async () => {
+    await withConsentTabs(choice, async (tabs) => {
+      const saved = tabs.saved.get(consentKey);
+      await tabs.mount(0); await tabs.flush();
+      await tabs.mount(1); await tabs.flush();
+      assert.deepEqual([...tabs.reloads], [0, 0]);
+      assert.equal(tabs.saved.get(consentKey), saved);
+      for (const browser of tabs.windows) assert.equal(browser.document.querySelectorAll('script[src*="googletagmanager"]').length, choice === "granted" ? 1 : 0);
+    });
+  });
+}
+test("an expiry-only saved-consent update from another tab keeps the current Google runtime", async () => {
+  await withConsentTabs("granted", async (tabs) => {
+    await tabs.mount(0); await tabs.mount(1); await tabs.flush();
+    const script = tabs.windows[1]!.document.querySelector('script[src*="googletagmanager"]');
+    tabs.write(0, JSON.stringify({ version: 1, value: "granted", expires: Date.now() + 120000 }));
+    await tabs.flush();
+    assert.deepEqual([...tabs.reloads], [0, 0]);
+    assert.equal(tabs.windows[1]!.document.querySelector('script[src*="googletagmanager"]'), script);
+  });
+});
+test("withdrawing consent in one tab stops both Google loaders with one reload per document", async () => {
+  await withConsentTabs("granted", async (tabs) => {
+    await tabs.mount(0); await tabs.mount(1); await tabs.flush();
+    const scripts = tabs.windows.map((browser) => browser.document.querySelector('script[src*="googletagmanager"]') as unknown as HTMLScriptElement);
+    const lateLoads = scripts.map((script) => script.onload);
+    await tabs.choose(0, "denied"); await tabs.flush();
+    assert.deepEqual([...tabs.reloads], [1, 1]);
+    assert.equal(JSON.parse(tabs.saved.get(consentKey)!).value, "denied");
+    for (const browser of tabs.windows) assert.equal(browser.document.querySelector('script[src*="googletagmanager"]'), null);
+    tabs.write(0, JSON.stringify({ version: 1, value: "denied", expires: Date.now() + 120000 })); await tabs.flush();
+    assert.deepEqual([...tabs.reloads], [1, 1]);
+    for (const [index, browser] of tabs.windows.entries()) {
+      const layer = (browser as unknown as { dataLayer: unknown[] }).dataLayer, before = layer.length;
+      lateLoads[index]?.call(scripts[index]!, new browser.Event("load") as unknown as Event);
+      assert.equal(layer.length, before, "withdrawn tabs cannot resume measurement through stale callbacks");
+    }
+    await tabs.remount(0); await tabs.remount(1); await tabs.flush();
+    assert.deepEqual([...tabs.reloads], [1, 1], "restoring the withdrawn choice cannot restart a reload cycle");
+    for (const browser of tabs.windows) assert.equal(browser.document.querySelector('script[src*="googletagmanager"]'), null);
+  });
+});
+test("granting consent propagates once and the refreshed tab restores it without another reload", async () => {
+  await withConsentTabs("denied", async (tabs) => {
+    await tabs.mount(0); await tabs.mount(1); await tabs.flush();
+    await tabs.choose(0, "granted"); await tabs.flush();
+    assert.deepEqual([...tabs.reloads], [0, 1]);
+    const saved = tabs.saved.get(consentKey);
+    await tabs.remount(1); await tabs.flush();
+    assert.deepEqual([...tabs.reloads], [0, 1]);
+    assert.equal(tabs.saved.get(consentKey), saved);
+    for (const browser of tabs.windows) assert.equal(browser.document.querySelectorAll('script[src*="googletagmanager"]').length, 1);
+  });
+});
+test("unrelated store keys and session storage cannot reload tabs; clearing local storage withdraws consent", async () => {
+  await withConsentTabs("granted", async (tabs) => {
+    await tabs.mount(0); await tabs.mount(1); await tabs.flush();
+    tabs.write(0, "changed", "celebix:storefront:favorites");
+    tabs.write(0, "changed", `celebix:google-consent:v1:22222222-2222-4222-8222-222222222222:${props.hostname}`);
+    tabs.write(0, "changed", `celebix:google-consent:v1:${props.storeId}:other.invalid`);
+    await tabs.flush();
+    const browser = tabs.windows[1]!;
+    await React.act(async () => browser.dispatchEvent(new browser.StorageEvent("storage", { key: consentKey, storageArea: browser.sessionStorage })));
+    assert.deepEqual([...tabs.reloads], [0, 0]);
+    tabs.saved.clear();
+    await React.act(async () => browser.dispatchEvent(new browser.StorageEvent("storage", { storageArea: browser.localStorage })));
+    assert.deepEqual([...tabs.reloads], [0, 1]);
+    assert.equal(browser.document.querySelector('script[src*="googletagmanager"]'), null);
+  });
+});
+for (const replacement of [null, "broken", JSON.stringify({ version: 1, value: "granted", expires: 1 })]) {
+  test(`removing or invalidating consent in another tab stops the granted runtime: ${replacement}`, async () => {
+    await withConsentTabs("granted", async (tabs) => {
+      await tabs.mount(0); await tabs.mount(1); await tabs.flush();
+      tabs.write(0, replacement); await tabs.flush();
+      assert.deepEqual([...tabs.reloads], [0, 1]);
+      assert.equal(tabs.windows[1]!.document.querySelector('script[src*="googletagmanager"]'), null);
+      assert.equal(tabs.saved.get(consentKey) ?? null, replacement);
+    });
+  });
 }
 test("a stored grant remains revocable through manual preferences without an automatic banner", async () => {
   const Consent = component();

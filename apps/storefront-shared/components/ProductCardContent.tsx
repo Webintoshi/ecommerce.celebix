@@ -7,8 +7,9 @@ import { formatTry } from "../lib/format.ts";
 import { productPath } from "../lib/storefront-routes.ts";
 import { useCommercePolicy } from "./CommercePolicyProvider";
 import { productBadge } from "./product-card-model";
+import { ProductCardRating } from "./ProductCardRating";
 
-export type ProductCardContentProduct = Pick<PublicProduct, "id" | "slug" | "title" | "currency" | "priceCents" | "compareAtCents" | "available" | "pricesHidden"> & Readonly<{
+export type ProductCardContentProduct = Pick<PublicProduct, "id" | "slug" | "title" | "currency" | "priceCents" | "compareAtCents" | "available" | "pricesHidden" | "reviewSummary"> & Readonly<{
   brand?: Readonly<{ name: string }>;
   media: readonly Readonly<{ url: string; altText: string; width?: number; height?: number }>[];
 }>;
@@ -37,6 +38,7 @@ export function ProductCardContent({ product, locale, cardStyle, imageRatio, pre
     <div className="product-card-copy">
       {product.brand?.name ? <span className="product-card-brand">{product.brand.name}</span> : null}
       <h3>{product.title}</h3>
+      {product.reviewSummary ? <ProductCardRating summary={product.reviewSummary} /> : null}
       {!pricesHidden && product.priceCents !== null ? <div className="price-row">
         {product.compareAtCents && product.compareAtCents > product.priceCents ? <del>{formatTry(product.compareAtCents)}</del> : null}
         <strong>{formatTry(product.priceCents)}</strong>

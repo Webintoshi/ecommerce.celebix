@@ -13,7 +13,7 @@ const product = { id: PRODUCT_ID, slug: "altin-bileklik", title: "Altın Bilekli
 
 function repository(outcome = "found", resultPayload: unknown = storefront) {
   const queries: string[] = [];
-  const client = { async query(text: string) { queries.push(text); if(text.includes("google_merchant_public_product_identifiers"))return {rows:[{identifiers:{}}],rowCount:1}; return text.startsWith("SELECT outcome") ? { rows: [{ outcome, result_payload: text.includes("public_variant_media_assignments") ? { assignments: [] } : resultPayload }], rowCount: 1 } : { rows: [], rowCount: 0 }; }, release() {} };
+  const client = { async query(text: string) { queries.push(text); if(text.includes("google_merchant_public_product_identifiers"))return {rows:[{identifiers:{}}],rowCount:1}; return text.startsWith("SELECT outcome") ? { rows: [{ outcome, result_payload: text.includes("public_product_review_summaries") ? { enabled: false, items: [] } : text.includes("public_variant_media_assignments") ? { assignments: [] } : resultPayload }], rowCount: 1 } : { rows: [], rowCount: 0 }; }, release() {} };
   const pool = { async connect() { return client; } } as unknown as PostgresPoolLike;
   return { queries, value: new PostgresPublicStorefrontRepository({ pool, role: "celebix_saas_host_resolver", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 } }) };
 }
@@ -114,7 +114,7 @@ test("public detail and catalog hydrate ordered variant galleries within the pro
   const client = { async query(text: string, values: unknown[] = []) {
     calls.push({ text, values });
     if(text.includes("google_merchant_public_product_identifiers"))return {rows:[{identifiers:{}}]};
-    const payload = text.includes("public_variant_media_assignments") ? { assignments: [{ productId: PRODUCT_ID, variantId: VARIANT_ID, mediaIds: [mediaId] }] } : text.includes("public_catalog_query_v2") ? { items: [selectedProduct], total: 1, nextOffset: null } : selectedProduct;
+    const payload = text.includes("public_product_review_summaries") ? { enabled: false, items: [] } : text.includes("public_variant_media_assignments") ? { assignments: [{ productId: PRODUCT_ID, variantId: VARIANT_ID, mediaIds: [mediaId] }] } : text.includes("public_catalog_query_v2") ? { items: [selectedProduct], total: 1, nextOffset: null } : selectedProduct;
     return text.startsWith("SELECT outcome") ? { rows: [{ outcome: "found", result_payload: payload }] } : { rows: [] };
   }, release() {} };
   const value = new PostgresPublicStorefrontRepository({ pool: { async connect() { return client; } } as unknown as PostgresPoolLike, role: "celebix_saas_host_resolver", timeouts: { poolCheckoutMs: 100, statementMs: 100, lockMs: 100, idleTransactionMs: 100 } });
@@ -130,7 +130,7 @@ test("public detail and catalog hydrate ordered variant galleries within the pro
 });
 test('Merchant metadata enriches only validated product detail and only visible variants in the same read snapshot',async()=>{
  const calls:{text:string;values:unknown[]}[]=[];let identities:unknown={[VARIANT_ID]:{brand:'Atölye',mpn:'9800000000004'}};let detail:unknown=product;
- const client={async query(text:string,values:unknown[]=[]){calls.push({text,values});if(text.includes('google_merchant_public_product_identifiers'))return {rows:[{identifiers:identities}]};if(!text.startsWith('SELECT outcome'))return {rows:[]};return {rows:[{outcome:'found',result_payload:text.includes('public_variant_media_assignments')?{assignments:[]}:text.includes('public_catalog_query_v2')?{items:[product],total:1,nextOffset:null}:detail}]};},release(){}};
+ const client={async query(text:string,values:unknown[]=[]){calls.push({text,values});if(text.includes('google_merchant_public_product_identifiers'))return {rows:[{identifiers:identities}]};if(!text.startsWith('SELECT outcome'))return {rows:[]};return {rows:[{outcome:'found',result_payload:text.includes('public_product_review_summaries')?{enabled:false,items:[]}:text.includes('public_variant_media_assignments')?{assignments:[]}:text.includes('public_catalog_query_v2')?{items:[product],total:1,nextOffset:null}:detail}]};},release(){}};
  const value=new PostgresPublicStorefrontRepository({pool:{async connect(){return client;}} as unknown as PostgresPoolLike,role:'celebix_saas_host_resolver',timeouts:{poolCheckoutMs:100,statementMs:100,lockMs:100,idleTransactionMs:100}});
  const input={storefront,now:new Date('2026-10-14T12:00:00Z'),slug:product.slug};
  const selected=await value.getPublicProductBySlug(input);assert.deepEqual((selected.variants[0] as any).merchantIdentifiers,{brand:'Atölye',mpn:'9800000000004'});

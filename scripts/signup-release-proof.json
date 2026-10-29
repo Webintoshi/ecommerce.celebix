@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "517fa15bcfd1d103ff4da88f9b0f21f548695da8cef95590567bf85241ee11c0",
+  "inputDigest": "384bcdc0c61a300084627d953164c8bf734d496865835c80d6f8d8ac224676fc",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2900,6 +2900,10 @@
       "sha256": "f8b11a26700757a80af0587fb48ef7d6794b30195864b23cccc163f78106ebb8"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610290290_storefront_product_review_summaries.up.sql",
+      "sha256": "0666425208a318246baa7bad3f0c046d29976ca295cdf280af9eb98eb6b7bb92"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -4237,11 +4241,11 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/types.ts",
-      "sha256": "fedaa3a6a03ef29f89df236ce8ffd41333acadb7f40e685b20fc96b93afa4cbf"
+      "sha256": "62637269db1c404c2f64b1fe9ae5e2b45b6c5fe3952b44d446ce4a8431a41f0a"
     },
     {
       "path": "packages/saas-contracts/src/storefront/validation.ts",
-      "sha256": "e0bbe8542ffbb2bc0eba5fc1cd001f482cace2fb072919ab569fe208e449d324"
+      "sha256": "cb5582f7c1a8bbdcc55b38198c39e9e8156611896df574b4b26e9fd097ed5204"
     },
     {
       "path": "packages/saas-contracts/src/toshi/conversations.ts",
@@ -5425,7 +5429,7 @@
     },
     {
       "path": "packages/saas-data/src/storefront-content/repository.ts",
-      "sha256": "c2e58b0fb3b6dd6ad5b48fc8838b5716f89d51b8c5cd4fa618cc72e44b183493"
+      "sha256": "e36d3849796e2a13be3a621ec9e45b20c1a4169058a10c140774c18059f6916e"
     },
     {
       "path": "packages/saas-data/src/storefront-content/types.ts",
@@ -5508,8 +5512,12 @@
       "sha256": "83e14887d0f3cb6ea7146ffec88f84a6fd231a1992ae2fa1b9b801b788ea006a"
     },
     {
+      "path": "packages/saas-data/src/storefront/product-review-summaries.ts",
+      "sha256": "56ac31302234033e0ebf6453de1f0d60b34db39f3cdcb7dfd8c0bcda19cfb560"
+    },
+    {
       "path": "packages/saas-data/src/storefront/repository.ts",
-      "sha256": "b3bfbc72927ab9957c8f46cfec7b8d25674098552a3b4b3c8ea7a06330a4e10a"
+      "sha256": "8718d9fb95d002f5a3dec952692ae4dccbf06f5c069a1ea480054bdff1948659"
     },
     {
       "path": "packages/saas-data/src/storefront/types.ts",

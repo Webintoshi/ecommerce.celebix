@@ -66,6 +66,7 @@
 [data-storefront-theme="lilyum-deniz"] .lf-product .favorite-button[aria-pressed="true"]{color:var(--lf-green)}
 [data-storefront-theme="lilyum-deniz"] .lf-product .favorite-button[aria-pressed="true"] svg{fill:var(--lf-green)}
 [data-storefront-theme="lilyum-deniz"] .lf-product-copy{padding:12px 12px 10px}
+[data-storefront-theme="lilyum-deniz"] .lf-product-copy [data-product-card-rating]{display:flex;margin:0 0 8px}
 [data-storefront-theme="lilyum-deniz"] .lf-product h3{margin:0 0 8px;font-size:12px;font-weight:400;line-height:1.5;min-height:36px;overflow-wrap:anywhere}
 [data-storefront-theme="lilyum-deniz"] .lf-product-price{display:flex;align-items:center;justify-content:space-between;gap:8px}
 [data-storefront-theme="lilyum-deniz"] .lf-product-price strong{font-size:16px;font-weight:500;line-height:1.3}

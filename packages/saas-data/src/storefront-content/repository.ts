@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { acquirePostgresClient, type PostgresClientLike } from "../postgres/pool.ts";
+import { hydratePublicProductReviewSummaries } from "../storefront/product-review-summaries.ts";
 import { STOREFRONT_CONTENT_ERROR_CODES, StorefrontContentRepositoryError, type StorefrontContentErrorCode } from "./errors.ts";
 import type {
   PostgresPublicStorefrontContentRepositoryOptions,
@@ -45,7 +46,7 @@ import {
 } from "./validation.ts";
 
 type Envelope = Readonly<{ outcome: string; result: unknown }>;
-type Query = Readonly<{ text: string; values: unknown[] }>;
+type Query = Readonly<{ text: string; values: unknown[]; productReviews?: Readonly<{ hostname: string; now: Date }> }>;
 const ERROR_CODES = new Set<string>(STOREFRONT_CONTENT_ERROR_CODES);
 
 function failure(code: StorefrontContentErrorCode = "unavailable"): StorefrontContentRepositoryError {
@@ -107,14 +108,15 @@ abstract class PostgresStorefrontContentBase {
     let began = false;
     let terminal = false;
     try {
-      await client.query("BEGIN READ ONLY");
+      await client.query(query.productReviews ? "BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY" : "BEGIN READ ONLY");
       began = true;
       await this.configure(client);
       const selected = envelope(await client.query(query.text, query.values));
       const error = mapped(selected.outcome);
       if (error) throw error;
       if (selected.outcome !== expected) throw failure();
-      const result = parser(selected.result);
+      const parsed = parser(selected.result);
+      const result = query.productReviews ? await hydratePublicProductReviewSummaries(client, parsed, query.productReviews.hostname, query.productReviews.now) : parsed;
       try {
         await client.query("COMMIT");
         terminal = true;
@@ -231,6 +233,7 @@ export class PostgresPublicStorefrontContentRepository extends PostgresStorefron
     return this.read({
       text: "SELECT outcome,result_payload FROM saas.public_search_products($1::text,$2::timestamptz,$3::text,$4::integer,$5::text)",
       values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), storefrontContentQuery(parsed.query), storefrontContentLimit(parsed.limit), storefrontContentCursor(parsed.cursor) ?? null],
+      productReviews: { hostname: storefrontContentHostname(parsed.hostname), now: storefrontContentDate(parsed.now) },
     }, "found", parseProductSearchPayload);
   }
 
@@ -239,6 +242,7 @@ export class PostgresPublicStorefrontContentRepository extends PostgresStorefron
     return this.read({
       text: "SELECT outcome,result_payload FROM saas.public_resolve_product_ids($1::text,$2::timestamptz,$3::uuid[])",
       values: [storefrontContentHostname(parsed.hostname), storefrontContentDate(parsed.now), storefrontContentProductIds(parsed.productIds)],
+      productReviews: { hostname: storefrontContentHostname(parsed.hostname), now: storefrontContentDate(parsed.now) },
     }, "found", parseResolvedProductsPayload);
   }
 }
