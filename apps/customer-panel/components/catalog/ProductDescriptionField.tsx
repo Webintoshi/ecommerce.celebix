@@ -24,6 +24,7 @@ import {
   Quote,
   Redo2,
   Rows3,
+  Sparkles,
   Strikethrough,
   Table2,
   Trash2,
@@ -106,8 +107,8 @@ function ToolbarButton({ label, active = false, disabled = false, onPress, child
       disabled={disabled}
       onMouseDown={(event) => {
         event.preventDefault();
-        onPress();
       }}
+      onClick={onPress}
     >
       {children}
     </button>
@@ -275,7 +276,6 @@ export function ProductDescriptionField({
         </div>
         {!readOnly ? (
           <div className={styles.labelActions}>
-          {authoring && aiAvailable ? <button ref={aiTrigger} type="button" className={styles.aiButton} aria-label="Yapay zekâ ile ürün metnini düzenle" title="Yapay zekâ ile ürün metnini düzenle" aria-expanded={aiOpen} onClick={() => setAiOpen(current => !current)}>Metni düzenle</button> : null}
           <button type="button" className={styles.focusButton} onClick={() => setFocusMode((current) => !current)}>
             {focusMode ? <Minus aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
             {focusMode ? "Küçült" : "Tam ekran"}
@@ -287,6 +287,7 @@ export function ProductDescriptionField({
       <div className={`${styles.editor} ${editor?.isFocused ? styles.editorFocused : ""}`}>
         {!readOnly ? (
           <div className={styles.toolbar} role="toolbar" aria-label="Açıklama biçimlendirme araçları">
+            <div className={styles.toolbarControls}>
             <select
               className={styles.blockSelect}
               aria-label="Metin biçimi"
@@ -320,6 +321,8 @@ export function ProductDescriptionField({
               <ToolbarButton label="Yinele" disabled={!editor?.can().chain().focus().redo().run()} onPress={() => editor?.chain().focus().redo().run()}><Redo2 /></ToolbarButton>
             </span>
             </span>
+            </div>
+            {authoring && aiAvailable ? <button ref={aiTrigger} type="button" className={styles.aiButton} aria-label="Toshi ile ürün içeriği oluştur" title="Toshi ile ürün içeriği oluştur" aria-expanded={aiOpen} onClick={() => setAiOpen(current => !current)}><Sparkles aria-hidden="true" />Toshi ile oluştur</button> : null}
           </div>
         ) : null}
 

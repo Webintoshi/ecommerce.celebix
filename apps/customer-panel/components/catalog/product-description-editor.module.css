@@ -76,6 +76,7 @@
 .labelRow > .labelActions { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; gap: 6px; }
 
 .editor {
+  container: product-description / inline-size;
   position: relative;
   min-width: 0;
   overflow: hidden;
@@ -90,17 +91,20 @@
   border-color: var(--cp-control-focus);
   box-shadow: none;
 }
+.editor > :global(section[aria-label="Toshi ile içerik"]) { border-width: 0 0 1px; border-radius: 0; }
 
 .toolbar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   min-width: 0;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   border-bottom: 1px solid var(--catalog-border);
   background: var(--catalog-canvas);
   padding: 6px 8px;
 }
+.toolbarControls { display: flex; min-width: 0; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: thin; }
+.toolbarControls .toolbarGroup, .toolbarControls .historyGroup { flex: 0 0 auto; flex-wrap: nowrap; }
 
 .toolbarGroup {
   display: inline-flex;
@@ -552,3 +556,8 @@
   .toolbarButton { width: 44px; height: 44px; flex-basis: 44px; }
 }
 .blockSelect { border-radius: var(--cp-button-radius); }
+
+@container product-description (max-width: 520px) {
+  .toolbar { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .toolbar .aiButton { justify-self: end; }
+}

@@ -4,6 +4,7 @@ import { Check, ChevronDown, Search } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import styles from "./product-onboarding.module.css";
+import checkboxStyles from "@/components/shared/selection-checkbox.module.css";
 
 type ClassificationChoice = Readonly<{
   id: string;
@@ -60,7 +61,7 @@ export function ProductClassificationPicker({
             {visibleOptions.length ? visibleOptions.map((option) => {
               const checked = selected.includes(option.id);
               return <label key={option.id} className={checked ? styles.classificationSelected : ""}>
-                <input type="checkbox" checked={checked} onChange={() => toggle(option.id)} />
+                <input className={checkboxStyles.checkbox} type="checkbox" checked={checked} onChange={() => toggle(option.id)} />
                 <span>{option.label}</span>
                 {checked ? <Check aria-hidden="true" /> : null}
               </label>;
