@@ -385,7 +385,7 @@ for (const layout of ["create", "default", "rail"] as const) test(`AI SEO applie
     updateMerchandising: async (_id:string,payload:unknown)=>{requests.push(payload);return created;},
   }}, async ({container,browser,latest,remount}) => {
     assert.deepEqual(dirty, [], "mount must not mark fields dirty");
-    await click(container,"Yapay Zeka ile SEO Hazırla");
+    await click(container,"SEO düzenle");
     await click(container,"Apply SEO fixture");
     assert.equal(requests.length,0,"applying is not saving");
     const title = container.querySelector<HTMLInputElement>('[name="seoTitle"]')!;
@@ -412,7 +412,7 @@ test("SEO generation captures the current unsaved general product draft and reje
   let bridge:any;
   const snapshots=await import("../../lib/content-authoring-ui/state.ts");
   await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",captureProductAuthoringDraft:()=>({currentDraft:{title,description,variants:[]},productVersion:8,draftRevision:revision})},async({container})=>{
-    await click(container,"Yapay Zeka ile SEO Hazırla");
+    await click(container,"SEO düzenle");
     const current=bridge.capture();
     assert.equal(current.request.currentDraft.title,title);
     assert.equal(current.request.currentDraft.description,description);
@@ -431,7 +431,7 @@ test("SEO generation captures the current unsaved general product draft and reje
 for(const code of ["version_conflict","unavailable"] as const) test(`SEO ${code} keeps applied text, origin and dirty state until an acknowledged save`,async()=>{
  let failed=true,updates=0;const requests:any[]=[],dirty:boolean[]=[];
  await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",onDirtyChange:(value:boolean)=>dirty.push(value),onUpdated:()=>updates++,api:{updateMerchandising:async(_id:string,payload:unknown)=>{requests.push(payload);if(failed)throw new HarnessApiError(code);return created;}}},async({container,browser})=>{
-  await click(container,"Yapay Zeka ile SEO Hazırla");await click(container,"Apply SEO fixture");await submit(container,browser);
+  await click(container,"SEO düzenle");await click(container,"Apply SEO fixture");await submit(container,browser);
   assert.equal(updates,0);assert.equal(dirty.at(-1),true);assert.equal(container.querySelector<HTMLInputElement>('[name="seoTitle"]')!.value,"Generated SEO");
   assert.equal(requests[0].expectedProfileVersion,9);assert.deepEqual(requests[0].contentOrigins,{seoTitle:{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId},seoDescription:{generationId:authoringGeneration.id,draftId:authoringGeneration.draftId}});
   assert.match(container.textContent??"",code==="version_conflict"?/Yerel alanlarınız korunuyor/:/unavailable/);
@@ -444,12 +444,12 @@ test("advanced AI capture maps saved variant slug keys to verified selected reso
  const contract=await import("@celebix/saas-contracts");let bridge:any;
  const matrixDraft=drafts.updateProductDraft(draft(),{kind:"variant",variants:[newSmall],resourceAttributeIds:[attributeId]});
  await withAdvanced({draftSession:matrixDraft},async({container,remount})=>{
-  await click(container,"Yapay Zeka ile SEO Hazırla");
+  await click(container,"SEO düzenle");
   const captured=bridge.capture();
   assert.deepEqual(captured.request.currentDraft.variants[0].attributes,[{attributeId,value:"S"}]);
   const parsed=contract.parseContentAuthoringRequest(captured.request);assert.equal(parsed.currentDraft.variants?.[0]?.attributes?.[0]?.attributeId,attributeId);
   const invalid=drafts.updateProductDraft(matrixDraft,{variants:[{...newSmall,attributes:{missing:"S"}}]});
-  await remount(invalid);await click(container,"Yapay Zeka ile SEO Hazırla");
+  await remount(invalid);await click(container,"SEO düzenle");
   assert.throws(()=>bridge.capture(),/attribute_metadata_unavailable/,"unknown slugs must never become client-invented references");
  },undefined,(props:any)=>{bridge=props.bridge;return null;});
 });
@@ -479,7 +479,7 @@ test("existing SEO rail request controls do not dirty saved fields and ordinary 
  });
  const dirty:boolean[]=[];
  await withAdvanced({draftSession:undefined,editor:existingEditor,presentation:"rail",onDirtyChange:(value:boolean)=>dirty.push(value)},async({container,browser})=>{
-  await click(container,"Yapay Zeka ile SEO Hazırla");const panel=container.querySelector('[aria-label="Toshi ile içerik"]')!;
+  await click(container,"SEO düzenle");const panel=container.querySelector('[aria-label="Toshi ile içerik"]')!;
   await act(async()=>panel.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')[1].click());
   assert.equal(panel.querySelector('select'),null);
   assert.equal(dirty.at(-1)??false,false);assert.equal(container.querySelector<HTMLElement>('footer')!.hidden,true);
@@ -623,7 +623,7 @@ test("advanced one Save publishes after uploading and accepts keyboard submissio
 
 test('package locked product AI offers upgrade without opening generation while ordinary SEO fields stay editable',async()=>{
  await withAdvanced({aiAvailable:false},async({container})=>{
-  assert.equal([...container.querySelectorAll('button')].some(button=>button.textContent==='Yapay Zeka ile SEO Hazırla'),false);
+  assert.equal([...container.querySelectorAll('button')].some(button=>button.textContent==='SEO düzenle'),false);
   assert.ok(container.querySelector('a[href="/upgrade?feature=ai"]'));
   assert.ok(container.querySelector('input[name="seoTitle"]'));
   assert.ok(container.querySelector('textarea[name="seoDescription"]'));
