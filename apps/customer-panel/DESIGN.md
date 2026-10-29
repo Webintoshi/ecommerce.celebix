@@ -14,6 +14,8 @@ Medium and Small have a 44px actual target. A transparent 2px/4px border with `b
 
 Important existing primary actions use exactly `#ff6c13` and pure white `#FFFFFF` text/icons, including hover/pressed fill. Hover must not underline button labels. Keep the pointer cursor, existing surface feedback and visible graphite keyboard ring. Secondary actions use neutral soft surfaces and dark text; destructive actions retain their danger meaning. Preserve disabled, busy, keyboard and native control behavior.
 
+Form focus has one owner. A composite search or selector uses its outer 1px border to show focus; its borderless native input/select must never draw a second outline or halo. Standalone form fields change their existing border, without stacked rings. Borderless standalone controls retain one thin visible keyboard outline. Keep the separate 2px keyboard ring for action buttons and links.
+
 Explicit appearance exception: white on `#ff6c13` has a 2.835374781:1 contrast ratio. This exact pair is the owner's supplied preference; do not silently replace the requested white or orange, and do not claim WCAG AA text contrast for this pair. This exception does not authorize low-contrast text elsewhere.
 
 Use `--cp-button-*` size/radius/color tokens. Keep `--cp-control-*` field tokens independent, and keep `--cp-brand` for charts, selection and established switches. Reading this as a shared operational component grammar: ENERGY 1 / RHYTHM 1 / MOTION 1; uniform button proportions are deliberate across pages, with only purpose-driven size and semantic variants.

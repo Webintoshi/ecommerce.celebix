@@ -90,7 +90,7 @@
 .root .generalForm :global(.field textarea) { min-height: 92px; }
 .root .generalForm :global(.field input:focus-visible),
 .root .generalForm :global(.field select:focus-visible),
-.root .generalForm :global(.field textarea:focus-visible) { border-color: var(--cp-control-focus); outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none; }
+.root .generalForm :global(.field textarea:focus-visible) { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
 .root .generalForm :global(.product-description-field) { min-width: 0; }
 .root .generalForm :global(.product-description-field > label) { color: #4b4641; font-size: 12px; }
 .root .generalForm :global(.product-description-field [contenteditable="true"]) { border-color: #d9cfc5; background: #fff; }

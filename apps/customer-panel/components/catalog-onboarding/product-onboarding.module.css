@@ -549,9 +549,10 @@
 .classificationPicker[open] > summary > svg { transform: rotate(180deg); }
 .classificationPopover { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 8px; }
 .classificationSearch { display: flex; min-width: 0; min-height: 44px; align-items: center; gap: 8px; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); padding: 0 12px; color: var(--cp-text-secondary); }
-.classificationSearch:focus-within { border-color: var(--cp-control-focus); }
+.classificationSearch:focus-within { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
 .classificationSearch svg { width: 14px; flex: 0 0 14px; }
 .classificationSearch input { flex: 1 1 0; width: 0; min-width: 0; max-width: 100%; min-height: 40px !important; border: 0 !important; background: transparent; padding: 0 !important; outline: 0; box-shadow: none !important; font: inherit; font-size: 14px; }
+.classificationSearch input:focus-visible { outline: 0; }
 .classificationChips { display: flex; min-width: 0; flex-wrap: wrap; gap: 6px; }
 .classificationChips button { display: inline-flex; min-height: 28px; align-items: center; gap: 5px; border: 1px solid #ffd0b0; border-radius: 999px; background: #fff7f2; padding: 0 8px; color: #a94700; font-size: 8px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .classificationChips button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
@@ -731,7 +732,7 @@
 .editField textarea { min-height: 112px; resize: vertical; }
 .editField input:focus-visible,
 .editField select:focus-visible,
-.editField textarea:focus-visible { outline: 2px solid var(--catalog-accent); outline-offset: 1px; }
+.editField textarea:focus-visible { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
 .editSettings .classificationPicker { border: 0; background: transparent; }
 .editSettings .classificationPicker > summary { min-height: 44px; padding: 8px 12px; }
 .editSettings .classificationPicker > summary strong { color: var(--catalog-text); font-size: 13px; font-weight: var(--cp-font-weight-control); }
@@ -766,6 +767,7 @@
 .railSettings .editField { gap: 8px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .railSettings .editField input, .railSettings .editField select, .railSettings .editField textarea { min-height: 40px; border-color: #ded6cf; border-radius: 7px; background: #fffdfc; padding: 8px 10px; color: #2b2b2b; font-size: 12px; }
 .railSettings .editField textarea { min-height: 84px; }
+.railSettings .editField :is(input, select, textarea):focus-visible { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
 .railSettings .classificationPicker { border: 0; background: transparent; }
 .railSettings .classificationPicker > summary { min-height: 56px; padding: 8px 16px; }
 .railSettings .classificationPicker > summary strong { color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-control); }

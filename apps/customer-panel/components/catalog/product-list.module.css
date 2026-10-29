@@ -38,7 +38,7 @@
   text-underline-offset: 4px;
 }
 
-.root:global(.catalog-page.product-operations-page) :is(a, button, input, select, textarea):focus-visible {
+.root:global(.catalog-page.product-operations-page) :is(a, button):focus-visible {
   outline: 2px solid var(--cp-control-focus);
   outline-offset: 2px;
   box-shadow: none;
@@ -100,13 +100,15 @@
 .root:global(.catalog-page.product-operations-page) :global(.command-select select) { width: 100%; min-width: 0; min-height: 42px; font-size: 14px; }
 .root:global(.catalog-page.product-operations-page) :global(.product-operations-toolbar > .command-icon-button) { width: var(--cp-button-small-height); border-width: var(--cp-button-small-hit-inset); padding: 0; }
 .root:global(.catalog-page.product-operations-page) :global(.product-operations-toolbar > .command-button.is-active) { border-color: var(--cp-graphite); background: var(--cp-soft); }
-.root:global(.catalog-page.product-operations-page) :global(.product-search:focus-within),
-.root:global(.catalog-page.product-operations-page) :global(.command-select:focus-within),
 .root:global(.catalog-page.product-operations-page) :global(.command-button:focus-visible),
 .root:global(.catalog-page.product-operations-page) :global(.product-stat-grid > button:focus-visible),
 .root:global(.catalog-page.product-operations-page) :global(.icon-button:focus-visible),
 .root:global(.catalog-page.product-operations-page) :global(.catalog-table-shell:focus-visible),
 .root:global(.catalog-page.product-operations-page) :global(.publish-switch:focus-visible) { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none; }
+.root:global(.catalog-page.product-operations-page) :global(.product-search:focus-within),
+.root:global(.catalog-page.product-operations-page) :global(.command-select:focus-within) { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
+.root:global(.catalog-page.product-operations-page) :global(.product-search input:focus-visible),
+.root:global(.catalog-page.product-operations-page) :global(.command-select select:focus-visible) { outline: 0; box-shadow: none; }
 
 .activeFilters { display: flex; min-width: 0; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 0 16px 12px; }
 .activeFilters > button { display: inline-flex; min-width: 0; min-height: var(--cp-button-small-height); max-width: 100%; align-items: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-primary); cursor: pointer; font: inherit; font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
