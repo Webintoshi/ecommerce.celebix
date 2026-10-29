@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="512" height="512" fill="#FE6100" role="img" aria-label="Celebix — Yükleniyor">
+<title>Celebix — Manyetik</title>
+<desc>Özgün Celebix X. 1600 ms döngü, parçalar ayrılır ve mıknatıs gibi yerine oturur. Şeffaf zemin.</desc>
+<style>
+.cx-shell{transform-box:view-box;transform-origin:50% 50%;animation:cx-shell var(--cx-duration,1600ms) infinite;}
+.cx-part{transform-box:fill-box;transform-origin:center;}
+.cx-p0{animation:cx-magnet-diagonal var(--cx-duration,1600ms) infinite;}
+.cx-p1{animation:cx-magnet-upper var(--cx-duration,1600ms) infinite;}
+.cx-p2{animation:cx-magnet-lower var(--cx-duration,1600ms) infinite;}
+.cx-mark{filter: drop-shadow(0 0 0 rgba(0,0,0,0));}
+@keyframes cx-shell{0%,14%,100%{transform:scale(1)}45%{transform:scale(1.018)}58%{transform:scale(1)}}
+@keyframes cx-magnet-diagonal{0%,12%{transform:translate(0,0);opacity:1;animation-timing-function:cubic-bezier(.4,0,.7,1)}27%{transform:translate(-17px,19px);opacity:.78;animation-timing-function:cubic-bezier(.12,.8,.2,1)}42%{transform:translate(3px,-4px);opacity:1;animation-timing-function:ease-out}53%,100%{transform:translate(0,0);opacity:1}}
+@keyframes cx-magnet-upper{0%,12%{transform:translate(0,0) rotate(0deg);opacity:1;animation-timing-function:cubic-bezier(.4,0,.7,1)}29%{transform:translate(-31px,-27px) rotate(-12deg);opacity:.56;animation-timing-function:cubic-bezier(.12,.8,.2,1)}46%{transform:translate(5px,4px) rotate(2deg);opacity:1;animation-timing-function:ease-out}58%,100%{transform:translate(0,0) rotate(0deg);opacity:1}}
+@keyframes cx-magnet-lower{0%,15%{transform:translate(0,0) rotate(0deg);opacity:1;animation-timing-function:cubic-bezier(.4,0,.7,1)}32%{transform:translate(31px,25px) rotate(12deg);opacity:.56;animation-timing-function:cubic-bezier(.12,.8,.2,1)}50%{transform:translate(-5px,-4px) rotate(-2deg);opacity:1;animation-timing-function:ease-out}62%,100%{transform:translate(0,0) rotate(0deg);opacity:1}}
+@media (prefers-reduced-motion: reduce){.cx-shell,.cx-part{animation:none!important;transform:none!important;opacity:1!important}}
+</style>
+<g class="cx-shell "><g class="cx-mark" transform="translate(54.5 79.5)">
+<g class="cx-part cx-p0"><path fill="#FE6100" transform="matrix(1.30208 0 0 1.14319 -1445 -353)" d="M1325.04 311.339L1325.33 311.504C1325.16 313.84 1189.41 489.228 1175.67 507.725L1112.41 507.539L1118.84 499.35C1137.5 474.862 1157.54 450.847 1176.3 426.323C1185.57 414.202 1198.01 399.573 1205.26 386.147C1210.13 377.122 1202.62 360.084 1199.06 350.714C1212.61 362.607 1218.87 364.698 1236.64 358.668C1250.38 354.004 1262.54 345.93 1275.14 338.847C1291.67 329.502 1308.31 320.332 1325.04 311.339Z"/></g>
+<g class="cx-part cx-p1"><path fill="#FE6100" transform="matrix(1.30208 0 0 1.14319 -1445 -353)" d="M1115.6 325.656C1134.68 325.028 1156.56 325.532 1175.85 325.525C1193.17 345.048 1200.66 357.411 1201.67 383.809C1198.84 389.086 1195.09 394.292 1191.68 399.258L1185.51 408.258C1175.91 398.489 1165.57 385.574 1156.51 374.994C1142.67 358.828 1128.65 342.43 1115.6 325.656Z"/></g>
+<g class="cx-part cx-p2"><path fill="#FE6100" transform="matrix(1.30208 0 0 1.14319 -1445 -353)" d="M1249.01 418.929C1254.56 424.413 1267.7 441.619 1273.51 448.762L1329.47 517.59C1321.58 512.049 1313.31 507.08 1304.71 502.721C1292.3 496.613 1273.52 488.258 1259.19 490.003C1251.54 490.936 1247.9 494.524 1243.66 500.283C1241.8 476.004 1236.76 472.757 1221.29 454.914C1230.56 442.789 1239.8 431.263 1249.01 418.929Z"/></g>
+</g></g>
+</svg>
