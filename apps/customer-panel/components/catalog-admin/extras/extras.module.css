@@ -112,3 +112,4 @@
 }
 
 .listWorkspace { min-height: 480px; align-content: start; }
+.search, .toolbar select, .categorySearch input { border-radius: var(--cp-button-radius); }

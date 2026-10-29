@@ -1597,4 +1597,7 @@
 @media (max-width: 640px) { .stableListRegion { min-height: 480px; } }
 
 .analyticsRegion { min-width: 0; min-height: 340px; }
+.filters select,.stepPanel select,.advanced select,.simulator select,.picker select,.filters input,.picker input,.filterDetails summary,.rowMenu summary,.segmentedChoices label{border-radius:var(--cp-button-radius)}
+.batchForm input[type=datetime-local],.stepPanel input[type=datetime-local],.advanced input[type=datetime-local],.simulator input[type=datetime-local]{border-radius:var(--cp-button-radius)}
+.kpiHeader button,.steps button{border-radius:var(--cp-button-radius)}
 @media (max-width: 640px) { .analyticsRegion { min-height: 640px; } }

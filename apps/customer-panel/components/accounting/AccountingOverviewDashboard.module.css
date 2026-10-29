@@ -26,8 +26,8 @@
 .secondary dd{margin:0;font-size:14px;font-weight:var(--cp-font-weight-value);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .accountFooter{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;border-top:1px solid var(--cp-border);padding-top:12px;margin-top:8px}
 .accountFooter>span{font-size:12px;color:var(--cp-text-secondary);line-height:1.5}
-.link{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 12px;border-radius:8px;background:var(--cp-soft);color:var(--cp-text-primary);text-decoration:none;font-size:13px;font-weight:var(--cp-font-weight-control)}
-.link:hover{background:var(--cp-border)}
+.link{display:inline-flex;align-items:center;justify-content:center;gap:var(--cp-button-gap);min-height:var(--cp-button-height);border:var(--cp-button-hit-inset) solid transparent;padding:var(--cp-button-padding-y) var(--cp-button-padding-x);border-radius:var(--cp-button-radius);background-color:var(--cp-soft);background-clip:padding-box;color:var(--cp-text-primary);text-decoration:none;font-size:var(--cp-button-font-size);line-height:var(--cp-button-line-height);font-weight:var(--cp-font-weight-control)}
+.link:hover{background-color:var(--cp-border)}
 .link:focus-visible,.info summary:focus-visible{outline:2px solid var(--cp-brand);outline-offset:4px}
 .debts{display:grid;gap:16px;padding:20px 0;border-block:1px solid var(--cp-border);min-width:0}
 .debtHeader h2{font-size:13px;color:var(--cp-text-secondary);font-weight:var(--cp-font-weight-heading)}

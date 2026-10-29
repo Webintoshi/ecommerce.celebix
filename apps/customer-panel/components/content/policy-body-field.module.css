@@ -169,3 +169,4 @@
 .editorContent strong, .editorContent b {
   font-weight: bolder;
 }
+.toolbarButton,.blockSelect{border-radius:var(--cp-button-radius)}

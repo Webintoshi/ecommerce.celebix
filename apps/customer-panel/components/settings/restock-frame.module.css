@@ -84,3 +84,4 @@
   .readOnly, .feedback { padding: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .workspace *, .dialog * { scroll-behavior: auto; transition: none; } }
+.segmented,.segmented button{border-radius:var(--cp-button-radius)}

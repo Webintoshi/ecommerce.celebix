@@ -881,3 +881,10 @@
   .createWorkspace .sections :global(.onboarding-variant-primary-fields),
   .createWorkspace .sections :global(.onboarding-variant-builder[data-layout="multiple"] .onboarding-variant-primary-fields) { grid-template-columns: 1fr; }
 }
+.form select, .categoryForm select, .organizationGrid select,
+.sections :global(.onboarding-editor-grid select),
+.createWorkspace .sections :global(.onboarding-editor-grid select),
+.createWorkspace .organizationGrid select, .editField select,
+.railSettings .editField select, .classificationSearch,
+.editSettings .classificationSearch, .editSettings .classificationChips button,
+.railSettings .classificationChips button { border-radius: var(--cp-button-radius); }

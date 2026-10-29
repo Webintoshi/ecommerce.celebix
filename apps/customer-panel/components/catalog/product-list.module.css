@@ -357,3 +357,29 @@
   .rowMenu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .root:global(.catalog-page.product-operations-page) :global(.feedback) { margin: 12px; }
 }
+.root:global(.catalog-page.product-operations-page) :global(.product-search),
+.root:global(.catalog-page.product-operations-page) :global(.command-select),
+.root:global(.catalog-page.product-operations-page) :global(.row-count-control select),
+.root:global(.catalog-page.product-operations-page) :global(.product-filter-panel > label select),
+.root:global(.catalog-page.product-operations-page) :global(.product-bulk-actions > select),
+.root:global(.catalog-page.product-operations-page) :global(.product-filter-panel button) { border-radius: var(--cp-button-radius); }
+.root:global(.catalog-page.product-operations-page) :global(.product-stat-grid > button) {
+  min-height: var(--cp-button-small-height);
+  gap: var(--cp-button-small-gap);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: transparent;
+  background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
+}
+.root:global(.catalog-page.product-operations-page) :global(.product-stat-grid > button.is-active),
+.root:global(.catalog-page.product-operations-page) :global(.product-stat-grid > button:hover:not(:disabled)) {
+  border-color: transparent;
+  background-color: var(--cp-soft);
+  background-clip: padding-box;
+}
+.root:global(.catalog-page.product-operations-page) :global(.product-stat-grid > button .product-stat-value) { min-height: 20px; padding-block: 0; line-height: 20px; }
+.root:global(.catalog-page.product-operations-page) .rowMenu > :global(.icon-button),
+.root:global(.catalog-page.product-operations-page) .rowMenu > :global(.button) { border-radius: var(--cp-button-radius); }

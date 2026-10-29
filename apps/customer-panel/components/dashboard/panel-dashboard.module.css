@@ -71,7 +71,7 @@
 .liveVisitors span { color: var(--dash-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); white-space: nowrap; }
 .liveVisitors strong { color: var(--dash-ink); font-size: 13px; font-weight: var(--cp-font-weight-value); overflow-wrap: anywhere; }
 .periodControl { display: flex; min-width: 0; align-items: center; gap: 12px; }
-.periodFilter { display: grid; min-width: 156px; min-height: 44px; grid-template-columns: 16px minmax(0, 1fr) 12px; align-items: center; gap: 8px; border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 0 12px; color: var(--dash-ink); }
+.periodFilter { display: grid; min-width: 156px; min-height: 44px; grid-template-columns: 16px minmax(0, 1fr) 12px; align-items: center; gap: 8px; border: 1px solid var(--cp-control-border); border-radius: var(--cp-button-radius); background: var(--cp-control-background); padding: 0 12px; color: var(--dash-ink); }
 .periodFilter > svg { width: 16px; height: 16px; grid-column: 1; grid-row: 1; pointer-events: none; }
 .periodFilter > .periodChevron { width: 12px; height: 12px; grid-column: 3; }
 .periodFilter select { width: 100%; min-width: 0; min-height: 44px; grid-column: 2; grid-row: 1; appearance: none; border: 0; outline: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-control); cursor: pointer; }
@@ -157,7 +157,7 @@
 .taskNotice .retryButton { justify-self: start; }
 .attentionEmpty { display: grid; min-height: 120px; place-items: center; margin: 0; color: var(--dash-muted); font-size: 13px; font-weight: var(--cp-font-weight-helper); text-align: center; }
 
-.textAction, .statusAction { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; border-radius: var(--cp-control-radius); color: var(--dash-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; }
+.textAction, .statusAction { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; border-radius: var(--cp-button-radius); color: var(--dash-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; }
 .textAction { margin-left: auto; justify-content: flex-end; text-align: right; }
 .textAction svg, .statusAction svg { width: 16px; height: 16px; flex: none; }
 .textAction:hover, .statusAction:hover { color: var(--dash-ink); text-decoration: underline; text-underline-offset: 4px; }

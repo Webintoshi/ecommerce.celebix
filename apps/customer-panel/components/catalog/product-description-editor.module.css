@@ -530,3 +530,4 @@
   .toolbar { flex-wrap:wrap; }
   .historyGroup { width:100%; justify-content:flex-end; }
 }
+.blockSelect { border-radius: var(--cp-button-radius); }

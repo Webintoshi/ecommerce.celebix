@@ -1,6 +1,6 @@
 .toolbar { display: grid; gap: 16px; min-width: 0; }
 .controls { display: flex; align-items: center; gap: 8px; }
-.search { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; min-height: 44px; padding: 0 16px; border-radius: var(--cp-control-radius); background: var(--cp-control-background); }
+.search { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; min-height: 44px; padding: 0 16px; border-radius: var(--cp-button-radius); background: var(--cp-control-background); }
 .search svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--cp-text-secondary); }
 .search input { flex: 1; width: 100%; min-width: 0; border: 0; padding: 12px 0; background: transparent !important; font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .search:focus-within { outline: 2px solid var(--cp-brand); outline-offset: 2px; }

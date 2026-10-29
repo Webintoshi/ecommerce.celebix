@@ -245,3 +245,5 @@
 .effectsCompact .effectAmounts dt{font-size:12px;line-height:1.5}
 .effectsCompact .effectAmounts dd{font-size:13px;line-height:1.5}
 .effectsCompact .muted,.effectsCompact .effectNote{font-size:12px;line-height:1.5;font-weight:var(--cp-font-weight-helper)}
+.filterField select,.search input,.field select,.dueViews,.dueViews button,.tabs a{border-radius:var(--cp-button-radius)}
+.filterField input:is([type=date],[type=datetime-local]),.field input:is([type=date],[type=datetime-local]){border-radius:var(--cp-button-radius)}

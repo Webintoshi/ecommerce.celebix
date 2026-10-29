@@ -59,9 +59,16 @@
 .barcode-studio :is(.quantity-modes button, .barcode-size-options button) {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-width: 44px; min-height: 44px; border: 1px solid var(--barcode-border);
-  border-radius: 8px; padding: 8px 12px; background: var(--barcode-surface);
+  border-radius: var(--cp-button-radius); padding: 8px 12px; background: var(--barcode-surface);
   color: var(--barcode-text); box-shadow: none; font-size: 12px;
   font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; transform: none;
+}
+.barcode-studio .quantity-modes button {
+  min-height: var(--cp-button-small-height); gap: var(--cp-button-small-gap);
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  background-color: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height);
 }
 .barcode-studio :is(.button, .barcode-history-button, .barcode-preset-row > button, .barcode-selection-status > button, .barcode-missing-action > button, .barcode-actionbar > div > button, .barcode-fix-action, .preview-placeholder button, .blocking-errors button, .barcode-pagination button, .hidden-selection button) {
   display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap);
@@ -85,6 +92,7 @@
   font-size: 13px; font-weight: var(--cp-font-weight-body);
 }
 .barcode-studio :is(.barcode-toolbar input, .barcode-toolbar select, .editor-card input:not([type="checkbox"]), .editor-card select, .quantity-modes input, .barcode-pagination select, .barcode-actionbar select, .barcode-history-dialog input:not([type="checkbox"]), .barcode-history-dialog select, .output-panel input:not([type="checkbox"]), .output-panel select):is(select) {
+  border-radius: var(--cp-button-radius);
   font-weight: var(--cp-font-weight-control);
 }
 
@@ -95,10 +103,10 @@
 .barcode-studio .barcode-step-panel.visible { display: block; }
 .barcode-studio .barcode-toolbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; min-width: 0; }
 .barcode-studio .barcode-toolbar label { display: grid; min-width: 0; gap: 4px; color: var(--barcode-muted); font-size: 12px; }
-.barcode-studio .barcode-search { position: relative; grid-column: 1 / -1; }
+.barcode-studio .barcode-search { position: relative; grid-column: 1 / -1; border-radius: var(--cp-button-radius); }
 .barcode-studio .barcode-search svg { position: absolute; bottom: 14px; left: 12px; width: 16px; height: 16px; color: var(--barcode-muted); pointer-events: none; }
-.barcode-studio .barcode-toolbar .barcode-search input { padding-left: 40px; }
-.barcode-studio .barcode-search:focus-within { border-radius: 8px; }
+.barcode-studio .barcode-toolbar .barcode-search input { border-radius: var(--cp-button-radius); padding-left: 40px; }
+.barcode-studio .barcode-search:focus-within { border-radius: var(--cp-button-radius); }
 .barcode-studio .barcode-selection-tools { display: grid; gap: 12px; margin-bottom: 16px; }
 .barcode-studio :is(.barcode-selection-bar, .barcode-selection-status) { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; border-top: 1px solid var(--barcode-border); border-bottom: 1px solid var(--barcode-border); padding: 8px 0; }
 .barcode-studio :is(.barcode-selection-bar, .barcode-selection-status) > div:last-child { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
@@ -114,7 +122,7 @@
 .barcode-studio .quantity-modes input { width: 80px; }
 .barcode-studio :is(.barcode-notice, .hidden-selection) { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 12px; border: 1px solid var(--barcode-border); border-radius: 8px; background: var(--barcode-surface); color: var(--barcode-text); font-size: 12px; overflow-wrap: anywhere; }
 .barcode-studio .barcode-notice > span { min-width: 0; flex: 1; }
-.barcode-studio .barcode-notice > button { display: inline-grid; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--barcode-text); }
+.barcode-studio .barcode-notice > button { display: inline-grid; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: var(--cp-button-radius); background: transparent; color: var(--barcode-text); }
 .barcode-studio .hidden-selection { margin-bottom: 12px; background: rgba(254, 97, 0, .06); border-color: rgba(254, 97, 0, .16); }
 .barcode-studio .hidden-selection > div { display: flex; flex-wrap: wrap; gap: 8px; }
 
@@ -233,7 +241,7 @@
 .barcode-studio .summary-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; color: var(--barcode-text); font-size: 13px; font-weight: var(--cp-font-weight-heading); letter-spacing: 0; }
 .barcode-studio .summary-heading button { display: none; }
 .barcode-studio .barcode-label-navigation { display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; color: var(--barcode-muted); font-size: 12px; }
-.barcode-studio .barcode-label-navigation button { display: grid; width: 44px; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: 8px; padding: 0; background: transparent; color: var(--barcode-muted); }
+.barcode-studio .barcode-label-navigation button { display: grid; width: 44px; min-width: 44px; min-height: 44px; place-items: center; border: 0; border-radius: var(--cp-button-radius); padding: 0; background: transparent; color: var(--barcode-muted); }
 .barcode-studio .barcode-label-navigation button:hover:not(:disabled) { background: var(--barcode-selected); color: var(--barcode-text); }
 .barcode-studio .barcode-label-navigation svg { width: 16px; height: 16px; }
 .barcode-studio .preview-stage { display: grid; place-items: center; min-width: 0; min-height: 216px; padding: 20px 12px; border: 0; border-radius: 8px; background: var(--barcode-soft); overflow: hidden; }
@@ -255,7 +263,7 @@
 .barcode-studio .barcode-summary dl:not(.barcode-summary-numbers) dt { color: var(--barcode-muted); font-size: 12px; }
 .barcode-studio .barcode-summary dl:not(.barcode-summary-numbers) dd { min-width: 0; max-width: 65%; margin: 0; text-align: right; color: var(--barcode-text); font-size: 12px; font-weight: var(--cp-font-weight-body); overflow-wrap: anywhere; }
 .barcode-studio .summary-next { width: 100%; }
-.barcode-studio .clear-selection { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border: 0; border-radius: 8px; padding: 8px; font-size: 12px; text-decoration: none; }
+.barcode-studio .clear-selection { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; border: 0; border-radius: var(--cp-button-radius); padding: 8px; font-size: 12px; text-decoration: none; }
 
 /* Match the current shell content gutter; stay above its mobile dock. */
 .barcode-studio .barcode-actionbar { position: fixed; right: 20px; bottom: 0; left: calc(15.3125rem + 20px); z-index: 25; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; max-width: calc(100rem - 40px); margin-inline: auto; padding: 16px 0; border-top: 1px solid var(--barcode-border); background: var(--barcode-canvas); color: var(--barcode-text); }
@@ -273,7 +281,7 @@
 .barcode-studio .barcode-history-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); margin: auto; padding: 0; overflow: auto; border: 1px solid var(--barcode-border); border-radius: 12px; background: var(--barcode-surface); color: var(--barcode-text); box-shadow: 0 16px 40px rgb(32 28 25 / 16%); }
 .barcode-studio .barcode-history-dialog::backdrop { background: rgb(32 28 25 / 40%); }
 .barcode-studio .barcode-history-dialog > header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--barcode-border); }
-.barcode-studio .barcode-history-dialog > header button { display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--barcode-text); }
+.barcode-studio .barcode-history-dialog > header button { display: grid; width: 44px; height: 44px; place-items: center; border: 0; border-radius: var(--cp-button-radius); background: transparent; color: var(--barcode-text); }
 .barcode-studio .barcode-history-dialog > :is(section, div) { padding: 24px; }
 .barcode-studio .barcode-history-dialog > small { display: block; padding: 16px 24px 24px; }
 .barcode-studio .barcode-history-dialog > footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--barcode-border); }

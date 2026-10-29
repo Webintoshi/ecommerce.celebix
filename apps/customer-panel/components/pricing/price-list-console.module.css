@@ -440,3 +440,5 @@
 .editorLoading { display: grid; align-content: start; gap: 24px; }
 .editorLoading .loadingRow { min-height: 160px; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--cp-border); border-radius: 12px; }
 @media (max-width: 640px) { .loadingRow { gap: 16px; min-height: 112px; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } .loadingRow span:last-child { display: none; } }
+.editor select, .listToolbar select, .searchField input { border-radius: var(--cp-button-radius); }
+.editor input[type="datetime-local"] { border-radius: var(--cp-button-radius); }

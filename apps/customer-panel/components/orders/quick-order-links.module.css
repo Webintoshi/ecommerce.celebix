@@ -215,3 +215,5 @@
 .listSkeleton>div:first-of-type{min-height:44px;background:var(--cp-canvas)}
 .listSkeleton i{display:block;height:16px;border-radius:4px;background:var(--cp-border)}
 @media(max-width:700px){.listSkeleton>div{grid-template-columns:2fr 1fr;min-height:128px;padding:16px}.listSkeleton i:nth-child(n+3){display:none}}
+.searchField, .field select, .expiryField select, .selectedLine select,
+.statusFilter select { border-radius: var(--cp-button-radius); }

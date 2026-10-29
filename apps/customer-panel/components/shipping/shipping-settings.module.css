@@ -63,3 +63,4 @@
 @media (max-width: 1024px) { .formSection { grid-template-columns: 140px minmax(0, 1fr); gap: 24px; } .fields { gap: 16px; } }
 @media (max-width: 640px) { .formSection { grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 24px 0; } .fields { grid-template-columns: minmax(0, 1fr); gap: 20px; } .fields select, .tokenControl input { font-size: 16px; } .sectionLabel p { margin-top: 4px; } .actions { gap: 8px; } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.fields select{border-radius:var(--cp-button-radius)}

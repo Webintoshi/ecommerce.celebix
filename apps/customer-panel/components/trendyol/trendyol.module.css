@@ -111,3 +111,4 @@
   .orders > a { width: 100%; }
   .productDialog { width: calc(100% - 24px); }
 }
+.field select{border-radius:var(--cp-button-radius)}

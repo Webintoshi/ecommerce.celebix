@@ -99,6 +99,8 @@ html { min-height: 100%; background: var(--canvas); }
 body { min-height: 100%; margin: 0; background: var(--canvas); color: var(--text); font-weight: var(--cp-font-weight-body); }
 a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; }
+select { border-radius: var(--cp-button-radius); }
+input:is([type="date"], [type="datetime-local"], [type="time"], [type="month"], [type="week"]) { border-radius: var(--cp-button-radius); }
 button, select, summary, label, th, [role="button"], [role="tab"]{ font-weight: var(--cp-font-weight-control); }
 input, textarea, td{ font-weight: var(--cp-font-weight-body); }
 h1, h2, h3, h4, h5, h6{ font-weight: var(--cp-font-weight-heading); }
@@ -136,6 +138,27 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .button-quiet-danger { background-color: #fff7f6; color: var(--danger); }
 .button-small, .command-button-small { --cp-button-height: var(--cp-button-small-height); --cp-button-font-size: var(--cp-button-small-font-size); --cp-button-line-height: var(--cp-button-small-line-height); --cp-button-icon-size: var(--cp-button-small-icon-size); --cp-button-gap: var(--cp-button-small-gap); --cp-button-padding-y: var(--cp-button-small-padding-y); --cp-button-padding-x: var(--cp-button-small-padding-x); --cp-button-hit-inset: var(--cp-button-small-hit-inset); }
 .button-large, .command-button-large { --cp-button-height: var(--cp-button-large-height); --cp-button-font-size: var(--cp-button-large-font-size); --cp-button-line-height: var(--cp-button-large-line-height); --cp-button-icon-size: var(--cp-button-large-icon-size); --cp-button-gap: var(--cp-button-large-gap); --cp-button-padding-y: var(--cp-button-large-padding-y); --cp-button-padding-x: var(--cp-button-large-padding-x); --cp-button-hit-inset: var(--cp-button-large-hit-inset); }
+.resilienceBoundary .resilienceAction {
+  min-width: var(--cp-button-height);
+  min-height: var(--cp-button-height);
+  gap: var(--cp-button-gap);
+  border: var(--cp-button-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background);
+  background-clip: padding-box;
+  padding: var(--cp-button-padding-y) var(--cp-button-padding-x);
+  color: var(--cp-text-primary);
+  font-size: var(--cp-button-font-size);
+  line-height: var(--cp-button-line-height);
+}
+.resilienceBoundary .resilienceAction:hover { border-color: transparent; background-color: var(--cp-control-hover); background-clip: padding-box; }
+.resilienceBoundary .resilienceAction:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.resilienceBoundary .resilienceActionPrimary,
+.resilienceBoundary [aria-labelledby="not-found-title"] .resilienceAction,
+.resilienceBoundary .resilienceActionPrimary:hover,
+.resilienceBoundary [aria-labelledby="not-found-title"] .resilienceAction:hover { border-color: transparent; background-color: var(--cp-button-primary); background-clip: padding-box; color: var(--cp-button-primary-text); }
+.resilienceBoundary .resilienceActionPrimary:hover,
+.resilienceBoundary [aria-labelledby="not-found-title"] .resilienceAction:hover { text-decoration: underline; text-underline-offset: 4px; }
 .back-link { width: fit-content; color: var(--muted); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .back-link:hover { color: var(--text); }
 .product-create-heading { gap: 6px; border-bottom: 1px solid #E3E8EF; padding: 4px 0 20px; }
@@ -161,7 +184,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .catalog-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid rgb(254 97 0 / 8%); background: #fcf6f0; padding: 14px 28px; }
 .segmented-control { display: flex; gap: 3px; border: 1px solid #eadfd5; border-radius: 18px; background: #f7f1eb; padding: 4px; }
-.segmented-control button { min-width: 94px; min-height: 48px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: var(--cp-font-weight-control); }
+.segmented-control button { min-width: 94px; min-height: 48px; border: 0; border-radius: var(--cp-button-radius); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .segmented-control button.is-active { background: var(--surface); color: var(--text); box-shadow: 0 1px 5px rgb(24 24 20 / 10%); }
 .result-count { color: var(--muted); font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .donor-product-page { gap: 0; }
@@ -183,7 +206,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .command-button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .command-button-primary, .command-button-primary.is-active { background-color: var(--cp-action-primary); color: var(--cp-action-primary-text); }
 .command-button-primary:hover:not(:disabled) { background-color: var(--cp-action-primary-hover); color: var(--cp-action-primary-text); border-color: transparent; text-decoration: underline; text-underline-offset: 4px; }
-.command-select { position: relative; padding: 0 11px; }
+.command-select { position: relative; padding: 0 11px; border-radius: var(--cp-button-radius); }
 .command-select select { min-height: var(--cp-control-height); border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; outline: 0; font-weight: var(--cp-font-weight-control); }
 .command-icon-button { width: var(--cp-button-height); padding: 0; }
 .hemenaku-product-filters {
@@ -191,13 +214,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-height: 94px; border-bottom: 1px solid #E3E8EF; padding: 18px 0;
 }
 .product-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0; }
-.product-stat-grid > button { display: grid; min-width: 0; min-height: 56px; align-content: center; gap: 2px; border: 1px solid #DDE4ED; border-radius: 11px; background: #fff; padding: 8px 12px; color: inherit; cursor: pointer; font: inherit; text-align: left; font-weight: var(--cp-font-weight-control); }
+.product-stat-grid > button { display: grid; min-width: 0; min-height: 56px; align-content: center; gap: 2px; border: 1px solid #DDE4ED; border-radius: var(--cp-button-radius); background: #fff; padding: 8px 12px; color: inherit; cursor: pointer; font: inherit; text-align: left; font-weight: var(--cp-font-weight-control); }
 .product-stat-grid > button:hover:not(:disabled) { border-color: #FFC29A; background: #fff8f3; }
 .product-stat-grid > button:focus-visible { outline: 3px solid rgb(254 97 0 / 14%); outline-offset: 1px; }
 .product-stat-grid > button:disabled { cursor: wait; opacity: .72; }
 .product-stat-label { overflow: hidden; color: #667085; font-size: 10px; font-weight: var(--cp-font-weight-helper); text-overflow: ellipsis; white-space: nowrap; }
 .product-stat-value { margin: 0; color: #344054; font-size: 15px; font-weight: var(--cp-font-weight-value); line-height: 1.2; }
-.product-search { display: flex; min-height: 48px; align-items: center; gap: 10px; border: 1px solid #DDE4ED; border-radius: 12px; background: #fff; padding: 0 14px; color: #98A2B3; }
+.product-search { display: flex; min-height: 48px; align-items: center; gap: 10px; border: 1px solid #DDE4ED; border-radius: var(--cp-button-radius); background: #fff; padding: 0 14px; color: #98A2B3; }
 .product-search:focus-within { border-color: #FF9B59; box-shadow: 0 0 0 3px rgb(255 106 0 / 10%); }
 .product-search svg { width: 18px; height: 18px; flex: 0 0 18px; }
 .product-search input { width: 100%; min-height: 48px; border: 0; background: transparent; color: #344054; outline: 0; }
@@ -205,8 +228,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-filter-panel { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; border-bottom: 1px solid #E3E8EF; padding: 12px 0; }
 .product-filter-panel > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .product-filter-panel > label { display: grid; min-width: min(210px, 100%); gap: 4px; color: #667085; font-size: 12px; font-weight: var(--cp-font-weight-control); }
-.product-filter-panel > label select { min-height: 48px; max-width: 100%; border: 1px solid #DDE4ED; border-radius: 10px; background: #fff; padding: 0 36px 0 12px; color: #344054; }
-.product-filter-panel button { min-height: 48px; border: 1px solid #DDE4ED; border-radius: 10px; background: #fff; padding: 0 16px; color: #667085; cursor: pointer; }
+.product-filter-panel > label select { min-height: 48px; max-width: 100%; border: 1px solid #DDE4ED; border-radius: var(--cp-button-radius); background: #fff; padding: 0 36px 0 12px; color: #344054; }
+.product-filter-panel button { min-height: 48px; border: 1px solid #DDE4ED; border-radius: var(--cp-button-radius); background: #fff; padding: 0 16px; color: #667085; cursor: pointer; }
 .product-filter-panel button.is-active { border-color: #FFB27E; background: #FFF1E8; color: #A34100; font-weight: var(--cp-font-weight-control); }
 .product-bulkbar { display: flex; min-height: 65px; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #DDE4ED; padding: 12px 0; color: #667085; font-size: 12px; }
 .product-bulk-actions, .product-list-status { display: flex; min-width: 0; align-items: center; gap: 10px; }
@@ -214,7 +237,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .select-all-control { display: flex; min-height: 48px; align-items: center; gap: 10px; border: 1px solid #DDE4ED; border-radius: 11px; background: #fff; padding: 0 14px; color: #344054; font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .select-all-control input, .catalog-table input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: #FF6A00; }
 .catalog-checkbox-hit { display: grid; min-width: 48px; min-height: 48px; place-items: center; cursor: pointer; }
-.product-bulk-actions > select, .row-count-control { min-height: 48px; border: 1px solid #DDE4ED; border-radius: 11px; background: #fff; color: #344054; }
+.product-bulk-actions > select, .row-count-control { min-height: 48px; border: 1px solid #DDE4ED; border-radius: var(--cp-button-radius); background: #fff; color: #344054; }
 .product-bulk-actions > select { min-width: 150px; padding: 0 13px; }
 .product-bulk-actions > button { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-button-primary-text); font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); }
 .product-bulk-actions > button:not(:disabled) { cursor: pointer; }
@@ -323,6 +346,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .field > small, .check-field small { color: var(--muted); font-size: 9px; line-height: 1.45; font-weight: var(--cp-font-weight-helper); }
 .field input, .field select, .field textarea { width: 100%; min-height: 46px; border: 1px solid #e8dbcf; border-radius: 16px; background: #fffaf6; padding: 0 14px; color: var(--text); font-size: 12px; transition: border .15s ease, background .15s ease, box-shadow .15s ease; }
 .field textarea { min-height: 96px; resize: vertical; padding-block: 10px; line-height: 1.5; }
+.field select { border-radius: var(--cp-button-radius); }
 .field input::placeholder, .field textarea::placeholder { color: #aaa89f; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); background: #fff; box-shadow: 0 0 0 3px rgb(254 97 0 / 12%); outline: 0; }
 .money-input { position: relative; }
@@ -457,8 +481,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tenant-login-button { display: flex; min-height: var(--cp-button-large-height); align-items: center; justify-content: center; gap: var(--cp-button-large-gap); border: 0 solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-large-padding-y) var(--cp-button-large-padding-x); background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); font-size: var(--cp-button-large-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-large-line-height); text-align: center; }
 .tenant-login-button:hover { text-decoration: underline; text-underline-offset: 4px; }
 .tenant-login-button svg { width: var(--cp-button-large-icon-size); height: var(--cp-button-large-icon-size); flex: none; }
-.tenant-login-secondary { display: flex; min-height: 44px; align-items: center; justify-content: center; border-radius: 8px; padding: 8px 16px; color: var(--cp-text-secondary); font-size: 14px; font-weight: var(--cp-font-weight-control); text-align: center; }
-.tenant-login-secondary:hover { color: var(--cp-text-primary); background: var(--cp-soft); }
+.tenant-login-secondary { display: flex; min-height: var(--cp-button-small-height); align-items: center; justify-content: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-secondary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); text-align: center; }
+.tenant-login-secondary:hover { color: var(--cp-text-primary); background-color: var(--cp-soft); }
 .tenant-login-actions a:focus-visible { outline: 3px solid var(--cp-graphite); outline-offset: 4px; }
 .tenant-login-trust { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 32px 0 0; border-top: 1px solid var(--cp-border); padding-top: 20px; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.5; text-align: center; }
 .tenant-login-trust svg { flex: none; }
@@ -567,7 +591,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-operations-commandbar .command-select {
   min-height: var(--cp-control-height);
   border-color: var(--cp-control-border);
-  border-radius: var(--cp-control-radius);
+  border-radius: var(--cp-button-radius);
   background: var(--cp-control-background);
   padding: 0 12px;
   box-shadow: none;
@@ -627,7 +651,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-height: 52px;
   gap: 3px;
   border-color: #e1e6ed;
-  border-radius: 7px;
+  border-radius: var(--cp-button-radius);
   padding: 7px 11px;
   box-shadow: 0 1px 2px rgb(16 24 40 / 3%);
 }
@@ -638,7 +662,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-height: 42px;
   gap: 9px;
   border-color: #d8dfe8;
-  border-radius: 7px;
+  border-radius: var(--cp-button-radius);
   padding: 0 12px;
   color: #8a94a6;
   box-shadow: 0 1px 2px rgb(16 24 40 / 3%);
@@ -684,9 +708,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .product-operations-page .row-count-control {
   min-height: 38px;
   border-color: #d8dfe8;
-  border-radius: 6px;
+  border-radius: var(--cp-button-radius);
   box-shadow: 0 1px 1px rgb(16 24 40 / 2%);
 }
+.product-operations-page .select-all-control { border-radius: var(--cp-button-radius); }
 .product-operations-page .select-all-control { gap: 8px; padding: 0 10px; font-size: 11px; }
 .product-operations-page .select-all-control input,
 .product-operations-page .catalog-table input[type="checkbox"] { width: 16px; height: 16px; accent-color: #fe6100; }

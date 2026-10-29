@@ -42,3 +42,4 @@
 .settings input:focus-visible, .row select:focus-visible, .actions button:focus-visible, .footer button:focus-visible { outline: 3px solid rgb(255 106 0 / 35%); outline-offset: 2px; }
 @media (max-width: 800px) { .settings, .row, .layoutChoices { grid-template-columns: 1fr; } .index { display: none; } .actions { justify-content: flex-end; } }
 @media (prefers-reduced-motion: reduce) { .actions button, .footer button { transition-duration: .01ms; } }
+.row select{border-radius:var(--cp-button-radius)}

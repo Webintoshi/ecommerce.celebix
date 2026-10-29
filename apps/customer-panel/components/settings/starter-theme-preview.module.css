@@ -30,37 +30,39 @@
   gap: 2px;
   padding: 3px;
   border: 1px solid #e0e4ea;
-  border-radius: 10px;
+  border-radius: var(--cp-button-radius);
   background: #f4f5f7;
 }
 
 .modeButton {
   display: inline-flex;
-  min-width: 38px;
-  min-height: 34px;
+  min-width: var(--cp-button-small-height);
+  min-height: var(--cp-button-small-height);
   align-items: center;
   justify-content: center;
   gap: 6px;
-  border: 0;
-  border-radius: 7px;
-  padding: 0 10px;
+  border: var(--cp-button-small-hit-inset) solid transparent;
+  border-radius: var(--cp-button-radius);
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
   color: #697386;
-  background: transparent;
+  background-color: transparent;
+  background-clip: padding-box;
   font: inherit;
-  font-size: .72rem;
+  font-size: var(--cp-button-small-font-size);
+  line-height: var(--cp-button-small-line-height);
   font-weight: var(--cp-font-weight-control);
   cursor: pointer;
   transition: color .16s ease, background-color .16s ease, box-shadow .16s ease;
 }
 
 .modeButton svg {
-  width: 15px;
-  height: 15px;
+  width: var(--cp-button-small-icon-size);
+  height: var(--cp-button-small-icon-size);
 }
 
 .modeButton[aria-pressed="true"] {
   color: #171a21;
-  background: #fff;
+  background-color: #fff;
   box-shadow: 0 1px 4px rgb(20 24 32 / 12%);
 }
 

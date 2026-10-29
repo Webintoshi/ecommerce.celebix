@@ -22,6 +22,7 @@
   width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--create-line, #e7e2dd); border-radius: 8px; background: var(--create-surface, #fffdfc); padding: 10px 12px; color: var(--create-ink, #2b2b2b); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-body);
 }
 .field :is(input, select, textarea):is(select), .picker :is(input:not([type="checkbox"]), select, textarea):is(select) {
+  border-radius: var(--cp-button-radius);
   font-weight: var(--cp-font-weight-control);
 }
 .field textarea { resize: vertical; }
@@ -224,3 +225,13 @@
 .sortHandle { display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; min-height: 44px; border: 0; border-radius: 8px; background: transparent; color: var(--create-muted, #6f6b66); cursor: grab; }
 .sortHandle:active { cursor: grabbing; }
 .sortHandle svg { width: 18px; height: 18px; }
+.valueEntry button, .editorActions button, .newValues button {
+  min-height: var(--cp-button-small-height); gap: var(--cp-button-small-gap);
+  border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius);
+  background-color: var(--cp-control-background); background-clip: padding-box;
+  padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
+  font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height);
+}
+.editorHeading button, .sortHandle { border-radius: var(--cp-button-radius); }
+.editorActions button:last-child { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.editorActions button:last-child:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }

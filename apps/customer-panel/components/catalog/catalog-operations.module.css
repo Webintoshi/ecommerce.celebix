@@ -909,3 +909,11 @@
 }
 
 .listBody { min-width: 0; min-height: 600px; }
+.catalogRoot :global(.product-search), .catalogRoot :global(.command-select),
+.catalogRoot :global(.product-bulk-actions > select),
+.catalogRoot:global(.product-operations-page) :global(.product-search),
+.catalogRoot:global(.product-operations-page) :global(.product-operations-commandbar .command-select),
+.catalogRoot:global(.product-operations-page) :global(.product-bulk-actions > select),
+.catalogRoot:global(.product-operations-page) :global(.row-count-control),
+.catalogRoot:global(.product-operations-page) :global(.product-filter-panel button),
+.catalogRoot:global(.product-operations-page) :global(.product-filter-panel > label select) { border-radius: var(--cp-button-radius); }

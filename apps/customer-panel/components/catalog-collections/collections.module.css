@@ -51,3 +51,6 @@
 
 .listBody { min-height: 400px; }
 .memberBody { min-height: 256px; }
+.search, .select, .field select, .ruleRow select,
+.toolbarActions .select, .productToolbar .select,
+.modeSwitch button { border-radius: var(--cp-button-radius); }

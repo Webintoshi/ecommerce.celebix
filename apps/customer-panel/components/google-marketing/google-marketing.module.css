@@ -38,7 +38,7 @@
 .scope strong { font-weight: var(--cp-font-weight-heading); overflow-wrap: anywhere; }
 .choiceGroup { display: grid; gap: 16px; min-width: 0; }
 .field { display: grid; gap: 8px; min-width: 0; font-size: 13px; font-weight: var(--cp-font-weight-control); }
-.field select { display: block; box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-weight: var(--cp-font-weight-control); }
+.field select { display: block; box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-weight: var(--cp-font-weight-control); }
 .field select:disabled { opacity: .65; }
 .field select:focus-visible, .details summary:focus-visible, .privacy:focus-visible, .link:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .empty, .externalHelp { display: grid; justify-items: start; gap: 8px; }

@@ -23,7 +23,7 @@
   box-shadow: none;
 }
 .toolbar { display: flex; min-width: 0; align-items: center; gap: 16px; padding: 20px; }
-.searchField { display: flex; flex: 1 1 400px; max-width: 520px; min-width: 0; align-items: center; gap: 8px; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-canvas); padding: 0 4px 0 12px; color: var(--cp-text-secondary); }
+.searchField { display: flex; flex: 1 1 400px; max-width: 520px; min-width: 0; align-items: center; gap: 8px; min-height: 44px; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); background: var(--cp-canvas); padding: 0 4px 0 12px; color: var(--cp-text-secondary); }
 .searchField:focus-within { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .searchField input { min-width: 0; width: 100%; height: 44px; border: 0; outline: 0; background: transparent; padding: 0; color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .searchField input:focus-visible { outline: 0; box-shadow: none; }
@@ -50,9 +50,9 @@
 .toolbarActions > .iconButton:hover:not(:disabled) { background-color: var(--cp-canvas); }
 .viewbar { display: flex; min-width: 0; justify-content: space-between; align-items: center; gap: 16px; border-bottom: 1px solid var(--cp-border); padding: 0 20px 16px; }
 .statusShortcuts { display: flex; min-width: 0; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: thin; border-radius: 8px; }
-.shortcut, .activeShortcut { display: inline-flex; flex: none; min-height: 44px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 8px; background: transparent; padding: 8px 12px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); line-height: 1.4; white-space: nowrap; }
-.shortcut:hover { background: var(--cp-canvas); color: var(--cp-text-primary); }
-.activeShortcut { background: var(--cp-soft); color: var(--cp-text-primary); }
+.shortcut, .activeShortcut { display: inline-flex; flex: none; min-height: var(--cp-button-small-height); align-items: center; justify-content: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-secondary); font-size: var(--cp-button-small-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-small-line-height); white-space: nowrap; }
+.shortcut:hover { background-color: var(--cp-canvas); color: var(--cp-text-primary); }
+.activeShortcut { background-color: var(--cp-soft); color: var(--cp-text-primary); }
 .shortcut:focus-visible, .activeShortcut:focus-visible { outline-offset: -2px; }
 .viewTools { display: flex; flex: none; align-items: center; gap: 8px; }
 .viewTools > .quietButton { background-color: var(--cp-control-background); color: var(--cp-text-primary); }
@@ -191,3 +191,4 @@
 @media (prefers-reduced-motion: reduce) {
   .button, .exportButton, .loadMore, .primaryAction, .quietButton, .iconButton { transition: none; }
 }
+.sortControl select, .filterForm select { border-radius: var(--cp-button-radius); }

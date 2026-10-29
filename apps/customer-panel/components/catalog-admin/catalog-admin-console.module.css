@@ -779,3 +779,8 @@
 }
 
 .listBody { min-height: 360px; }
+.brandSearch, .resourceSearch, .attributeSearch,
+.productSearch input, .form select, .filterField select, .brandSort select,
+.workspace .form select, .workspace :is(.filterField, .brandSort) select,
+.brandFilters, .brandFilters button, .brandLogoUpload > button,
+.attributeValueList li button { border-radius: var(--cp-button-radius); }

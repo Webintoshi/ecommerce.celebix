@@ -61,3 +61,4 @@
 }
 
 .body { min-height: 440px; min-width: 0; }
+.toolbar select, .search input { border-radius: var(--cp-button-radius); }

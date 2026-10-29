@@ -204,3 +204,6 @@
 @media (prefers-reduced-motion: reduce) {
   .primaryButton, .secondaryButton, .quietButton, .dangerButton { transition: none; }
 }
+.modalForm select { border-radius: var(--cp-button-radius); }
+.moreMenu button { border-radius: var(--cp-button-radius); }
+.modalForm input[type="datetime-local"] { border-radius: var(--cp-button-radius); }

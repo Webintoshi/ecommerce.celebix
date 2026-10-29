@@ -59,3 +59,4 @@
   .empty { padding: 24px 0; }
 }
 @media (prefers-reduced-motion: reduce) { .settingsSummary > svg { transition: none; } }
+.workspace [aria-label="Pazar Yerleri özeti"]>button{border-radius:var(--cp-button-radius)}

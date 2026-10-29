@@ -672,4 +672,6 @@
 /* Keep collection chrome and history in place while rows are read. */
 .listRegion { min-width: 0; min-height: 340px; }
 .readGuard { display: contents; margin: 0; padding: 0; border: 0; min-width: 0; }
+.search input,.filter select,.form select{border-radius:var(--cp-button-radius)}
+.form input:is([type=date],[type=datetime-local],[type=time]){border-radius:var(--cp-button-radius)}
 @media (max-width: 640px) { .listRegion { min-height: 480px; } }

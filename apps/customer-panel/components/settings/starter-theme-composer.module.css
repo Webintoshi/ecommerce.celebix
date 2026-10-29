@@ -694,3 +694,4 @@
 }
 
 .composerLoading{min-width:0;min-height:400px;padding:16px 0}.composerLoading>div{display:grid;gap:24px}.composerLoading>div>span{display:block;height:64px;border-radius:8px;background:var(--cp-soft)}.composerLoading>div>span:last-child{height:160px}
+.panel select,.sectionCard select,.addBar select,.embeddedShell select{border-radius:var(--cp-button-radius)}

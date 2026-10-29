@@ -1728,3 +1728,7 @@ button:disabled.primaryButton,
   .printTable th:first-child, .printTable td:first-child { min-width: 160px; }
   .printTable td:not(:first-child) { white-space: nowrap; overflow-wrap: normal; }
 }
+.toolbar select, .filterToolbar select, .operationBar select,
+.filterPanel .toolbar select, .filterPanel .filterToolbar select,
+.searchField input, .filterPanel .searchField input,
+.columnPicker summary, .filterPanel .columnPicker summary { border-radius: var(--cp-button-radius); }

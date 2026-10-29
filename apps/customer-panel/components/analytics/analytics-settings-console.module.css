@@ -9,6 +9,7 @@
 .activeDot { background: var(--settings-success, var(--success)); }
 .pendingDot { background: var(--settings-warning, var(--muted)); }
 .form { min-width: 0; }
+.form .settingsGrid select { border-radius: var(--cp-button-radius); }
 .formSection { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 32px; padding: 32px 0; border-bottom: 1px solid var(--settings-border, var(--border)); }
 .sectionLabel h2 { margin: 0; font-size: 14px; font-weight: var(--cp-font-weight-heading); }
 .sectionLabel p { margin: 8px 0 0; color: var(--settings-muted, var(--muted)); font-size: 12px; line-height: 1.6; }

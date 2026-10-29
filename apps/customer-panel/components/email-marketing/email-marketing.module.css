@@ -41,4 +41,5 @@
 .syncLoading > span { display: block; width: 120px; height: 20px; }
 @media (max-width: 560px) { .connection { min-height: 224px; } .sync { min-height: 96px; } }
 @media (max-width: 1024px) { .card { grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr); gap: 20px; } .cardActions { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; } }
+.field select{border-radius:var(--cp-button-radius)}
 @media (max-width: 560px) { .card { grid-template-columns: 1fr; padding: 18px; gap: 18px; } .cardActions { display: grid; grid-template-columns: 1fr 1fr; align-items: stretch; } .cardActions > * { min-width: 0; white-space: normal; } .toolbar > * { width: 100%; text-align: center; } .details { grid-template-columns: minmax(110px, .9fr) minmax(0, 1.1fr); font-size: 13px; } .actions > * { flex: 1 1 100%; } }

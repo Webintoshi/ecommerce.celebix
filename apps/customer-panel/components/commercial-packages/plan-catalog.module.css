@@ -13,8 +13,8 @@
 .usageItem strong { display: block; font-size: 13px; overflow-wrap: anywhere; }
 .termToolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
 .termToolbar p { margin: 0; color: var(--cp-text-secondary); font-size: 13px; }
-.termSwitch { display: inline-flex; flex: none; border: 1px solid var(--cp-border); border-radius: 24px; background: var(--cp-surface); padding: 3px; }
-.termSwitch button { min-height: 40px; min-width: 112px; border: 0; border-radius: 21px; padding: 8px 24px; background: transparent; color: var(--cp-text-secondary); cursor: pointer; font: inherit; font-weight: var(--cp-font-weight-control); }
+.termSwitch { display: inline-flex; flex: none; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); background: var(--cp-surface); padding: 3px; }
+.termSwitch button { min-height: 44px; min-width: 112px; border: 0; border-radius: var(--cp-button-radius); padding: 8px 24px; background: transparent; color: var(--cp-text-secondary); cursor: pointer; font: inherit; font-weight: var(--cp-font-weight-control); }
 .termSwitch button[aria-pressed='true'] { background: var(--cp-brand); color: var(--cp-text-inverse); }
 .termSwitch button:focus-visible { outline: 2px solid var(--cp-graphite); outline-offset: 2px; }
 .termSwitch button:disabled { cursor: not-allowed; opacity: .6; }
@@ -40,7 +40,7 @@
 .highlights { display: grid; gap: 13px; list-style: none; margin: auto 0 0; padding: 17px 0 4px; border-top: 1px solid var(--cp-border); }
 .highlights li { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: var(--cp-font-weight-body); }
 .highlights svg { flex: none; }
-.selectControl { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--cp-border); border-radius: 8px; padding: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
+.selectControl { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); padding: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .selectedPlan .selectControl { border-color: var(--cp-brand); }
 .requestSection { display: grid; grid-template-columns: minmax(220px, 1.1fr) minmax(280px, 1fr) minmax(200px, .8fr); align-items: center; min-width: 0; gap: 24px; padding: 20px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }
 .selectedProduct { display: flex; align-items: center; min-width: 0; gap: 16px; }

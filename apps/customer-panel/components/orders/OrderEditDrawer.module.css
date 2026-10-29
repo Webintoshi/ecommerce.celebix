@@ -95,3 +95,5 @@
   .footerContext { flex-basis: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .drawer { scroll-behavior: auto; } .drawer input, .drawer textarea { transition: none; } }
+.search > div { border-radius: var(--cp-button-radius); }
+.search input { border-radius: inherit; }

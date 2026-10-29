@@ -47,14 +47,14 @@
   display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px;
 }
 .pageTop { align-items: center; }
-.tabs { display: flex; min-width: 0; max-width: 100%; align-items: stretch; gap: 4px; border-radius: 8px; background: var(--analytics-soft); padding: 4px; overflow-x: auto; overscroll-behavior-x: contain; scroll-padding-inline: 4px; scrollbar-width: thin; }
-.tab, .activeTab { flex: 0 0 auto; justify-content: center; border: 0; border-radius: 5px; padding: 8px 12px; color: var(--analytics-muted); font-size: 13px; font-weight: var(--cp-font-weight-control); text-decoration: none; white-space: nowrap; }
+.tabs { display: flex; min-width: 0; max-width: 100%; align-items: stretch; gap: 4px; border-radius: var(--cp-button-radius); background: var(--analytics-soft); padding: 4px; overflow-x: auto; overscroll-behavior-x: contain; scroll-padding-inline: 4px; scrollbar-width: thin; }
+.tab, .activeTab { flex: 0 0 auto; justify-content: center; border: 0; border-radius: var(--cp-button-radius); padding: 8px 12px; color: var(--analytics-muted); font-size: 13px; font-weight: var(--cp-font-weight-control); text-decoration: none; white-space: nowrap; }
 .tab:hover { color: var(--analytics-ink); }
 .activeTab { background: var(--analytics-surface); color: var(--analytics-ink); box-shadow: 0 1px 3px rgb(43 43 43 / 7%); }
 .quickControls { flex: 0 0 auto; justify-content: flex-end; gap: 8px; }
 .quickControls select, .filterDisclosure > summary {
   display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; gap: 8px;
-  border: 1px solid var(--cp-control-border); border-radius: var(--cp-control-radius); background: var(--cp-control-background); padding: 8px 12px;
+  border: 1px solid var(--cp-control-border); border-radius: var(--cp-button-radius); background: var(--cp-control-background); padding: 8px 12px;
   color: var(--analytics-ink); font-size: var(--cp-control-font-size); font-weight: var(--cp-font-weight-control); line-height: 1.5; text-decoration: none; cursor: pointer;
   transition: background-color 140ms ease, border-color 140ms ease;
 }
@@ -71,9 +71,9 @@
 .periodControl > svg:last-child { right: 12px; left: auto; }
 .periodControl select:hover { border-color: var(--cp-control-hover); }
 .compareButton[aria-pressed="true"] { background-color: var(--cp-control-hover); }
-.filterDisclosure[open] > summary { border-color: var(--analytics-ink); background: var(--analytics-soft); }
+.filterDisclosure[open] > summary { border-color: transparent; background-color: var(--analytics-soft); }
 .compareButton:hover, .outlineAction:hover, .advancedControls button:hover { background-color: var(--cp-control-hover); }
-.filterDisclosure > summary:hover { border-color: var(--cp-control-hover); background: var(--analytics-soft); }
+.filterDisclosure > summary:hover { border-color: transparent; background-color: var(--analytics-soft); }
 .contextRow { min-height: 24px; align-items: flex-start; gap: 12px; }
 .dataStatus { display: flex; min-width: 0; min-height: 24px; flex: 1 1 0; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--analytics-ink); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .contextMeta { color: var(--analytics-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); overflow-wrap: anywhere; }
@@ -83,7 +83,8 @@
 .statusNeutral { background: var(--analytics-muted); }
 
 .filterDisclosure { position: relative; flex: 0 0 auto; }
-.filterDisclosure > summary { list-style: none; white-space: nowrap; }
+.filterDisclosure > summary { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); list-style: none; white-space: nowrap; }
+.filterDisclosure > summary svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .filterDisclosure > summary::-webkit-details-marker { display: none; }
 .filterBody {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 50;
@@ -99,8 +100,10 @@
 .filterGrid label, .advancedControls label { display: grid; min-width: 0; align-content: start; gap: 4px; color: var(--analytics-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .filterGrid :is(input, select), .advancedControls input { display: block; min-width: 0; width: 100%; max-width: 100%; min-height: 44px; border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font-size: 14px; font-weight: var(--cp-font-weight-body); }
 .filterGrid select {
+  border-radius: var(--cp-button-radius);
   font-weight: var(--cp-font-weight-control);
 }
+.filterGrid input[type=date],.advancedControls input[type=date]{border-radius:var(--cp-button-radius)}
 .filterGrid button { grid-column: 1 / -1; align-self: end; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
 .filterGrid button:hover { background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
 .clearFilters { margin-top: 8px; padding: 8px 4px; color: var(--analytics-ink); font-size: 14px; text-decoration: underline; text-underline-offset: 4px; font-weight: var(--cp-font-weight-control); }
@@ -148,7 +151,7 @@
 .negative { color: var(--danger); }
 .kpiStrip :is(.positive, .negative) { width: fit-content; border-radius: 4px; background: color-mix(in srgb, currentColor 7%, transparent); padding: 2px 5px; font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .currencySelector { display: flex; min-width: 0; flex-wrap: wrap; gap: 8px; }
-.currencySelector button { border: 1px solid var(--analytics-line); border-radius: 8px; background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font-size: 14px; cursor: pointer; }
+.currencySelector button { border: 1px solid var(--analytics-line); border-radius: var(--cp-button-radius); background: var(--analytics-surface); padding: 8px 12px; color: var(--analytics-ink); font-size: 14px; cursor: pointer; }
 .currencySelector button[aria-pressed="true"] { border-color: var(--analytics-brand); background: var(--analytics-orange-soft); }
 .overviewChartSlot { display: grid; min-width: 0; min-height: 364px; }
 .heroGrid { display: grid; min-width: 0; grid-template-columns: minmax(0, 2fr) minmax(256px, 1fr); gap: 16px; }
@@ -184,8 +187,9 @@
 .insightPaper { fill: var(--analytics-surface); stroke: var(--cp-art-outline, var(--analytics-ink)); }
 .insightOutline { fill: none; stroke: var(--cp-art-outline, var(--analytics-ink)); }
 .insightAccent { fill: none; stroke: var(--analytics-brand); }
-.insight a { justify-content: center; min-height: 44px; margin: 0; border: 1px solid var(--analytics-action); border-radius: 8px; background: var(--analytics-action); padding: 8px 12px; color: var(--analytics-inverse); font-size: 14px; font-weight: var(--cp-font-weight-control); text-decoration: none; }
-.insight a:hover { border-color: var(--analytics-action-hover); background: var(--analytics-action-hover); }
+.insight a { justify-content: center; min-height: var(--cp-button-height); gap: var(--cp-button-gap); margin: 0; border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-button-primary-text); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; }
+.insight a svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.insight a:hover { background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
 .sectionHeading { flex-wrap: wrap; gap: 8px 16px; margin-bottom: 12px; }
 .sectionHeading a { flex: 0 0 auto; padding: 8px 4px; color: var(--analytics-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); text-decoration: none; }
 .sectionHeading a:hover, .technical a:hover { text-decoration: underline; text-underline-offset: 4px; }

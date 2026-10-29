@@ -156,3 +156,4 @@
 .detailMetricPlaceholder{display:block;min-height:64px}
 .detailMainPlaceholder{display:block;min-height:384px}
 .detailSidePlaceholder{display:block;min-height:320px}
+.search, .selectControl select { border-radius: var(--cp-button-radius); }

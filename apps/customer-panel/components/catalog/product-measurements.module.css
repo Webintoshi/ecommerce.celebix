@@ -34,3 +34,4 @@
 }
 
 .group .valueUnit .unitSelect:focus-visible { background: var(--cp-control-background); }
+.group .valueUnit .unitSelect { border-radius: var(--cp-button-radius); }

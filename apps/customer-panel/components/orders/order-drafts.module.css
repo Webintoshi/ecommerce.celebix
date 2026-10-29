@@ -135,3 +135,4 @@
 .editorLoading>div{display:grid;gap:24px;min-width:0}
 .editorLoading i{height:176px}
 @media(max-width:1000px){.editorLoading{grid-template-columns:minmax(0,1fr);gap:24px}}
+.editorForm :is(input:not([type="checkbox"]), select, textarea):is(select) { border-radius: var(--cp-button-radius); }

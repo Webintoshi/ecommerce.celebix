@@ -47,7 +47,7 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid #E1E6ED;
-  border-radius: .45rem;
+  border-radius: var(--cp-button-radius);
   background: #F6F8FA;
   padding: .18rem;
 }
@@ -55,9 +55,9 @@
 .rangeBar button,
 .metricTabs button {
   min-width: 48px;
-  min-height: 34px;
+  min-height: var(--cp-button-small-height);
   border: 1px solid transparent;
-  border-radius: .35rem;
+  border-radius: var(--cp-button-radius);
   background: transparent;
   color: #475467;
   padding: 0 .7rem;

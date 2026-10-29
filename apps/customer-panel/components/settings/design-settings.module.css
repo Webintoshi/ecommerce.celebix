@@ -706,3 +706,7 @@
 :global([data-storefront-theme="siora-deniz"]) .canvasSharedProductGrid :global(.product-image-shell img),
 :global([data-storefront-theme="alpler-deniz"]) .canvasResolvedProducts :global(.product-image-shell img),
 :global([data-storefront-theme="alpler-deniz"]) .canvasSharedProductGrid :global(.product-image-shell img) { object-fit: cover; }
+.linkField select,.field select,.homepageInspectorFields select,.field input[type="search"],.homepageInspectorFields input[type="search"],.previewSwitch,.previewSwitch button{border-radius:var(--cp-button-radius)}
+.schedule input,.field input:is([type=date],[type=datetime-local],[type=time]),.homepageInspectorFields input:is([type=date],[type=datetime-local],[type=time]){border-radius:var(--cp-button-radius)}
+.homepageInspectorFields input:not([type="radio"]):not([type="checkbox"]):is([type="date"],[type="datetime-local"],[type="time"]){border-radius:var(--cp-button-radius)}
+.surfaceMenu>summary{border-radius:var(--cp-button-radius)}

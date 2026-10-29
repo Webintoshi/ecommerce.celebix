@@ -56,3 +56,4 @@
   .settingsRow { gap: 12px; padding-inline: 0; } .resultCount { display: none; }
 }
 @media(prefers-reduced-motion:reduce) { .settingsRow { transition: none; } }
+.search,.mobileNavigation select{border-radius:var(--cp-button-radius)}

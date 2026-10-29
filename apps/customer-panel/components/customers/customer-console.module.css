@@ -27,7 +27,7 @@
 .customerEmptyAction:hover, .customerExport:hover:not(:disabled), .customerLoadMore:hover:not(:disabled), .button:hover:not(:disabled),
 .linkButton:hover, .createCustomerCancel:hover, .detailNavigation a:hover,
 .customerDetailAction:hover, .customerError button:hover, .appliedFilters button:hover { background-color: var(--cp-soft); }
-.detailNavigation a { display: inline-flex; min-height: 44px; max-width: 100%; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--cp-control-border); border-radius: 8px; background: var(--cp-control-background); padding: 8px 16px; color: var(--cp-text-primary); font: inherit; font-size: 14px; font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; cursor: pointer; }
+.detailNavigation a { display: inline-flex; min-height: var(--cp-button-height); max-width: 100%; align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); text-decoration: none; cursor: pointer; }
 .workspacePrimaryAction { display: inline-flex; min-width: 0; }
 .workspacePrimaryAction a { cursor: pointer; user-select: none; -webkit-user-select: none; }
 .customerPrimaryAction svg, .customerEmptyAction svg, .customerExport svg, .primary svg, .button svg { flex: none; width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
@@ -61,10 +61,10 @@
 .customerMetricPlaceholder { display: block; width: 64%; height: 32px; }
 .surface { border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }
 .customerToolbar { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; border-bottom: 1px solid var(--cp-border); padding: 20px; }
-.customerSearch, .customerFilter { display: flex; min-width: 0; min-height: 44px; align-items: center; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); }
+.customerSearch, .customerFilter { display: flex; min-width: 0; min-height: 44px; align-items: center; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); background: var(--cp-surface); }
 .customerSearch { background: var(--cp-canvas); }
 .customerSearch > svg, .customerFilter > svg { flex: none; width: 16px; height: 16px; margin-left: 12px; color: var(--cp-text-secondary); }
-.customerSearch input, .customerFilter select { min-width: 0; min-height: 44px; border: 0; border-radius: 8px; outline: 0; background: transparent; padding: 8px 12px; color: var(--cp-text-primary); font: inherit; font-size: 14px; }
+.customerSearch input, .customerFilter select { min-width: 0; min-height: 44px; border: 0; border-radius: inherit; outline: 0; background: transparent; padding: 8px 12px; color: var(--cp-text-primary); font: inherit; font-size: 14px; }
 .customerSearch input { flex: 1 1 auto; width: 100%; font-weight: var(--cp-font-weight-body); }
 .customerSearch input::placeholder { color: var(--cp-text-secondary); opacity: 1; }
 .customerFilter select { flex: 1 1 auto; width: 100%; max-width: 200px; padding-right: 32px; cursor: pointer; font-weight: var(--cp-font-weight-control); }
@@ -190,7 +190,7 @@
 .detailSection + .detailSection, .infoSection + .infoSection { border-top: 1px solid var(--cp-border); }
 .customerArchiveFooter { border-top: 1px solid var(--cp-border); padding: 16px 20px; }
 .customerArchiveFooter:empty { display: none; }
-.detailBack { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 1px solid var(--cp-border); border-radius: 8px; background: var(--cp-surface); color: var(--cp-text-primary); font-size: 20px; text-decoration: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.detailBack { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); background: var(--cp-surface); color: var(--cp-text-primary); font-size: 20px; text-decoration: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
 .detailBack:hover { background: var(--cp-soft); }
 .detailIdentity { display: grid; gap: 4px; }
 .detailIdentity > p, .detailIdentity > span { margin: 0; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); overflow-wrap: anywhere; }
@@ -205,8 +205,8 @@
 .heading, .summaryHeading { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
 .heading h2, .summaryHeading h2 { margin: 0; color: var(--cp-text-primary); font-size: 15px; font-weight: var(--cp-font-weight-heading); line-height: 1.4; }
 .heading p, .summaryHeading > span { margin: 4px 0 0; color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); line-height: 1.5; }
-.summaryHeading a { display: inline-flex; min-height: 44px; align-items: center; border-radius: 8px; padding: 8px; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
-.summaryHeading a:hover { background: var(--cp-soft); }
+.summaryHeading a { display: inline-flex; min-height: var(--cp-button-small-height); align-items: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-primary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
+.summaryHeading a:hover { background-color: var(--cp-soft); }
 .contactGrid, .summaryFacts { display: grid; min-width: 0; margin: 0; }
 .contactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
 .contactGrid > div { display: grid; min-width: 0; gap: 4px; }

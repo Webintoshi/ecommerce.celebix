@@ -180,3 +180,4 @@
   .emptyEditor { min-height: 360px; }
   .revertDialog footer { display: grid; grid-template-columns: 1fr 1fr; }
 }
+.splitButton{border-radius:var(--cp-button-radius)}

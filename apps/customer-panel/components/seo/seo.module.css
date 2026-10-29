@@ -236,3 +236,4 @@
 }
 
 .serpPreview, .socialPreview, .preview{font-weight:400}
+.form select,.toolbar select,.picker select,.filterBar select,.sectionHead select,.toolbar input,.picker input,.filterBar input,.tabs a{border-radius:var(--cp-button-radius)}

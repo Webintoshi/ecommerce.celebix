@@ -692,3 +692,4 @@
 .previewFrame {
   font-weight:400
 }
+.toolbar select,.field select,.toolbar>input,.searchField,.statusFilters button,.previewControls button,.cartEditor .field select,.popupEditor .field select,.cartEditor .previewControls button,.popupEditor .previewControls button{border-radius:var(--cp-button-radius)}

@@ -231,3 +231,5 @@
 .previewCanvas { font-weight: 400; }
 
 .previewLinks button { font-weight: 400; }
+.editor .fields select,.previewOptions select,.segmented,.segmented button,.day,.toolActionPlaceholder{border-radius:var(--cp-button-radius)}
+.fields input:is([type=date],[type=datetime-local],[type=time]){border-radius:var(--cp-button-radius)}

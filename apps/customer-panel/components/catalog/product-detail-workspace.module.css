@@ -235,3 +235,6 @@
 .variantSortHandle:focus-visible { outline:2px solid #ff7100; outline-offset:2px; }
 .variantSortHandle:disabled { opacity:.4; }
 .variantOrderFeedback { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:8px 0; font-size:12px; color:#746b62; }
+.root .generalForm :global(.field select),
+.root .variants :global(.field select) { border-radius: var(--cp-button-radius); }
+.backLink, .moreMenu button, .variantSortHandle { border-radius: var(--cp-button-radius); }

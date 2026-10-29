@@ -38,16 +38,16 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid #E1E6ED;
-  border-radius: .45rem;
+  border-radius: var(--cp-button-radius);
   background: #F6F8FA;
   padding: .18rem;
 }
 
 .period,
 .periodActive {
-  min-height: 36px;
+  min-height: var(--cp-button-small-height);
   border: 1px solid transparent;
-  border-radius: .35rem;
+  border-radius: var(--cp-button-radius);
   padding: 0 .75rem;
   color: #344054;
   cursor: pointer;
