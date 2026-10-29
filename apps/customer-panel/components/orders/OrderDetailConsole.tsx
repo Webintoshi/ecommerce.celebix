@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import Link from "next/link";
 import { Archive, ArchiveRestore, ArrowLeft, Barcode, Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Circle, CircleDot, CreditCard, ExternalLink, History, Info, Mail, MapPin, MoreHorizontal, Pencil, Phone, Printer, RefreshCw, Send, StickyNote, Store, Trash2, Truck, UserRound } from "lucide-react";
@@ -610,5 +611,5 @@ export function OrderDetailConsole({ orderId, capabilities }: { orderId: string;
     });
   }
 
-  return <OrderDetailPresentation state={detail && detail.id !== orderId ? "loading" : state} detail={detail?.id === orderId ? detail : undefined} neighbors={neighbors} notifications={notifications} deletionImpact={deletionImpact} error={error} notice={notice} busy={busy} successId={successId} notificationBusy={notificationBusy} capabilities={capabilities} onEdited={()=>{void load();setNotice("Sipariş düzenlendi.");}} onArchiveSubmit={archiveOrder} onDeletionImpactRequest={() => { void loadDeletionImpact(); }} onDeleteSubmit={deleteOrder} onRestoreSubmit={restoreOrder} onRetry={() => { if (!detail) setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} />;
+  return <PanelInitialDataGate pending={state !== "error" && (!detail || detail.id !== orderId)} scopeKey={orderId}><OrderDetailPresentation state={detail && detail.id !== orderId ? "loading" : state} detail={detail?.id === orderId ? detail : undefined} neighbors={neighbors} notifications={notifications} deletionImpact={deletionImpact} error={error} notice={notice} busy={busy} successId={successId} notificationBusy={notificationBusy} capabilities={capabilities} onEdited={()=>{void load();setNotice("Sipariş düzenlendi.");}} onArchiveSubmit={archiveOrder} onDeletionImpactRequest={() => { void loadDeletionImpact(); }} onDeleteSubmit={deleteOrder} onRestoreSubmit={restoreOrder} onRetry={() => { if (!detail) setState("loading"); void load(); }} onNotificationRetry={(deliveryId) => { void retryNotification(deliveryId); }} onStatusChange={transitionStatus} onPaymentChange={transitionPayment} onShippingSubmit={updateShipping} onNoteSubmit={addNote} onNoteArchive={archiveNote} /></PanelInitialDataGate>;
 }

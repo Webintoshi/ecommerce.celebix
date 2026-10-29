@@ -1264,6 +1264,7 @@ test("detail mode calls only the exact resource loader and never the collection 
   const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
   const shell = { PanelEmptyState: () => null, PanelPageHeader: () => null, PanelPageShell: ({ children }: { children?: ReactNode }) => createElement("section", null, children), PanelStatusBadge: ({ children }: { children?: ReactNode }) => createElement("span", null, children) };
   const listModule = await compileWith(hooks.runtime, "components/inventory/InventoryListState.tsx", (specifier) => {
+    if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (specifier === "@/components/panel/PanelPageShell") return shell;
     if (specifier.endsWith("inventory-console.module.css")) return styles;
     throw new Error(`unexpected_list_import:${specifier}`);

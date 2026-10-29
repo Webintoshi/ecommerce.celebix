@@ -27,6 +27,7 @@ async function compile(api: { listOrders(input: unknown): Promise<unknown> }, ru
   const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const module = { exports: {} as Record<string, unknown> };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (name === "react") return runtime;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "next/link") return { __esModule: true, default: () => null };

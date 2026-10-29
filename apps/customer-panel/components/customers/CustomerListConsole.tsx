@@ -24,6 +24,7 @@ import {
   PanelStatusBadge,
 } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import styles from "./customer-console.module.css";
 function money(c: number, cur: string) {
   return new Intl.NumberFormat("tr-TR", {
@@ -158,6 +159,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
   const activeFilters = Number(Boolean(search)) + Number(status !== "all");
   const displayState = state === "loaded" && loadedQuery.current !== queryKey ? "loading" : state;
   return (
+    <PanelInitialDataGate pending={displayState === "loading"}>
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className="sr-only">Müşteriler</h1> : null}
       <PanelPageHeader
@@ -364,5 +366,6 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
         </div>
       </section>
     </PanelPageShell>
+    </PanelInitialDataGate>
   );
 }

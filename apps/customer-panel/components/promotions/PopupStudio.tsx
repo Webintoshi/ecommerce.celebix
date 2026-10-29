@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { createDefaultStoreEngagementConfig, parseStoreEngagementConfig, type StoreEngagementCampaign, type StoreEngagementCampaignKind, type StoreEngagementConfig, type StoreEngagementImageReference, type PromotionAdminListItem } from '@celebix/saas-contracts';
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { PanelPageHeader, PanelPageShell } from '@/components/panel/PanelPageShell';
@@ -704,7 +705,7 @@ export function PopupStudio(props: EngagementPermissions) {
         setRecovering(false);
         setEditor(null);
     };
-    return <PanelPageShell>
+    return <PanelInitialDataGate pending={phase==='loading'&&!scopeReady} scopeKey={storeSlug}><PanelPageShell>
     <div className={styles.popupList}>
     <h1 className={styles.srOnly}>Popuplar</h1>
     <PanelPageHeader title="Popuplar" />
@@ -741,5 +742,5 @@ export function PopupStudio(props: EngagementPermissions) {
     }}/> : null}
     {deleteTarget?<PopupDeleteDialog key={deleteTarget.intent.campaignId} {...deleteTarget} api={api} returnFocusRef={createTrigger} onMutationChanged={setDeleteBusy} onCancel={()=>{setDeleteTarget(undefined);if(!api.hasUnresolved()){setDeleteRecovery(null);setRevision(value=>value+1);}}} onDeleted={receipt=>{setRecords(items=>items.filter(item=>item.id!==receipt.campaignId));setDeleteTarget(undefined);setDeleteRecovery(null);setNotice('Popup silindi.');setRevision(value=>value+1);window.requestAnimationFrame(()=>createTrigger.current?.focus());}}/>:null}
     </div>
-    </PanelPageShell>;
+    </PanelPageShell></PanelInitialDataGate>;
 }

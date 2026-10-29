@@ -43,7 +43,7 @@ async function mount(
     const text = name === "StockOverview" ? source : await readFile(new URL(`./${name}.tsx`, import.meta.url), "utf8");
     const output = ts.transpileModule(text, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
     const compiled = { exports: {} as Record<string, unknown> };
-    Function("require", "module", "exports", output)((path: string) => {
+    Function("require", "module", "exports", output)((path: string) => {if(path==="@/components/panel/PanelInitialDataGate")return{PanelInitialDataGate:({children}:any)=>children,PanelInitialDataBoundary:({children}:any)=>children};
       if (path === "react") return React;
       if (path === "react/jsx-runtime") return jsxRuntime;
       if (path === "@/lib/inventory-ui/workspace-data") return { ...dataModule, createInventoryWorkspaceController: (controllerOptions: any) => dataModule.createInventoryWorkspaceController({ ...controllerOptions, load: async () => options.data ?? workspace }) };

@@ -15,6 +15,7 @@ import type {
 
 import { PanelPageHeader, PanelPageShell, PanelSkeletonBlock, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import styles from "./customer-console.module.css";
 
 const CONSENT_LABELS = Object.freeze({ email: "E-posta", phone: "Telefon", whatsapp: "WhatsApp" });
@@ -319,9 +320,12 @@ export function CustomerDetailConsole({ customerId, canManage, canArchive, segme
     finally { if (isCurrent()) setBusy(false); }
   }
 
-  if (state === "loading" || data && data.id !== customerId) return <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.customerDetailSkeleton} role="status"><span className="sr-only">Müşteri yükleniyor…</span><PanelSkeletonBlock className={styles.customerIdentitySkeleton} /><div className={styles.customerWorkspace}><div className={styles.customerWorkspaceMain}>{Array.from({ length: 3 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div><div className={styles.customerSummaryRail}>{Array.from({ length: 2 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div></div></div></PanelPageShell>;
+  const initialPending = state !== "error" && (state === "loading" || Boolean(data && data.id !== customerId));
+  if (state === "loading" || data && data.id !== customerId) return <PanelInitialDataGate pending={initialPending} scopeKey={customerId}><PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.customerDetailSkeleton} role="status"><span className="sr-only">Müşteri yükleniyor…</span><PanelSkeletonBlock className={styles.customerIdentitySkeleton} /><div className={styles.customerWorkspace}><div className={styles.customerWorkspaceMain}>{Array.from({ length: 3 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div><div className={styles.customerSummaryRail}>{Array.from({ length: 2 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div></div></div></PanelPageShell></PanelInitialDataGate>;
   if (state === "error" || !data || !workspace) return (
+    <PanelInitialDataGate pending={initialPending} scopeKey={customerId}>
     <PanelPageShell><PanelPageHeader title="Müşteri ayrıntısı" /><h1 className="sr-only">Müşteri ayrıntısı</h1><div className={styles.state} role="alert"><div><p className={styles.error}>{error}</p><button className={styles.button} onClick={() => void load()}>Tekrar dene</button></div></div></PanelPageShell>
+    </PanelInitialDataGate>
   );
-  return <CustomerDetailPresentation segmentsAvailable={segmentsAvailable} data={data} workspace={workspace} tags={tags} segments={segments} canManage={canManage} canArchive={canArchive} busy={busy} notice={notice} error={error} onAddNote={addNote} onAssign={(kind, ids) => void assign(kind, ids)} onArchive={() => void archive()} />;
+  return <PanelInitialDataGate pending={initialPending} scopeKey={customerId}><CustomerDetailPresentation segmentsAvailable={segmentsAvailable} data={data} workspace={workspace} tags={tags} segments={segments} canManage={canManage} canArchive={canArchive} busy={busy} notice={notice} error={error} onAddNote={addNote} onAssign={(kind, ids) => void assign(kind, ids)} onArchive={() => void archive()} /></PanelInitialDataGate>;
 }

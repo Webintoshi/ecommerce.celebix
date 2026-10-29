@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from 'next/link';
 import{useEffect,useRef,useState,type FormEvent}from'react';
 import{RefreshCw}from'lucide-react';
@@ -80,7 +81,7 @@ function CashSessionsWorkspace({canManage,scopeKey,initialAccountId}:Props){
   }catch{setFormError('Sayım bilgilerini kontrol et. Tutar ve açıklama korunuyor.');}
  }
  if(!canManage)return<PanelPageShell><PanelPageHeader title="Kasa sayımı"/><h1 className="sr-only">Kasa sayımı</h1><p className={styles.empty}>Kasa sayımı için mağaza yöneticisi yetkisi gerekiyor.</p></PanelPageShell>;
- return<PanelPageShell><PanelPageHeader title="Kasa sayımı"/><h1 className="sr-only">Kasa sayımı</h1><div className={styles.console}>
+ return<PanelInitialDataGate pending={canManage && (accountsLoading || (!accountsError && accountsScope === scopeKey && Boolean(accountId) && !data && !readError))} scopeKey={scopeKey}>{<PanelPageShell><PanelPageHeader title="Kasa sayımı"/><h1 className="sr-only">Kasa sayımı</h1><div className={styles.console}>
   <AccountingNavigation active="cash-sessions"/>
   <div className={styles.toolbar}><div className={styles.cashAccountPicker}><label className={styles.field}><span>Kasa</span><select name="cashAccount" value={accountId} disabled={accountsLoading||saving||Boolean(pending)||!currentAccounts.length} onChange={event=>{if(command.current)return;setAccountId(event.target.value);setTarget(null);setReadError(null);setNotice(null);}}>{!currentAccounts.length?<option value={accountId}>{pending?.accountName??'Kasa seç'}</option>:null}{pending&&!currentAccounts.some(row=>row.id===pending.intent.accountId)?<option value={pending.intent.accountId}>{pending.accountName}</option>:null}{currentAccounts.map(row=><option key={row.id} value={row.id}>{row.name} · {row.currency}</option>)}</select></label><button type="button" className={styles.secondary} disabled={accountsLoading||loading||saving||Boolean(pending)} onClick={()=>{if(accountsError||!currentAccounts.length)setAccountsRevision(value=>value+1);else setRevision(value=>value+1);}}><RefreshCw size={16} aria-hidden="true"/>Yenile</button></div>{data?<button className={styles.primary} disabled={loading||Boolean(readError)||saving||Boolean(pending)} onClick={open}>{data.active?'Say ve kapat':'Kasayı aç'}</button>:null}</div>
   {accountsError?<p className={styles.error} role="alert">{accountsError}</p>:null}{readError?<p className={styles.error} role="alert">{readError}</p>:null}{notice?<p className={styles.notice} role="status">{notice}</p>:null}
@@ -108,5 +109,5 @@ function CashSessionsWorkspace({canManage,scopeKey,initialAccountId}:Props){
     {formError?<p className={styles.error} role="alert">{formError}</p>:null}
    </div><footer className={styles.dialogActions}>{pending?<button className={styles.primary} disabled={saving}>{saving?'Kontrol ediliyor…':'Aynı sayımı kontrol et'}</button>:<><button className={styles.secondary} type="button" disabled={saving} onClick={close}>Vazgeç</button><button className={styles.primary} disabled={!canSave}>{saving?'Kaydediliyor…':target?.kind==='close'?'Kapanışı kaydet':'Açılışı kaydet'}</button></>}</footer></form>
   </FinanceModal>
- </div></PanelPageShell>;
+ </div></PanelPageShell>}</PanelInitialDataGate>;
 }

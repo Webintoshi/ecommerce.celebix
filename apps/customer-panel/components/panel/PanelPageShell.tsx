@@ -1,3 +1,4 @@
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -59,7 +60,7 @@ export function PanelDataTable({ children, label }: { children: ReactNode; label
 }
 
 export function PanelLoadingState({ label = "Yükleniyor" }: { label?: string }) {
-  return <p className={styles.state} role="status">{label}</p>;
+  return <PanelInitialDataGate pending={true}>{<p className={styles.state} role="status">{label}</p>}</PanelInitialDataGate>;
 }
 
 export function PanelActionButton(props: { href: string; children: ReactNode; primary?: boolean }) {

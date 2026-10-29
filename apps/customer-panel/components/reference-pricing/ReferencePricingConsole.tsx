@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { Plus, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import type { ReferenceIdentity } from "@celebix/saas-contracts";
@@ -287,7 +288,7 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
   }
 
   if (!canRead) return <PanelPageShell><PanelPageHeader title="Kur ve altın referansları" /><p className={styles.state} role="status">Bu mağazanın fiyatlandırma referanslarını görüntüleme yetkiniz yok.</p></PanelPageShell>;
-  return <PanelPageShell>
+  return <PanelInitialDataGate pending={canRead && phase === "loading" && !resolved}>{<PanelPageShell>
     <PanelPageHeader title="Kur ve altın referansları" />
     <div className={styles.root} data-reference-pricing aria-busy={phase === "loading"} data-settings-dirty={draftDirty ? "true" : undefined}>
       {phase === "loading" && !resolved ? <div className={styles.loading} role="status" aria-label="Referanslar yükleniyor"><span /><span /><span /><span /><span /></div> : null}
@@ -330,5 +331,5 @@ export function ReferencePricingConsole({ canRead, canManage }: Readonly<{ canRe
         <section className={styles.section} id="pricing-panel-history" role="tabpanel" aria-labelledby="pricing-tab-history" hidden={workspaceTab !== "history"}><div className={styles.sectionHeading}><div><h2 id="history-title">Sürüm geçmişi</h2><p>Etkin ve önceki sürümler; kaydedilmiş değerleri açabilirsiniz.</p></div></div>{listing?.items.length ? <><div className={styles.tableScroll}><table><caption>Manuel referans seti geçmişi</caption><thead><tr><th>Oluşturuldu</th><th>Sürüm</th><th>Durum</th><th>İşlem</th></tr></thead><tbody>{listing.items.map((item) => <tr key={item.setId}><td>{fmtDate(item.createdAt)}</td><td>v{item.version}</td><td><PanelStatusBadge tone={item.isActive ? "success" : "neutral"}>{item.isActive ? "Etkin" : "Önceki sürüm"}</PanelStatusBadge></td><td><button type="button" onClick={() => void openHistorySet(item.setId)} disabled={Boolean(busy) || phase !== "ready" || locked}>{item.isActive ? "Görüntüle" : "Değerleri aç"}</button></td></tr>)}</tbody></table></div>{listing.nextCursor ? <button className={styles.more} type="button" onClick={() => void loadOlderHistory()} disabled={Boolean(busy)}>Daha eski sürümler</button> : null}{historyDetail ? <div className={styles.historyDetail}><h3>v{historyDetail.version} · {historyDetail.isActive ? "Etkin" : "Önceki sürüm"}</h3><dl>{historyDetail.values.map((item) => <div key={item.referenceId}><dt>{item.label}</dt><dd>{item.rateTry === null ? "Değer yok" : `${displayDecimal(item.rateTry)} TL`}{item.active ? " · Kullanımda" : " · Pasif"}</dd></div>)}</dl></div> : null}</> : <p className={styles.state}>Henüz kaydedilmiş referans sürümü yok.</p>}</section>
       </> : null}
     </div>
-  </PanelPageShell>;
+  </PanelPageShell>}</PanelInitialDataGate>;
 }

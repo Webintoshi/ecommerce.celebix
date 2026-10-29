@@ -37,6 +37,7 @@ test('desktop drawer and navigation search expose staff only with server availab
 });
 test('cashier shell hides storefront notification and assistant utilities while keeping its workspace',()=>{
  const {PanelLayoutClient}=compile<any>(new URL('./PanelLayoutClient.tsx',import.meta.url),{
+  './PanelInitialDataGate':{PanelInitialDataBoundary:({children}:any)=>children},
   'next/navigation':{usePathname:()=>'/products'},
   './PanelSidebar':{PanelSidebar:()=>null},
   './PanelMobileDock':{PanelMobileDock:()=>null},

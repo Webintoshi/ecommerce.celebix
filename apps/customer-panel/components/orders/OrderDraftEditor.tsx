@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import type {
   CustomerListItem,
@@ -362,6 +363,7 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
 
   const title = record?.draftNumber ?? (props.draftId ? "Geçmiş manuel satış" : "Manuel satış");
   return (
+    <PanelInitialDataGate pending={phase === "loading" && !record} scopeKey={props.draftId ?? "new"}>
     <PanelPageShell>
       <PanelPageHeader title={title} />
       <h1 className="sr-only">{title}</h1>
@@ -441,5 +443,6 @@ export function OrderDraftEditor(props: Readonly<{ draftId?: string; canManage: 
         </div>
       ) : null}
     </PanelPageShell>
+    </PanelInitialDataGate>
   );
 }

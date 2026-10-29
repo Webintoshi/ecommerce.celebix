@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from "react"
 import type { CustomerSegment, CustomerTag } from "@celebix/saas-contracts";
 import { PanelPageHeader, PanelPageShell } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import styles from "./customer-console.module.css";
 
 const DEFAULT_TAG_COLOR = "#667085";
@@ -113,6 +114,7 @@ export function CustomerTaxonomyConsole({
   const currentLoadFailed = loadFailed && failedKind.current === kind;
   const displayLoading = loading || loadedKind.current !== kind && !currentLoadFailed;
   return (
+    <PanelInitialDataGate pending={displayLoading} scopeKey={kind}>
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className="sr-only">{title}</h1> : null}
       <PanelPageHeader
@@ -273,5 +275,6 @@ export function CustomerTaxonomyConsole({
         )}
       </section>
     </PanelPageShell>
+    </PanelInitialDataGate>
   );
 }

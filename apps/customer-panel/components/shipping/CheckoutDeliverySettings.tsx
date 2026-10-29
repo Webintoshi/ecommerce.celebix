@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { checkoutDeliveryApi, type CheckoutDeliverySave, type CheckoutDeliveryWorkspace } from "@/lib/checkout-delivery-ui/client";
 import { parseCheckoutDeliveryForm } from "@/lib/checkout-delivery-ui/model";
@@ -75,7 +76,7 @@ export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canR
   const view = checkoutDeliveryPresentation(workspace);
   const editable = canManage && loadState === "loaded" && !busy && !pending.current && !conflict;
   const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void save("active"); };
-  return (
+  return <PanelInitialDataGate pending={canRead && loadState === "loading"}>{(
     <section id="checkout-delivery" className={styles.section} aria-labelledby="checkout-delivery-title" aria-busy={canRead && (loadState === "loading" || busy)} data-settings-dirty={editable && (price !== (workspace.settings === null ? "" : deliveryPriceInput(workspace.settings.shippingPriceCents)) || days !== checkoutDeliveryDaysInput(workspace)) ? "true" : undefined}>
       <div className={styles.heading}><h2 id="checkout-delivery-title">Teslimat ücreti</h2><p>Mağazanın ödeme adımında kullanılan teslimat ayarı.</p></div>
       {!canRead ? <p className={styles.state}>Bu ayarı görüntüleme yetkiniz yok.</p> : loadState === "loading" ? <div className={styles.loadingFields} role="status" aria-label="Teslimat ayarı yükleniyor…"><span className="sr-only">Teslimat ayarı yükleniyor…</span><div aria-hidden="true"><span/><span/><span/></div></div> : loadState === "loaded" ? <>
@@ -95,5 +96,5 @@ export function CheckoutDeliverySettings({ canRead, canManage }: Readonly<{ canR
       </> : <button type="button" className={styles.retry} onClick={() => void load()}>Yeniden dene</button>}
       <div id="checkout-delivery-feedback" className={styles.feedback}>{error ? <p role="alert">{error}</p> : null}{notice ? <p role="status" aria-live="polite">{notice}</p> : null}</div>
     </section>
-  );
+  )}</PanelInitialDataGate>;
 }

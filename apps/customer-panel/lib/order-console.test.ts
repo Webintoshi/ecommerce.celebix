@@ -428,6 +428,7 @@ async function compileOrderModule(
       createElement("header", null, createElement("h2", null, title), createElement("button", { type: "button", disabled: busy, onClick: onClose, "aria-label": `${title} penceresini kapat` }, "Kapat")),
       createElement("div", null, children), footer ? createElement("footer", null, footer) : null);
   const requireModule = (specifier: string): unknown => {
+    if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (specifier === "react/jsx-runtime") return { ...jsxRuntime, jsx: renderJsx(jsxRuntime.jsx), jsxs: renderJsx(jsxRuntime.jsxs) };
     if (specifier === "react") return controllerReact;
     if (specifier === "next/link") return Link;
@@ -562,6 +563,7 @@ async function compileDashboardPresentation(dashboardModel: Record<string, unkno
   const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
+    if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return React;
     if (specifier === "next/link") return ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement("a", props, children);

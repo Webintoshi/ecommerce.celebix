@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CatalogAdminResource } from "@celebix/saas-contracts";
@@ -21,8 +22,8 @@ function CatalogExtraEditorWorkspace({ resourceId, canManage }: { resourceId: st
     catch (caught) { if (request.current === sequence) setError(caught instanceof CatalogAdminApiError ? caught.message : "Ekstra yüklenemedi."); }
   }, [resourceId]);
   useEffect(() => { void load(); return () => { request.current += 1; }; }, [load]);
-  if (resource) return catalogExtraType(resource) === "size_guide" ? <CatalogSizeGuideEditor canManage={canManage} resourceId={resourceId} initialResource={resource} /> : <CatalogResourceEditor kind="extra" canManage={canManage} resourceId={resourceId} />;
-  return <PanelPageShell><PanelPageHeader title="Ekstra düzenle" /><h1 className={styles.srOnly}>Ekstra düzenle</h1>{error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : <CatalogWorkspaceLoading layout="editor" label="Ekstra yükleniyor…" />}</PanelPageShell>;
+  if (resource) return <PanelInitialDataGate pending={false} scopeKey={resourceId}>{catalogExtraType(resource) === "size_guide" ? <CatalogSizeGuideEditor canManage={canManage} resourceId={resourceId} initialResource={resource} /> : <CatalogResourceEditor kind="extra" canManage={canManage} resourceId={resourceId} />}</PanelInitialDataGate>;
+  return <PanelInitialDataGate pending={!error} scopeKey={resourceId}><PanelPageShell><PanelPageHeader title="Ekstra düzenle" /><h1 className={styles.srOnly}>Ekstra düzenle</h1>{error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></p> : <CatalogWorkspaceLoading layout="editor" label="Ekstra yükleniyor…" />}</PanelPageShell></PanelInitialDataGate>;
 }
 
 export function CatalogExtraEditor(props: Parameters<typeof CatalogExtraEditorWorkspace>[0]) {

@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import {
   Archive, ArrowDown, ArrowUp, Check, ChevronDown, ChevronRight, CircleCheck,
@@ -542,7 +543,7 @@ export function CategoryManager({
     </div>;
   }
 
-  return <section className={styles.categoryManager} aria-labelledby="category-manager-title">
+  return <PanelInitialDataGate pending={loading}><section className={styles.categoryManager} aria-labelledby="category-manager-title">
     <PanelTopbarBridge title="Kategoriler" hideHeading />
     <h1 id="category-manager-title" className="sr-only">Kategoriler</h1>
     <div className={styles.toolbar}>
@@ -592,5 +593,5 @@ export function CategoryManager({
     {modalEditor ? <div className={styles.editorScrim} data-category-scrim aria-hidden="true" onClick={() => { if (!interactionBusy) void requestCloseEditor(); }} /> : null}
     {confirmation ? <dialog ref={confirmDialogRef} className={styles.confirmDialog} aria-labelledby="category-confirm-title" aria-describedby="category-confirm-description" onCancel={(event) => { event.preventDefault(); resolveConfirmation(false); }}><form onSubmit={(event) => { event.preventDefault(); resolveConfirmation(true); }}><header className={styles.confirmHeader}><h2 id="category-confirm-title">{confirmation.title}</h2><button type="button" className={styles.iconButton} aria-label="İşlemi iptal et" onClick={() => resolveConfirmation(false)}><X aria-hidden="true" /></button></header><p id="category-confirm-description">{confirmation.description}</p><footer className={styles.confirmActions}><button ref={confirmCancelRef} type="button" className={styles.cancelButton} onClick={() => resolveConfirmation(false)}>Vazgeç</button><button type="submit" className={styles.primaryButton}>{confirmation.label}</button></footer></form></dialog> : null}
     {deleteTarget && canDelete ? <div ref={deleteLayerRef}>{deleteError ? <p className={styles.deleteFeedback} role="alert">{deleteError}</p> : null}<PermanentDeleteDialog impact={deletionImpact} resourceLabel="Kategori" busy={busy} onCancel={cancelDelete} onConfirm={deleteCategory} /></div> : null}
-  </section>;
+  </section></PanelInitialDataGate>;
 }

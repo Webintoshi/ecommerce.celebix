@@ -29,7 +29,7 @@ test("review reply drafts survive search and status filters and preserve moderat
   ];
   const saved: unknown[] = [];
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
-  Function("require", "module", "exports", output)((name: string) => {
+  Function("require", "module", "exports", output)((name: string) => {if(name==="@/components/panel/PanelInitialDataGate")return{PanelInitialDataGate:({children}:any)=>children,PanelInitialDataBoundary:({children}:any)=>children};
     if (name === "./ProductPageReviewSettingsConsole") return { ProductPageReviewSettingsConsole: () => null };
     if (name === "./ReviewCollectionConsole") return { ReviewCollectionConsole: () => null };
     if (name.endsWith("/CatalogWorkspaceLoading")) return compileCatalogLoading("components/catalog/CatalogWorkspaceLoading.tsx");if (name === "react") return React;

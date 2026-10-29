@@ -586,6 +586,7 @@ async function renderPanelDashboard(
     if (specifier === "@/components/panel/PanelPageShell") {
       return { PanelActionButton, PanelMetricCard, PanelPageHeader, PanelPageShell, PanelPanel };
     }
+    if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children: ReactNode }) => children };
     if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
     if (specifier === "@/components/panel/PanelLayoutClient") {
       return { usePanelChromeModel: () => model };
@@ -1444,6 +1445,7 @@ test("desktop topbar follows route transitions while the active bridge keeps pre
         if (specifier === "react") return harness.react;
         if (specifier === "next/navigation") return { usePathname: () => pathname };
         if (specifier === "@/lib/panel-ui/navigation") return { getPanelRoutePresentation };
+        if (specifier === "./PanelInitialDataGate") return { PanelInitialDataBoundary: (props: HookTestProps) => props.children };
         if (specifier === "./PanelMobileDock") return { PanelMobileDock };
         if (specifier === "./PanelSidebar") return { PanelSidebar };
         if (specifier === "./PanelTopbarChrome") return { PanelTopbarChromeProvider };
@@ -1731,6 +1733,7 @@ test("crossing into desktop closes an open mobile drawer and releases its modal 
         if (specifier === "react") return harness.react;
         if (specifier === "next/navigation") return { usePathname: () => "/" };
         if (specifier === "@/lib/panel-ui/navigation") return { getPanelRoutePresentation };
+        if (specifier === "./PanelInitialDataGate") return { PanelInitialDataBoundary: (props: HookTestProps) => props.children };
         if (specifier === "./PanelMobileDock") return { PanelMobileDock };
         if (specifier === "./PanelSidebar") return { PanelSidebar };
         if (specifier === "./PanelTopbarChrome") {
@@ -2296,6 +2299,7 @@ test("dashboard home loads five newest orders through the existing same-origin o
       if (specifier === "recharts") return new Proxy({}, { get: () => Wrapper });
       if (specifier === "@celebix/saas-contracts") return { ANALYTICS_PERIODS: ["today", "week", "month", "year"] };
       if (specifier === "@/components/panel/PanelPageShell") return { PanelActionButton, PanelPageShell: Wrapper };
+      if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: HookTestProps) => children, PanelInitialDataBoundary: ({ children }: HookTestProps) => children };
       if (specifier === "@/components/shared/ProductThumbnail") return compileRealComponent("components/shared/ProductThumbnail.tsx");
       if (specifier === "@/components/panel/PanelLayoutClient") return { usePanelChromeModel: () => ({ analyticsAvailable: false }) };
       if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: Wrapper };

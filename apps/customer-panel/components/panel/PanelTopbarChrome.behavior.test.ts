@@ -20,6 +20,7 @@ async function mounted(run:(fixture:any)=>Promise<void>){
   const topbar=compile<any>(new URL('./PanelTopbarChrome.tsx',import.meta.url));
   const {PanelLayoutClient}=compile<any>(new URL('./PanelLayoutClient.tsx',import.meta.url),{
    './PanelTopbarChrome':topbar,
+   './PanelInitialDataGate':{PanelInitialDataBoundary:({children}:any)=>children},
    'next/navigation':{usePathname:()=>pathname},
    '@/lib/panel-ui/navigation':{getPanelRoutePresentation:()=>({title:'Route'})},
    './PanelSidebar':{PanelSidebar:()=>null},

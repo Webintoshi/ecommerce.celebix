@@ -30,7 +30,7 @@ test("attribute editor saves a name and selected values without asking for a tec
   const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const styles = new Proxy({}, { get: (_target, key) => key === "__esModule" ? true : key === "default" ? styles : String(key) });
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
-  Function("require", "module", "exports", output)((name: string) => {
+  Function("require", "module", "exports", output)((name: string) => {if(name==="@/components/panel/PanelInitialDataGate")return{PanelInitialDataGate:({children}:any)=>children,PanelInitialDataBoundary:({children}:any)=>children};
     if (name.endsWith("/CatalogWorkspaceLoading")) return compileCatalogLoading("components/catalog/CatalogWorkspaceLoading.tsx");if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "next/navigation") return { useRouter: () => ({ push() {}, refresh() {} }) };

@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import Link from "next/link";
 import {
@@ -819,6 +820,7 @@ export function ProductListConsole({
   ];
 
   return (
+    <PanelInitialDataGate pending={(loading || loadingMore) && appliedQueryDigest === undefined}>
     <section className={`catalog-page donor-product-page product-operations-page ${catalogStyles.catalogRoot} ${listStyles.root}`} tabIndex={-1} aria-labelledby="products-title" data-presentation="hemenaku-product-list" data-workspace="product-operations" data-mode={rankMode ? "rank" : "list"}>
       <PanelTopbarBridge title="Ürünler" actions={topbarActions} />
       <h1 id="products-title" className="sr-only">Ürünler</h1>
@@ -989,6 +991,7 @@ export function ProductListConsole({
       </>}
       </div>
     </section>
+    </PanelInitialDataGate>
   );
 }
 

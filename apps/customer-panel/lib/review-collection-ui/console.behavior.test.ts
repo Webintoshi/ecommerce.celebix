@@ -23,6 +23,7 @@ test("review settings preserve failed drafts and retry keys; manual request refr
   class ApiError extends Error {}
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   Function("require", "module", "exports", output)((name: string) => {
+    if (name === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "./review-collection.module.css") return styles;

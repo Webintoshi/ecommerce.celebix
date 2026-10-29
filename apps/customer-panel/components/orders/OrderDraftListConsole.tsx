@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import type { OrderDraftListItem, OrderDraftStatus } from "@celebix/saas-contracts";
 import { ChevronRight, FileText, Plus } from "lucide-react";
@@ -91,6 +92,7 @@ export function OrderDraftListConsole({ canManage }: { canManage: boolean }) {
   }, [load]);
 
   return (
+    <PanelInitialDataGate pending={phase === "loading"}>
     <PanelPageShell>
       <PanelPageHeader title="Manuel siparişler" />
       <h1 className="sr-only">Manuel siparişler</h1>
@@ -132,5 +134,6 @@ export function OrderDraftListConsole({ canManage }: { canManage: boolean }) {
         ) : null}
       </section>
     </PanelPageShell>
+    </PanelInitialDataGate>
   );
 }

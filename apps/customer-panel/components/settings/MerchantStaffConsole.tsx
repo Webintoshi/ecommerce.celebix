@@ -1,4 +1,5 @@
 'use client';
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { CommercialFeatureLink } from "@/components/commercial-packages/CommercialFeatureLink";
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -108,7 +109,7 @@ export function MerchantStaffConsole({ client: provided, salesClient, cashierAva
         event.preventDefault();
         (event.shiftKey ? last : first).focus();
     } }
-    return <section className={styles.console}>
+    return <PanelInitialDataGate pending={!state && !error}>{<section className={styles.console}>
   <header className={styles.header}><div><h1>Personel</h1><p>Mağaza erişimi için kişisel telefon numarası ve rol tanımlayın.</p></div>{state?.enabled ? <button type="button" className={styles.primary} data-add-staff disabled={busy} onClick={() => open({ mode: 'create', expectedVersion: state.version })}>Personel ekle</button> : !state && !error ? <span className={styles.actionPlaceholder} aria-hidden="true" /> : null}</header>
   <div className={styles.toolbar}><p>{state ? `${state.staff.filter(row => row.enabled).length} personel erişimi açık` : error ? 'Personel listesi' : 'Personel bilgileri yükleniyor…'}</p><button type="button" className={styles.secondary} disabled={busy} onClick={() => void reload()}>Listeyi yenile</button></div>
   {state && !state.enabled && <p className={styles.note} role="status">Personel yönetimi bu mağazada henüz etkin değil.</p>}
@@ -130,5 +131,5 @@ export function MerchantStaffConsole({ client: provided, salesClient, cashierAva
     <footer className={styles.dialogFooter}><button type="button" className={styles.secondary} disabled={busy} onClick={close}>Vazgeç</button><button className={styles.primary} type="submit" disabled={busy || errorCode === 'version_conflict' || deleteUnavailable}>{busy ? edit.mode === 'delete' ? 'Siliniyor…' : 'Kaydediliyor…' : edit.mode === 'delete' ? 'Sil' : edit.mode === 'revoke' ? 'Erişimi kaldır' : 'Kaydet'}</button></footer>
    </form>}
   </dialog>
- </section>;
+ </section>}</PanelInitialDataGate>;
 }

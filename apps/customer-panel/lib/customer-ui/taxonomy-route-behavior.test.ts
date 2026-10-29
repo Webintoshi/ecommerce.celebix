@@ -172,6 +172,7 @@ async function compileConsole(react: typeof React, api: ReturnType<typeof create
   const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
   const compiled: { exports: Record<string, unknown> } = { exports: {} };
   const requireModule = (specifier: string): unknown => {
+    if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return react;
     if (specifier === "@/components/panel/PanelPageShell") return {

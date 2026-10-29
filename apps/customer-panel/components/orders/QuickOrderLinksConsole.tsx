@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import {
   Check,
@@ -859,6 +860,7 @@ export function QuickOrderLinksConsole() {
   const hasLinkFilters = normalizedLinkSearch !== "" || linkStatus !== "all";
 
   return (
+    <PanelInitialDataGate pending={listState === "loading" && !linksLoaded.current}>
     <PanelPageShell>
       <PanelPageHeader title="Hızlı Sipariş Linkleri" />
       <h1 className="sr-only">Hızlı Sipariş Linkleri</h1>
@@ -1102,5 +1104,6 @@ export function QuickOrderLinksConsole() {
       </Panel>
       </div>
     </PanelPageShell>
+    </PanelInitialDataGate>
   );
 }

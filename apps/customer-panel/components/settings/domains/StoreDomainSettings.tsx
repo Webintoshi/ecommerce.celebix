@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import type { AdminDomainView, StoreDomainDnsInstruction, StoreDomainReplacementView, StoreDomainView } from "@celebix/saas-contracts";
 import { ArrowLeftRight, Check, Copy, ExternalLink, Globe2, RefreshCw, RotateCcw, Star, Trash2, X } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -174,7 +175,7 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
     catch { setError("DNS değeri kopyalanamadı."); }
   };
 
-  return <section className={styles.page} data-panel-layout="open-canvas" aria-labelledby="domain-settings-title">
+  return <PanelInitialDataGate pending={loading}>{<section className={styles.page} data-panel-layout="open-canvas" aria-labelledby="domain-settings-title">
     <PanelTopbarBridge title="Alan Adları" hideHeading />
     <h1 className={styles.srOnly} id="domain-settings-title">Alan Adları</h1>
     {canManage ? <form className={styles.add} onSubmit={create}>
@@ -202,5 +203,5 @@ export function StoreDomainSettings({ canManage }: Readonly<{ canManage: boolean
       })}{customDomains.length === 0 ? <p className={styles.empty}>Henüz özel mağaza alan adı bağlanmadı.</p> : null}</div>
       <details className={styles.fallbacks}><summary>Teknik kurtarma adresleri</summary><div>{platformDomains.map((domain) => <p key={domain.id}><span><small>Mağaza yedek adresi</small><a href={`https://${domain.hostname}`} target="_blank" rel="noreferrer">{domain.hostname}</a></span><b>Teknik yedek</b></p>)}{platformAdminDomains.map((domain) => <p key={domain.id}><span><small>Yönetim paneli yedek adresi</small><a href={`https://${domain.hostname}`} target="_blank" rel="noreferrer">{domain.hostname}</a></span><b>Teknik yedek</b></p>)}</div></details>
     </> : null}
-  </section>;
+  </section>}</PanelInitialDataGate>;
 }

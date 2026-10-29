@@ -8,6 +8,7 @@ import type { CustomerAddressInput } from "@celebix/saas-data";
 
 import { PanelPageHeader, PanelPageShell, PanelSkeletonBlock } from "@/components/panel/PanelPageShell";
 import { CustomerApiError, customerApi } from "@/lib/customer-ui/client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import styles from "./customer-console.module.css";
 
 function message(error: unknown) {
@@ -138,9 +139,11 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
     } finally { if (requestSequence.current === sequence) setBusy(false); }
   }
 
-  if (error && (!customer || customer.id !== customerId)) return <PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><p className={styles.error} role="alert">{error}</p><button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></PanelPageShell>;
-  if (!customer || customer.id !== customerId) return <PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><div className={styles.customerDetailSkeleton} role="status"><span className="sr-only">Müşteri hazırlanıyor…</span><PanelSkeletonBlock className={styles.customerIdentitySkeleton} />{Array.from({ length: 3 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div></PanelPageShell>;
+  const initialPending = !error && (!customer || customer.id !== customerId);
+  if (error && (!customer || customer.id !== customerId)) return <PanelInitialDataGate pending={initialPending} scopeKey={customerId}><PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><p className={styles.error} role="alert">{error}</p><button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></PanelPageShell></PanelInitialDataGate>;
+  if (!customer || customer.id !== customerId) return <PanelInitialDataGate pending={initialPending} scopeKey={customerId}><PanelPageShell><PanelPageHeader title="Müşteriyi düzenle" /><h1 className="sr-only">Müşteriyi düzenle</h1><div className={styles.customerDetailSkeleton} role="status"><span className="sr-only">Müşteri hazırlanıyor…</span><PanelSkeletonBlock className={styles.customerIdentitySkeleton} />{Array.from({ length: 3 }, (_, i) => <PanelSkeletonBlock className={styles.customerSectionSkeleton} key={i} />)}</div></PanelPageShell></PanelInitialDataGate>;
   return (
+    <PanelInitialDataGate pending={initialPending} scopeKey={customerId}>
     <PanelPageShell>
       <Link className={styles.back} href={`/customers/${encodeURIComponent(customer.id)}`}>← Müşteri ayrıntılarına dön</Link>
       <h1 className="sr-only">{customer.displayName} müşteri kaydını düzenle</h1>
@@ -192,5 +195,6 @@ export function CustomerEditConsole({ customerId, initialCustomer, initialError 
         <footer className={styles.actions}><Link className={styles.button} href={`/customers/${encodeURIComponent(customer.id)}`}>Vazgeç</Link><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Değişiklikleri Kaydet"}</button></footer>
       </form>
     </PanelPageShell>
+    </PanelInitialDataGate>
   );
 }

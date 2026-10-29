@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { InventoryBalance } from "@celebix/saas-contracts";
@@ -98,7 +99,7 @@ function StockOverviewContent(props: Readonly<{
   if (workspace.phase === "loading" && !resolved) return <div className={styles.loading} role="status"><p>Ürün ve depo bilgileri yükleniyor…</p><div className={styles.skeleton} aria-hidden="true" /></div>;
   if (!location) return <div className={styles.state} role="status"><p>Etkin depo bulunamadı. Depolar bölümünden bir depo ekleyin.</p></div>;
 
-  return <section className={styles.overview} aria-label="Depo stokları" aria-busy={phase === "loading"}>
+  return <PanelInitialDataGate pending={phase === "loading" && !resolved}>{<section className={styles.overview} aria-label="Depo stokları" aria-busy={phase === "loading"}>
     <div className={styles.toolbar}>
       <label className={styles.depot}><span>Depo</span><select aria-label="Depo" disabled={workspace.phase !== "loaded"} value={locationId} onChange={(event) => setSelectedLocation(event.currentTarget.value)}>{activeLocations.map((item) => <option value={item.id} key={item.id}>{item.name}{item.isDefault ? " · Varsayılan" : ""}</option>)}</select></label>
       <label className={styles.search}><span className={styles.srOnly}>Stokta ürün ara</span><input aria-label="Stokta ürün ara" type="search" placeholder="Ürün, varyant veya SKU ara" value={search} onChange={(event) => setSearch(event.currentTarget.value)} /></label>
@@ -116,7 +117,7 @@ function StockOverviewContent(props: Readonly<{
         {visibleRows.some((row) => row.quantity === undefined) ? <p className={styles.help}>Kayıt yok: bu depoda henüz stok bakiyesi oluşmamış.</p> : null}
       </> : <div className={styles.state} role="status"><p>{rows.length ? "Bu filtrelere uyan varyant yok." : "Bu depoda gösterilecek ürün veya stok kaydı yok."}</p>{!rows.length && props.canPurchase ? <button type="button" onClick={() => purchase()}>Satın alma oluştur</button> : null}</div>}
     </>}
-  </section>;
+  </section>}</PanelInitialDataGate>;
 }
 
 export function StockOverview(props: Parameters<typeof StockOverviewContent>[0]) {

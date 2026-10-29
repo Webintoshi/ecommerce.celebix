@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { Activity, ArrowRight, BarChart3, CalendarDays, ChevronDown, ChevronRight, LockKeyhole, Package, ShoppingBag, ShoppingCart, Store, Tag, UserPlus, Users } from "lucide-react";
@@ -698,5 +699,5 @@ export function PanelDashboardHomeView() {
   }, []);
 
   const dashboard = createMerchantDashboardViewModel(chrome, catalog, orders, carts, customers, analytics);
-  return <PanelDashboardPresentation dashboard={dashboard} onRefresh={reloadAll} onRefreshAnalytics={() => reload("analytics")} onRefreshOperations={reloadAll} onRefreshRecentOrders={() => recentOrdersReload.current?.()} onPeriodChange={changePeriod} period={period} recentOrders={recentOrders} recentOrdersState={recentOrdersState} recentOrdersResolved={recentOrdersResolved} state={state} ordersState={ordersState} cartsState={cartsState} customersState={customersState} analyticsState={analyticsState} activeVisitorsEnabled={chrome.analyticsAvailable} manualSalesAvailable={!chrome.lockedNavigationHrefs?.includes("/orders/quick-links")} cashierMode={cashierMode} ordersAvailable={ordersAvailable} analyticsLinkAvailable={!cashierMode||chrome.analyticsAvailable} />;
+  return <PanelInitialDataGate pending={state === "loading" || analyticsState === "loading" || (ordersAvailable && (ordersState === "loading" || recentOrdersState === "loading")) || (!cashierMode && (cartsState === "loading" || customersState === "loading"))}>{<PanelDashboardPresentation dashboard={dashboard} onRefresh={reloadAll} onRefreshAnalytics={() => reload("analytics")} onRefreshOperations={reloadAll} onRefreshRecentOrders={() => recentOrdersReload.current?.()} onPeriodChange={changePeriod} period={period} recentOrders={recentOrders} recentOrdersState={recentOrdersState} recentOrdersResolved={recentOrdersResolved} state={state} ordersState={ordersState} cartsState={cartsState} customersState={customersState} analyticsState={analyticsState} activeVisitorsEnabled={chrome.analyticsAvailable} manualSalesAvailable={!chrome.lockedNavigationHrefs?.includes("/orders/quick-links")} cashierMode={cashierMode} ordersAvailable={ordersAvailable} analyticsLinkAvailable={!cashierMode||chrome.analyticsAvailable} />}</PanelInitialDataGate>;
 }

@@ -15,6 +15,7 @@ import {
 import type { PanelClientChromeModel } from "@/lib/panel-ui/client-chrome-model";
 import { getPanelRoutePresentation } from "@/lib/panel-ui/navigation";
 import { PanelMobileDock } from "./PanelMobileDock";
+import { PanelInitialDataBoundary } from "./PanelInitialDataGate";
 import { PanelSidebar } from "./PanelSidebar";
 import {
   PanelTopbarChromeProvider,
@@ -188,7 +189,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
               ref={desktopFocusRef}
               className={`${styles.content} ${pathname === "/discounts/new" ? styles.compactContent : ""}`}
               tabIndex={-1}
-            >{children}</main>
+            ><PanelInitialDataBoundary scopeKey={pathname}>{children}</PanelInitialDataBoundary></main>
           </PanelTopbarChromeProvider>
         </div>
         <PanelMobileDock lockedNavigationHrefs={model.lockedNavigationHrefs} navigationMode={model.navigationMode} analyticsAvailable={model.analyticsAvailable}

@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowUpRight, Barcode, Check, ChevronLeft, ChevronRight, Package, RefreshCw, SlidersHorizontal } from "lucide-react";
@@ -181,7 +182,7 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
   ] as const : [];
   const maxMetricCount = Math.max(1, ...metrics.map(([, value]) => value));
 
-  return <div className={styles.workspace}>
+  return <PanelInitialDataGate pending={loading && (!overview || !page)}>{<div className={styles.workspace}>
     <h1 className="sr-only">Google Merchant Center</h1>
     <nav className={styles.back} aria-label="Pazaryeri gezinme"><Link href="/marketplaces"><ArrowLeft size={16} aria-hidden="true" />Pazaryerleri</Link></nav>
     <GoogleMarketingConnections canManage={canManage} services={MERCHANT_ONLY} onChange={() => { setCursors([undefined]); setPageIndex(0); void load(null); }} />
@@ -247,5 +248,5 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
         </fieldset>
       </div> : null}
     </OrderActionDialog>
-  </div>;
+  </div>}</PanelInitialDataGate>;
 }

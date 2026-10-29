@@ -1,4 +1,5 @@
 'use client';
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { CommercialFeatureLink } from "@/components/commercial-packages/CommercialFeatureLink";
 
 import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
@@ -91,7 +92,7 @@ export function MerchantContentEditor({storeId,kind,recordId,returnTo,canManage,
  const seoFields=draft?<><label>SEO başlığı<input aria-label="SEO başlığı" maxLength={160} value={draft.values.seoTitle??''} readOnly={!canEdit} onChange={event=>update({seoTitle:event.currentTarget.value||null})}/></label><label>SEO açıklaması<textarea aria-label="SEO açıklaması" maxLength={4000} value={draft.values.seoDescription??''} readOnly={!canEdit} onChange={event=>update({seoDescription:event.currentTarget.value||null})}/></label></>:null;
  const versionHistory=<><button type="button" className="button button-secondary" onClick={()=>void showHistory()}>Sürümleri göster</button>{historyError?<p role="alert">{historyError}</p>:null}{history?<ol>{history.map(item=><li key={item.version}><details><summary>v{item.version} · {new Date(item.savedAt).toLocaleString("tr-TR")} · {item.values.name}</summary><p>{item.status==='active'?'Aktif':'Taslak'} · {item.values.published?'Yayında':'Yayında değil'}</p><pre>{item.values.body}</pre></details></li>)}</ol>:null}</>;
  const title=recordId?kind==='blog_post'?'Blog yazısını düzenle':'Sayfayı düzenle':kind==='blog_post'?'Yeni blog yazısı':'Yeni sayfa';
- return <div className={`${operations.workspace} ${kind==='page'?pages.editor:''}`}><PanelPageShell><h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title}/><Link className={operations.back} href={returnTo}>Geri dön</Link>
+ return <PanelInitialDataGate pending={canManage&&(loading||!scopeReady)&&!error} scopeKey={scopeKey}><div className={`${operations.workspace} ${kind==='page'?pages.editor:''}`}><PanelPageShell><h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title}/><Link className={operations.back} href={returnTo}>Geri dön</Link>
  {!canManage?<p role="status" className={styles.readOnly}>Düzenleme yetkiniz yok.</p>:null}{scopeReady&&document?.status==='archived'?<p role="status" className={styles.readOnly}>Bu kayıt arşivlendi; burada düzenlenemez.</p>:null}
  {loading||!scopeReady?<MerchantWorkspaceLoading label="İçerik yükleniyor…" layout="editor" preview={kind!=='page'} />:null}
  {scopeReady&&error?<div className={operations.feedback}><p role="alert" className={styles.error}>{error}</p>{!loading&&!draft?<button type="button" onClick={()=>void load()}>Tekrar dene</button>:null}{reloadRequired?<button type="button" onClick={()=>{if(window.confirm('Girilmiş değişiklikler bırakılıp güncel kayıt yüklensin mi?'))void load();}}>Güncel kaydı yükle</button>:null}</div>:null}
@@ -110,5 +111,5 @@ export function MerchantContentEditor({storeId,kind,recordId,returnTo,canManage,
    {aiEnabled&&recoveryReady&&canEdit?<ContentResourceAuthoringPanel key={`${storeId}:${kind}:${draftId.current}`} storeId={storeId} recoveryLocale={recoveryLocale} target={{kind,draftId:draftId.current,recordId:document?.id??null,recordVersion:document?.version??null}} values={draft.values} selectionText={selectedBodyText} researchEnabled={researchEnabled} onOperationLockChange={setAiLock} onApply={applyAi}/>:null}
    <footer className={operations.saveBar}><span role="status">{busy?'Kaydediliyor…':aiOperationLocked?'Yapay zekâ işlemi bekleniyor':dirty?'Kaydedilmedi':document?`v${document.version}`:'Kaydedilmedi'}</span><div><Link href={returnTo} className={styles.button}>Vazgeç</Link>{canEdit?<button type="submit" className={styles.primary} disabled={busy||aiOperationLocked||!recoveryReady||reloadRequired||!draft.bodyValid||!dirty}>{busy?'Kaydediliyor…':'Kaydet'}</button>:null}</div></footer>
  </form>{document?<aside className={`${operations.preview} ${kind==='page'?pages.editorHistory:''}`} aria-label="Sürüm geçmişi">{kind==='page'?<details><summary>Sürüm geçmişi</summary>{versionHistory}</details>:<><h2>Sürüm geçmişi</h2>{versionHistory}</>}</aside>:null}</div>:null}
- </PanelPageShell></div>;
+ </PanelPageShell></div></PanelInitialDataGate>;
 }

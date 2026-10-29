@@ -25,7 +25,7 @@ async function compile(file: string, api: Record<string, unknown>) {
   const source = await readFile(new URL(file, import.meta.url), "utf8");
   const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
   const module: { exports: Record<string, unknown> } = { exports: {} };
-  Function("require", "module", "exports", output)((name: string) => {
+  Function("require", "module", "exports", output)((name: string) => {if(name==="@/components/panel/PanelInitialDataGate")return{PanelInitialDataGate:({children}:any)=>children,PanelInitialDataBoundary:({children}:any)=>children};
     if (name === "react") return React;
     if (name === "react/jsx-runtime") return jsxRuntime;
     if (name === "lucide-react") return new Proxy({}, { get: () => () => createElement("svg", { "aria-hidden": true }) });

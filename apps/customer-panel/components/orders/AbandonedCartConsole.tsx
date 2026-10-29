@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import Link from "next/link";
 import {
@@ -496,6 +497,7 @@ export function AbandonedCartConsole() {
     };
   }, [load]);
   return (
+    <PanelInitialDataGate pending={state === "loading" && loadedQuery.current === null}>
     <AbandonedCartListPresentation
       state={state === "loaded" && loadedQuery.current !== JSON.stringify([search, sort, status]) ? "loading" : state}
       items={items}
@@ -525,6 +527,7 @@ export function AbandonedCartConsole() {
         setStatus("all");
       }}
     />
+    </PanelInitialDataGate>
   );
 }
 
@@ -889,6 +892,7 @@ export function AbandonedCartDetailConsole({
     }
   }
   return (
+    <PanelInitialDataGate pending={state !== "error" && (!detail || detail.id !== cartId)} scopeKey={cartId}>
     <AbandonedCartDetailPresentation
       state={detail && detail.id !== cartId ? "loading" : state}
       detail={detail?.id === cartId ? detail : undefined}
@@ -908,5 +912,6 @@ export function AbandonedCartDetailConsole({
       onAddNote={() => void recordRecoveryAttempt("note")}
       onArchive={() => void archive()}
     />
+    </PanelInitialDataGate>
   );
 }

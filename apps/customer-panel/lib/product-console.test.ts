@@ -33,6 +33,7 @@ async function productionProductListModule() {
     useState: (value: unknown) => [value, () => undefined],
   });
   const requireStub = (specifier: string) => {
+    if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (specifier === "@/lib/catalog-ui/stock-presentation") return { productStockPresentation };
     if (specifier === "react") return fakeReact;
     if (specifier === "next/link") return () => null;
@@ -207,6 +208,7 @@ async function createMountedProductConsole(
   }
   const compiled = { exports: {} as Record<string, unknown> };
   const requireModule = (specifier: string): unknown => {
+    if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
     if (specifier === "@/lib/catalog-ui/stock-presentation") return { productStockPresentation };
     if (specifier === "react/jsx-runtime") return jsxRuntime;
     if (specifier === "react") return hooks.runtime;

@@ -1,4 +1,5 @@
 'use client';
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from 'next/link';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ArrowLeft,ArrowUpRight,Check,ChevronLeft,ChevronRight,Package,RefreshCw,SlidersHorizontal,Store} from 'lucide-react';
@@ -71,7 +72,7 @@ export function TrendyolConsole({canManage,client=trendyolClient}:Readonly<{canM
   const credentialsLocked=busy||Boolean(connectionAttempt)||Boolean(pricing.attempt);
   const rule=pricingFromDraft(pricing.draft),exampleWebCents=decimalUnits(exampleWeb),exampleShippingCents=decimalUnits(exampleShipping);
   const pendingOrders=orderIssues?.items.filter(item=>item.state==='action_required')??[];
-  return <div className={styles.workspace}>
+  return <PanelInitialDataGate pending={loading && (!overview || !products)}>{<div className={styles.workspace}>
     <h1 className="sr-only">Trendyol</h1>
     <nav className={styles.back} aria-label="Pazaryeri gezinme"><Link href="/marketplaces"><ArrowLeft size={16} aria-hidden="true"/>Pazaryerleri</Link></nav>
     {notice?<p className={styles.notice} role="status"><Check size={16} aria-hidden="true"/>{notice}</p>:null}
@@ -108,5 +109,5 @@ export function TrendyolConsole({canManage,client=trendyolClient}:Readonly<{canM
     </>:null}
     {editor?<TrendyolProductEditor key={editor.variantId} product={editor} pricing={overview?.pricing??DEFAULT_TRENDYOL_PRICING} client={client} onClose={()=>setEditor(null)} onSaved={()=>{setEditor(null);setNotice('Eşleme kaydedildi. Ürün aktarım için sıraya alındı.');void load();}}/>:null}
     <OrderActionDialog open={disconnectOpen} title="Trendyol bağlantısını kes" onClose={()=>{if(!disconnectBusy&&!disconnectAttempt.current)setDisconnectOpen(false);}} busy={disconnectBusy||Boolean(disconnectAttempt.current)} footer={<><button className="button button-secondary" type="button" disabled={disconnectBusy||Boolean(disconnectAttempt.current)} onClick={()=>setDisconnectOpen(false)}>Vazgeç</button><button className="button button-primary" type="button" disabled={disconnectBusy} onClick={()=>void disconnect()}>{disconnectBusy?'İşleniyor…':disconnectAttempt.current?'Bağlantı kesmeyi tekrar dene':'Bağlantıyı kes'}</button></>}><p>Yeni ürün aktarımı ve sipariş kontrolü durur. Eşlemeleriniz ve alınmış siparişleriniz korunur.</p>{disconnectError?<p className={styles.feedback} role="alert">{failureMessage(disconnectError)}</p>:null}</OrderActionDialog>
-  </div>;
+  </div>}</PanelInitialDataGate>;
 }

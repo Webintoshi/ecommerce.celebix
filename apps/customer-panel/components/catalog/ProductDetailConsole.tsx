@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { CommercialFeatureLink } from "@/components/commercial-packages/CommercialFeatureLink";
 
 
@@ -724,8 +725,8 @@ function ProductDetailConsoleWorkspace({
     finally{setBusy("");}
   }
 
-  if (loading && !detail) return <CatalogWorkspaceLoading layout="product" label="Ürün ayrıntıları yükleniyor…" />;
-  if (detail === undefined) return <section className={`catalog-page ${catalogStyles.catalogRoot}`}><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section>;
+  if (loading && !detail) return <PanelInitialDataGate pending scopeKey={productId}><CatalogWorkspaceLoading layout="product" label="Ürün ayrıntıları yükleniyor…" /></PanelInitialDataGate>;
+  if (detail === undefined) return <PanelInitialDataGate pending={false} scopeKey={productId}><section className={`catalog-page ${catalogStyles.catalogRoot}`}><div className="feedback feedback-error" role="alert"><div><strong>Ürün açılamadı</strong><p>{error || "Ürün bulunamadı."}</p></div><button className="button button-secondary" type="button" onClick={() => { setLoading(true); void load(); }}>Tekrar dene</button></div></section></PanelInitialDataGate>;
 
   const { product, variants } = detail;
   const archived = product.status === "archived";
@@ -769,6 +770,7 @@ function ProductDetailConsoleWorkspace({
   ) : null;
 
   return (
+    <PanelInitialDataGate pending={false} scopeKey={productId}>
     <section data-presentation="hemenaku-product-detail" className={"catalog-page product-detail-workspace " + catalogStyles.catalogRoot + " " + styles.root} aria-labelledby="product-title">
       <h1 id="product-title" className="sr-only">{product.title} ürününü düzenle</h1>
       <div className={styles.toolbar}>
@@ -962,6 +964,7 @@ function ProductDetailConsoleWorkspace({
         onConfirm={deleteProduct}
       /> : null}
     </section>
+    </PanelInitialDataGate>
   );
 }
 

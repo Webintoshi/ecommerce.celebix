@@ -43,7 +43,7 @@ async function withScreen(moduleName: string, exportName: string, props: Record<
     for (const dependency of dependencies) await load(dependency!);
     const compiled = { exports: {} as Record<string, unknown> };
     const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
-    Function("require", "module", "exports", output)((id: string) => {
+    Function("require", "module", "exports", output)((id: string) => {if(id==="@/components/panel/PanelInitialDataGate")return{PanelInitialDataGate:({children}:any)=>children,PanelInitialDataBoundary:({children}:any)=>children};
       if (id.endsWith("/CatalogWorkspaceLoading")) return compileCatalogLoading("components/catalog/CatalogWorkspaceLoading.tsx");if (id === "react") return React;
       if (id === "react-dom") return ReactDom;
       if (id === "react/jsx-runtime") return jsxRuntime;

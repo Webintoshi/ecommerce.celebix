@@ -1,3 +1,4 @@
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { PanelSkeletonBlock } from "@/components/panel/PanelPageShell";
 import styles from "./merchant-workspace-loading.module.css";
 
@@ -8,7 +9,7 @@ export function MerchantWorkspaceLoading({ label, layout = "list", rows = 3, pre
   rows?: number;
   preview?: boolean;
 }>) {
-  return <div className={`${styles.loading} ${styles[layout]} ${layout === "editor" && !preview ? styles.editorSingle : ""}`} role="status" aria-label={label}>
+  return <PanelInitialDataGate pending={true}>{<div className={`${styles.loading} ${styles[layout]} ${layout === "editor" && !preview ? styles.editorSingle : ""}`} role="status" aria-label={label}>
     <span className="sr-only">{label}</span>
     {layout === "editor" ? <>
       <div className={styles.form}><PanelSkeletonBlock className={styles.heading} /><div className={styles.fields}>{[0, 1, 2, 3].map(index => <div key={index}><PanelSkeletonBlock className={styles.label} /><PanelSkeletonBlock className={styles.input} /></div>)}</div><PanelSkeletonBlock className={styles.body} /><PanelSkeletonBlock className={styles.footer} /></div>
@@ -20,5 +21,5 @@ export function MerchantWorkspaceLoading({ label, layout = "list", rows = 3, pre
       <div className={styles.tableHead} aria-hidden="true">{[0, 1, 2, 3, 4].map(index => <PanelSkeletonBlock key={index} />)}</div>
       {Array.from({ length: Math.max(1, Math.min(rows, 20)) }, (_, row) => <div className={styles.row} key={row} aria-hidden="true">{[0, 1, 2, 3, 4].map(index => <PanelSkeletonBlock key={index} />)}</div>)}
     </>}
-  </div>;
+  </div>}</PanelInitialDataGate>;
 }

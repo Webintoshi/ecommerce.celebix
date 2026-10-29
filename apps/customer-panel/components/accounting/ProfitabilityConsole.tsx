@@ -1,4 +1,5 @@
 'use client';
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from 'next/link';
 import {useEffect,useState,type FormEvent} from 'react';
 import {ChevronDown,RefreshCw} from 'lucide-react';
@@ -59,7 +60,7 @@ function ProfitabilityWorkspace({canRead,scopeKey}:{canRead:boolean;scopeKey:str
  },[scopeKey,canRead,queryKey,filters,revision]);
  function apply(event:FormEvent){event.preventDefault();try{setFilters(profitabilityFilters(draft));setFilterError(null)}catch(e){setFilterError(e instanceof Error?e.message:'Tarihleri ve para birimini kontrol et.')}}
  if(!canRead)return<PanelPageShell><PanelPageHeader title="Gelir ve kâr"/><h1 className="sr-only">Gelir ve kâr</h1><p className={shared.empty}>Gelir ve kâr özeti için mağaza yöneticisi yetkisi gerekiyor.</p></PanelPageShell>;
- return<PanelPageShell><PanelPageHeader title="Gelir ve kâr"/><h1 className="sr-only">Gelir ve kâr</h1><div className={shared.console}>
+ return<PanelInitialDataGate pending={canRead && loading && !data} scopeKey={scopeKey}>{<PanelPageShell><PanelPageHeader title="Gelir ve kâr"/><h1 className="sr-only">Gelir ve kâr</h1><div className={shared.console}>
   <AccountingNavigation active="profitability"/>
   <div className={shared.toolbar}><form className={shared.filters} onSubmit={apply}><label className={shared.filterField}><span>Başlangıç</span><input name="dateFrom" type="date" value={draft.dateFrom} required onChange={e=>setDraft(v=>({...v,dateFrom:e.target.value}))}/></label><label className={shared.filterField}><span>Bitiş</span><input name="dateTo" type="date" value={draft.dateTo} required onChange={e=>setDraft(v=>({...v,dateTo:e.target.value}))}/></label><label className={shared.filterField}><span>Para birimi</span><input name="currency" value={draft.currency} placeholder="Tümü" maxLength={3} onChange={e=>setDraft(v=>({...v,currency:e.target.value.toUpperCase()}))}/></label><button className={shared.secondary} disabled={loading}>Uygula</button></form><button type="button" className={shared.secondary} disabled={loading} onClick={()=>setRevision(v=>v+1)}><RefreshCw size={16} aria-hidden="true"/>Yenile</button></div>
   {filterError?<p role="alert" className={shared.error}>{filterError}</p>:null}
@@ -71,5 +72,5 @@ function ProfitabilityWorkspace({canRead,scopeKey}:{canRead:boolean;scopeKey:str
   </div>
   <p className={styles.reportNote}>{data?.currencies.some(row=>row.grossProfitCents===null&&row.knownProfit)?'Kısmi kâr yalnız maliyeti bilinen satışları içerir; işletme gideri ve komisyon düşülmez. Tutarlar vergi ve kaydedilmemiş giderler hariçtir.':'Satılan ürün maliyeti ve kayıtlı giderler sonrası; vergi ve kaydedilmemiş giderler hariç. Tedarikçi ödemeleri ürün maliyetinden ayrı izlenir; gider türü bilinmiyorsa kâr gösterilmez.'}</p>
   <AccountingTaxSummary scopeKey={scopeKey} filters={filters} revision={revision}/>
- </div></PanelPageShell>;
+ </div></PanelPageShell>}</PanelInitialDataGate>;
 }

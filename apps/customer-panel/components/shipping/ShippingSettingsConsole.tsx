@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { Check, KeyRound, LoaderCircle, RefreshCw, ShieldCheck, Trash2, Truck } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
@@ -107,7 +108,7 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
     || codDeliveredMarksPaid !== connection.codDeliveredMarksPaid
   );
 
-  return (
+  return <PanelInitialDataGate pending={loading && !loaded}>{(
     <section className={styles.page} data-panel-layout="open-canvas" data-settings-dirty={canManage && (resourceDirty || token.length > 0) ? "true" : undefined} aria-busy={loading || busy !== null}>
       <PanelTopbarBridge title="Kargo Ayarları" />
       <div className={styles.providerRow}>
@@ -161,5 +162,5 @@ export function ShippingSettingsConsole({ canManage }: Readonly<{ canManage: boo
       {!loading && connection?.status === "pending" && !canChoose ? <p className={styles.inlineState}><ShieldCheck size={16} />Bağlantı doğrulanıyor.</p> : null}
       <p className={styles.liveStatus} aria-live="polite">{notice}</p>
     </section>
-  );
+  )}</PanelInitialDataGate>;
 }

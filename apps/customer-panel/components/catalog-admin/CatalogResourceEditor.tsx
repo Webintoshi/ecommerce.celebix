@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -243,7 +244,7 @@ function CatalogResourceEditorWorkspace(props: { kind: CatalogAdminResourceKind;
   const unseenSelectedProductIds = selectedProductIds.filter((id) => !loadedProductIds.has(id));
   if (!canManage) return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p></PanelPageShell>;
 
-  return <PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><section className={`${styles.surface} ${styles.workspace} ${kind === "brand" ? styles.brandWorkspace : ""}`}>
+  return <PanelInitialDataGate pending={loading} scopeKey={`${kind}:${resourceId ?? "new"}`}><PanelPageShell><PanelPageHeader title={title} description={DESCRIPTIONS[kind]} /><h1 className={styles.srOnly}>{title}</h1><section className={`${styles.surface} ${styles.workspace} ${kind === "brand" ? styles.brandWorkspace : ""}`}>
     {loading ? <CatalogWorkspaceLoading layout="editor" label="Kayıt yükleniyor…" /> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}{resourceId && !resource ? <> <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button></> : null}</p> : null}
     {!loading && (resourceId === undefined || resource !== undefined) ? <form className={`${styles.form} ${kind === "attribute" ? styles.attributeForm : kind === "brand" ? styles.brandForm : ""}`} onSubmit={submit}>
@@ -289,7 +290,7 @@ function CatalogResourceEditorWorkspace(props: { kind: CatalogAdminResourceKind;
       </fieldset> : null}
       <div className={`${styles.wide} ${styles.actions} ${kind === "attribute" ? styles.attributeFormActions : kind === "brand" ? styles.brandFormActions : ""}`}><a className={styles.button} href={`/products/${route.segment}`}>Vazgeç</a><button className={styles.primary} disabled={busy || logoBusy || logoUploadFailed}>{busy ? "Kaydediliyor…" : logoBusy ? "Logo yükleniyor…" : kind === "attribute" ? resource ? "Değişiklikleri kaydet" : "Niteliği oluştur" : "Kaydet"}</button></div>
     </form> : null}
-  </section></PanelPageShell>;
+  </section></PanelPageShell></PanelInitialDataGate>;
 }
 
 export function CatalogResourceEditor(props: Parameters<typeof CatalogResourceEditorWorkspace>[0]) {

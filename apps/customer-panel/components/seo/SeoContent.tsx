@@ -1,5 +1,6 @@
 'use client';
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from 'next/link';
 import {Pencil,RefreshCw,Search,ChevronLeft,ChevronRight,ExternalLink} from 'lucide-react';
 import {useCallback,useEffect,useRef,useState,type FormEvent} from 'react';
@@ -118,7 +119,7 @@ export function SeoContent({canManage,initialKind='product',resourceId,initialQu
   const fallbackDescription=editing?.description?'Varsayılan açıklama kaydedildiğinde uygulanır.':editing?.effectiveDescription;
   const fallbackCanonical=editing?.canonicalPath?editing.path:editing?.effectiveCanonicalPath;
 
-  return <SeoFrame active="content" title="İçerik SEO" canManage={canManage}>
+  return <PanelInitialDataGate pending={loading}>{<SeoFrame active="content" title="İçerik SEO" canManage={canManage}>
     <div className={`${styles.tabs} ${styles.segments}`} role="group" aria-label="İçerik türü">{RESOURCE_KINDS.map(type=><button key={type} type="button" aria-pressed={kind===type} onClick={()=>setType(type)}>{RESOURCE_LABELS[type]}</button>)}</div>
     <div className={styles.toolbar}>
       <label className={styles.search}><span className="sr-only">İçerik ara</span><Search size={18} aria-hidden="true"/><input ref={search} type="search" aria-label="İçerik ara" maxLength={100} value={query} placeholder="Ad veya URL ara" onChange={event=>setQuery(event.target.value)}/></label>
@@ -161,5 +162,5 @@ export function SeoContent({canManage,initialKind='product',resourceId,initialQu
         {contentHref?<Link className={styles.textLink} href={contentHref}>İçeriği yönet <ExternalLink size={14} aria-hidden="true"/></Link>:null}
       </form>
     </OrderActionDialog>
-  </SeoFrame>;
+  </SeoFrame>}</PanelInitialDataGate>;
 }

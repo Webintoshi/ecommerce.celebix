@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import Link from "next/link";
@@ -33,7 +34,7 @@ export function PromotionCodes({ promotionId, timezone, storefrontOrigin, canPub
   const batchActions = (batch: PromotionCodeBatchListItem) => <div className={styles.rowActions}>{canPublish && batch.status === "active" ? <button type="button" disabled={loading || busy.includes(batch.id)} onClick={() => transition(batch, "paused")}>Duraklat</button> : null}{canPublish && batch.status === "paused" ? <button type="button" disabled={loading || busy.includes(batch.id)} onClick={() => transition(batch, "active")}>Etkinleştir</button> : null}{canPublish && batch.status !== "revoked" ? <button type="button" disabled={loading || busy.includes(batch.id)} onClick={() => transition(batch, "revoked")}>İptal et</button> : null}{canExportCodes ? <a href={`/api/promotions/code-batches/${batch.id}/csv`} download>CSV indir</a> : null}</div>;
   const primaryCode = dataReady && promotion?.ruleDocument.trigger.kind === "code" ? promotion.ruleDocument.trigger.codes[0] ?? null : null;
   const shareUrl = storefrontOrigin && primaryCode ? `${storefrontOrigin}/cart/coupon?coupon=${encodeURIComponent(primaryCode)}` : null;
-  return <section className={styles.list}>
+  return <PanelInitialDataGate pending={loading&&!dataReady} scopeKey={promotionId}><section className={styles.list}>
     <PanelPageHeader title="Kampanya kuponları" />
     <header className={styles.pageHeader}><div><h1 className={styles.srOnly}>Kampanya kuponları</h1><strong className={styles.recordName}>{dataReady ? promotion?.name ?? "Kampanya" : "Kampanya"}</strong><p>Toplu kuponlar</p></div><Link href={`/discounts/${promotionId}`}>Kampanyaya dön</Link></header>
     {shareUrl ? <div className={styles.info}><strong>Paylaşılabilir kampanya bağlantısı</strong><p><a href={shareUrl} target="_blank" rel="noreferrer">{shareUrl}</a></p><button type="button" onClick={() => void navigator.clipboard.writeText(shareUrl).then(() => setMessage("Bağlantı kopyalandı.")).catch(() => setMessage("Bağlantı kopyalanamadı. Bağlantıyı seçip kopyalayabilirsiniz."))}>Bağlantıyı kopyala</button></div> : <p className={styles.info}>Paylaşılabilir bağlantı için kodlu kampanya ve doğrulanmış birincil mağaza alan adı gerekir.</p>}
@@ -45,5 +46,5 @@ export function PromotionCodes({ promotionId, timezone, storefrontOrigin, canPub
     </div>
     {appendFailed ? <p className={styles.error} role="alert">Diğer kupon grupları yüklenemedi. Mevcut liste korunuyor.</p> : null}
     {!loading && nextCursor ? <button className={styles.secondaryButton} type="button" disabled={loadingMore} onClick={loadMore}>{loadingMore ? "Yükleniyor…" : appendFailed ? "Yeniden dene" : "Daha fazla göster"}</button> : null}
-  </section>;
+  </section></PanelInitialDataGate>;
 }

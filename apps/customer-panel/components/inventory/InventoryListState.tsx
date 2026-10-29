@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { PanelEmptyState } from "@/components/panel/PanelPageShell";
@@ -58,8 +59,8 @@ export function InventoryListState(props: Readonly<{
 }
 
 export function InventoryLoading({ label = "Kalıcı envanter kayıtları yükleniyor…", editor = false }: { label?: string; editor?: boolean }) {
-  return <div className={`${styles.listBody} ${editor ? styles.editorLoading : styles.listLoading}`} role="status" aria-label={label}>
+  return <PanelInitialDataGate pending={true}>{<div className={`${styles.listBody} ${editor ? styles.editorLoading : styles.listLoading}`} role="status" aria-label={label}>
     <span className={styles.srOnly}>{label}</span>
     {Array.from({ length: editor ? 3 : 5 }, (_, index) => <div className={styles.loadingRow} key={index} aria-hidden="true"><span /><span /><span /></div>)}
-  </div>;
+  </div>}</PanelInitialDataGate>;
 }

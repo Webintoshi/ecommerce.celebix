@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import type { CustomerTag, PriceChannel, PriceList, PriceListItem, PriceListRule } from "@celebix/saas-contracts";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -26,7 +27,7 @@ function TruthState(props: Readonly<{ phase: ViewPhase; list?: boolean; onRetry?
   if (props.phase === "unavailable") return <div className={styles.error} role="alert">Fiyatlandırma hizmeti kullanılamıyor.{props.list ? "" : " Taslağınız korunuyor."}</div>;
   if (props.phase === "conflict") return <div className={styles.conflict} role="alert">Fiyat listesi başka bir işlemle çakıştı. Taslağınız korunuyor.</div>;
   if (props.phase === "error") return <div className={styles.error} role="alert">{props.list ? "Fiyat listeleri yüklenemedi." : "Fiyat listesi işlemi tamamlanamadı. Taslağınız korunuyor."}{props.onRetry ? <button type="button" onClick={props.onRetry}>Yeniden dene</button> : null}</div>;
-  if (props.phase === "loading") return <div className={props.list ? styles.listLoading : styles.editorLoading} role="status" aria-label={props.list ? "Fiyat listeleri yükleniyor…" : "Fiyat listesi yükleniyor…"}>{Array.from({ length: props.list ? 5 : 3 }, (_, index) => <div className={styles.loadingRow} key={index} aria-hidden="true"><span /><span /><span /></div>)}</div>;
+  if (props.phase === "loading") return <PanelInitialDataGate pending>{<div className={props.list ? styles.listLoading : styles.editorLoading} role="status" aria-label={props.list ? "Fiyat listeleri yükleniyor…" : "Fiyat listesi yükleniyor…"}>{Array.from({ length: props.list ? 5 : 3 }, (_, index) => <div className={styles.loadingRow} key={index} aria-hidden="true"><span /><span /><span /></div>)}</div>}</PanelInitialDataGate>;
   return null;
 }
 

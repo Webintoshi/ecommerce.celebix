@@ -21,7 +21,7 @@ async function screen(options:Options,verify:(context:any)=>Promise<void>){
  const css:any=new Proxy({},{get:(_target,key)=>key==='__esModule'?true:key==='default'?css:String(key)});
  const source=readFileSync(new URL('./StoreToolsPurchasingConsole.tsx',import.meta.url),'utf8'),output=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
  const compiled={exports:{}as Record<string,any>};
- Function('require','module','exports',output)((name:string)=>{
+ Function('require','module','exports',output)((name:string)=>{if(name==="@/components/panel/PanelInitialDataGate")return{PanelInitialDataGate:({children}:any)=>children,PanelInitialDataBoundary:({children}:any)=>children};
   if(name==='react')return React;if(name==='react/jsx-runtime')return jsxRuntime;if(name==='@celebix/saas-contracts')return contracts;
   if(name==='@/lib/store-tools-ui/client')return api;
   if(name==='../commercial-packages/PlatformCheckoutButton')return {PlatformCheckoutButton:(p:any)=>createElement('button',{'data-platform-checkout':p.offerId,disabled:p.disabled},'Güvenli ödemeye geç')};

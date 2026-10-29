@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeMarketingSettings, NativeMarketingTemplate } from '@celebix/saas-data';
 import { EmailMarketingConnections } from '@/components/email-marketing/EmailMarketingConnections';
@@ -90,7 +91,7 @@ export function NativeMarketingWorkspace({ canManage, nativeConfigured = false, 
   function selectTab(id: Tab) { setTab(id); if (id === 'connections') setConnectionsVisited(true); }
   const locked = busy || !!pending, campaigns = overview?.campaigns ?? [];
   const skips = Object.entries(overview?.skippedReasonCounts ?? {}).filter(([, count]) => count > 0);
-  return <section className={styles.workspace} aria-label="E-posta pazarlama">
+  return <PanelInitialDataGate pending={nativeConfigured && loading && !overview && tab !== 'connections'} scopeKey={recoveryScope}>{<section className={styles.workspace} aria-label="E-posta pazarlama">
     <div className={styles.tabs} role="tablist" aria-label="E-posta araçları">{TABS.map(item => <button key={item.id} type="button" role="tab" id={`native-email-tab-${item.id}`} aria-selected={tab === item.id} aria-controls={`native-email-panel-${item.id}`} tabIndex={tab === item.id ? 0 : -1} onClick={() => selectTab(item.id)} onKeyDown={event => {
       const direction = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
       if (!direction && event.key !== 'Home' && event.key !== 'End') return;
@@ -116,5 +117,5 @@ export function NativeMarketingWorkspace({ canManage, nativeConfigured = false, 
       <section id="native-email-panel-cart" role="tabpanel" aria-labelledby="native-email-tab-cart" hidden={tab !== 'cart'} className={styles.panel}><CartReminderSettings settings={overview.settings} canManage={canManage} disabled={locked} onDirtyChange={setCartDirty} onExecute={command => void execute(command)} /><CartReminderPreview api={api} canManage={canManage} disabled={locked} quotaRemaining={overview.quota.remaining} onExecute={command => void execute(command)} /></section>
     </> : null}
     <section id="native-email-panel-connections" role="tabpanel" aria-labelledby="native-email-tab-connections" hidden={tab !== 'connections'}>{connectionsVisited ? <EmailMarketingConnections canManage={canManage} configured={connectionsConfigured} /> : null}</section>
-  </section>;
+  </section>}</PanelInitialDataGate>;
 }

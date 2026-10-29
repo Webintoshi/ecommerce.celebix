@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, ChevronDown, CircleAlert, GitCompareArrows, LockKeyhole, Route, SlidersHorizontal } from "lucide-react";
 import {
@@ -1120,7 +1121,7 @@ export function CommerceAnalyticsWorkspace({
     ? workerDelayed ? null : trafficMissing ? "Satış verileri güncel" : applicableDegradation ? "Bazı ölçümler eksik" : "Veriler güncel"
     : viewState === "loading" ? "Yükleniyor" : "Veri alınamadı";
 
-  return (
+  return <PanelInitialDataGate pending={viewState === "loading" || (viewState === "ready" && tab === "overview" && (!detailsData || detailsData.key !== requestKey || detailsData.productsState === "loading" || detailsData.funnelState === "loading"))}>{(
     <ActiveVisitorsProvider>
     <PanelPageShell>
       <div className={styles.root}>
@@ -1364,7 +1365,7 @@ export function CommerceAnalyticsWorkspace({
       </div>
     </PanelPageShell>
     </ActiveVisitorsProvider>
-  );
+  )}</PanelInitialDataGate>;
 }
 
 function Overview({

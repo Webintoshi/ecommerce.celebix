@@ -1,0 +1,14 @@
+.gate,
+.content,
+.reader {
+  display: contents;
+}
+
+.content[hidden] {
+  display: none;
+}
+
+.loading img {
+  animation: none;
+  opacity: 1;
+}

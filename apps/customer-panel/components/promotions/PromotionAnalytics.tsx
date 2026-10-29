@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import Link from "next/link";
@@ -22,7 +23,7 @@ export function PromotionAnalytics({ promotionId }: Readonly<{ promotionId: stri
       .catch(() => { if (!controller.signal.aborted) setFailed(true); });
     return () => controller.abort();
   }, [promotionId, days, retry]);
-  return <section className={styles.list}>
+  return <PanelInitialDataGate pending={!failed&&(!promotion||!report)} scopeKey={promotionId}><section className={styles.list}>
     <PanelPageHeader title="Kampanya analizi" />
     <header className={styles.pageHeader}><div><h1 className={styles.srOnly}>Kampanya analizi</h1><strong className={styles.recordName}>{promotion?.name ?? "Kampanya"}</strong><p>Ödemesi tamamlanan siparişler</p></div><Link href={`/discounts/${promotionId}`}>Kampanyaya dön</Link></header>
     <div className={styles.kpiHeader}><h2>Performans</h2><div role="group" aria-label="Analiz dönemi">{([7, 30, 90] as const).map((value) => <button key={value} type="button" aria-pressed={days === value} onClick={() => setDays(value)}>Son {value} gün</button>)}</div></div>
@@ -38,5 +39,5 @@ export function PromotionAnalytics({ promotionId }: Readonly<{ promotionId: stri
       </div>
     </> : null}
     </div>
-  </section>;
+  </section></PanelInitialDataGate>;
 }

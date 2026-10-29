@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { InventoryLocation } from "@celebix/saas-contracts";
 
@@ -56,7 +57,7 @@ export function InventoryWorkspaceProvider({ inventoryCanRead, children }: Reado
       revision: snapshot.revision,
     });
   }, [inventoryCanRead, snapshot, data, reload]);
-  return <InventoryWorkspaceContext.Provider value={value}>{children}</InventoryWorkspaceContext.Provider>;
+  return <PanelInitialDataGate pending={inventoryCanRead && snapshot.phase === "loading"}>{<InventoryWorkspaceContext.Provider value={value}>{children}</InventoryWorkspaceContext.Provider>}</PanelInitialDataGate>;
 }
 
 export function useOptionalInventoryWorkspace() {

@@ -66,6 +66,7 @@ async function mounted(overrides: Record<string, (...args: any[]) => any>, verif
     const output = ts.transpileModule(source, { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
     const module = file === "OrderDetailConsole.tsx" ? compiled : { exports: {} as Record<string, any> };
     Function("require", "module", "exports", output)((name: string) => {
+    if (name === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: { children?: import("react").ReactNode }) => children, PanelInitialDataBoundary: ({ children }: { children?: import("react").ReactNode }) => children };
       if (name === "react") return React;
       if (name === "react/jsx-runtime") return runtime;
       if (name === "next/link") return { __esModule: true, default: ({ children, ...props }: any) => createElement("a", props, children) };

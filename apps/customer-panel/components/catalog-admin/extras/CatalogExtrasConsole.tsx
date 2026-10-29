@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -65,7 +66,7 @@ export function CatalogExtrasConsole({ canManage }: { canManage: boolean }) {
   const visible = items.filter((resource) => (type === "all" || catalogExtraType(resource) === type) && (!normalizedSearch || [resource.name, resource.slug, resource.description ?? "", ...(Array.isArray(resource.config.categoryIds) ? resource.config.categoryIds.map((id) => categoryById.get(String(id))?.name ?? "") : [])].some((value) => value.toLocaleLowerCase("tr-TR").includes(normalizedSearch))));
   const isEmpty = resolved && !items.length;
 
-  return <PanelPageShell><PanelPageHeader title="Ekstralar" /><h1 className={styles.srOnly}>Ekstralar</h1><section className={`${styles.workspace} ${styles.listWorkspace}`}>
+  return <PanelInitialDataGate pending={(loading&&!resolved)||(!error&&categoryState==='loading')}><PanelPageShell><PanelPageHeader title="Ekstralar" /><h1 className={styles.srOnly}>Ekstralar</h1><section className={`${styles.workspace} ${styles.listWorkspace}`}>
     {error ? <p className={styles.error} role="alert">{error} <button className={styles.button} type="button" disabled={loading} onClick={() => void load()}>Tekrar dene</button></p> : null}
     {categoryState === "error" && items.some((item) => catalogExtraType(item) === "size_guide") ? <p className={styles.error} role="alert">Kategori adları yüklenemedi. <button className={styles.button} type="button" onClick={() => void loadCategories()}>Tekrar dene</button></p> : null}
     {canManage ? <div className={`${styles.creationEntry} ${isEmpty ? styles.emptyEntry : ""}`}>
@@ -86,5 +87,5 @@ export function CatalogExtrasConsole({ canManage }: { canManage: boolean }) {
         {isGuide ? <><p>{categoryState === "loading" ? "Kategoriler yükleniyor…" : categoryIds.map((id) => categoryById.get(id)?.name ?? (categoryState === "error" ? "Kategori adı okunamıyor" : "Kategori artık etkin değil")).join(", ") || "Kategori atanmamış"}</p><small>{resource.config.enabled === true ? "Gösterim açık" : "Gösterim kapalı"}{resource.config.includeDescendants === true ? " · Alt kategoriler dahil" : ""}</small></> : <p>/{resource.slug} · {resource.productCount} ürün</p>}
         {resource.description ? <small>{resource.description}</small> : null}</div><div className={styles.actions}><span className={styles.muted}>v{resource.version}</span><Link className="button button-secondary" href={catalogExtraHref(resource, "preview")}><Eye aria-hidden="true" />Önizle</Link>{canManage ? <><Link className="button button-secondary" href={catalogExtraHref(resource, "edit")}><SquarePen aria-hidden="true" />Düzenle</Link><button type="button" className={styles.danger} disabled={loading || archiving.includes(resource.id)} onClick={() => void archive(resource)}><Archive aria-hidden="true" />{archiving.includes(resource.id) ? "Arşivleniyor…" : "Arşivle"}</button></> : null}</div></article>;
     })}</div>}
-  </section></PanelPageShell>;
+  </section></PanelPageShell></PanelInitialDataGate>;
 }

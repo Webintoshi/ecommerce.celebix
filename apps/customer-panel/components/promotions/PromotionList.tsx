@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
@@ -171,7 +172,7 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
   };
   const appliedStatus = appliedQuery.effectiveStatuses?.[0] ?? "";
 
-  return <section className={styles.list}>
+  return <PanelInitialDataGate pending={phase!=='error'&&((phase==='loading'&&!dataReady)||(overviewPhase==='loading'&&!overview)||wheelSources.phase==='loading')}><section className={styles.list}>
     <PanelPageHeader title="İndirimler" />
     {wheelSources.phase === "error" ? <p role="alert">İndirim kaynakları doğrulanamadı. <button type="button" onClick={wheelSources.retry}>Kaynakları yeniden yükle</button></p> : null}
     <h1 className={styles.srOnly}>İndirimler ve Kampanyalar</h1>
@@ -225,5 +226,5 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
         <button type="submit" hidden>Filtreleri uygula</button>
       </form>
     </DesignSettingsModal>
-  </section>;
+  </section></PanelInitialDataGate>;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import {RefreshCw,Sparkles} from 'lucide-react';
 import {useEffect,useRef,useState} from 'react';
 import {PlatformCheckoutButton} from '@/components/commercial-packages/PlatformCheckoutButton';
@@ -20,7 +21,7 @@ function ArtificialIntelligenceSettingsWorkspace({canManage,storeId,autoStartTes
  const epoch=useRef(0);
  useEffect(()=>{const current=++epoch.current;const controller=new AbortController();setLoading(true);setError('');void readToshiCredits(controller.signal).then(value=>{if(current===epoch.current)setOverview(value);}).catch(()=>{if(!controller.signal.aborted&&current===epoch.current)setError('Toshi kredileri yüklenemedi. Yeniden deneyin.');}).finally(()=>{if(current===epoch.current)setLoading(false);});return()=>{epoch.current++;controller.abort();};},[storeId,revision]);
  const offers=overview?.offers.filter(offer=>OFFERS.has(offer.id))??[];
- return <section className={styles.root} aria-label="Toshi kredileri" aria-busy={loading}>
+ return <PanelInitialDataGate pending={loading && !overview} scopeKey={storeId}>{<section className={styles.root} aria-label="Toshi kredileri" aria-busy={loading}>
   <div className={styles.walletRow}><div className={styles.walletIdentity}><Sparkles aria-hidden="true"/><div><span>Kullanılabilir Toshi kredisi</span><strong>{overview?overview.wallet.available.toLocaleString('tr-TR'):loading?'…':'—'}</strong>{overview?<small>Toplam bakiye: {overview.wallet.balance.toLocaleString('tr-TR')} kredi</small>:null}</div></div><button type="button" className={styles.refreshButton} disabled={loading} onClick={()=>setRevision(value=>value+1)}><RefreshCw size={16} aria-hidden="true"/>Yenile</button></div>
   {overview?.wallet.reserved?<p className={styles.helper}>{overview.wallet.reserved.toLocaleString('tr-TR')} kredi devam eden işlemler için ayrıldı.</p>:null}
   {error?<p role="alert" className={styles.liveStatus}>{error}</p>:null}
@@ -39,7 +40,7 @@ function ArtificialIntelligenceSettingsWorkspace({canManage,storeId,autoStartTes
    })}</div>:<p className={styles.helper}>Kredi paketleri şu anda görüntülenemiyor. Yenileyerek tekrar deneyin.</p>}
   </>:null}
   <span className={styles.srOnly} role="status" aria-live="polite">{loading?'Krediler yükleniyor…':error}</span>
- </section>;
+ </section>}</PanelInitialDataGate>;
 }
 
 export function ArtificialIntelligenceSettings(props:{canManage:boolean;storeId:string;autoStartTestPurchase?:boolean}) {

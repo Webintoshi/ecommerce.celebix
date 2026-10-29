@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -103,7 +104,7 @@ function CatalogSizeGuideEditorWorkspace({ resourceId, canManage, initialResourc
   }
 
   const title = resourceId ? "Ölçü rehberi düzenle" : "Yeni ölçü rehberi";
-  return <PanelPageShell><PanelPageHeader title={title} /><h1 className={styles.srOnly}>{title}</h1><section className={styles.workspace}>
+  return <PanelInitialDataGate pending={canManage&&(loading||(!error&&categoryState==='loading'))} scopeKey={resourceId??'new'}><PanelPageShell><PanelPageHeader title={title} /><h1 className={styles.srOnly}>{title}</h1><section className={styles.workspace}>
     {!canManage ? <p className={styles.error} role="alert">Bu katalog işlemi için yetkiniz yok.</p> : loading ? <CatalogWorkspaceLoading layout="editor" label="Ölçü rehberi yükleniyor…" /> : <>
       {error ? <div className={styles.error} role="alert"><p>{error}</p>{!ready ? <button className={styles.button} type="button" onClick={() => void load()}>Tekrar dene</button> : versionConflict ? <button className={styles.button} type="button" disabled={reviewing} onClick={() => void reviewCurrentVersion()}>{reviewing ? "Yükleniyor…" : "Güncel sürümü incele"}</button> : null}</div> : null}
       {versionConflict && latestResource ? <section className={styles.conflictReview} aria-label="Güncel rehber sürümü"><h2>Güncel sürüm · v{latestResource.version}</h2><p>{latestResource.name} · {String(latestResource.config.heading)}</p><div className={styles.previewBody}><CatalogSizeGuideContent body={String(latestResource.config.body)} /></div><p>Taslağınız bu içeriğin yerine kaydedilecek. Devam ettikten sonra Uygula ile kaydedin.</p><button className={styles.button} type="button" onClick={() => { setResource(latestResource); setVersionConflict(false); setLatestResource(undefined); operation.current = undefined; setError(""); }}>Bu taslakla devam et</button></section> : null}
@@ -128,7 +129,7 @@ function CatalogSizeGuideEditorWorkspace({ resourceId, canManage, initialResourc
         <div className={styles.formActions}><Link className={styles.button} href="/products/extras">Vazgeç</Link><button className={styles.primary} type="submit" disabled={busy || versionConflict || categoryState !== "ready"}>{busy ? "Uygulanıyor…" : "Uygula"}</button></div>
       </form> : null}
     </>}
-  </section></PanelPageShell>;
+  </section></PanelPageShell></PanelInitialDataGate>;
 }
 
 export function CatalogSizeGuideEditor(props: Parameters<typeof CatalogSizeGuideEditorWorkspace>[0]) {

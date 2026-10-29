@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import type { MerchantAdminJson, MerchantAdminRecord, MerchantAdminRecordKind } from "@celebix/saas-contracts";
@@ -256,33 +257,33 @@ export function MerchantRecordEditor({
     }
   }
 
-  if (kind === "administrator_invite") return <PanelPageShell>
+  if (kind === "administrator_invite") return <PanelInitialDataGate pending={canManage && loading && !loadSucceeded} scopeKey={`${kind}:${recordId ?? "new"}`}><PanelPageShell>
     <PanelPageHeader title={recordId ? "Daveti düzenle" : "Yönetici ekle"} />
     {!canManage ? <p className={styles.error} role="alert">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="settings" /> : <>
       {error ? <p className={styles.error} role="alert">{error}</p> : null}
       {loadSucceeded ? <SettingsRecordForm key={`${record?.id ?? "new"}:${record?.version ?? 0}`} kind={kind} record={record ?? null} canManage={canManage} busy={busy} onSubmit={submit} /> : <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button>}
     </>}
-  </PanelPageShell>;
+  </PanelPageShell></PanelInitialDataGate>;
 
   const title = recordId === undefined ? `Yeni ${definition.singular}` : `${definition.singular} düzenle`;
 
-  if (kind === "marketplace_connection") return <div className={operations.workspace}><PanelPageShell>
+  if (kind === "marketplace_connection") return <PanelInitialDataGate pending={canManage && loading && !loadSucceeded} scopeKey={`${kind}:${recordId ?? "new"}`}><div className={operations.workspace}><PanelPageShell>
     <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
     <Link className={operations.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> Pazaryerleri</Link>
     {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="editor" /> : <>
       {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
       {loadSucceeded ? <MarketplaceConnectionForm key={`${kind}:${recordId ?? "new"}`} record={record} returnTo={returnTo} busy={busy} dirty={dirty} onDirtyChange={() => setDirty(true)} onSubmit={submit} /> : null}
     </>}
-  </PanelPageShell></div>;
+  </PanelPageShell></div></PanelInitialDataGate>;
 
-  if (kind === "invoice_integration") return <div className={`${operations.workspace} ${accountingStyles.workspace}`}><PanelPageShell>
+  if (kind === "invoice_integration") return <PanelInitialDataGate pending={canManage && loading && !loadSucceeded} scopeKey={`${kind}:${recordId ?? "new"}`}><div className={`${operations.workspace} ${accountingStyles.workspace}`}><PanelPageShell>
     <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
     <Link className={accountingStyles.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> Fatura bağlantıları</Link>
     {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Fatura bağlantısı yükleniyor…" layout="editor" /> : <>
       {error ? <div className={operations.feedback}><p className={styles.error} role="alert">{error}{loadSucceeded ? " Bilgileriniz korundu." : ""}</p>{!loadSucceeded ? <button type="button" className={styles.button} onClick={() => void load()}>Tekrar dene</button> : null}</div> : null}
       {loadSucceeded ? <AccountingRecordForm key={`${kind}:${recordId ?? "new"}`} kind="invoice_integration" record={record} returnTo={returnTo} busy={busy} dirty={dirty} onDirtyChange={() => setDirty(true)} onSubmit={submit} /> : null}
     </>}
-  </PanelPageShell></div>;
+  </PanelPageShell></div></PanelInitialDataGate>;
 
   if (definition.family !== "settings") {
     const contentFields = definition.fields.filter(field => field.type === "textarea" || field.type === "string-list");
@@ -295,7 +296,7 @@ export function MerchantRecordEditor({
       {field.type === "textarea" || field.type === "string-list" ? <textarea disabled={busy} name={field.key} required={field.required} maxLength={4000} placeholder={field.placeholder} defaultValue={inputValue(record, field.key)} /> : field.type === "boolean" ? <span className={operations.toggle}><input disabled={busy} name={field.key} type="checkbox" defaultChecked={record?.config[field.key] === true} /><span>Etkin</span></span> : field.type === "enum" || field.type === "number" && field.allowedValues ? <select disabled={busy} name={field.key} required={field.required} defaultValue={inputValue(record, field.key)}><option value="">Seçin</option>{field.allowedValues?.map(value => <option key={value} value={value}>{field.optionLabels?.[value] ?? value}</option>)}</select> : <input disabled={busy} name={field.key} required={field.required} type={field.type === "email" || field.type === "url" ? field.type : field.type === "number" ? "number" : field.type === "datetime" ? "datetime-local" : "text"} min={field.type === "number" ? 0 : undefined} step={field.type === "number" ? 1 : field.type === "datetime" ? "0.001" : undefined} maxLength={field.type === "number" ? undefined : 1000} placeholder={field.placeholder} defaultValue={field.type === "datetime" ? dateTimeInputValue(record, field.key) : inputValue(record, field.key)} />}
     </label>;
     const previewValue = preview ?? { name: record?.name ?? "", config: record?.config ?? {} };
-    return <div className={operations.workspace}><PanelPageShell>
+    return <PanelInitialDataGate pending={canManage && loading && !loadSucceeded} scopeKey={`${kind}:${recordId ?? "new"}`}><div className={operations.workspace}><PanelPageShell>
       <h1 className={styles.srOnly}>{title}</h1><PanelPageHeader title={title} />
       <Link className={operations.back} href={returnTo} onClick={event => { if (busy || dirty && !window.confirm("Kaydedilmemiş değişikliklerden vazgeçilsin mi?")) event.preventDefault(); }}><ArrowLeft aria-hidden="true" /> {definition.title}</Link>
       {!canManage ? <p className={styles.readOnly} role="status">Düzenleme yetkiniz yok.</p> : loading ? <MerchantWorkspaceLoading label="Yükleniyor…" layout="editor" /> : <>
@@ -319,13 +320,13 @@ export function MerchantRecordEditor({
           <RecordPreview kind={kind} config={previewValue.config} name={previewValue.name} />
         </div> : null}
       </>}
-    </PanelPageShell></div>;
+    </PanelPageShell></div></PanelInitialDataGate>;
   }
   if (!canManage) {
     return <PanelPageShell><PanelPageHeader title={title} description={definition.description} /><p className={styles.error} role="alert">Bu kayıt için düzenleme yetkiniz yok.</p></PanelPageShell>;
   }
 
-  return <PanelPageShell><PanelPageHeader title={title} description={definition.description} /><section className={styles.surface}>
+  return <PanelInitialDataGate pending={loading && !loadSucceeded} scopeKey={`${kind}:${recordId ?? "new"}`}><PanelPageShell><PanelPageHeader title={title} description={definition.description} /><section className={styles.surface}>
     {loading ? <MerchantWorkspaceLoading label="Kayıt yükleniyor…" layout="editor" preview={false} /> : null}
     {!loading && error ? <p className={styles.error} role="alert">{error}</p> : null}
     {!loading && !error && definition.execution === "provider_required" ? <p className={styles.notice}>{definition.notice} Bu ekranda yalnız güvenli yapılandırma kaydedilir; harici çalıştırma başlatılmaz.</p> : null}
@@ -360,5 +361,5 @@ export function MerchantRecordEditor({
       ))}
       <div className={`${styles.wide} ${styles.actions}`}><button className={styles.primary} disabled={busy}>{busy ? "Kaydediliyor…" : "Kaydet"}</button></div>
     </form> : null}
-  </section></PanelPageShell>;
+  </section></PanelPageShell></PanelInitialDataGate>;
 }

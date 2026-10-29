@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { FIXED_STOREFRONT_POLICIES, type StorefrontPolicyKey } from "@celebix/saas-contracts";
 import { normalizeProductDescriptionRichText, type ProductDescriptionRichTextNode } from "@celebix/platform-config/src/product-description-rich-text";
@@ -266,7 +267,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   const draftCount = items.filter((page) => page.status === "draft").length;
   const sourceFormat = policyBodySourceFormat(body);
 
-  return <PanelPageShell embedded={embedded}>
+  return <PanelInitialDataGate pending={!embedded&&loading&&items.length===0}><PanelPageShell embedded={embedded}>
     {!embedded ? <PanelTopbarBridge title="Politikalar" /> : null}
     <div className={styles.page}>
       {!embedded ? <h1 className={styles.srOnly}>Politikalar</h1> : null}
@@ -349,5 +350,5 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
         <footer><button className={styles.button} type="button" autoFocus onClick={() => dialogRef.current?.close()}>Vazgeç</button><button className={`${styles.button} ${styles.primary}`} type="button" onClick={revert}>Geri al</button></footer>
       </dialog>
     </div>
-  </PanelPageShell>;
+  </PanelPageShell></PanelInitialDataGate>;
 }

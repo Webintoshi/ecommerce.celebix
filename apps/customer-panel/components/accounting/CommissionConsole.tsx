@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import {useEffect,useState,type FormEvent} from "react";
 import {RefreshCw} from "lucide-react";
 import type {AccountingCommissions,AccountingCommissionsFilters} from "@celebix/saas-contracts";
@@ -26,7 +27,7 @@ function CommissionWorkspace({canRead,scopeKey}:{canRead:boolean;scopeKey:string
  },[scopeKey,canRead,queryKey,filters,revision]);
  function apply(event:FormEvent){event.preventDefault();try{const next=profitabilityFilters({...draft,currency:""});setFilters({dateFrom:next.dateFrom,dateTo:next.dateTo});setFilterError(null);}catch(reason){setFilterError(reason instanceof Error?reason.message:"Tarihleri kontrol et.");}}
  if(!canRead)return <PanelPageShell><PanelPageHeader title="Primler"/><h1 className="sr-only">Primler</h1><p className={shared.empty}>Primleri yalnızca mağaza sahibi veya yönetici görebilir.</p></PanelPageShell>;
- return <PanelPageShell><PanelPageHeader title="Primler"/><h1 className="sr-only">Primler</h1><div className={`${shared.console} ${styles.root}`}>
+ return <PanelInitialDataGate pending={canRead && loading && !data} scopeKey={scopeKey}>{<PanelPageShell><PanelPageHeader title="Primler"/><h1 className="sr-only">Primler</h1><div className={`${shared.console} ${styles.root}`}>
   <AccountingNavigation active="commissions"/>
   <CommissionPaymentsWorkspace canManage={canRead} scopeKey={scopeKey}/>
   <h2 className={styles.sectionHeading}>Dönem satışları ve hak edilen prim</h2>
@@ -52,5 +53,5 @@ function CommissionWorkspace({canRead,scopeKey}:{canRead:boolean;scopeKey:string
    </>:<p className={shared.empty}>Bu dönemde prim kaydı yok. Başka bir tarih aralığı seçebilirsin.</p>:null}
   </div>
   <p className={shared.muted}>Prim satışı yapan kasiyere aittir; tahsilatı başka biri yaparsa değişmez. Satıştaki oran korunur; güncel oran geçmiş kazancı değiştirmez. Satıştan hesaplanan prim kasa ve banka bakiyesini kendiliğinden değiştirmez.</p>
- </div></PanelPageShell>;
+ </div></PanelPageShell>}</PanelInitialDataGate>;
 }

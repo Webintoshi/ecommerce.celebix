@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { hasStoreToolLicense, parseStoreToolWorkspace, STORE_TOOL_KEYS, type StoreToolKey, type StoreToolOffer, type StoreToolWorkspace } from '@celebix/saas-contracts';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PanelPageHeader, PanelPageShell } from '@/components/panel/PanelPageShell';
@@ -91,9 +92,9 @@ export function StoreToolsPurchasingConsole({ storeId, canManage, canReadCoupons
     } finally { working.current = false; if (mounted.current) setBusy(false); }
   }
 
-  if (!workspace || workspace.storeId !== storeId) return <PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={styles.workspace}>
+  if (!workspace || workspace.storeId !== storeId) return <PanelInitialDataGate pending={!error}>{<PanelPageShell><PanelPageHeader title="Mağaza araçları" /><div className={styles.workspace}>
     {error ? <div className={styles.feedback}><div><p role="alert">{error}</p><button className="button button-secondary" type="button" disabled={refreshing} onClick={() => void load()}>Yeniden dene</button></div></div> : <p className={styles.status} role="status">Mağaza araçları yükleniyor…</p>}
-  </div></PanelPageShell>;
+  </div></PanelPageShell>}</PanelInitialDataGate>;
 
   const toolAccess = Object.fromEntries(STORE_TOOL_KEYS.map(tool => [tool, hasStoreToolLicense(workspace, tool)])) as Record<StoreToolKey, boolean>;
   function offerCard(offer: StoreToolOffer, bundle = false) {

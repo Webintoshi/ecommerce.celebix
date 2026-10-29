@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { useEffect, useRef, useState } from "react";
 import { ArrowUpRight, Check, ChevronRight, RefreshCw, ShieldCheck } from "lucide-react";
 import type { GoogleMarketingConnection, GoogleMarketingOverview, GoogleMarketingResources, GoogleMarketingSelection, GoogleMarketingService } from "@celebix/saas-contracts";
@@ -221,7 +222,7 @@ export function GoogleMarketingConnections({ canManage, services, onChange, onAu
   const canApply = Boolean(editor && !editor.loading && !busy && !reconnect && !conflict && !editor.draft.disconnect && selection && (knownSelection || editor.draft.apply));
   const locked = Boolean(busy || editor?.draft.apply || editor?.draft.disconnect);
   const connectLabel = busy === "connect" ? "Google’a yönlendiriliyor…" : editor?.error === "incremental_authorization_required" ? "Google’da yetkiyi tamamla" : editor?.connection.googleEmail ? "Google’a yeniden bağlan" : "Google ile bağlan";
-  return <div className={styles.workspace}>
+  return <PanelInitialDataGate pending={overviewLoading && !overview}>{<div className={styles.workspace}>
     {overview?.storeDomain||overviewLoading&&!overview ? <p className={styles.domain}><span>Mağaza</span>{overview?.storeDomain?<strong>{overview.storeDomain}</strong>:<PanelSkeletonBlock className={styles.domainLoading}/>}</p> : null}
     {notice ? <p role="status" className={styles.notice}><Check size={16} aria-hidden="true" />{notice}</p> : null}
     {overviewError ? <div className={styles.feedback}><p role="alert">{readFailureMessage(overviewError, "Bağlantılar yüklenemedi. Tekrar deneyin.")}</p><button type="button" className="button button-secondary" disabled={overviewLoading} onClick={() => void loadOverview()}>Tekrar dene</button></div> : null}
@@ -294,5 +295,5 @@ export function GoogleMarketingConnections({ canManage, services, onChange, onAu
         <a className={styles.privacy} href="https://celebix.net/tr/gizlilik" target="_blank" rel="noopener noreferrer">Gizlilik politikası<span className="sr-only"> (yeni sekme)</span></a></div>
       </div> : null}
     </OrderActionDialog>
-  </div>;
+  </div>}</PanelInitialDataGate>;
 }

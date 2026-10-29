@@ -31,6 +31,7 @@ export function compile(path: string, overrides: Record<string, any> = {}): any 
       if (specifier === "next/link") return { __esModule: true, default: ({ children, ...props }: any) => createElement("a", props, children) };
       if (specifier === "next/image") return { __esModule: true, default: (props: any) => createElement("img", props) };
       if (specifier === "@/components/panel/PanelTopbarChrome") return { PanelTopbarBridge: () => null };
+      if (specifier === "@/components/panel/PanelInitialDataGate") return { PanelInitialDataGate: ({ children }: any) => children, PanelInitialDataBoundary: ({ children }: any) => children };
       if (specifier === "@/components/panel/PanelPageShell") return { PanelPageShell: passthrough, PanelStatusBadge: ({ children, tone }: any) => createElement("span", { "data-tone": tone }, children), PanelPageHeader: ({ title, actions }: any) => createElement("header", null, title, actions), PanelEmptyState: ({ title, description }: any) => createElement("p", null, title, description), PanelLoadingState: ({ label }: any) => createElement("p", null, label), PanelSkeletonBlock: ({ className }: any) => createElement("span", { className, "aria-hidden": true }) };
       if (specifier.startsWith("@/") || specifier.startsWith(".")) {
         const base = specifier.startsWith("@/") ? new URL(specifier.slice(2), panelRoot) : new URL(specifier, url);

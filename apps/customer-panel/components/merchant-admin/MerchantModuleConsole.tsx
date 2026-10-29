@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { MerchantWorkspaceLoading } from "@/components/merchant-admin/MerchantWorkspaceLoading";
 import {
@@ -609,6 +610,7 @@ export function MerchantModuleConsole({
   function clearFilters() { setQuery(""); setStatusFilter("all"); }
 
   return (
+    <PanelInitialDataGate pending={!embedded && loading && !hasLoaded} scopeKey={kind}>
     <div className={`${operational ? operations.workspace : ""} ${marketplace ? marketplaceStyles.workspace : ""} ${accounting ? accountingStyles.workspace : ""}`} data-merchant-kind={kind}>
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className={styles.srOnly}>{definition.title}</h1> : null}
@@ -909,5 +911,6 @@ export function MerchantModuleConsole({
       ) : null}
     </PanelPageShell>
     </div>
+    </PanelInitialDataGate>
   );
 }

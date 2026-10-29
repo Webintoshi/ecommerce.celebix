@@ -1,5 +1,6 @@
 "use client";
 
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import type {
   BuiltInPaymentMethodKind,
   MerchantPaymentMethod,
@@ -580,7 +581,7 @@ export function PaymentSettingsConsole(props: Readonly<{
     </div>;
   }
 
-  return (
+  return <PanelInitialDataGate pending={Object.values(sources).some(source => source.phase === "loading")}>{(
     <section className={styles.page} aria-labelledby="payment-settings-title">
       <PanelTopbarBridge title="Ödeme Ayarları" />
       <h1 id="payment-settings-title" className={styles.srOnly}>Ödeme Ayarları</h1>
@@ -679,5 +680,5 @@ export function PaymentSettingsConsole(props: Readonly<{
       {selectedCheckoutMethod ? <ProviderCheckoutSettingsDrawer method={selectedCheckoutMethod} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} busy={busyCheckoutMethodId !== null} submitError={checkoutSubmitError} openerRef={checkoutOpenerRef} onSubmit={saveProviderCheckout} onClose={closeProviderCheckout} /> : null}
       {orderOpen ? <PaymentMethodOrderDialog methods={sources.methods.value} rows={view.methods} canManage={props.canManage} mutationAvailable={methodsMutationAvailable} mutationBusy={methodMutationBusy} openerRef={orderButtonRef} onReload={async () => { await load(); }} onClose={() => setOrderOpen(false)} /> : null}
     </section>
-  );
+  )}</PanelInitialDataGate>;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ProductReview } from "@celebix/saas-contracts";
@@ -50,7 +51,7 @@ export function ProductReviewConsole({ canModerate }: { canModerate: boolean }) 
   const visible = items.filter((review) => (!status || review.status === status) && (!query || [review.productTitle, review.reviewerName, review.title ?? "", review.body].some((value) => value.toLocaleLowerCase("tr-TR").includes(query))));
   const published = items.filter(item => item.status === "approved");
   const average = published.length ? (published.reduce((sum, item) => sum + item.rating, 0) / published.length).toLocaleString("tr-TR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : "—";
-  return <PanelPageShell>
+  return <PanelInitialDataGate pending={loading && !resolved}><PanelPageShell>
     <PanelPageHeader title="Yorumlar" />
     <h1 className={styles.srOnly}>Ürün yorumları</h1>
     <section className={`${styles.surface} ${styles.workspace} ${styles.listBody}`} aria-busy={loading}>
@@ -80,5 +81,5 @@ export function ProductReviewConsole({ canModerate }: { canModerate: boolean }) 
       </>}
       </div>
     </section>
-  </PanelPageShell>;
+  </PanelPageShell></PanelInitialDataGate>;
 }

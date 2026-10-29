@@ -1,4 +1,5 @@
 "use client";
+import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReviewCollectionOverview, ReviewCollectionSettings } from "@celebix/saas-contracts";
 import { PanelEmptyState } from "@/components/panel/PanelPageShell";
@@ -27,7 +28,7 @@ export function ReviewCollectionConsole({ canManage, view }: Readonly<{ canManag
     finally { setBusy(""); }
   }
   const dirty = draft && data && (draft.enabled !== data.settings.enabled || draft.delayDays !== data.settings.delayDays);
-  return <section className={styles.workspace} aria-busy={loading}>
+  return <PanelInitialDataGate pending={loading && !data}><section className={styles.workspace} aria-busy={loading}>
     {error ? <div className={styles.feedback} role="alert"><p>{error}</p>{!dirty ? <button type="button" disabled={loading} onClick={() => void load()}>Yeniden yükle</button> : null}</div> : null}
     {success ? <p className={styles.feedback} role="status">{success}</p> : null}
     {loading && !data ? <CatalogWorkspaceLoading layout={view === "settings" ? "editor" : "list"} label="Yorum davetleri yükleniyor…" /> : null}
@@ -44,5 +45,5 @@ export function ReviewCollectionConsole({ canManage, view }: Readonly<{ canManag
       <div className={styles.sectionHeading}><h2>Davet gönderilebilecek siparişler</h2><span>{data.eligibleOrders.length} sipariş</span></div>
       {!data.eligibleOrders.length ? <PanelEmptyState title="Uygun sipariş bulunmuyor" description="Ödemesi tamamlanan ve teslim edilen siparişler burada görünür." /> : <div className={styles.history}>{data.eligibleOrders.map(order => <article key={order.id}><div><strong>{order.orderNumber}</strong><small>{order.customerName} · {order.productCount} ürün</small><small>{date(order.deliveredAt)}</small></div>{canManage ? <button type="button" disabled={!!busy || loading} onClick={() => void request(order)}>{busy === order.id ? "Hazırlanıyor…" : "Davet gönder"}</button> : null}</article>)}</div>}
     </> : null}
-  </section>;
+  </section></PanelInitialDataGate>;
 }
