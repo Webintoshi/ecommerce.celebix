@@ -10,7 +10,7 @@
   text-decoration: none; cursor: pointer;
 }
 .primaryAction, .primaryButton, .primaryLink { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primaryAction:hover, .primaryButton:hover:not(:disabled), .primaryLink:hover { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primaryAction:hover, .primaryButton:hover:not(:disabled), .primaryLink:hover { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .secondaryAction:hover, .recordLink:hover, .loadMore:hover:not(:disabled), .secondaryButtons button:hover:not(:disabled), .lineRow button:hover:not(:disabled) { background-color: var(--cp-canvas); }
 .primaryAction svg, .primaryButton svg, .primaryLink svg, .secondaryAction svg, .loadMore svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .recordLink, .lineRow button { border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); }

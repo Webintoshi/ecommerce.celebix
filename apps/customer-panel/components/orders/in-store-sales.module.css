@@ -42,7 +42,7 @@
 .secondary:hover:not(:disabled), .iconButton:hover:not(:disabled) { background-color: var(--cp-control-hover); }
 .secondaryActions b { color: var(--register-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .quiet { background-color: transparent; border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); }
 .quiet:hover:not(:disabled) { background-color: var(--register-soft); }
 .iconButton { width: var(--cp-button-small-height); border-width: var(--cp-button-small-hit-inset); padding: 0; flex: none; }
@@ -84,7 +84,7 @@
 .identity small, .productIdentity small { font-size: 12px; color: var(--register-muted); line-height: 1.5; overflow-wrap: anywhere; }
 .rowTools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-width: 0; margin-top: 8px; }
 .priceAction, .cartPriceButton { display: inline-flex; align-items: center; justify-content: start; gap: var(--cp-button-small-gap); min-width: 0; min-height: var(--cp-button-small-height); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; color: var(--register-muted); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); text-align: left; }
-.priceAction:hover:not(:disabled), .cartPriceButton:hover:not(:disabled) { color: var(--register-graphite); background-color: transparent; text-decoration: underline; }
+.priceAction:hover:not(:disabled), .cartPriceButton:hover:not(:disabled) { color: var(--register-graphite); background-color: transparent; text-decoration: none; }
 .cartPriceButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .cartPriceButton > span { min-width: 0; overflow-wrap: anywhere; }
 .priceOverride { font-size: 11px; color: var(--register-muted); }
@@ -123,7 +123,7 @@
 .grandTotal, .saleTotal { border-top: 1px solid var(--register-border); padding-top: 16px; margin-top: 4px; font-weight: var(--cp-font-weight-value); }
 .grandTotal dt, .saleTotal dt { color: var(--register-graphite); }
 .discountButton { justify-content: start; min-height: var(--cp-button-small-height); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); margin: 0; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: transparent; background-clip: padding-box; font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); gap: var(--cp-button-small-gap); font-weight: var(--cp-font-weight-control); }
-.discountButton:hover:not(:disabled) { color: var(--register-graphite); background-color: transparent; text-decoration: underline; text-underline-offset: 4px; }
+.discountButton:hover:not(:disabled) { color: var(--register-graphite); background-color: transparent; text-decoration: none; text-underline-offset: 4px; }
 .discountButton svg { width: 16px; height: 16px; }
 .applied { background: transparent; border-color: transparent; }
 .totalBlock { border-top: 1px solid var(--register-border); padding-top: 20px; display: grid; gap: 4px; }

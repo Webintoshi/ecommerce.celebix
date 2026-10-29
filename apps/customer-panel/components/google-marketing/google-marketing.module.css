@@ -46,7 +46,7 @@
 .externalHelp { border-top: 1px solid var(--cp-border); padding-top: 16px; }
 .link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; font-weight: var(--cp-font-weight-control); max-width: 100%; overflow-wrap: anywhere; }
 .link svg { flex: none; }
-.link:hover { text-decoration: underline; text-underline-offset: 4px; }
+.link:hover { text-decoration: none; text-underline-offset: 4px; }
 .connectPrompt { display: grid; grid-template-columns: 144px minmax(0, 1fr); align-items: center; gap: 20px; }
 .connectPrompt .artwork { width: 144px; }
 .connectPrompt h3, .removePrompt h3 { margin: 0 0 8px; font-size: 16px; font-weight: var(--cp-font-weight-heading); line-height: 1.5; }

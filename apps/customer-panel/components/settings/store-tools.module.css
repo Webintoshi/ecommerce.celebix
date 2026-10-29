@@ -15,7 +15,7 @@
 .toolLinks { display: flex; gap: 24px; flex-wrap: wrap; margin-top: 16px; }
 .toolLinks button { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; min-height: var(--cp-button-small-height); gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); background-color: var(--cp-soft); background-clip: padding-box; color: var(--cp-text-secondary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
 .toolLinks button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex-shrink: 0; }
-.toolLinks button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.toolLinks button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .toolSkeleton { display: grid; grid-template-columns: 180px minmax(0,1fr) 116px; gap: 32px; align-items: center; padding: 32px 0; max-width: 1050px; border-block: 1px solid var(--cp-border); }
 .toolSkeleton span { display: block; border-radius: 8px; background: var(--cp-soft); min-height: 128px; }
 .toolSkeleton > div span { min-height: 18px; width: 60%; margin-block: 12px; }

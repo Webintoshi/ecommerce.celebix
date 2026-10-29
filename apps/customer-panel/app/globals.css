@@ -128,7 +128,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .button[aria-busy="true"] { cursor: progress; }
 .button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .button-primary { background-color: var(--cp-action-primary); color: var(--cp-action-primary-text); }
-.button-primary:hover:not(:disabled) { background-color: var(--cp-action-primary-hover); text-decoration: underline; text-underline-offset: 4px; }
+.button-primary:hover:not(:disabled) { background-color: var(--cp-action-primary-hover); text-decoration: none; text-underline-offset: 4px; }
 .button-primary:active:not(:disabled) { text-decoration-thickness: 2px; }
 .button-secondary { background-color: var(--cp-control-background); color: var(--cp-text-primary); }
 .button-secondary:hover:not(:disabled) { background-color: var(--cp-control-hover); }
@@ -158,7 +158,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .resilienceBoundary .resilienceActionPrimary:hover,
 .resilienceBoundary [aria-labelledby="not-found-title"] .resilienceAction:hover { border-color: transparent; background-color: var(--cp-button-primary); background-clip: padding-box; color: var(--cp-button-primary-text); }
 .resilienceBoundary .resilienceActionPrimary:hover,
-.resilienceBoundary [aria-labelledby="not-found-title"] .resilienceAction:hover { text-decoration: underline; text-underline-offset: 4px; }
+.resilienceBoundary [aria-labelledby="not-found-title"] .resilienceAction:hover { text-decoration: none; text-underline-offset: 4px; }
 .back-link { width: fit-content; color: var(--muted); font-size: 12px; font-weight: var(--cp-font-weight-control); }
 .back-link:hover { color: var(--text); }
 .product-create-heading { gap: 6px; border-bottom: 1px solid #E3E8EF; padding: 4px 0 20px; }
@@ -205,7 +205,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .command-button svg, .command-select svg { width: 17px; height: 17px; stroke-width: 2; }
 .command-button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .command-button-primary, .command-button-primary.is-active { background-color: var(--cp-action-primary); color: var(--cp-action-primary-text); }
-.command-button-primary:hover:not(:disabled) { background-color: var(--cp-action-primary-hover); color: var(--cp-action-primary-text); border-color: transparent; text-decoration: underline; text-underline-offset: 4px; }
+.command-button-primary:hover:not(:disabled) { background-color: var(--cp-action-primary-hover); color: var(--cp-action-primary-text); border-color: transparent; text-decoration: none; text-underline-offset: 4px; }
 .command-select { position: relative; padding: 0 11px; border-radius: var(--cp-button-radius); }
 .command-select select { min-height: var(--cp-control-height); border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; outline: 0; font-weight: var(--cp-font-weight-control); }
 .command-icon-button { width: var(--cp-button-height); padding: 0; }
@@ -479,7 +479,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tenant-login-identity p { margin: 0; color: var(--cp-text-secondary); font-size: 16px; line-height: 1.5; }
 .tenant-login-actions { display: grid; gap: 12px; margin-top: 32px; }
 .tenant-login-button { display: flex; min-height: var(--cp-button-large-height); align-items: center; justify-content: center; gap: var(--cp-button-large-gap); border: 0 solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-large-padding-y) var(--cp-button-large-padding-x); background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); font-size: var(--cp-button-large-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-large-line-height); text-align: center; }
-.tenant-login-button:hover { text-decoration: underline; text-underline-offset: 4px; }
+.tenant-login-button:hover { text-decoration: none; text-underline-offset: 4px; }
 .tenant-login-button svg { width: var(--cp-button-large-icon-size); height: var(--cp-button-large-icon-size); flex: none; }
 .tenant-login-secondary { display: flex; min-height: var(--cp-button-small-height); align-items: center; justify-content: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-secondary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); text-align: center; }
 .tenant-login-secondary:hover { color: var(--cp-text-primary); background-color: var(--cp-soft); }
@@ -632,7 +632,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   color: var(--cp-action-primary-text);
   box-shadow: none;
 }
-.product-operations-commandbar .command-button-primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.product-operations-commandbar .command-button-primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .product-operations-commandbar .command-button:focus-visible,
 .product-operations-commandbar .command-select:focus-within,
 .product-operations-page .product-operations-toolbar > .command-button:focus-visible {

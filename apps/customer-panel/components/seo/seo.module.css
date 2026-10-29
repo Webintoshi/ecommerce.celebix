@@ -12,12 +12,12 @@
 .workspace button:hover:not(:disabled),.dialogButton:hover:not(:disabled),.button:hover:not(:disabled){background-color:var(--cp-soft)}
 .workspace button:disabled,.dialogButton:disabled,.button:disabled{opacity:.5;cursor:default}
 .workspace .primary,.primary{background-color:var(--cp-button-primary);color:var(--cp-button-primary-text)}
-.workspace .primary:hover:not(:disabled),.primary:hover:not(:disabled){background-color:var(--cp-button-primary);text-decoration:underline;text-underline-offset:4px}
+.workspace .primary:hover:not(:disabled),.primary:hover:not(:disabled){background-color:var(--cp-button-primary);text-decoration: none;text-underline-offset:4px}
 .workspace a:focus-visible,.workspace button:focus-visible,.workspace input:focus-visible,.workspace select:focus-visible,.workspace textarea:focus-visible,.workspace summary:focus-visible,.dialogButton:focus-visible,.form button:focus-visible,.form input:focus-visible,.form textarea:focus-visible,.form select:focus-visible,.form summary:focus-visible{outline:2px solid var(--cp-brand);outline-offset:4px}
 .workspace .iconButton,.iconButton{width:var(--cp-button-height);min-width:44px;height:var(--cp-button-height);padding:0;display:inline-flex;align-items:center;justify-content:center;border:var(--cp-button-hit-inset) solid transparent;border-radius:var(--cp-button-radius);background-color:var(--cp-control-background);background-clip:padding-box;color:var(--cp-text-secondary);cursor:pointer}
 .iconButton svg{width:var(--cp-button-icon-size);height:var(--cp-button-icon-size)}.button svg,.dialogButton svg{width:var(--cp-button-icon-size);height:var(--cp-button-icon-size);flex:none}
 .workspace .textLink,.textLink{display:inline-flex;align-items:center;gap:8px;min-height:44px;border-color:transparent;background:transparent;padding:8px 0;font-size:12px;color:var(--cp-text-primary);text-decoration:none;cursor:pointer}
-.textLink svg{width:14px;height:14px}.workspace .textLink:hover:not(:disabled),.textLink:hover:not(:disabled){background:transparent;text-decoration:underline;text-underline-offset:4px}
+.textLink svg{width:14px;height:14px}.workspace .textLink:hover:not(:disabled),.textLink:hover:not(:disabled){background:transparent;text-decoration: none;text-underline-offset:4px}
 .workspace .small,.small{font-size:var(--cp-button-small-font-size);line-height:var(--cp-button-small-line-height);padding:var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);gap:var(--cp-button-small-gap)}
 .muted,.countHint{color:var(--cp-text-secondary)}
 .countHint{font-weight:var(--cp-font-weight-helper)}.countHint{font-size:12px;font-weight:var(--cp-font-weight-helper)}

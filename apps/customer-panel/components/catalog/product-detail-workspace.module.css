@@ -99,7 +99,7 @@
 .root :global(.button) { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: var(--cp-font-weight-control); box-shadow: none; }
 .root :global(.button:hover:not(:disabled)) { transform: none; box-shadow: none; }
 .root :global(.button-primary) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.root :global(.button-primary:hover:not(:disabled)) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.root :global(.button-primary:hover:not(:disabled)) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .root :global(.button-secondary) { background-color: var(--cp-control-background); color: var(--cp-text-primary); }
 .root :global(.button-secondary:hover:not(:disabled)) { background-color: var(--cp-canvas); }
 .root :global(.button svg) { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }

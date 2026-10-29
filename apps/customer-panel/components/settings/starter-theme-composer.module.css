@@ -374,7 +374,7 @@
 .addBar button,
 .secondary { color: var(--cp-text-primary); background-color: var(--cp-soft); }
 .actions .primary { color: var(--cp-button-primary-text); background-color: var(--cp-button-primary); }
-.addBar button:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.addBar button:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 
 .actions {
   position: sticky;
@@ -539,7 +539,7 @@
 
 .entryToolbar button svg,
 .entryAdd svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex-shrink: 0; }
-.entryToolbar button:hover:not(:disabled), .entryAdd:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.entryToolbar button:hover:not(:disabled), .entryAdd:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .entryToolbar button:disabled,
 .entryAdd:disabled { opacity: .42; }
 .entryAdd { justify-self: start; }
@@ -686,7 +686,7 @@
 .embeddedShell .navigationEmpty { margin: 0; border: 1px dashed var(--cp-border); border-radius: 8px; padding: 12px; color: var(--cp-text-secondary); font-size: 13px; }
 .embeddedShell .navigationAdd { display: grid; grid-template-columns: minmax(0, 1fr) auto; min-width: 0; align-items: end; gap: 8px; }
 .embeddedShell .navigationAdd button, .embeddedShell .resourceError button { box-sizing: border-box; display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); background-color: var(--cp-soft); background-clip: padding-box; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.embeddedShell .navigationAdd button:hover:not(:disabled), .embeddedShell .resourceError button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.embeddedShell .navigationAdd button:hover:not(:disabled), .embeddedShell .resourceError button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .embeddedShell .resourceError { display: grid; justify-items: start; gap: 8px; margin-bottom: 16px; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 @media (max-width: 900px) and (min-width: 641px) {

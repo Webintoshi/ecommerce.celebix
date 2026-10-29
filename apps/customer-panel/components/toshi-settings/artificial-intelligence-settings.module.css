@@ -30,7 +30,7 @@
 .offerTotal dt { font-size:12px; }
 .offerTotal dd { margin-top:4px; font-size:24px; line-height:1.3; font-weight:var(--cp-font-weight-value); }
 .purchaseButton { width:100%; background-color:var(--cp-button-primary); color:var(--cp-button-primary-text); }
-.purchaseButton:hover:not(:disabled) { text-decoration:underline; text-underline-offset:3px; }
+.purchaseButton:hover:not(:disabled) { text-decoration: none; text-underline-offset:3px; }
 .offerBody [role='alert'] { margin:8px 0 0; color:var(--cp-danger); font-size:12px; line-height:1.5; }
 .helper { margin:0; color:var(--cp-text-secondary); font-size:12px; line-height:1.6; }
 .liveStatus { margin:0; color:var(--cp-danger); font-size:13px; line-height:1.5; }

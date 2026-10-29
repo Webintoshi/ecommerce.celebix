@@ -697,7 +697,7 @@
 .homepageSectionInspector > footer button:hover:not(:disabled),
 .modalFooter button:hover:not(:disabled), .orderButton:hover:not(:disabled),
 .sectionManagement button:hover:not(:disabled), .historyActions button:hover:not(:disabled),
-.savedWorkNotice button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.savedWorkNotice button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .bannerCard > header button:hover:not(:disabled), .homepageSectionActions button:hover:not(:disabled),
 .homepageItemActions button:hover:not(:disabled), .modalHeader > button:hover:not(:disabled),
 .homepageSectionInspector > header > button:hover:not(:disabled) { background-color: var(--cp-border); }

@@ -23,7 +23,7 @@
 .segmentCreateButton, .tagCreateButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
 .customerPrimaryAction:hover:not(:disabled),
 .primary:hover:not(:disabled), .createCustomerSubmit:hover:not(:disabled),
-.segmentCreateButton:hover:not(:disabled), .tagCreateButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.segmentCreateButton:hover:not(:disabled), .tagCreateButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .customerEmptyAction:hover, .customerExport:hover:not(:disabled), .customerLoadMore:hover:not(:disabled), .button:hover:not(:disabled),
 .linkButton:hover, .createCustomerCancel:hover, .detailNavigation a:hover,
 .customerDetailAction:hover, .customerError button:hover, .appliedFilters button:hover { background-color: var(--cp-soft); }
@@ -71,7 +71,7 @@
 .customerSearch:has(input:focus-visible), .customerFilter:has(select:focus-visible) { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none; }
 .customerSearch input:focus-visible, .customerFilter select:focus-visible { outline: 0; box-shadow: none; }
 .customerSearch button { align-self: center; flex: none; min-width: var(--cp-button-height); min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-button-primary-text); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: var(--cp-font-weight-control); cursor: pointer; user-select: none; -webkit-user-select: none; }
-.customerSearch button:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.customerSearch button:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .customerSearch button:disabled { cursor: not-allowed; opacity: .5; }
 .customerSearch button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; box-shadow: none; }
 .customerExport { white-space: nowrap; }
@@ -170,7 +170,7 @@
 .customerInlineError { margin: 12px 20px; }
 .notice { margin-bottom: 20px; background: var(--cp-surface); color: var(--cp-text-primary); }
 .back { display: inline-flex; min-height: 44px; align-items: center; margin-bottom: 16px; color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer; }
-.back:hover { text-decoration: underline; text-underline-offset: 3px; }
+.back:hover { text-decoration: none; text-underline-offset: 3px; }
 
 /* Detail: one profile, one activity surface, one information surface. */
 .profileSurface, .activitySurface, .customerInfoSurface { min-width: 0; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }

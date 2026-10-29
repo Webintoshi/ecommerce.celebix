@@ -61,7 +61,7 @@
   box-shadow: none;
   transform: none;
 }
-.dashboardTopbarActions a:hover:not([aria-disabled="true"]) { text-decoration: underline; text-underline-offset: 4px; }
+.dashboardTopbarActions a:hover:not([aria-disabled="true"]) { text-decoration: none; text-underline-offset: 4px; }
 .dashboardTopbarActions a:active { text-decoration-thickness: 2px; }
 .dashboardTopbarActions a svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 
@@ -116,7 +116,7 @@
 .focusCopy p { margin: 0; color: var(--dash-muted); font-size: 12px; font-weight: var(--cp-font-weight-helper); line-height: 1.5; }
 .focusCopy a { display: inline-flex; width: fit-content; min-height: 44px; align-items: center; gap: 8px; border-radius: var(--cp-control-radius); color: var(--dash-ink); font-size: 13px; font-weight: var(--cp-font-weight-control); text-decoration: none; }
 .focusCopy a svg { width: 16px; height: 16px; }
-.focusCopy a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.focusCopy a:hover { text-decoration: none; text-underline-offset: 4px; }
 .focusArtwork { display: block; width: 112px; max-width: 36%; height: auto; flex: 0 0 112px; }
 
 .salesChart { display: flex; min-width: 0; min-height: 248px; flex: 1; flex-direction: column; justify-content: space-between; }
@@ -160,7 +160,7 @@
 .textAction, .statusAction { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; border-radius: var(--cp-button-radius); color: var(--dash-muted); font-size: 12px; font-weight: var(--cp-font-weight-control); line-height: 1.4; text-decoration: none; }
 .textAction { margin-left: auto; justify-content: flex-end; text-align: right; }
 .textAction svg, .statusAction svg { width: 16px; height: 16px; flex: none; }
-.textAction:hover, .statusAction:hover { color: var(--dash-ink); text-decoration: underline; text-underline-offset: 4px; }
+.textAction:hover, .statusAction:hover { color: var(--dash-ink); text-decoration: none; text-underline-offset: 4px; }
 .recentOrdersBody { min-height: 200px; }
 .recentOrdersBody[data-empty="true"] { min-height: 240px; }
 .recentOrdersError { display: grid; min-height: 240px; align-content: center; justify-items: center; gap: 12px; color: var(--dash-muted); font-size: 13px; font-weight: var(--cp-font-weight-helper); text-align: center; }

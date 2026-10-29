@@ -9,7 +9,7 @@
 .tabs button[aria-selected="true"]::after { position: absolute; right: 16px; bottom: 0; left: 16px; height: 2px; background: var(--cp-brand); content: ""; }
 .actionMenu { position: relative; flex-shrink: 0; }
 .primary { display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap); min-height: var(--cp-button-height); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; color: var(--cp-button-primary-text); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
-.primary:hover { text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover { text-decoration: none; text-underline-offset: 4px; }
 .primary:active { text-decoration-thickness: 2px; }
 .menu { position: absolute; z-index: 20; top: calc(100% + 8px); right: 0; width: 240px; padding: 4px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); box-shadow: 0 8px 24px rgb(0 0 0 / 10%); }
 .menu button { display: block; width: 100%; min-height: 44px; padding: 12px; border: 0; border-radius: var(--cp-button-radius); background: transparent; color: var(--cp-text-primary); font: inherit; font-size: 14px; text-align: left; cursor: pointer; font-weight: var(--cp-font-weight-control); }

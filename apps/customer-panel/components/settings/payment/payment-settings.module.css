@@ -18,7 +18,7 @@
 .commandBar, .dialogActions, .drawerActions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .primaryButton, .secondaryButton, .plannedButton, .iconButton { box-sizing: border-box; display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-soft); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--pay-text); cursor: pointer; font: inherit; font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); }
 .primaryButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primaryButton:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.primaryButton:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .secondaryButton:hover:not(:disabled), .iconButton:hover:not(:disabled) { background-color: var(--pay-soft); }
 .plannedButton { background-color: transparent; color: var(--pay-muted); }
 .iconButton { width: var(--cp-button-height); flex: 0 0 var(--cp-button-height); padding: 0; }
@@ -195,7 +195,7 @@
 .callbackCard code { min-width: 0; grid-column: 1 / -1; overflow-wrap: anywhere; border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-soft); padding: 12px; font-size: 12px; line-height: 1.6; }
 .callbackCard .secondaryButton { grid-column: 2; grid-row: 1; align-self: center; }
 .paytrPanelLink { display: inline-flex; width: fit-content; min-height: 44px; align-items: center; gap: 8px; color: var(--pay-text); font-size: 13px; text-decoration: none; }
-.paytrPanelLink:hover { text-decoration: underline; }
+.paytrPanelLink:hover { text-decoration: none; }
 .paytrPanelLink svg { width: 16px; height: 16px; }
 .preferenceGroup { display: grid; min-width: 0; gap: 16px; margin: 0; border: 0; border-bottom: 1px solid var(--pay-border); padding: 0 0 24px; }
 .preferenceGroup legend { margin-bottom: 12px; padding: 0; font-size: 14px; font-weight: var(--cp-font-weight-control); }

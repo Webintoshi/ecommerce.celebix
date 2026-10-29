@@ -22,7 +22,7 @@
   border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); cursor: pointer; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control);
 }
 .primaryButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primaryButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primaryButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .secondaryButton:hover:not(:disabled), .refreshButton:hover:not(:disabled), .loadMore:hover:not(:disabled) { background-color: var(--cp-canvas); }
 .primaryButton svg, .secondaryButton svg, .refreshButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .console button:disabled, .panel button:disabled { cursor: default; opacity: .5; }

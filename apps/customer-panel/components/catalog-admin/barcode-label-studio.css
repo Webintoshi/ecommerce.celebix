@@ -79,7 +79,7 @@
 }
 .barcode-studio :is(.button, .barcode-history-button, .barcode-preset-row > button, .barcode-selection-status > button, .barcode-missing-action > button, .barcode-actionbar > div > button, .barcode-fix-action, .preview-placeholder button, .blocking-errors button, .barcode-pagination button, .quantity-modes button, .hidden-selection button, .barcode-size-options button):hover:not(:disabled) { background-color: var(--barcode-canvas); box-shadow: none; transform: none; }
 .barcode-studio .button.button-primary { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.barcode-studio .button.button-primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.barcode-studio .button.button-primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .barcode-studio :is(.button-quiet, .button.quiet, .clear-selection) { border-color: transparent; background-color: transparent; color: var(--barcode-muted); box-shadow: none; }
 .barcode-studio :is(.button-quiet, .button.quiet, .clear-selection):hover:not(:disabled) { border-color: transparent; background-color: var(--barcode-selected); color: var(--barcode-text); }
 .barcode-studio .button-danger,

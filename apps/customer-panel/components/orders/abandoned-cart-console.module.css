@@ -83,7 +83,7 @@
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
 .actions svg, .search button svg, .contactActions svg, .recoveryLink button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .actions .primaryAction { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); font-weight: var(--cp-font-weight-control); }
-.actions .primaryAction:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.actions .primaryAction:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .inlineError, .notice { margin: 0; border-left: 2px solid var(--cp-border); background: var(--cp-surface); padding: 12px 16px; color: var(--cp-text-primary); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
 .inlineError { border-color: var(--cp-danger); }
 .notice { border-color: var(--cp-success); }

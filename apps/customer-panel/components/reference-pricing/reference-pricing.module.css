@@ -86,7 +86,7 @@
 .root .primary,
 .policy .primary { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); font-weight: var(--cp-font-weight-control); }
 .root .primary:hover:not(:disabled),
-.policy .primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
+.policy .primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); text-decoration: none; text-underline-offset: 4px; }
 .definitionForm { display: grid; grid-template-columns: minmax(0, 180px) minmax(0, 1fr) minmax(0, 240px) auto; gap: 12px; align-items: end; }
 .definitionForm > label:nth-child(3) { grid-column: 3; }
 .definitionForm button { white-space: nowrap; }

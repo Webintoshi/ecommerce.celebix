@@ -22,7 +22,7 @@
 }
 .toolbar button:hover, .rowActions button:hover, .fields button:hover, .notice button:hover, .empty button:hover, .picker > button:hover { background-color: var(--cp-control-hover); background-clip: padding-box; }
 .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primary:hover:not(:disabled), .toolbar .primary:hover:not(:disabled), .fields .primary:hover:not(:disabled) { background-color: var(--cp-button-primary); background-clip: padding-box; text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled), .toolbar .primary:hover:not(:disabled), .fields .primary:hover:not(:disabled) { background-color: var(--cp-button-primary); background-clip: padding-box; text-decoration: none; text-underline-offset: 4px; }
 .toolbar button svg, .primary svg, .fields button svg, .formColumn > button svg, .notice button svg, .empty button svg, .picker > button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .rowActions button svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .toolbar select,.fields select,.picker select,.toolbar input,.picker input{border-radius:var(--cp-button-radius)}

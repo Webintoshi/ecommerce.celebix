@@ -40,7 +40,7 @@
 .prepareRow { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
 .prepareRow small { font-size:12px; color:var(--cp-text-secondary); }
 .panel .prepareButton { background-color:var(--cp-button-primary); color:var(--cp-button-primary-text); }
-.panel .prepareButton:hover:not(:disabled) { background-color:var(--cp-button-primary); text-decoration:underline; text-underline-offset:4px; }
+.panel .prepareButton:hover:not(:disabled) { background-color:var(--cp-button-primary); text-decoration: none; text-underline-offset:4px; }
 .imageChoices summary { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font-size:13px; }
 .imageChoices summary span { color:var(--cp-text-secondary); font-size:12px; }
 @media (max-width:600px) { .fields { display:grid; grid-template-columns:minmax(0,1fr); } .prepareRow { align-items:stretch; flex-direction:column; } }

@@ -133,7 +133,7 @@
   white-space: nowrap;
   cursor: pointer;
 }
-.aiButton:hover { text-decoration: underline; text-underline-offset: 4px; }
+.aiButton:hover { text-decoration: none; text-underline-offset: 4px; }
 .aiButton:focus-visible { outline: 2px solid var(--catalog-text); outline-offset: 2px; }
 .aiButton svg { width: 16px; height: 16px; }
 

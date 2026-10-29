@@ -14,7 +14,7 @@
 .actions button { font-weight: var(--cp-font-weight-control); }
 .retry { font-weight: var(--cp-font-weight-control); }
 .actions .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.actions button:hover:not(:disabled), .retry:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.actions button:hover:not(:disabled), .retry:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .actions button svg, .retry svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .section :is(button, input):disabled { opacity: .5; cursor: not-allowed; }
 .section :is(button, input):focus-visible { outline: 2px solid var(--settings-brand, var(--accent)); outline-offset: 2px; }

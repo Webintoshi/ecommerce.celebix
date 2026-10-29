@@ -42,7 +42,7 @@
 .altField small { color: var(--settings-muted, #79716A); font-size: 10px; }
 .uploadButton, .actions button { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap); min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-soft); background-clip: padding-box; color: var(--settings-text, #2B2B2B); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); cursor: pointer; font-weight: var(--cp-font-weight-control); }
 .uploadButton { width: 100%; min-width: 0; justify-self: stretch; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.uploadButton:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.uploadButton:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .uploadButton svg, .actions button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); }
 .card { min-width: 0; gap: 10px; border: 0; border-top: 1px solid var(--settings-border, #E7E2DD); border-radius: 0; padding: 16px 0; }

@@ -76,7 +76,7 @@
   background-color: var(--cp-button-primary);
   color: var(--cp-button-primary-text);
 }
-.primary:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .button:hover:not(:disabled), .iconButton:hover:not(:disabled) { background-color: var(--cp-control-hover); }
 
 .danger,
@@ -448,7 +448,7 @@
 
 .workflowAction svg,
 .workflowCancel svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
-.workflowAction:hover:not(:disabled), .workflowCancel:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.workflowAction:hover:not(:disabled), .workflowCancel:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .workflowAction:disabled,
 .workflowCancel:disabled { cursor: not-allowed; opacity: 0.52; }
 .workflowAction:focus-visible,

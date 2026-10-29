@@ -1661,7 +1661,7 @@ button:disabled.primaryButton,
 .noteList .noteMeta button:hover, .notificationList button:hover {
   border-color: transparent; background-clip: padding-box;
 }
-.primaryAction:hover, .primaryButton:hover:not(:disabled), .searchField button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.primaryAction:hover, .primaryButton:hover:not(:disabled), .searchField button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .primaryAction svg, .primaryButton svg, .exportButton svg, .searchField button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .noteList .noteMeta button, .notificationList button, .detailLink {
   border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);
@@ -1700,7 +1700,7 @@ button:disabled.primaryButton,
 @media screen {
   .printPage { min-width: 0; width: calc(100% - 32px); gap: 24px; margin: 24px auto; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 24px; color: var(--cp-text-primary); }
   .printActions button { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-button-primary-text); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: var(--cp-font-weight-control); }
-  .printActions button:hover { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+  .printActions button:hover { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
   .printActions button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 3px; }
   .printHeading { gap: 16px; border-bottom: 1px solid var(--cp-border); padding-bottom: 20px; }
   .printHeading p { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); text-transform: none; }

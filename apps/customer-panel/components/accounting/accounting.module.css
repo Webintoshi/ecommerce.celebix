@@ -103,7 +103,7 @@
 .filterField select{max-width:100%}
 .primary,.secondary,.quiet,.iconButton{font-weight:var(--cp-font-weight-control);border-radius:var(--cp-button-radius);min-height:var(--cp-button-height);border:var(--cp-button-hit-inset) solid transparent;background-clip:padding-box;padding:var(--cp-button-padding-y) var(--cp-button-padding-x);gap:var(--cp-button-gap);font-size:var(--cp-button-font-size);line-height:var(--cp-button-line-height)}
 .primary{background-color:var(--cp-button-primary);color:var(--cp-button-primary-text)}
-.primary:hover:not(:disabled){background-color:var(--cp-button-primary);background-clip:padding-box;text-decoration:underline;text-underline-offset:4px}
+.primary:hover:not(:disabled){background-color:var(--cp-button-primary);background-clip:padding-box;text-decoration: none;text-underline-offset:4px}
 .primary svg,.secondary svg,.quiet svg,.iconButton svg{width:var(--cp-button-icon-size);height:var(--cp-button-icon-size);flex-shrink:0}
 .iconButton{width:var(--cp-button-height);padding:0}
 .dialogActions .primary{min-height:var(--cp-button-large-height);border-width:var(--cp-button-large-hit-inset);padding:var(--cp-button-large-padding-y) var(--cp-button-large-padding-x);gap:var(--cp-button-large-gap);font-size:var(--cp-button-large-font-size);line-height:var(--cp-button-large-line-height)}
@@ -183,7 +183,7 @@
 .cashDifferences{padding-top:4px}
 .cashHistorySection{min-height:0}
 .cashDetails summary{text-decoration:none;gap:8px;font-weight:var(--cp-font-weight-control)}
-.cashDetails summary:hover{text-decoration:underline;text-underline-offset:4px}
+.cashDetails summary:hover{text-decoration: none;text-underline-offset:4px}
 .supplierStatus{display:inline-flex;align-items:center;min-height:24px;font-size:12px;padding:4px 8px;background:var(--cp-soft);border-radius:4px;color:var(--cp-text-primary)}
 .supplierEffects{border-radius:0;border-inline:0;background:transparent}
 .desktopRecords{display:block}

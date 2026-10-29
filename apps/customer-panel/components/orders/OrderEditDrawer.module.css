@@ -56,10 +56,10 @@
 .lineFields { display: grid; grid-template-columns: 80px minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .primary, .secondary, .icon { display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap); min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; color: var(--edit-text); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); cursor: pointer; }
 .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .secondary:hover:not(:disabled), .icon:hover:not(:disabled) { background-color: var(--cp-canvas); }
 .textButton { display: inline-flex; align-items: center; min-height: var(--cp-button-small-height); max-width: 100%; width: fit-content; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); color: var(--edit-text); background-color: var(--cp-control-background); background-clip: padding-box; font: inherit; font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); text-align: left; cursor: pointer; font-weight: var(--cp-font-weight-control); }
-.textButton:hover:not(:disabled) { background-color: var(--cp-canvas); text-decoration: underline; }
+.textButton:hover:not(:disabled) { background-color: var(--cp-canvas); text-decoration: none; }
 .icon { width: var(--cp-button-small-height); flex: none; padding: 0; color: var(--edit-muted); border-width: var(--cp-button-small-hit-inset); }
 .primary svg, .secondary svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .icon svg, .textButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex: none; }

@@ -801,7 +801,7 @@
 .storeSwitcher label { display: grid; gap: 8px; color: rgb(255 255 255 / 75%); font-size: 12px; }
 .storeSwitcher select { width: 100%; min-height: 44px; border: 1px solid rgb(255 255 255 / 18%); border-radius: var(--cp-button-radius); padding: 0 8px; background: var(--cp-graphite); color: var(--cp-text-inverse); cursor: pointer; }
 .storeSwitcher button { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-button-primary-text); font-size: var(--cp-button-font-size); font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-line-height); cursor: pointer; }
-.storeSwitcher button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.storeSwitcher button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .storeSwitcher button:active:not(:disabled) { text-decoration-thickness: 2px; }
 .storeSwitcher button:disabled { cursor: not-allowed; opacity: .6; }
 .storeSwitcher :is(summary, select, button):focus-visible { outline: 2px solid rgb(255 255 255 / 70%); outline-offset: 2px; }
@@ -1307,7 +1307,7 @@
 .primaryAction:hover:not(:disabled):not([aria-disabled="true"]) {
   background-color: var(--cp-button-primary);
   color: var(--cp-button-primary-text);
-  text-decoration: underline;
+  text-decoration: none;
   text-underline-offset: 4px;
 }
 

@@ -12,7 +12,7 @@ The owner's follow-up explicitly includes date, sorting, depot and customer-filt
 
 Medium and Small have a 44px actual target. A transparent 2px/4px border with `background-clip: padding-box` paints the 40px/36px capsule inside that target, without overlapping neighboring targets or hijacking pseudo-elements. Large has a 56px target and no transparent inset. Long labels may wrap rather than truncate the action.
 
-Important existing primary actions use exactly `#ff6c13` and pure white `#FFFFFF` text/icons, including hover/pressed fill. State feedback uses text decoration or a visible graphite keyboard ring. Secondary actions use neutral soft surfaces and dark text; destructive actions retain their danger meaning. Preserve disabled, busy, keyboard and native control behavior.
+Important existing primary actions use exactly `#ff6c13` and pure white `#FFFFFF` text/icons, including hover/pressed fill. Hover must not underline button labels. Keep the pointer cursor, existing surface feedback and visible graphite keyboard ring. Secondary actions use neutral soft surfaces and dark text; destructive actions retain their danger meaning. Preserve disabled, busy, keyboard and native control behavior.
 
 Explicit appearance exception: white on `#ff6c13` has a 2.835374781:1 contrast ratio. This exact pair is the owner's supplied preference; do not silently replace the requested white or orange, and do not claim WCAG AA text contrast for this pair. This exception does not authorize low-contrast text elsewhere.
 

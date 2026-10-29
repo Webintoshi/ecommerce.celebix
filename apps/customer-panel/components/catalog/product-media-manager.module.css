@@ -279,7 +279,7 @@ section.root:global(.product-detail-section) {
 }
 .quietButton:hover:not(:disabled) { background-color: var(--catalog-canvas, #f8f7f5); }
 .darkButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.darkButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.darkButton:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .dangerButton { background-color: var(--cp-danger); color: white; }
 .dangerButton:hover:not(:disabled) { filter: brightness(.92); }
 .quietButton svg, .dangerButton svg, .darkButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); stroke-width: 1.8; }

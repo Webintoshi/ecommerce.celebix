@@ -34,7 +34,7 @@
 .button:hover:not(:disabled), .iconButton:hover:not(:disabled) { background-color: var(--cp-control-hover); }
 .button:disabled, .iconButton:disabled { opacity: .5; cursor: default; }
 .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); min-width: 96px; }
-.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); text-decoration: none; text-underline-offset: 4px; }
 .saveActions .primary { min-height: var(--cp-button-large-height); border-width: var(--cp-button-large-hit-inset); padding: var(--cp-button-large-padding-y) var(--cp-button-large-padding-x); font-size: var(--cp-button-large-font-size); line-height: var(--cp-button-large-line-height); }
 .page button:focus-visible, .page summary:focus-visible, .page textarea:focus-visible, .page input:focus-visible { outline: 2px solid var(--policy-brand); outline-offset: 3px; }
 .workspace { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 32px; border-top: 1px solid var(--policy-border); }

@@ -142,7 +142,7 @@
 .actions > div { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 12px; }
 .primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap); min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); background-color: var(--cp-control-background); background-clip: padding-box; color: var(--create-ink); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; }
 .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .primary svg, .secondary svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .secondary { font-weight: var(--cp-font-weight-control); }
 .secondary:hover:not(:disabled) { background-color: var(--cp-control-hover); }
@@ -234,4 +234,4 @@
 }
 .editorHeading button, .sortHandle { border-radius: var(--cp-button-radius); }
 .editorActions button:last-child { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.editorActions button:last-child:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.editorActions button:last-child:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }

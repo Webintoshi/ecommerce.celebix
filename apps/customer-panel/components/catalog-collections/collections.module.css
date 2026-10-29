@@ -17,7 +17,7 @@
   transition: background-color 140ms ease;
 }
 .primary, .primary:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); background-clip: padding-box; color: var(--cp-button-primary-text); }
-.primary:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .button svg, .primary svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .iconButton:not(.grip), .textButton {
   min-height: var(--cp-button-small-height);

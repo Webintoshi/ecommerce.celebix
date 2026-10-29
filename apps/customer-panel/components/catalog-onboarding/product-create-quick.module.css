@@ -39,7 +39,7 @@
 .workspace form > div:last-child { border-color: var(--catalog-border); margin-top: 8px; padding-top: 20px; }
 .workspace form > div:last-child button, .workspace form > div:last-child a { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: var(--cp-font-weight-control); box-shadow: none; }
 .workspace form > div:last-child button[type="submit"][value="publish"], .workspace form > div:last-child button[type="submit"][value="publish"]:hover:not(:disabled) { background-color: var(--cp-button-primary); border-color: transparent; color: var(--cp-button-primary-text); }
-.workspace form > div:last-child button[type="submit"][value="publish"]:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.workspace form > div:last-child button[type="submit"][value="publish"]:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .workspace form > div:last-child button[type="submit"][value="draft"], .workspace form > div:last-child a { background-color: var(--cp-control-background); border-color: transparent; color: var(--catalog-text); }
 .cancel { margin-right: auto; border: 0; background: transparent; color: var(--cp-text-secondary, #736b63); }
 .variantSummary { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; grid-column: 1 / -1; min-height: 44px; padding: 12px 0; border-bottom: 1px solid var(--catalog-border); }

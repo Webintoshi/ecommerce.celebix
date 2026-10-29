@@ -14,7 +14,7 @@
 .field small,.helper{margin:0;color:var(--cp-text-secondary,#68645e);font-size:13px;line-height:1.6}
 .primary,.secondary{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;gap:var(--cp-button-gap);min-height:var(--cp-button-height);max-width:100%;padding:var(--cp-button-padding-y) var(--cp-button-padding-x);border:var(--cp-button-hit-inset) solid transparent;border-radius:var(--cp-button-radius);background-clip:padding-box;font:inherit;font-size:var(--cp-button-font-size);line-height:var(--cp-button-line-height);cursor:pointer;font-weight:var(--cp-font-weight-control)}
 .primary{background-color:var(--cp-button-primary);color:var(--cp-button-primary-text)}
-.primary:hover:not(:disabled){text-decoration:underline;text-underline-offset:3px}
+.primary:hover:not(:disabled){text-decoration: none;text-underline-offset:3px}
 .secondary{background-color:var(--cp-soft);color:var(--cp-text-primary,#292724)}
 .secondary:hover:not(:disabled){background-color:var(--cp-border)}
 .primary:disabled,.secondary:disabled,.group:disabled{opacity:.55;cursor:default}

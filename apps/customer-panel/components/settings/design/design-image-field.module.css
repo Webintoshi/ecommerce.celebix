@@ -23,7 +23,7 @@
 .controls { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .field .textButton, .field .iconButton, .field .retryButton { box-sizing: border-box; display: inline-flex; min-width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); align-items: center; justify-content: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); background-color: var(--cp-soft); background-clip: padding-box; color: var(--cp-text-primary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
 .field .iconButton { width: var(--cp-button-small-height); padding: 0; }
-.textButton:not(:disabled):hover, .iconButton:not(:disabled):hover, .retryButton:not(:disabled):hover { text-decoration: underline; text-underline-offset: 3px; background-color: var(--cp-border); }
+.textButton:not(:disabled):hover, .iconButton:not(:disabled):hover, .retryButton:not(:disabled):hover { text-decoration: none; text-underline-offset: 3px; background-color: var(--cp-border); }
 .textButton svg, .iconButton svg, .retryButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); flex: 0 0 var(--cp-button-small-icon-size); }
 .error { display: grid; gap: 4px; border-inline-start: 2px solid var(--cp-danger); padding-inline-start: 12px; }
 .error p { margin: 0; color: var(--cp-danger); font-size: 12px; line-height: 1.5; }

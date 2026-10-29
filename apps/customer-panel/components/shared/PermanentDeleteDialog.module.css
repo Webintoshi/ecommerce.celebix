@@ -21,6 +21,6 @@
 .cancel { background-color: var(--cp-control-background); color: var(--cp-text-primary); }
 .delete { background-color: #b42318; color: #FFFFFF; }
 .cancel:hover:not(:disabled) { background-color: var(--cp-control-hover); }
-.delete:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.delete:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .cancel:disabled, .delete:disabled { cursor: not-allowed; opacity: .55; }
 @media (max-width: 520px) { .layer { padding: 12px; align-items: end; } .dialog { max-height: calc(100vh - 24px); padding: 18px; border-radius: 18px 18px 10px 10px; } .actions { display: grid; grid-template-columns: 1fr; } }

@@ -7,7 +7,7 @@
 .rowActions{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-width:0;flex-wrap:nowrap}
 .paymentButton,.moreButton{display:inline-flex;align-items:center;justify-content:center;gap:var(--cp-button-small-gap);min-height:var(--cp-button-small-height);min-width:44px;border:var(--cp-button-small-hit-inset) solid transparent;border-radius:var(--cp-button-radius);background-clip:padding-box;padding:var(--cp-button-small-padding-y) var(--cp-button-small-padding-x);font-size:var(--cp-button-small-font-size);font-weight:var(--cp-font-weight-control);line-height:var(--cp-button-small-line-height);white-space:nowrap;cursor:pointer;text-decoration:none}
 .paymentButton{background-color:var(--cp-button-primary);color:var(--cp-button-primary-text)}
-.paymentButton:hover:not(:disabled){background-color:var(--cp-button-primary);text-decoration:underline;text-underline-offset:4px}
+.paymentButton:hover:not(:disabled){background-color:var(--cp-button-primary);text-decoration: none;text-underline-offset:4px}
 .moreButton{background-color:var(--cp-control-background);color:var(--cp-text-primary);padding:0;width:44px}
 .moreButton:hover:not(:disabled){background-color:var(--cp-control-hover)}
 .paymentButton:disabled,.moreButton:disabled{opacity:.5;cursor:default}

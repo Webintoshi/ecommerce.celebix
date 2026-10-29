@@ -869,7 +869,7 @@
   background-clip: padding-box;
   color: var(--cp-button-primary-text);
 }
-.primary:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .primary svg, .secondary svg, .advanced svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
 .iconButton { min-width: var(--cp-button-small-height); width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: 0; }
 .iconButton svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }

@@ -31,7 +31,7 @@
 .actions button { width: var(--cp-button-small-height); min-height: var(--cp-button-small-height); border-width: var(--cp-button-small-hit-inset); padding: 0; }
 .actions svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .footer svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
-.actions button:hover:not(:disabled), .footer button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.actions button:hover:not(:disabled), .footer button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .actions button:disabled, .footer button:disabled { cursor: not-allowed; opacity: .48; }
 .footer { justify-content: space-between; }
 .footer .primary { color: var(--cp-button-primary-text); background-color: var(--cp-button-primary); }

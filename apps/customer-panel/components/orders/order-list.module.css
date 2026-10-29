@@ -39,7 +39,7 @@
 }
 .button:hover:not(:disabled), .exportButton:hover:not(:disabled), .loadMore:hover:not(:disabled) { background-color: var(--cp-soft); }
 .primaryAction { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primaryAction:hover { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primaryAction:hover { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .button svg, .exportButton svg, .loadMore svg, .primaryAction svg, .quietButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: none; }
 .iconButton { width: 44px; min-width: 44px; border-width: var(--cp-button-small-hit-inset); padding: 0; color: var(--cp-text-secondary); background-color: transparent; }
 .iconButton:hover:not(:disabled) { color: var(--cp-text-primary); background-color: var(--cp-soft); }

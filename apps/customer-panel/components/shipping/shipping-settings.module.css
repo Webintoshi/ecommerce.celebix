@@ -42,7 +42,7 @@
 .toggle small { color: var(--ship-muted); font-size: 12px; line-height: 1.6; }
 .saveRow { display: flex; justify-content: flex-end; padding-bottom: 24px; }
 .save { justify-self: end; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.save:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.save:hover:not(:disabled), .actions button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .connectionControls { display: grid; min-width: 0; gap: 20px; }
 .tokenForm { max-width: 640px; }
 .tokenControl { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; border: 1px solid var(--ship-border); border-radius: 8px; background: var(--ship-surface); padding-left: 12px; color: var(--ship-muted); }

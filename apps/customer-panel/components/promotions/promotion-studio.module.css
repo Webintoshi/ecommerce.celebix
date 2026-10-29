@@ -60,7 +60,7 @@
 .headerPrimary a:hover {
   background-color: var(--cp-button-primary);
   color: var(--cp-button-primary-text);
-  text-decoration: underline;
+  text-decoration: none;
   text-underline-offset: 4px;
 }
 
@@ -1220,7 +1220,7 @@
 
 .primaryButton:hover:not(:disabled) {
   background-color: var(--cp-button-primary);
-  text-decoration: underline;
+  text-decoration: none;
   text-underline-offset: 4px;
 }
 

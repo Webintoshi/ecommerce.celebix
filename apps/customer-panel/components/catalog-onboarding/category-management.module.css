@@ -382,7 +382,7 @@
 .refreshButton svg, .iconButton svg, .closeEditor svg, .rowQuickAction svg, .rowMoreAction svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 :is(.categoryManager, .detailPanel, .confirmDialog) :is(.primaryButton, .refreshButton, .cancelButton, .secondaryButton):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .primaryButton { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primaryButton:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primaryButton:hover:not(:disabled) { border-color: transparent; background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .confirmDialog .cancelButton { border-color: transparent; background-color: var(--cp-control-background); }
 .confirmDialog .cancelButton:hover:not(:disabled) { border-color: var(--cp-control-hover); }
 

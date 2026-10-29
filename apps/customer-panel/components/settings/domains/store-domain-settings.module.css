@@ -16,7 +16,7 @@
 .page :is(input, button, summary, a):focus-visible { outline: 2px solid var(--settings-action, var(--text)); outline-offset: 3px; }
 .add button, .actions button, .replacement button, .error button { box-sizing: border-box; display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); background-color: var(--cp-soft); background-clip: padding-box; color: inherit; font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); cursor: pointer; }
 .add button { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.add button:hover:not(:disabled), .actions button:hover:not(:disabled), .replacement button:hover:not(:disabled), .error button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.add button:hover:not(:disabled), .actions button:hover:not(:disabled), .replacement button:hover:not(:disabled), .error button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .add button svg, .actions button svg, .replacement button svg, .error button svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0; }
 .page button:disabled { cursor: not-allowed; opacity: .5; }
 .preview { grid-column: 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }

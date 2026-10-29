@@ -34,7 +34,7 @@
   border-color: transparent;
   background-color: var(--cp-button-primary);
   color: var(--cp-button-primary-text);
-  text-decoration: underline;
+  text-decoration: none;
   text-underline-offset: 4px;
 }
 

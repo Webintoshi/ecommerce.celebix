@@ -14,7 +14,7 @@
 .srOnly { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .button, .primary, .danger { display: inline-flex; min-height: var(--cp-button-height); min-width: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; cursor: pointer; }
 .primary { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: underline; text-underline-offset: 4px; }
+.primary:hover:not(:disabled) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
 .button:hover:not(:disabled) { border-color: var(--cp-control-hover, var(--cp-text-primary)); }
 .danger { background: transparent; color: var(--cp-danger); }
 .actions .danger svg { width: 16px; height: 16px; flex-shrink: 0; }

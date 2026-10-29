@@ -24,7 +24,7 @@
 .valueEntry { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 10px; }
 .editorActions { justify-content: flex-end; }
 .editorActions button:last-child { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
-.editorActions button:last-child:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.editorActions button:last-child:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .editorActions button:disabled { opacity: .5; cursor: not-allowed; }
 .newValues { display: flex; flex-wrap: wrap; gap: 6px; }
 .saveHint { margin: 0; color: #667085; font-size: 12px; font-weight: var(--cp-font-weight-helper); }

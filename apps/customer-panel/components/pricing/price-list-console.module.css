@@ -286,7 +286,7 @@
   border-color: transparent;
   background-color: var(--cp-button-primary);
   color: var(--cp-button-primary-text);
-  text-decoration: underline;
+  text-decoration: none;
   text-underline-offset: 4px;
 }
 
@@ -369,7 +369,7 @@
   background-clip: padding-box;
   color: var(--cp-button-primary-text);
 }
-.actions .primary:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 4px; }
+.actions .primary:hover:not(:disabled) { text-decoration: none; text-underline-offset: 4px; }
 .actions .primary:active { text-decoration-thickness: 2px; }
 .editor button svg, .actions button svg, .listToolbar button svg, .error button svg {
   width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex-shrink: 0;

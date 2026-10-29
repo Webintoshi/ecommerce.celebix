@@ -37,7 +37,7 @@
 .settingsRow:focus-visible { outline: 2px solid #2B2B2B; outline-offset: 3px; }
 .empty { display: grid; justify-items: center; gap: 16px; padding: 36px; color: #79716A; }
 .empty button, .discardDialog button { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: var(--cp-button-gap); min-height: var(--cp-button-height); padding: var(--cp-button-padding-y) var(--cp-button-padding-x); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-soft); background-clip: padding-box; color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); cursor: pointer; font-weight: var(--cp-font-weight-control); }
-.empty button:hover:not(:disabled), .discardDialog button:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
+.empty button:hover:not(:disabled), .discardDialog button:hover:not(:disabled) { text-decoration: none; text-underline-offset: 3px; }
 .discardDialog { max-width: min(460px,calc(100vw - 32px)); padding: 28px; border: 1px solid #E7E2DD; border-radius: 14px; background: #FFFDFC; color: #2B2B2B; }
 .discardDialog::backdrop { background: rgb(32 28 25 / 36%); }
 .discardDialog h2 { margin: 0 0 12px; font-size: 18px; }
