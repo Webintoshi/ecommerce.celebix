@@ -164,3 +164,25 @@ test("shared footer keeps the configured newsletter, actual social destinations 
     assert.equal(container.querySelector('input[type="checkbox"]')?.hasAttribute('checked'), false);
   });
 });
+
+test("starter footer appearance changes locally with matching payment assets and preserves form state", async () => {
+  const store = storefront(tenantCases[3].id, "Starter");
+  await renderFooter(store, false, async container => {
+    const rootClass = container.ownerDocument.documentElement.className;
+    const footer = container.querySelector<HTMLElement>('[data-footer-section]');
+    const toggle = container.querySelector<HTMLButtonElement>('button[role="switch"]');
+    assert.ok(footer && toggle);
+    const initial = footer.dataset.footerTone;
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    if (checkbox) await React.act(() => checkbox.click());
+    await React.act(() => toggle.click());
+    assert.equal(footer.dataset.footerTone, initial === "dark" ? "light" : "dark");
+    assert.equal(toggle.getAttribute("aria-checked"), String(initial !== "dark"));
+    assertSignature(container);
+    assert.equal(container.ownerDocument.documentElement.className, rootClass, "page appearance is untouched");
+    if (checkbox) assert.equal(checkbox.checked, true, "appearance does not reset newsletter consent");
+    await React.act(() => toggle.click());
+    assert.equal(footer.dataset.footerTone, initial);
+    assertSignature(container);
+  });
+});
