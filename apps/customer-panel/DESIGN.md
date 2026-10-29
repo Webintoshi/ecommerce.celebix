@@ -16,6 +16,8 @@ Important existing primary actions use exactly `#ff6c13` and pure white `#FFFFFF
 
 Form focus has one owner. A composite search or selector uses its outer 1px border to show focus; its borderless native input/select must never draw a second outline or halo. Standalone form fields change their existing border, without stacked rings. Borderless standalone controls retain one thin visible keyboard outline. Keep the separate 2px keyboard ring for action buttons and links.
 
+The product editor uses a compact utility scale: 13px/500 single-line action labels with 32px painted capsules inside 36px desktop targets; formatting tools use 28×32px targets with 16px icons. Coarse pointers retain 44px targets. This localized scale supersedes the larger shared action size within the description toolbar, cover action and SEO action. Classification controls show their real values under external labels, without selection-count or empty-state subtitles. Keep the existing data, form names and handlers; avoid repeated section headings and channel-kind subtitles in the editing rail.
+
 Explicit appearance exception: white on `#ff6c13` has a 2.835374781:1 contrast ratio. This exact pair is the owner's supplied preference; do not silently replace the requested white or orange, and do not claim WCAG AA text contrast for this pair. This exception does not authorize low-contrast text elsewhere.
 
 Use `--cp-button-*` size/radius/color tokens. Keep `--cp-control-*` field tokens independent, and keep `--cp-brand` for charts, selection and established switches. Reading this as a shared operational component grammar: ENERGY 1 / RHYTHM 1 / MOTION 1; uniform button proportions are deliberate across pages, with only purpose-driven size and semantic variants.

@@ -803,10 +803,12 @@ function ProductDetailConsoleWorkspace({
       <div className={styles.workspace}>
         <div className={styles.mainColumn}>
           <section id="product-general" className={styles.general} aria-labelledby="product-fields-title">
-            <div className={styles.sectionHeader}><h2 id="product-fields-title">Ürün bilgileri</h2><span>{productType} · {product.currency} · v{product.version}</span></div>
+            <div className={styles.sectionHeader}><h2 id="product-fields-title">Ürün bilgileri</h2><span className="sr-only">{productType} · {product.currency} · v{product.version}</span></div>
             <div className={styles.productCore}>
+              <div className={styles.productCover}>
               <div className={styles.heroImage}>
                 {cover?.publicUrl ? <img src={cover.publicUrl} alt={cover.altText || product.title} /> : <ImageIcon aria-label="Kapak görseli yok" />}
+              </div>
                 <a className={styles.photoAction} href="#product-images"><Pencil aria-hidden="true" /> Görselleri düzenle</a>
               </div>
               <div className={styles.productMain}>
@@ -932,7 +934,7 @@ function ProductDetailConsoleWorkspace({
                 captureProductAuthoringDraft={captureCurrentProductDraft}
                 onSeoPreviewChange={setSeoPreviewDraft}
               />
-              <dl className={styles.asideFacts}><div><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div></dl>
+              <dl className="sr-only"><div><dt>Son güncelleme</dt><dd><time dateTime={product.updatedAt}>{updatedAt}</time></dd></div></dl>
             </section>
           ) : null}
           {merchandisingState === "ready" && (!canManage || archived) ? readOnlySalesSettings : null}

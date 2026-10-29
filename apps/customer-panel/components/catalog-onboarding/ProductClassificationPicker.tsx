@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, ChevronDown, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, ChevronDown, Search } from "lucide-react";
+import { useId, useMemo, useState } from "react";
 
 import styles from "./product-onboarding.module.css";
 
@@ -27,7 +27,10 @@ export function ProductClassificationPicker({
 }>) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const labelId = useId();
+  const valueId = useId();
   const optionById = useMemo(() => new Map(options.map((option) => [option.id, option])), [options]);
+  const selectedLabel = selected.map((id) => optionById.get(id)?.label).filter(Boolean).join(", ");
   const normalizedQuery = query.trim().toLocaleLowerCase("tr-TR");
   const visibleOptions = normalizedQuery
     ? options.filter((option) => option.label.toLocaleLowerCase("tr-TR").includes(normalizedQuery))
@@ -41,10 +44,11 @@ export function ProductClassificationPicker({
 
   return (
     <div className={styles.classificationField}>
+      <span id={labelId} className={styles.classificationLabel}>{label}</span>
       {selected.map((id) => <input key={id} type="hidden" name={name} value={id} />)}
       <details className={styles.classificationPicker} onToggle={(event) => setOpen(event.currentTarget.open)}>
-        <summary>
-          <span><strong>{label}</strong><small>{selected.length ? `${selected.length} seçim` : "Seçilmedi"}</small></span>
+        <summary aria-labelledby={`${labelId} ${valueId}`} title={selectedLabel || undefined}>
+          <span id={valueId} className={styles.classificationValue}>{selectedLabel || "—"}</span>
           <ChevronDown aria-hidden="true" />
         </summary>
         {open ? <div className={styles.classificationPopover}>
@@ -52,12 +56,6 @@ export function ProductClassificationPicker({
             <Search aria-hidden="true" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label={searchLabel} placeholder={searchLabel} autoComplete="off" />
           </label>
-          {selected.length ? <div className={styles.classificationChips} aria-label={`${label} seçimleri`}>
-            {selected.map((id) => {
-              const option = optionById.get(id);
-              return option ? <button key={id} type="button" onClick={() => toggle(id)}>{option.label}<X aria-hidden="true" /></button> : null;
-            })}
-          </div> : null}
           <div className={styles.classificationOptions}>
             {visibleOptions.length ? visibleOptions.map((option) => {
               const checked = selected.includes(option.id);

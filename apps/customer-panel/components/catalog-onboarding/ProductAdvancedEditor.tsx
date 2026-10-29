@@ -330,7 +330,7 @@ export function ProductAdvancedEditor({ options, initialKind, aiAvailable = true
   };
   const seoAuthoringBridge:ContentAuthoringBridge={media:editing?undefined:mediaAuthoringBridge,capture:()=>{const {request,sessionId,draftRevision}=captureAuthoring();return {request:{...request,fields:["seoTitle","seoDescription"]},lifecycle:{sessionId,draftRevision,selection:null}};},canApply:canApplyAuthoringField,apply:applyAuthoringField};
   useEffect(()=>{onAuthoringBridgeChange?.(seoAuthoringBridge);return ()=>onAuthoringBridgeChange?.(null);},[onAuthoringBridgeChange,seoAuthoringBridge]);
-  const seoAuthoringControls = aiAvailable ? <><button ref={seoAiTrigger} type="button" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>Yapay Zeka ile SEO Hazırla</button>{seoAiOpen?<ContentAuthoringPanel intentState={seoAuthoringIntent} fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</> : <CommercialFeatureLink capability="ai" />;
+  const seoAuthoringControls = aiAvailable ? <><button ref={seoAiTrigger} className={styles.seoAuthoringButton} type="button" aria-label="Yapay zekâ ile SEO alanlarını düzenle" title="Yapay zekâ ile SEO alanlarını düzenle" aria-expanded={seoAiOpen} onClick={()=>setSeoAiOpen(value=>!value)}>SEO düzenle</button>{seoAiOpen?<ContentAuthoringPanel intentState={seoAuthoringIntent} fields={["seoTitle","seoDescription"]} bridge={seoAuthoringBridge} onClose={()=>{setSeoAiOpen(false);requestAnimationFrame(()=>seoAiTrigger.current?.focus());}}/>:null}</> : <CommercialFeatureLink capability="ai" />;
   function requestCancel() {
     if (!editing && (lock.current || pendingBarcodeCountRef.current > 0 || attributeSavingRef.current)) return;
     if (editing) {
@@ -695,7 +695,7 @@ export function ProductAdvancedEditor({ options, initialKind, aiAvailable = true
   if (presentation === "rail" && editor) return <form ref={formRef} className={`${styles.advancedEditor} ${styles.editSettings} ${styles.railSettings}`} onSubmit={submit} onChange={(event) => {
     if (!(event.target instanceof HTMLElement) || !event.target.closest(`.${styles.classificationSearch}`)) markEditingDirty();
   }} aria-busy={busy} noValidate>
-    <div className={styles.railHeading}><h2>Yayın ve sınıflandırma</h2></div>
+    <h2 className="sr-only">Yayın ve sınıflandırma</h2>
     {error ? <div className={styles.error} role="alert"><span>{error}</span>{conflict ? <button type="button" className={styles.secondary} onClick={reloadConflict}>Sunucudaki sürümü yükle</button> : null}</div> : null}
     {!categoryHierarchy.valid ? <div className={styles.error} role="alert">Kategori seçenekleri şu anda kullanılamıyor.</div> : null}
     <fieldset className={styles.railFieldset} disabled={busy}>
@@ -703,27 +703,29 @@ export function ProductAdvancedEditor({ options, initialKind, aiAvailable = true
         <h3 id="rail-channels-title">Satış kanalları</h3>
         <div className={`${styles.editOptionList} ${styles.railChannelList}`}>{options.channels.length ? options.channels.map((channel) => <label key={channel.id}>
           <input type="checkbox" name="channelIds" value={channel.id} defaultChecked={has(editor.channelIds, channel.id)} />
-          <span>{channel.name}<small>{channel.kind === "storefront" ? "Online mağaza" : "Pazar yeri"}</small></span>
+          <span>{channel.name}</span>
         </label>) : <p>Etkin satış kanalı bulunamadı.</p>}</div>
       </section>
       <section className={styles.railGroup} aria-labelledby="rail-classification-title">
-        <h3 id="rail-classification-title">Sınıflandırma</h3>
+        <h3 id="rail-classification-title" className="sr-only">Sınıflandırma</h3>
         <div className={styles.railFields}>
           <ProductClassificationPicker label="Kategoriler" name="categoryIds" options={categoryChoices} selected={categoryIds} onChange={(next) => { markEditingDirty(); setCategoryIds(next); }} searchLabel="Kategori ara" />
-          <label className={styles.editField}><span>Marka</span><select name="resource-brand" defaultValue={editor.resourceIds.brand ?? ""}><option value="">Marka seçilmedi</option>{activeResources("brand").map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
+          <label className={styles.editField}><span>Marka</span><select name="resource-brand" defaultValue={editor.resourceIds.brand ?? ""}><option value="">—</option>{activeResources("brand").map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}</select></label>
           <ProductClassificationPicker label="Koleksiyonlar" name="resource-collection" options={collectionChoices} selected={collectionIds} onChange={(next) => { markEditingDirty(); setCollectionIds(next); }} searchLabel="Koleksiyon ara" />
           <ProductClassificationPicker label="Etiketler" name="resource-tag" options={tagChoices} selected={tagIds} onChange={(next) => { markEditingDirty(); setTagIds(next); }} searchLabel="Etiket ara" />
         </div>
       </section>
       <details ref={railAdvancedRef} className={styles.railAdvanced}>
-        <summary>SEO ve gelişmiş alanlar</summary>
+        <summary>SEO ve diğer alanlar<ChevronDown aria-hidden="true" /></summary>
         <div className={styles.railAdvancedBody}>
           {seoAuthoringControls}<label className={styles.editField}><span>SEO başlığı</span><ContentAuthoringTextField name="seoTitle" maxLength={60} defaultValue={editor.profile.seoTitle ?? ""} initialOrigin={contentOrigins.seoTitle} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoTitle:origin}))} onValueChange={markEditingDirty} /></label>
           <label className={styles.editField}><span>SEO açıklaması</span><ContentAuthoringTextField name="seoDescription" multiline maxLength={160} rows={3} defaultValue={editor.profile.seoDescription ?? ""} initialOrigin={contentOrigins.seoDescription} controllers={seoFieldControllers} onOriginChange={(origin)=>setContentOrigins(current=>({...current,seoDescription:origin}))} onValueChange={markEditingDirty} /></label>
-          <label className={styles.editField}><span>Google ürün kategori kimliği</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={editor.profile.googleProductCategoryId ?? ""} /></label>
+          <label className={styles.editField}><span>Google kategori kodu</span><input name="googleProductCategoryId" inputMode="numeric" maxLength={20} defaultValue={editor.profile.googleProductCategoryId ?? ""} /></label>
           <label className={styles.editField}><span>Tedarikçi</span><input name="supplierName" maxLength={200} defaultValue={editor.profile.supplierName ?? ""} /></label>
-          <label className={styles.editField}><span>Minimum sipariş</span><input name="minimumPurchaseQuantity" inputMode="numeric" defaultValue={editor.profile.minimumPurchaseQuantity} /></label>
-          <label className={styles.editField}><span>Maksimum sipariş</span><input name="maximumPurchaseQuantity" inputMode="numeric" defaultValue={editor.profile.maximumPurchaseQuantity ?? ""} /></label>
+          <div className={styles.railQuantityGrid}>
+          <label className={styles.editField}><span>En az adet</span><input name="minimumPurchaseQuantity" inputMode="numeric" defaultValue={editor.profile.minimumPurchaseQuantity} /></label>
+          <label className={styles.editField}><span>En fazla adet</span><input name="maximumPurchaseQuantity" inputMode="numeric" defaultValue={editor.profile.maximumPurchaseQuantity ?? ""} /></label>
+          </div>
           {(["attribute", "extra", "definition"] as const).map((resourceKind) => {
             const resources = activeResources(resourceKind);
             if (!resources.length) return null;

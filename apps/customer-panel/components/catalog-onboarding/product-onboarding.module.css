@@ -522,29 +522,28 @@
 .createMediaGrid article input { width: 100%; min-width: 0; min-height: 36px; border: 1px solid #dce2e9; border-radius: 6px; padding: 0 8px; font-size: 9px; }
 .organizationGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .organizationGrid > label { display: grid; gap: 5px; color: #475467; font-size: 10px; font-weight: var(--cp-font-weight-control); }
-.classificationField { min-width: 0; }
+.classificationField { display: grid; min-width: 0; gap: 8px; }
+.classificationLabel { color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; line-height: 18px; }
 .classificationPicker { position: relative; min-width: 0; border: 0; background: transparent; }
 .classificationPicker[open] { box-shadow: none; }
 .classificationPicker > summary {
   display: flex;
   min-width: 0;
-  min-height: 42px;
+  min-height: 40px;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   border: 1px solid var(--cp-border);
   border-radius: var(--cp-button-radius);
   background: var(--cp-surface);
-  padding: 0 10px;
+  padding: 0 12px;
   cursor: pointer;
   list-style: none;
 }
 .classificationPicker > summary::-webkit-details-marker { display: none; }
 .classificationPicker > summary:hover { background: var(--cp-canvas); }
 .classificationPicker > summary:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
-.classificationPicker > summary > span { display: grid; min-width: 0; gap: 1px; }
-.classificationPicker > summary strong { color: #475467; font-size: 10px; }
-.classificationPicker > summary small { color: #98a2b3; font-size: 8px; font-weight: var(--cp-font-weight-helper); }
+.classificationValue { display: block; min-width: 0; overflow: hidden; color: var(--cp-text-primary); font-size: 14px; font-weight: 500; line-height: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .classificationPicker > summary svg { width: 16px; height: 16px; flex: 0 0 16px; color: var(--cp-text-secondary); transition: transform 150ms ease; }
 .classificationPicker[open] > summary > svg { transform: rotate(180deg); }
 .classificationPopover { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); padding: 8px; }
@@ -734,9 +733,7 @@
 .editField select:focus-visible,
 .editField textarea:focus-visible { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
 .editSettings .classificationPicker { border: 0; background: transparent; }
-.editSettings .classificationPicker > summary { min-height: 44px; padding: 8px 12px; }
-.editSettings .classificationPicker > summary strong { color: var(--catalog-text); font-size: 13px; font-weight: var(--cp-font-weight-control); }
-.editSettings .classificationPicker > summary small { color: #667085; font-size: 12px; font-weight: var(--cp-font-weight-helper); }
+.editSettings .classificationPicker > summary { min-height: 40px; padding: 0 12px; }
 .editSettings .classificationPicker > summary svg { width: 16px; }
 .editSettings .classificationPopover { gap: 8px; border-color: var(--catalog-border); padding: 12px; }
 .editSettings .classificationSearch { min-height: 40px; border-color: var(--catalog-border); border-radius: 8px; }
@@ -761,35 +758,42 @@
 .railHeading h2 { margin: 0; color: #2b2b2b; font-size: 16px; font-weight: var(--cp-font-weight-heading); line-height: 1.25; letter-spacing: -.02em; }
 .railFieldset { display: grid; min-width: 0; margin: 0; border: 0; padding: 0; }
 .railFieldset:disabled { opacity: .65; }
-.railGroup { display: grid; gap: 16px; min-width: 0; border-top: 1px solid var(--cp-border); padding: 20px 0; }
-.railGroup h3, .railResourceGroup h4 { margin: 0; color: var(--cp-text-primary); font-size: 13px; font-weight: var(--cp-font-weight-heading); line-height: 1.35; }
-.railFields { display: grid; gap: 13px; min-width: 0; }
-.railSettings .editField { gap: 8px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); }
-.railSettings .editField input, .railSettings .editField select, .railSettings .editField textarea { min-height: 40px; border-color: #ded6cf; border-radius: 7px; background: #fffdfc; padding: 8px 10px; color: #2b2b2b; font-size: 12px; }
+.railGroup { display: grid; gap: 12px; min-width: 0; padding: 0 0 24px; }
+.railGroup h3, .railResourceGroup h4 { margin: 0; color: var(--cp-text-primary); font-size: 13px; font-weight: 500; line-height: 1.35; }
+.railFields { display: grid; gap: 16px; min-width: 0; }
+.railSettings .editField { gap: 8px; color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; }
+.railSettings .editField input, .railSettings .editField select, .railSettings .editField textarea { min-width: 0; min-height: 40px; border-color: var(--cp-border); border-radius: 8px; background: var(--cp-surface); padding: 8px 12px; color: var(--cp-text-primary); font-size: 14px; font-weight: 500; }
 .railSettings .editField textarea { min-height: 84px; }
 .railSettings .editField :is(input, select, textarea):focus-visible { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
 .railSettings .classificationPicker { border: 0; background: transparent; }
-.railSettings .classificationPicker > summary { min-height: 56px; padding: 8px 16px; }
-.railSettings .classificationPicker > summary strong { color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-control); }
-.railSettings .classificationPicker > summary small { color: var(--cp-text-secondary); font-size: 12px; font-weight: var(--cp-font-weight-helper); }
+.railSettings .classificationPicker > summary { min-height: 40px; padding: 0 12px; }
 .railSettings .classificationPopover { padding: 8px; }
 .railSettings .classificationOptions label { min-height: 44px; font-size: 13px; }
 .railSettings .classificationChips button { min-height: 36px; border-color: var(--cp-border); background: var(--cp-canvas); color: var(--cp-text-primary); font-size: 12px; padding: 6px 10px; }
 .railSettings .editOptionList { gap: 0; }
-.railSettings .editOptionList label { min-height: 43px; gap: 9px; border: 0; border-radius: 0; border-bottom: 1px solid #eee8e3; background: transparent; padding: 6px 0; color: #37332f; }
+.railSettings .editOptionList label { min-height: 36px; gap: 10px; border: 0; border-radius: 0; background: transparent; padding: 6px 0; color: var(--cp-text-primary); }
 .railSettings .editOptionList label:has(input:checked) { border-color: #eee8e3; background: transparent; }
 .railSettings .editOptionList label:last-child { border-bottom: 0; }
-.railSettings .editOptionList input { width: 16px; height: 16px; flex-basis: 16px; accent-color: #2b2b2b; }
-.railSettings .editOptionList label > span { overflow-wrap: anywhere; font-size: 12px; font-weight: var(--cp-font-weight-control); }
+.railSettings .editOptionList input { width: 16px; height: 16px; flex-basis: 16px; accent-color: var(--cp-button-primary); }
+.railSettings .editOptionList label > span { overflow-wrap: anywhere; font-size: 13px; font-weight: 500; }
 .railSettings .editOptionList small { color: #8c857e; font-size: 10px; font-weight: var(--cp-font-weight-helper); }
 .railSettings .editOptionList p { color: #77716b; font-size: 11px; }
-.railAdvanced { min-width: 0; border-top: 1px solid #e4d5c9; }
-.railAdvanced > summary { display: flex; min-height: 47px; align-items: center; justify-content: space-between; gap: 10px; color: #4b4641; cursor: pointer; font-size: 12px; font-weight: var(--cp-font-weight-control); list-style: none; }
+.railAdvanced { min-width: 0; border-top: 1px solid var(--cp-border); }
+.railAdvanced > summary { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 10px; color: var(--cp-text-primary); cursor: pointer; font-size: 14px; font-weight: 500; list-style: none; }
 .railAdvanced > summary::-webkit-details-marker { display: none; }
-.railAdvanced > summary::after { content: "+"; color: #77716b; font-size: 18px; font-weight: var(--cp-font-weight-helper); }
-.railAdvanced[open] > summary::after { content: "−"; }
+.railAdvanced > summary svg { width: 16px; height: 16px; flex: 0 0 16px; stroke-width: 1.7; }
+.railAdvanced[open] > summary svg { transform: rotate(180deg); }
 .railAdvanced > summary:focus-visible { outline: 2px solid #fe6100; outline-offset: -2px; }
-.railAdvancedBody { display: grid; gap: 15px; min-width: 0; padding: 3px 0 18px; }
+.railAdvancedBody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; padding: 0 0 20px; }
+.railQuantityGrid { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.seoAuthoringButton { display: inline-flex; width: fit-content; max-width: 100%; min-height: 36px; align-items: center; justify-content: center; border: 2px solid transparent; border-radius: var(--cp-button-radius); background: var(--cp-control-background); background-clip: padding-box; padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; white-space: nowrap; cursor: pointer; }
+.seoAuthoringButton:hover { background-color: var(--cp-control-hover); }
+.seoAuthoringButton:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.seoAuthoringButton:disabled { opacity: .5; cursor: not-allowed; }
+@media (pointer: coarse) {
+  .seoAuthoringButton, .classificationPicker > summary { min-height: 44px; }
+  .railSettings .editOptionList label { min-height: 44px; }
+}
 .railResourceGroup { display: grid; gap: 5px; min-width: 0; border-top: 1px solid #eee8e3; padding-top: 14px; }
 .railSettings .error { margin: 0 0 14px; border-radius: 8px; padding: 10px; font-size: 11px; font-weight: var(--cp-font-weight-helper); }
 .editSettings .railActionBar { display: flex; position: fixed; z-index: 15; right: auto; bottom: 16px; left: calc(50% + 7.65625rem); width: min(550px, calc(100vw - 32px)); align-items: center; gap: 8px; margin: 0; transform: translateX(-50%); border: 1px solid #46413b; border-radius: 10px; background: #292725; padding: 9px 10px 9px 15px; box-shadow: 0 12px 30px rgb(20 15 11 / 23%); backdrop-filter: none; }

@@ -34,11 +34,11 @@
 .statusActive::before { background: #438467; }
 
 .heroActions { min-width: 0; flex-wrap: wrap; gap: 8px; }
-.outlineButton { display: inline-flex; min-height: var(--cp-button-height); align-items: center; justify-content: center; gap: var(--cp-button-gap); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); color: var(--cp-text-primary); font: inherit; font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.outlineButton { display: inline-flex; min-height: 36px; align-items: center; justify-content: center; gap: 6px; border: 2px solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: 0 12px; color: var(--cp-text-primary); font: inherit; font-size: 13px; line-height: 20px; font-weight: 500; text-decoration: none; white-space: nowrap; cursor: pointer; }
 .outlineButton:hover,
 .more summary:hover { background-color: var(--cp-soft); }
 .outlineButton:disabled { cursor: wait; opacity: .55; }
-.outlineButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); }
+.outlineButton svg { width: 16px; height: 16px; flex: 0 0 16px; }
 .more { position: relative; }
 .more summary { display: grid; width: var(--cp-button-small-height); height: var(--cp-button-small-height); place-items: center; border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; color: var(--cp-text-secondary); cursor: pointer; list-style: none; }
 .more summary::-webkit-details-marker { display: none; }
@@ -56,13 +56,13 @@
 .sectionNav a[aria-current="location"] { border-bottom-color: var(--cp-button-primary); color: var(--detail-ink); }
 .sectionNav span { color: #9b958f; font-size: 10px; }
 
-.workspace { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) 280px; align-items: start; gap: 24px; }
+.workspace { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) clamp(300px, 28%, 400px); align-items: start; gap: 24px; }
 .mainColumn { display: grid; min-width: 0; align-content: start; }
 .general,
 .variants { min-width: 0; scroll-margin-top: 82px; }
 .general { border: 1px solid var(--detail-line); border-radius: 12px; background: var(--detail-surface); padding: 24px; }
 .sectionHeader { min-width: 0; flex-wrap: wrap; justify-content: space-between; gap: 8px 16px; margin-bottom: 20px; }
-.sectionHeader h2 { margin: 0; color: var(--detail-ink); font-size: 16px; font-weight: var(--cp-font-weight-heading); line-height: 1.25; letter-spacing: -.025em; }
+.sectionHeader h2 { margin: 0; color: var(--detail-ink); font-size: 16px; font-weight: 600; line-height: 1.25; letter-spacing: -.025em; }
 .sectionHeader p { margin: 5px 0 0; color: var(--detail-muted); font-size: 12px; line-height: 1.4; }
 .sectionHeader > span { color: var(--detail-muted); font-size: 12px; overflow-wrap: anywhere; }
 .count { margin-left: 4px; color: #928b85; font-size: 11px; font-weight: var(--cp-font-weight-helper); }
@@ -70,33 +70,34 @@
 .smallAction:hover:not(:disabled) { background-color: var(--cp-canvas); }
 .smallAction svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 
-.productCore { display: grid; min-width: 0; grid-template-columns: 176px minmax(0, 1fr); align-items: start; gap: 24px; }
+.productCore { display: grid; min-width: 0; grid-template-columns: 160px minmax(0, 1fr); align-items: start; gap: 20px; }
+.productCover { display: grid; min-width: 0; gap: 8px; align-content: start; }
 .heroImage { display: grid; position: relative; width: 100%; aspect-ratio: 240 / 312; place-items: center; overflow: hidden; border: 1px solid #e9e0d6; border-radius: 9px; background: #eee7df; color: #9a8d80; }
 .heroImage img { width: 100%; height: 100%; object-fit: cover; }
 .heroImage > svg { width: 36px; height: 36px; }
-.photoAction { display: inline-flex; position: absolute; right: 8px; bottom: 8px; left: 8px; min-height: var(--cp-button-small-height); align-items: center; gap: var(--cp-button-small-gap); border: var(--cp-button-small-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-surface); background-clip: padding-box; padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); color: var(--cp-text-primary); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); font-weight: var(--cp-font-weight-control); text-align: left; text-decoration: none; }
+.photoAction { display: inline-flex; min-width: 0; min-height: 36px; align-items: center; justify-content: center; gap: 6px; border: 2px solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-control-background); background-clip: padding-box; padding: 0 8px; color: var(--cp-text-primary); font-size: 13px; line-height: 20px; font-weight: 500; white-space: nowrap; text-decoration: none; }
 .photoAction:hover { background-color: var(--cp-surface); color: var(--cp-text-primary); }
-.photoAction svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
+.photoAction svg { width: 14px; height: 14px; flex: 0 0 14px; }
 .photoAction span { margin-left: auto; color: #918981; }
 .productMain { min-width: 0; }
 .generalForm { display: grid; min-width: 0; gap: 0; }
 .root .generalForm :global(fieldset) { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 20px; margin: 0; border: 0; border-radius: 0; background: transparent; padding: 0; box-shadow: none; }
 .root .generalForm :global(.form-grid) { grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 0; }
 .root .generalForm :global(.field) { min-width: 0; gap: 6px; color: #4b4641; }
-.root .generalForm :global(.field > span) { color: var(--detail-ink); font-size: 14px; font-weight: var(--cp-font-weight-control); }
-.root .generalForm :global(.field input),
-.root .generalForm :global(.field select),
-.root .generalForm :global(.field textarea) { min-width: 0; max-width: 100%; min-height: 44px; border: 1px solid var(--detail-line); border-radius: var(--cp-control-radius); background: var(--detail-surface); color: var(--detail-ink); font-size: 14px; }
+.root .generalForm :global(.field > span) { color: var(--detail-ink); font-size: 14px; font-weight: 500; }
+.root .generalForm :global(.field > input),
+.root .generalForm :global(.field > select),
+.root .generalForm :global(.field > textarea) { min-width: 0; max-width: 100%; min-height: 44px; border: 1px solid var(--detail-line); border-radius: var(--cp-control-radius); background: var(--detail-surface); color: var(--detail-ink); font-size: 14px; }
 .root .generalForm :global(.field textarea) { min-height: 92px; }
-.root .generalForm :global(.field input:focus-visible),
-.root .generalForm :global(.field select:focus-visible),
-.root .generalForm :global(.field textarea:focus-visible) { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
+.root .generalForm :global(.field > input:focus-visible),
+.root .generalForm :global(.field > select:focus-visible),
+.root .generalForm :global(.field > textarea:focus-visible) { border-color: var(--cp-control-focus); outline: 0; box-shadow: none; }
 .root .generalForm :global(.product-description-field) { min-width: 0; }
 .root .generalForm :global(.product-description-field > label) { color: #4b4641; font-size: 12px; }
 .root .generalForm :global(.product-description-field [contenteditable="true"]) { border-color: #d9cfc5; background: #fff; }
 .formActions { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid rgb(43 43 43 / 9%); margin-top: 17px; padding-top: 14px; }
 .formActions > span { align-self: center; margin-right: auto; color: #77716b; font-size: 11px; }
-.root :global(.button) { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: var(--cp-font-weight-control); box-shadow: none; }
+.root :global(.button) { min-height: var(--cp-button-height); border: var(--cp-button-hit-inset) solid transparent; border-radius: var(--cp-button-radius); background-clip: padding-box; padding: var(--cp-button-padding-y) var(--cp-button-padding-x); font-size: 14px; line-height: var(--cp-button-line-height); gap: var(--cp-button-gap); font-weight: 500; box-shadow: none; }
 .root :global(.button:hover:not(:disabled)) { transform: none; box-shadow: none; }
 .root :global(.button-primary) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); }
 .root :global(.button-primary:hover:not(:disabled)) { background-color: var(--cp-button-primary); color: var(--cp-button-primary-text); text-decoration: none; text-underline-offset: 4px; }
@@ -170,7 +171,7 @@
 
 @media (max-width: 1180px) {
   .workspace { grid-template-columns: minmax(0, 1fr); gap: 24px; }
-  .productCore { grid-template-columns: 144px minmax(0, 1fr); gap: 20px; }
+  .productCore { grid-template-columns: 160px minmax(0, 1fr); gap: 20px; }
   .general { padding: 20px; }
   .sideColumn { border-top: 1px solid var(--detail-line); border-left: 0; padding: 24px 0 0; }
 }
@@ -197,6 +198,7 @@
   .sectionNav { gap: 0 12px; margin: 12px 0 16px; }
   .sectionNav a { font-size: 13px; }
   .productCore { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .productCover { width: 160px; max-width: 100%; }
   .heroImage { max-height: 285px; aspect-ratio: 4 / 3; }
   .formActions { flex-wrap: wrap; }
   .formActions > span { flex-basis: 100%; }
@@ -238,6 +240,7 @@
 .variantSortHandle:focus-visible { outline:2px solid #ff7100; outline-offset:2px; }
 .variantSortHandle:disabled { opacity:.4; }
 .variantOrderFeedback { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:8px 0; font-size:12px; color:#746b62; }
-.root .generalForm :global(.field select),
+.root .generalForm :global(.field > select),
 .root .variants :global(.field select) { border-radius: var(--cp-button-radius); }
 .backLink, .moreMenu button, .variantSortHandle { border-radius: var(--cp-button-radius); }
+@media (pointer: coarse) { .photoAction, .outlineButton { min-height: 44px; } }
