@@ -78,3 +78,13 @@ test('version conflict refreshes CAS authority without clearing the merchant bra
   await click(host,'Marka ayarını kaydet');assert.equal(calls[1].body.expectedVersion,4);assert.notEqual(calls[0].key,calls[1].key);
  });
 });
+test('task views retain the own-brand draft without saving when returning to products', async () => {
+ const Component=component({ overview:async()=>({...overview,identityProfile:{ownBrand:true,brandName:'Original',version:1}}),products:async()=>({items:[product],nextCursor:null}) });
+ await mounted(Component,{canManage:true},async(host:any,window)=>{
+  assert.equal(host.querySelector('#merchant-products-view').hidden,false);
+  await click(host,'Bağlantı ve marka');
+  await input(window,host.querySelector('input[aria-label="Marka adı"]'),'Unsaved brand');
+  await click(host,'Ürünler');await click(host,'Bağlantı ve marka');
+  assert.equal(host.querySelector('input[aria-label="Marka adı"]').value,'Unsaved brand');
+ });
+});

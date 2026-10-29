@@ -7,6 +7,7 @@ import {type TrendyolClient,type TrendyolOption} from '@/lib/trendyol-ui/client'
 import {definitiveFailure,errorCode,failureMessage} from '@/lib/trendyol-ui/model';
 import {TrendyolPricePreview} from './TrendyolPricing';
 import styles from './trendyol.module.css';
+import checkbox from '@/components/shared/selection-checkbox.module.css';
 type AttributeDraft=Readonly<{valueId:string;value:string}>;
 type Draft={mode:'existing'|'create';barcode:string;category:string;brand:string;cargo:string;weight:string;enabled:boolean;attributes:Record<number,AttributeDraft>};
 function initial(product:TrendyolTaxProduct):Draft {const m=product.mapping;return{mode:m?.mode??'existing',barcode:m?.barcode??product.barcode??'',category:m?.categoryId?String(m.categoryId):'',brand:m?.brandId?String(m.brandId):'',cargo:m?.cargoProviderCode??'',weight:String(m?.dimensionalWeight??1),enabled:m?.enabled??true,attributes:Object.fromEntries((m?.attributes??[]).map(a=>[a.attributeId,{valueId:a.valueId?String(a.valueId):'',value:a.value??''}]))};}
@@ -48,7 +49,7 @@ export function TrendyolProductEditor({product,pricing,client,onClose,onSaved}:R
     finally{saving.current=false;if(alive.current)setBusy(false);}
   }
   function options(items:readonly TrendyolOption[],selected:string){return <>{selected&&!items.some(item=>String(item.id)===selected)?<option value={selected}>Kayıtlı seçim · {selected}</option>:null}{items.map(item=><option key={item.id} value={item.id}>{item.name}</option>)}</>;}
-  return <OrderActionDialog open title="Trendyol ürün eşlemesi" onClose={()=>{if(!locked)onClose();}} busy={locked} className={styles.productDialog} footer={<><button className="button button-secondary" type="button" disabled={locked} onClick={onClose}>Kapat</button><button className="button button-primary" type="submit" form="trendyol-mapping-form" disabled={busy||draft.mode==='create'&&(choicesBusy||attrsBusy)}>{busy?'Kaydediliyor…':attempt?'Eşlemeyi tekrar dene':'Eşlemeyi kaydet'}</button></>}>
+  return <OrderActionDialog open title="Trendyol ürün eşlemesi" onClose={()=>{if(!locked)onClose();}} busy={locked} className={styles.productDialog} footer={<div className={styles.dialogActions}><button className="button button-secondary" type="button" disabled={locked} onClick={onClose}>Kapat</button><button className="button button-primary" type="submit" form="trendyol-mapping-form" disabled={busy||draft.mode==='create'&&(choicesBusy||attrsBusy)}>{busy?'Kaydediliyor…':attempt?'Eşlemeyi tekrar dene':'Eşlemeyi kaydet'}</button></div>}>
     <form id="trendyol-mapping-form" className={styles.editorForm} onSubmit={event=>void submit(event)}>
       <p className={styles.productIdentity}><strong>{product.title}</strong>{product.sku?<span>{product.sku}</span>:null}</p>
       <fieldset className={styles.modeChoice} disabled={locked}><legend>Eşleme türü</legend><label><input type="radio" name="listingMode" checked={draft.mode==='existing'} onChange={()=>change('mode','existing')}/>Mevcut Trendyol ilanı</label><label><input type="radio" name="listingMode" checked={draft.mode==='create'} onChange={()=>change('mode','create')}/>Yeni Trendyol ilanı</label></fieldset>
@@ -65,7 +66,7 @@ export function TrendyolProductEditor({product,pricing,client,onClose,onSaved}:R
       </section>:null}
       <div className={styles.formGrid}><div className={styles.field}><span>Kayıtlı ürün KDV’si</span><output aria-label="Kayıtlı ürün KDV’si">{product.tax===null?'Belirlenmedi':product.tax.treatment==='exempt'?'KDV istisnası':`%${(product.tax.rateBps/100).toLocaleString('tr-TR')}`}</output><p className={styles.help}>{taxIssue?failureMessage(taxIssue):'Ürün kartındaki vergi seçimi kullanılır.'} <Link href={`/products/${product.productId}`}>Üründe düzenle</Link></p></div><label className={styles.field}>Desi<input aria-label="Desi" inputMode="decimal" value={draft.weight} required disabled={locked} onChange={event=>change('weight',event.target.value)}/></label></div>
       {product.webPriceCents!==null&&vatRate!==null?<TrendyolPricePreview webPriceCents={product.webPriceCents} rule={{...pricing,productVatBps:vatRate*100}}/>:null}
-      <label className={styles.check}><input type="checkbox" checked={draft.enabled} disabled={locked} onChange={event=>change('enabled',event.target.checked)}/>Stok ve fiyat aktarımı açık</label>
+      <label className={styles.check}><input className={checkbox.checkbox} type="checkbox" checked={draft.enabled} disabled={locked} onChange={event=>change('enabled',event.target.checked)}/>Stok ve fiyat aktarımı açık</label>
       {error?<p className={styles.feedback} role="alert">{error==='required_attributes'?'Zorunlu kategori özelliklerini tamamlayın.':error==='attribute_too_long'?'Özellik değeri en fazla 50 karakter olabilir.':error==='invalid_attributes'?'Kategori özelliklerini güncel seçeneklerden yeniden seçin.':error==='options_required'?'Kategori ve özellik seçeneklerini yeniden yükleyin.':failureMessage(error)}</p>:null}
     </form>
   </OrderActionDialog>;

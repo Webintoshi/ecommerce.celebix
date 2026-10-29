@@ -12,6 +12,8 @@ import { MarketplaceArtwork } from "@/components/marketplaces/MarketplaceArtwork
 import { googleMerchantClient, type GoogleMerchantClient, type GoogleMerchantPreferences } from "./client";
 import { attributeDraft, attributesFromDraft, failureMessage, lastSyncLabel, productStatus, type AttributeDraft } from "./model";
 import styles from "./google-merchant.module.css";
+import controls from "@/components/marketplaces/marketplace-controls.module.css";
+import checkbox from "@/components/shared/selection-checkbox.module.css";
 
 const MERCHANT_ONLY = Object.freeze(["merchant"] as const);
 const currency = new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" });
@@ -174,6 +176,8 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
     const next = nextCursor ? [...cursors.slice(0, nextIndex), nextCursor] : cursors;
     if (await load(next[nextIndex] ?? null)) { setCursors(next); setPageIndex(nextIndex); }
   }
+  const [selectedView, setSelectedView] = useState<"products" | "settings" | null>(null);
+  const activeView = selectedView ?? (overview?.connection.status === "connected" ? "products" : "settings");
   const counts = overview?.counts;
   const busy = syncing || saving || identitySaving || Boolean(rowBusy);
   const metrics = counts ? [
@@ -185,14 +189,17 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
   return <PanelInitialDataGate pending={loading && (!overview || !page)}>{<div className={styles.workspace}>
     <h1 className="sr-only">Google Merchant Center</h1>
     <nav className={styles.back} aria-label="Pazaryeri gezinme"><Link href="/marketplaces"><ArrowLeft size={16} aria-hidden="true" />Pazaryerleri</Link></nav>
-    <GoogleMarketingConnections canManage={canManage} services={MERCHANT_ONLY} onChange={() => { setCursors([undefined]); setPageIndex(0); void load(null); }} />
+
     {notice ? <p className={styles.notice} role="status"><Check size={16} aria-hidden="true" />{notice}</p> : null}
     {error ? <div className={styles.feedback}><p role="alert">Ürün durumu yüklenemedi. {failureMessage(error)}</p><button className="button button-secondary" type="button" disabled={loading} onClick={() => void load()}>Listeyi yeniden yükle</button></div> : null}
+    <nav className={controls.viewNav} aria-label="Google Merchant görünümü"><strong>Google Merchant Center</strong><button type="button" aria-pressed={activeView==='products'} aria-controls="merchant-products-view" onClick={()=>setSelectedView('products')}><Package aria-hidden="true"/>Ürünler</button><button type="button" aria-pressed={activeView==='settings'} aria-controls="merchant-settings-view" onClick={()=>setSelectedView('settings')}><SlidersHorizontal aria-hidden="true"/>Bağlantı ve marka</button></nav>
+    <div id="merchant-settings-view" className={controls.view} hidden={activeView!=='settings'}>
+    <GoogleMarketingConnections canManage={canManage} services={MERCHANT_ONLY} onChange={() => { setCursors([undefined]); setPageIndex(0); void load(null); }} />
     {loading&&!overview?<section className={`${styles.identity} ${styles.identityLoading}`} role="status" aria-label="Ürün markası yükleniyor"><PanelSkeletonBlock className={styles.loadingLabel}/><div className={styles.identityContent}><PanelSkeletonBlock/><PanelSkeletonBlock/><PanelSkeletonBlock/></div></section>:null}
     {identity?<section className={styles.identity} aria-labelledby="merchant-identity-heading" aria-busy={identitySaving||undefined}>
       <div className={styles.sectionLabel}><Package size={20} aria-hidden="true" /><h2 id="merchant-identity-heading">Ürün markası</h2></div>
       <div className={styles.identityContent}>{canManage?<>
-        <label className={styles.exportChoice}><input type="checkbox" aria-label="Markası olmayan ürünleri kendi markamızla satıyoruz" checked={identity.ownBrand} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('ownBrand',event.target.checked)}/>Markası olmayan ürünleri kendi markamızla satıyoruz</label>
+        <label className={styles.exportChoice}><input className={checkbox.checkbox} type="checkbox" aria-label="Markası olmayan ürünleri kendi markamızla satıyoruz" checked={identity.ownBrand} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('ownBrand',event.target.checked)}/>Markası olmayan ürünleri kendi markamızla satıyoruz</label>
         <p className={styles.help}>Yalnız ürettiğiniz veya kendi markanızla sattığınız ürünlerde stok kodu otomatik MPN olur. Mevcut üretici markası ve barkodu korunur.</p>
         <div className={styles.identityActions}>{identity.ownBrand?<label className={`${styles.field} ${styles.brandField}`}>Marka adı<input aria-label="Marka adı" autoComplete="organization" value={identity.brandName} maxLength={70} disabled={busy||Boolean(identity.attempt)} onChange={event=>changeIdentity('brandName',event.target.value)}/></label>:null}
           <button className="button button-secondary" type="button" disabled={busy||loading||!identity.dirty} onClick={()=>void saveIdentity()}>{identitySaving?'Kaydediliyor…':identity.attempt?'Marka kaydını tekrar dene':'Marka ayarını kaydet'}</button>
@@ -200,12 +207,14 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
         {identity.error?<p role="alert" className={styles.feedback}>{identity.error==='invalid_input'?'Geçerli marka adını yazın.':identity.error==='version_conflict'?'Marka ayarı değişti. Yazdığınız bilgiler korundu; güncel ayarla tekrar kaydedebilirsiniz.':failureMessage(identity.error)}</p>:null}
       </>:<p className={styles.help}>{identity.ownBrand?identity.brandName:'Ürünlerin mevcut üretici bilgileri kullanılır.'}</p>}</div>
     </section>:null}
+    </div><div id="merchant-products-view" className={controls.view} hidden={activeView!=='products'}>
+    {overview && overview.connection.status!=='connected'?<div className={styles.connectionPrompt}><p>Ürünleri Google’a göndermek için Merchant Center hesabınızı bağlayın.</p><button type="button" className="button button-primary" onClick={()=>setSelectedView('settings')}>Bağlantıyı kur<ArrowUpRight size={16} aria-hidden="true"/></button></div>:null}
     <section className={styles.products} aria-labelledby="merchant-products-heading" aria-busy={loading || undefined}>
       <div className={styles.toolbar}>
         <div><h2 id="merchant-products-heading">Ürünler</h2><p>Son tamamlanan aktarım: <strong>{lastSyncLabel(overview?.lastSyncedAt ?? null)}</strong></p></div>
         <div className={styles.toolbarActions}>
           <button type="button" className="button button-text" disabled={loading} onClick={() => void load()}><RefreshCw size={16} aria-hidden="true" />Durumu yenile</button>
-          {canManage ? <button type="button" className="button button-secondary" disabled={busy || overview?.connection.status !== "connected"} onClick={() => void sync()}>{syncing ? "Sıraya alınıyor…" : syncError ? "Tekrar kontrol et" : "Ürünleri yeniden kontrol et"}</button> : null}
+          {canManage ? <button type="button" className="button button-primary" disabled={busy || overview?.connection.status !== "connected"} onClick={() => void sync()}>{syncing ? "Sıraya alınıyor…" : syncError ? "Tekrar kontrol et" : "Ürünleri yeniden kontrol et"}</button> : null}
         </div>
       </div>
       {syncError ? <p role="alert" className={styles.feedback}>{failureMessage(syncError)}</p> : null}
@@ -222,7 +231,7 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
                 <td className={styles.productCell}><strong>{product.title}</strong>{product.sku ? <span>{product.sku}</span> : null}</td>
                 <td data-label="Fiyat" className={styles.price}>{product.priceCents === null ? "Fiyat eksik" : currency.format(product.priceCents / 100)}</td>
                 <td className={styles.statusCell} data-label="Google durumu"><PanelStatusBadge tone={status.tone}>{status.label}</PanelStatusBadge>{product.issues.length ? <ul>{product.issues.map((issue, i) => <li key={`${issue.code}:${i}`}>{issue.message}</li>)}</ul> : null}{rowErrors[product.variantId] ? <div className={styles.rowError}><p role="alert">{failureMessage(rowErrors[product.variantId])}</p>{attempt ? <button type="button" className="button button-text" disabled={busy} onClick={() => void setEnabled(product, attempt.input.enabled)}>Aktarımı tekrar dene</button> : null}</div> : null}</td>
-                {canManage ? <td className={styles.transferCell}><label className={styles.exportChoice}><input type="checkbox" checked={attempt?.input.enabled ?? product.enabled} aria-label={`${product.title} Google’a aktarılsın`} disabled={busy || Boolean(attempt)} onChange={event => void setEnabled(product, event.target.checked)} />Aktar</label></td> : null}
+                {canManage ? <td className={styles.transferCell}><label className={styles.exportChoice}><input className={checkbox.checkbox} type="checkbox" checked={attempt?.input.enabled ?? product.enabled} aria-label={`${product.title} Google’a aktarılsın`} disabled={busy || Boolean(attempt)} onChange={event => void setEnabled(product, event.target.checked)} />Aktar</label></td> : null}
                 <td className={styles.rowActions}>{canManage ? <button data-merchant-edit type="button" className="button button-secondary" aria-label={`${product.title} Google bilgilerini düzenle`} disabled={busy || Boolean(attempt)} onClick={() => openEditor(product)}><SlidersHorizontal size={16} aria-hidden="true" />Google bilgileri</button> : null}<Link href={`/products/${product.productId}`} className={styles.productLink}>Ürünü düzenle<ArrowUpRight size={14} aria-hidden="true" /></Link></td>
               </tr>;
             })}
@@ -233,6 +242,7 @@ export function GoogleMerchantConsole({ canManage, client = googleMerchantClient
       </div>
       <p className={styles.help}>Google’a gönderilmesi, ürünün onaylandığı anlamına gelmez. Google inceleme sonucunu ürün durumunda gösterir.</p>
     </section>
+    </div>
     <OrderActionDialog open={Boolean(editor)} title="Google ürün bilgileri" className={styles.dialog} busy={saving} onClose={closeEditor} footer={editor ? <div className={styles.dialogActions}><button className="button button-secondary" type="button" disabled={saving} onClick={closeEditor}>Vazgeç</button><button className="button button-primary" type="button" disabled={saving} onClick={() => void saveAttributes()}>{saving ? "Kaydediliyor…" : editor.attempt ? "Tekrar kaydet" : "Kaydet"}</button></div> : null}>
       {editor ? <div className={styles.form}>
         <div className={styles.editorProduct}><Package size={20} aria-hidden="true" /><div><strong>{editor.product.title}</strong>{editor.product.sku ? <p className={styles.help}>{editor.product.sku}</p> : null}</div></div>

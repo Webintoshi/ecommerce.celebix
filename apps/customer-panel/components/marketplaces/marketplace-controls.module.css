@@ -1,0 +1,22 @@
+.surface { min-width: 0; }
+.surface :global(.button) { min-height: 36px; height: auto; padding: 8px 14px; border-width: 0; border-radius: var(--cp-button-radius); font-size: 13px; font-weight: 500; line-height: 20px; gap: 6px; white-space: nowrap; text-decoration: none; cursor: pointer; }
+.surface :global(.button) svg { width: 16px; height: 16px; flex: none; }
+.surface :global(.button-primary), .surface :global(.button-primary):hover { background: #ff6c13; color: #fff; }
+.surface :global(.button):hover { text-decoration: none; }
+.surface select:not([multiple]):not([size]) { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2369635e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important; background-position: right 16px center !important; background-size: 16px 16px !important; background-repeat: no-repeat !important; padding-inline-end: 40px !important; }
+.surface :is(input:not([type='checkbox']):not([type='radio']), select, textarea):focus-visible { outline: none; box-shadow: none; border-color: var(--cp-text-secondary); }
+.view[hidden] { display: none; }
+.view { display: grid; gap: 24px; min-width: 0; }
+.viewNav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--cp-border); }
+.viewNav button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 8px 16px; border: 0; border-radius: var(--cp-button-radius); background: transparent; color: var(--cp-text-secondary); font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; cursor: pointer; white-space: nowrap; }
+.viewNav button[aria-pressed='true'] { background: var(--cp-soft); color: var(--cp-text-primary); }
+.viewNav button:hover { background: var(--cp-soft); color: var(--cp-text-primary); }
+.viewNav button:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.viewNav button svg { flex: none; width: 16px; height: 16px; }
+.viewNav strong { margin-inline-end: auto; font-size: 15px; font-weight: 650; }
+.dialogActions { display: flex; justify-content: flex-end; gap: 8px; width: 100%; flex-wrap: wrap; }
+.dialogActions :global(.button) { flex: 0 1 148px; min-width: 0; min-height: 40px; }
+@media (pointer: coarse) { .surface :global(.button), .viewNav button, .dialogActions :global(.button) { min-height: 44px; } }
+@media (max-width: 640px) { .viewNav { gap: 4px; } .viewNav strong { flex: 1 0 100%; margin-bottom: 8px; } .viewNav button { padding-inline: 12px; } .view { gap: 20px; } }
+@media (forced-colors: active) { .surface select:not([multiple]):not([size]) { appearance: auto; background-image: none !important; } }
+.surface :global(.button):disabled { cursor: default; }

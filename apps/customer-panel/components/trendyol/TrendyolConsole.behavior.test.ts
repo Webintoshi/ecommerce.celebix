@@ -125,3 +125,13 @@ test('new listing custom attributes reject more than the provider fifty-characte
   assert.equal(field(host,'Renk').maxLength,50);await input(window,field(host,'Renk'),'A'.repeat(50));await click(host,'Eşlemeyi kaydet');assert.equal(calls.length,1);assert.deepEqual(calls[0].body.attributes,[{attributeId:100,value:'A'.repeat(50)}]);
  });
 });
+test('task views preserve unsaved pricing while products remain the connected-store entry point',async()=>{
+ const Component=component(base);
+ await mounted(Component,{canManage:true},async(host:HTMLElement,window)=>{
+  assert.equal(host.querySelector<HTMLElement>('#trendyol-products-view')?.hidden,false);
+  assert.equal(host.querySelector<HTMLElement>('#trendyol-settings-view')?.hidden,true);
+  await click(host,'Bağlantı ve fiyatlar');await input(window,field(host,'Komisyon (%)'),'23');
+  await click(host,'Ürünler');await click(host,'Bağlantı ve fiyatlar');
+  assert.equal(field(host,'Komisyon (%)').value,'23');assert.match(host.querySelector('#trendyol-settings-view')?.textContent??'',/Kaydedilmedi/);
+ });
+});

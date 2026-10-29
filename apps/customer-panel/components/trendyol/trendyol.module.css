@@ -1,7 +1,7 @@
-.workspace { display: grid; gap: 24px; min-width: 0; color: var(--cp-text-primary); }
+.workspace { composes: surface from "../marketplaces/marketplace-controls.module.css"; display: grid; gap: 24px; min-width: 0; color: var(--cp-text-primary); }
 .back a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--cp-text-secondary); font-size: 13px; text-decoration: none; }
 .back a:focus-visible, .rowActions a:focus-visible, .tableScroll:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; border-radius: var(--cp-control-radius); }
-.settingsSection { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--cp-border); min-width: 0; }
+.settingsSection { display: grid; grid-template-columns: 144px minmax(0, 1fr); gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--cp-border); min-width: 0; }
 .sectionLabel { display: flex; align-items: start; gap: 12px; padding-top: 12px; }
 .sectionLabel svg { flex: none; color: var(--cp-text-secondary); }
 .sectionLabel h2 { margin: 0; font-size: 14px; line-height: 1.5; font-weight: var(--cp-font-weight-heading); }
@@ -10,13 +10,13 @@
 .connectionSummary > span:last-child { overflow-wrap: anywhere; }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
 .field { display: grid; align-content: start; gap: 8px; min-width: 0; font-size: 13px; font-weight: var(--cp-font-weight-control); }
-.field input, .field select { box-sizing: border-box; width: 100%; min-width: 0; height: 44px; padding: 8px 12px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; }
+.field input, .field select { box-sizing: border-box; width: 100%; min-width: 0; height: 40px; padding: 8px 16px; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; }
 .field input { font-weight: var(--cp-font-weight-body); }
 .field select { font-weight: var(--cp-font-weight-control); }
 .field input:focus-visible, .field select:focus-visible, .check input:focus-visible, .modeChoice input:focus-visible, .workspace summary:focus-visible, .editorForm summary:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .field input:disabled, .field select:disabled { opacity: .65; }
 .check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; line-height: 1.5; }
-.check input, .modeChoice input { width: 20px; height: 20px; margin: 0; accent-color: var(--cp-graphite); flex: none; }
+.check input, .modeChoice input { width: 20px; height: 20px; margin: 0; accent-color: var(--cp-brand); flex: none; }
 .help { margin: 0; color: var(--cp-text-secondary); font-size: 12px; line-height: 1.6; font-weight: var(--cp-font-weight-helper); }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .actions .help { padding-inline: 8px; font-weight: var(--cp-font-weight-helper); }
@@ -77,7 +77,7 @@
 .emptyArtwork { width: 144px; max-width: 100%; }
 .empty h3 { margin: 0 0 8px; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
 .empty p { margin: 0 0 12px; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
-.productDialog { width: min(720px, calc(100% - 32px)); }
+.productDialog { composes: surface from "../marketplaces/marketplace-controls.module.css"; width: min(720px, calc(100% - 32px)); }
 .productIdentity { margin: 0; display: grid; gap: 4px; font-size: 14px; }
 .productIdentity span { font-size: 12px; color: var(--cp-text-secondary); }
 .modeChoice { display: flex; flex-wrap: wrap; gap: 8px 24px; padding: 0; margin: 0; border: 0; }
@@ -92,7 +92,7 @@
   .formGrid { grid-template-columns: minmax(0, 1fr); }
   .field input, .field select { font-size: 16px; }
   .actions { width: 100%; }
-  .actions :global(.button) { white-space: normal; }
+  .actions :global(.button) { white-space: nowrap; }
   .metrics { gap: 16px; }
   .metrics dd { font-size: 24px; }
   .tableScroll { overflow: visible; }
@@ -112,3 +112,24 @@
   .productDialog { width: calc(100% - 24px); }
 }
 .field select{border-radius:var(--cp-button-radius)}
+
+.field input:focus-visible, .field select:focus-visible { outline: none; box-shadow: none; border-color: var(--cp-text-secondary); }
+.connectionPrompt { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--cp-border); }
+.connectionPrompt p { margin: 0; max-width: 560px; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); }
+.rowActions a:hover { text-decoration: none; color: var(--cp-text-primary); }
+.dialogActions { composes: dialogActions from "../marketplaces/marketplace-controls.module.css"; }
+.field { font-weight: 500; }
+.toolbar h2 { font-size: 16px; }
+@media (pointer: coarse) { .field input, .field select { min-height: 44px; } }
+.sectionContent { max-width: 760px; }
+.metrics { gap: 20px; padding-block: 16px; }
+.metrics dd { font-size: 26px; }
+.metrics > div:last-child dd { color: var(--cp-warning); }
+.modeChoice { gap: 8px; }
+.modeChoice label { padding: 8px 14px; min-height: 36px; box-sizing: border-box; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); cursor: pointer; }
+.modeChoice label:has(input:checked) { border-color: var(--cp-text-secondary); background: var(--cp-soft); }
+.modeChoice input { width: 16px; height: 16px; accent-color: var(--cp-brand); }
+.productDialog .check { align-items: start; padding-block: 8px; min-height: 0; }
+.productDialog .check input { margin-top: 2px; }
+.productIdentity { padding-bottom: 16px; border-bottom: 1px solid var(--cp-border); }
+@media (max-width: 640px) { .sectionContent { max-width: none; } .table .rowActions { gap: 8px 16px; } .modeChoice label { flex: 1; } }

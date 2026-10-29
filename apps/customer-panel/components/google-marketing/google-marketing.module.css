@@ -102,3 +102,18 @@
   .actions > :global(.button) { min-width: 0; white-space: normal; text-align: center; }
   .resourceActions { justify-content: start; }
 }
+
+.merchantWorkspace .services { border-top: 0; }
+.merchantWorkspace .serviceRow { grid-template-columns: 48px minmax(0, 1fr) auto; gap: 20px; padding: 0 0 24px; }
+.merchantWorkspace .serviceContent { min-height: 0; gap: 6px; }
+.merchantWorkspace .merchantLogo { width: 48px; height: 48px; }
+.merchantWorkspace .description { font-size: 13px; }
+.merchantWorkspace .serviceHeading h2 { font-size: 16px; }
+.merchantDialog .field select { padding-inline-start: 16px; }
+.merchantDialog .field select:focus-visible { outline: none; box-shadow: none; border-color: var(--cp-text-secondary); }
+.merchantDialog .actions :global(.button):not(.disconnect) { min-width: 148px; min-height: 40px; }
+.merchantDialog .steps li[aria-current="step"] .stepNumber { background: #ff6c13; color: #fff; }
+.merchantDialog .actions { gap: 8px; }
+.merchantDialog .link { text-decoration: none; }
+.merchantDialog .link:hover { color: var(--cp-text-primary); }
+@media (max-width: 640px) { .merchantWorkspace .serviceRow { grid-template-columns: 40px minmax(0, 1fr); gap: 12px; } .merchantWorkspace .merchantLogo { width: 40px; height: 40px; } .merchantDialog .actions :global(.button):not(.disconnect) { min-width: 0; } .merchantDialog .actions > :global(.button) { white-space: nowrap; font-size: 13px; } }

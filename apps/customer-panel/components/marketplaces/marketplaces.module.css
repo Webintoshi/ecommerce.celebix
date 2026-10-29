@@ -5,33 +5,34 @@
 .artSoft { fill: var(--cp-art-soft); }
 .artMuted { fill: var(--cp-art-muted); }
 .artInk { fill: var(--cp-art-outline); }
-.entry { display: grid; grid-template-columns: 160px minmax(0, 1fr) auto; align-items: center; gap: 32px; padding: 8px 0 24px; border-bottom: 1px solid var(--cp-border); }
+.entry { composes: surface from "./marketplace-controls.module.css"; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 24px 0; border-bottom: 1px solid var(--cp-border); }
 .entryArtwork { width: 160px; }
 .entryIdentity { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .entryLogo { width: 32px; height: 32px; flex: none; }
 .entry h2 { margin: 0; color: var(--cp-text-primary); font-size: 18px; font-weight: var(--cp-font-weight-heading); }
-.entry p { margin: 12px 0 0; max-width: 480px; color: var(--cp-text-secondary); font-size: 14px; line-height: 1.6; }
+.entry p { margin: 6px 0 0; max-width: 480px; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
 .entry a { white-space: nowrap; }
-.workspace { display: grid; gap: 20px; min-width: 0; color: var(--cp-text-primary); }
+.workspace { composes: surface from "./marketplace-controls.module.css"; display: grid; gap: 20px; min-width: 0; color: var(--cp-text-primary); }
 .sectionHeading { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; }
 .sectionHeading { width: 100%; }
 .sectionHeading h2 { flex: 1; margin: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
-.workspace .sectionHeading > :is(a, button) { min-height: var(--cp-button-height); border-radius: var(--cp-button-radius); font-size: var(--cp-button-font-size); line-height: var(--cp-button-line-height); font-weight: var(--cp-font-weight-control); }
+.workspace .sectionHeading > :is(a, button) { min-height: 36px; padding: 8px 14px; border-width: 0; border-radius: var(--cp-button-radius); font-size: 13px; line-height: 20px; font-weight: 500; white-space: nowrap; }
 .sectionHeading p { margin: 4px 0 0; color: var(--cp-text-secondary); font-size: 12px; }
 .workspace :is([data-merchant-toolbar], [data-merchant-workspace]) { min-width: 0; }
 .workspace [data-merchant-toolbar] { padding-top: 0; }
 .workspace [data-merchant-toolbar] input { font-size: 14px; }
 .workspace [aria-label="Pazar Yerleri özeti"] { display: flex; gap: 8px; flex-wrap: wrap; padding: 0; border: 0; }
-.workspace [aria-label="Pazar Yerleri özeti"] > button { display: flex; align-items: center; gap: 8px; min-height: 44px; border: 0; border-radius: var(--cp-control-radius); padding: 8px 12px; background: transparent; color: var(--cp-text-secondary); }
+.workspace [aria-label="Pazar Yerleri özeti"] > button { display: flex; align-items: center; gap: 8px; min-height: 44px; border: 0; border-radius: var(--cp-button-radius); padding: 8px 12px; background: transparent; color: var(--cp-text-secondary); }
 .workspace [aria-label="Pazar Yerleri özeti"] > button[aria-pressed="true"] { background: var(--cp-soft); color: var(--cp-text-primary); }
 .workspace [aria-label="Pazar Yerleri özeti"] > button::after { display: none; }
 .workspace [aria-label="Pazar Yerleri özeti"] strong { font-size: 13px; font-weight: var(--cp-font-weight-heading); }
 .workspace [aria-label="Pazar Yerleri özeti"] small { font-size: 12px; }
 .workspace [aria-label="Pazar Yerleri özeti"] span { color: inherit; font-size: 13px; }
-.empty { display: grid; justify-items: center; gap: 12px; padding: 32px 16px; text-align: center; }
-.empty h2 { margin: 0; font-size: 16px; font-weight: var(--cp-font-weight-heading); }
-.empty p { max-width: 400px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
-.empty .artwork { width: 176px; margin-bottom: 4px; }
+.empty { display: grid; grid-template-columns: 104px minmax(0, 1fr); align-items: center; gap: 24px; padding: 32px 0; }
+.empty h2 { margin: 0 0 6px; font-size: 15px; font-weight: var(--cp-font-weight-heading); }
+.empty p { max-width: 520px; margin: 0; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; }
+.empty .artwork { width: 104px; }
+.empty :global(.button) { margin-top: 12px; }
 .workspace [data-provider-settings] { border-top: 1px solid var(--cp-border); padding-block: 12px; }
 .settingsSummary { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 13px; font-weight: var(--cp-font-weight-control); cursor: pointer; list-style: none; }
 .settingsSummary::-webkit-details-marker { display: none; }
@@ -40,23 +41,28 @@
 .workspace details[open] > .settingsSummary > svg:last-child { transform: rotate(180deg); }
 .providerHelp { margin: 8px 0 16px; max-width: 760px; color: var(--cp-text-secondary); font-size: 13px; line-height: 1.6; font-weight: var(--cp-font-weight-helper); }
 .history { margin-top: 16px; }
-@media (max-width: 1024px) { .entry { grid-template-columns: 120px minmax(0, 1fr); gap: 16px 24px; } .entryArtwork { width: 120px; grid-row: span 2; } .entry > a { justify-self: start; grid-column: 2; } }
 @media (max-width: 640px) {
-  .entry { grid-template-columns: minmax(0, 1fr) 80px; gap: 16px; padding-bottom: 20px; }
-  .entryArtwork { grid-column: 2; grid-row: 1; width: 80px; }
-  .entryContent { grid-column: 1; grid-row: 1; }
-  .entryIdentity { gap: 8px; }
-  .entryLogo { width: 24px; height: 24px; }
-  .entry h2 { font-size: 16px; }
+  .entry { gap: 12px; padding-block: 20px; }
+  .entry h2 { font-size: 15px; }
   .entry p { font-size: 13px; }
-  .entry > a { grid-column: 1 / -1; width: 100%; }
-  .workspace { gap: 16px; }
-  .sectionHeading { align-items: start; }
-  .workspace [aria-label="Pazar Yerleri özeti"] { gap: 4px; }
-  .workspace [aria-label="Pazar Yerleri özeti"] > button { padding-inline: 8px; }
-  .workspace [aria-label="Pazar Yerleri özeti"] > button:has(small) { display: grid; grid-template-columns: auto auto; gap: 0 8px; }
-  .workspace [aria-label="Pazar Yerleri özeti"] small { grid-column: 1 / -1; line-height: 1.4; }
-  .empty { padding: 24px 0; }
+  .entryIdentity { gap: 8px; }
+  .entryLogo { width: 28px; height: 28px; }
+  .entry > a { padding-inline: 12px; }
+  .sectionHeading { flex-wrap: wrap; gap: 8px; }
+  .sectionHeading h2 { flex-basis: 100%; }
+  .empty { grid-template-columns: 72px minmax(0, 1fr); gap: 16px; padding-block: 24px; }
+  .empty .artwork { width: 72px; }
 }
 @media (prefers-reduced-motion: reduce) { .settingsSummary > svg { transition: none; } }
-.workspace [aria-label="Pazar Yerleri özeti"]>button{border-radius:var(--cp-button-radius)}
+.workspace [data-merchant-toolbar] select { border-radius: var(--cp-button-radius); }
+.workspace [data-merchant-toolbar] { gap: 12px; }
+.workspace [data-merchant-toolbar] input:focus-visible { border-color: transparent; }
+.workspace [data-provider-settings] { padding-block: 4px; }
+.workspace [data-provider-settings] > details { border-bottom: 1px solid var(--cp-border); }
+.workspace [data-merchant-workspace] { min-height: 0; }
+.workspace [data-merchant-empty='true'] { min-height: 0; }
+
+.workspace [data-provider-settings] input { border-radius: var(--cp-button-radius); padding-inline: 16px; }
+.workspace [data-provider-settings] input:focus-visible { outline: none; box-shadow: none; border-color: var(--cp-text-secondary); }
+.workspace :is([data-provider-settings], [data-provider-workflow]) button { min-height: 36px; border-width: 0; border-radius: var(--cp-button-radius); padding: 8px 14px; font-size: 13px; font-weight: 500; line-height: 20px; white-space: nowrap; }
+@media (pointer: coarse) { .workspace :is([data-provider-settings], [data-provider-workflow]) button, .workspace .sectionHeading > :is(a, button) { min-height: 44px; } }

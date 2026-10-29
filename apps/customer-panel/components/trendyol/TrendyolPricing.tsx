@@ -2,17 +2,18 @@
 import { calculateTrendyolPrice, type TrendyolPricingRule } from '@celebix/saas-contracts';
 import { money, type PricingDraft } from '@/lib/trendyol-ui/model';
 import styles from './trendyol.module.css';
+import checkbox from '@/components/shared/selection-checkbox.module.css';
 
 export function TrendyolPricingFields({draft,disabled,onChange}:Readonly<{draft:PricingDraft;disabled:boolean;onChange:(draft:PricingDraft)=>void}>){
   const change=<K extends keyof PricingDraft>(key:K,value:PricingDraft[K])=>onChange({...draft,[key]:value});
   function amount(label:string,key:'commission'|'commissionVat'|'shipping'|'otherFee'|'productVat'|'withholding') {return <label className={styles.field}>{label}<input aria-label={label} inputMode="decimal" value={draft[key]} disabled={disabled} onChange={event=>change(key,event.target.value)}/></label>;}
   return <div className={styles.pricingFields}>
     <div className={styles.formGrid}>{amount('Komisyon (%)','commission')}{amount('Ortalama kargo (TL)','shipping')}</div>
-    <label className={styles.check}><input type="checkbox" checked={draft.commissionVatIncluded} disabled={disabled} onChange={event=>change('commissionVatIncluded',event.target.checked)}/>Komisyon oranına KDV dahil</label>
+    <label className={styles.check}><input className={checkbox.checkbox} type="checkbox" checked={draft.commissionVatIncluded} disabled={disabled} onChange={event=>change('commissionVatIncluded',event.target.checked)}/>Komisyon oranına KDV dahil</label>
     <details className={styles.advanced}><summary>Vergi, stopaj ve diğer kesintiler</summary><div className={styles.formGrid}>
       {!draft.commissionVatIncluded?amount('Komisyon KDV’si (%)','commissionVat'):null}{amount('Diğer kesinti (TL)','otherFee')}{amount('Örnek ürün KDV’si (%)','productVat')}{amount('Stopaj (%)','withholding')}
       <label className={styles.field}>Fiyat yuvarlama<select value={draft.rounding} disabled={disabled} onChange={event=>change('rounding',event.target.value as PricingDraft['rounding'])}><option value="cent">Kuruşa yukarı</option><option value="lira">Tam liraya yukarı</option><option value="ninety">,90 ile bitecek şekilde yukarı</option></select></label>
-    </div><label className={styles.check}><input type="checkbox" checked={draft.coverWithholding} disabled={disabled} onChange={event=>change('coverWithholding',event.target.checked)}/>Stopajı da fiyatla karşıla</label><p className={styles.help}>Kapalıyken web tutarı stopaj öncesinde korunur. Beklenen ödeme stopaj kesintisini her zaman içerir.</p></details>
+    </div><label className={styles.check}><input className={checkbox.checkbox} type="checkbox" checked={draft.coverWithholding} disabled={disabled} onChange={event=>change('coverWithholding',event.target.checked)}/>Stopajı da fiyatla karşıla</label><p className={styles.help}>Kapalıyken web tutarı stopaj öncesinde korunur. Beklenen ödeme stopaj kesintisini her zaman içerir.</p></details>
   </div>;
 }
 

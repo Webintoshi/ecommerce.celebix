@@ -11,6 +11,7 @@ import { ALL_SERVICES, SERVICES, createSelection, draftKey, emptyConnection, err
 import { GoogleConnectionArtwork } from "./GoogleConnectionArtwork";
 import { GoogleMerchantLogo } from "./GoogleMerchantLogo";
 import styles from "./google-marketing.module.css";
+import marketplaceControls from "@/components/marketplaces/marketplace-controls.module.css";
 
 type Editor = {
   service: GoogleMarketingService;
@@ -38,6 +39,7 @@ function SelectionSummary({ selection, detailed = false }: { selection: GoogleMa
 }
 
 export function GoogleMarketingConnections({ canManage, services, onChange, onAuthorize, client = googleMarketingClient }: Readonly<{ canManage: boolean; services?: readonly GoogleMarketingService[]; onChange?: () => void; onAuthorize?: (url: string) => void; client?: GoogleMarketingClient }>) {
+  const merchantOnly = services?.length === 1 && services[0] === "merchant";
   const visibleServices = services ? ALL_SERVICES.filter(item => services.includes(item.service)) : SERVICES;
   const [overview, setOverview] = useState<GoogleMarketingOverview | null>(null);
   const [overviewError, setOverviewError] = useState("");
@@ -222,7 +224,7 @@ export function GoogleMarketingConnections({ canManage, services, onChange, onAu
   const canApply = Boolean(editor && !editor.loading && !busy && !reconnect && !conflict && !editor.draft.disconnect && selection && (knownSelection || editor.draft.apply));
   const locked = Boolean(busy || editor?.draft.apply || editor?.draft.disconnect);
   const connectLabel = busy === "connect" ? "Google’a yönlendiriliyor…" : editor?.error === "incremental_authorization_required" ? "Google’da yetkiyi tamamla" : editor?.connection.googleEmail ? "Google’a yeniden bağlan" : "Google ile bağlan";
-  return <PanelInitialDataGate pending={overviewLoading && !overview}>{<div className={styles.workspace}>
+  return <PanelInitialDataGate pending={overviewLoading && !overview}>{<div className={`${styles.workspace} ${merchantOnly ? `${styles.merchantWorkspace} ${marketplaceControls.surface}` : ""}`}>
     {overview?.storeDomain||overviewLoading&&!overview ? <p className={styles.domain}><span>Mağaza</span>{overview?.storeDomain?<strong>{overview.storeDomain}</strong>:<PanelSkeletonBlock className={styles.domainLoading}/>}</p> : null}
     {notice ? <p role="status" className={styles.notice}><Check size={16} aria-hidden="true" />{notice}</p> : null}
     {overviewError ? <div className={styles.feedback}><p role="alert">{readFailureMessage(overviewError, "Bağlantılar yüklenemedi. Tekrar deneyin.")}</p><button type="button" className="button button-secondary" disabled={overviewLoading} onClick={() => void loadOverview()}>Tekrar dene</button></div> : null}
@@ -247,7 +249,7 @@ export function GoogleMarketingConnections({ canManage, services, onChange, onAu
         </article>;
       })}
     </div>
-    <OrderActionDialog open={Boolean(editor)} title={definition?.name ?? "Google bağlantısı"} className={styles.dialog} busy={Boolean(busy)} onClose={close} footer={editor ? <div className={styles.actions}>
+    <OrderActionDialog open={Boolean(editor)} title={definition?.name ?? "Google bağlantısı"} className={`${styles.dialog} ${merchantOnly ? `${styles.merchantDialog} ${marketplaceControls.surface}` : ""}`} busy={Boolean(busy)} onClose={close} footer={editor ? <div className={styles.actions}>
       {confirmRemove ? <>
         <button type="button" className="button button-secondary" disabled={Boolean(busy)} onClick={() => setConfirmRemove(false)}>Vazgeç</button>
         <button type="button" className={`button button-primary ${styles.removeConfirm}`} disabled={Boolean(busy)} onClick={() => void mutate("disconnect")}>{busy === "disconnect" ? "Kaldırılıyor…" : "Evet, bağlantıyı kaldır"}</button>

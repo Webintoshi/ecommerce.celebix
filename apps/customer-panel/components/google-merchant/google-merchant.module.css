@@ -1,11 +1,11 @@
-.workspace { display: grid; gap: 24px; min-width: 0; color: var(--cp-text-primary); }
+.workspace { composes: surface from "../marketplaces/marketplace-controls.module.css"; display: grid; gap: 24px; min-width: 0; color: var(--cp-text-primary); }
 .back { min-width: 0; margin-bottom: -8px; }
 .back a { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; color: var(--cp-text-secondary); font-size: 13px; font-weight: var(--cp-font-weight-control); text-decoration: none; }
 .back a:hover { color: var(--cp-text-primary); }
 .back a:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; border-radius: var(--cp-control-radius); }
 .products { display: grid; gap: 16px; min-width: 0; }
 .identity { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; padding-bottom: 24px; border-bottom: 1px solid var(--cp-border); min-width: 0; }
-.identity { min-height: 176px; }
+.identity { min-height: 0; }
 .identityLoading .identityContent { align-content: start; gap: 16px; }
 .identityLoading .identityContent > span { display: block; width: min(480px, 100%); height: 32px; }
 .loadingLabel { display: block; width: 120px; height: 24px; margin-top: 12px; }
@@ -54,10 +54,10 @@
 .rowActions :global(.button) { border-width: var(--cp-button-small-hit-inset); padding: var(--cp-button-small-padding-y) var(--cp-button-small-padding-x); gap: var(--cp-button-small-gap); font-size: var(--cp-button-small-font-size); line-height: var(--cp-button-small-line-height); }
 .rowActions :global(.button) svg { width: var(--cp-button-small-icon-size); height: var(--cp-button-small-icon-size); }
 .productLink { min-height: 44px; display: inline-flex; align-items: center; justify-content: start; gap: 4px; font-size: 12px; font-weight: var(--cp-font-weight-control); color: var(--cp-text-secondary); text-decoration: none; }
-.productLink:hover { color: var(--cp-text-primary); text-decoration: underline; text-underline-offset: 4px; }
+.productLink:hover { color: var(--cp-text-primary); text-decoration: none; }
 .productLink:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
 .exportChoice { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; font-size: 13px; line-height: 1.5; }
-.exportChoice input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--cp-graphite); }
+.exportChoice input { flex: none; width: 20px; height: 20px; margin: 0; accent-color: var(--cp-brand); }
 .rowError { font-size: 12px; line-height: 1.6; margin-top: 8px; }
 .rowError p { color: var(--cp-warning); margin: 0; }
 .pagination { display: flex; justify-content: flex-end; align-items: center; gap: 16px; font-size: 12px; color: var(--cp-text-secondary); }
@@ -70,7 +70,7 @@
 .loading { display: grid; gap: 16px; color: var(--cp-text-secondary); font-size: 13px; }
 .loadingRow { display: grid; grid-template-columns: 2fr 1fr 1.5fr 1fr 1fr; gap: 24px; min-height: 72px; align-items: center; padding: 20px 0; border-bottom: 1px solid var(--cp-border); }
 .loadingRow > span { display: block; height: 16px; max-width: 240px; border-radius: 4px; background: var(--cp-soft); }
-.dialog { width: min(640px, calc(100% - 32px)); background: var(--cp-canvas); }
+.dialog { composes: surface from "../marketplaces/marketplace-controls.module.css"; width: min(640px, calc(100% - 32px)); background: var(--cp-canvas); }
 .dialog > header { border-bottom: 1px solid var(--cp-border); padding-bottom: 16px; }
 .dialog > footer { background: var(--cp-canvas); }
 .dialogActions { justify-content: flex-end; width: 100%; }
@@ -84,7 +84,7 @@
 .formSection legend svg { color: var(--cp-text-secondary); }
 .formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .field { display: grid; gap: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); min-width: 0; }
-.field input, .field select { width: 100%; height: 44px; min-width: 0; box-sizing: border-box; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; padding: 8px 12px; }
+.field input, .field select { width: 100%; height: 44px; min-width: 0; box-sizing: border-box; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); background: var(--cp-surface); color: var(--cp-text-primary); font: inherit; padding: 8px 16px; }
 .field input { font-weight: var(--cp-font-weight-body); }
 .field select { font-weight: var(--cp-font-weight-control); border-radius: var(--cp-button-radius); }
 .field input:focus-visible, .field select:focus-visible, .exportChoice input:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
@@ -104,9 +104,9 @@
   .identityActions { align-items: start; }
   .brandField { width: 100%; }
   .toolbarActions { width: 100%; }
-  .toolbarActions :global(.button) { white-space: normal; }
+  .toolbarActions :global(.button) { white-space: nowrap; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 24px; padding: 20px 0; }
-  .identity { min-height: 224px; }
+  .identity { min-height: 0; }
   .loadingRow { grid-template-columns: minmax(0, 1fr); gap: 16px; min-height: 224px; padding: 16px 0; }
   .loadingRow > span { width: 100%; }
   .productRegion { min-height: 480px; }
@@ -135,3 +135,20 @@
   .marketplaceLogo { width: 48px; height: 48px; }
   .marketplaceCard > a { grid-column: 2; justify-self: start; }
 }
+
+.field input:focus-visible, .field select:focus-visible { outline: none; box-shadow: none; border-color: var(--cp-text-secondary); }
+.connectionPrompt { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--cp-border); }
+.connectionPrompt p { margin: 0; max-width: 560px; font-size: 13px; line-height: 1.6; color: var(--cp-text-secondary); }
+.rowActions a:hover { text-decoration: none; color: var(--cp-text-primary); }
+.dialogActions { composes: dialogActions from "../marketplaces/marketplace-controls.module.css"; }
+.field { font-weight: 500; }
+.toolbar h2 { font-size: 16px; }
+@media (pointer: coarse) { .field input, .field select { min-height: 44px; } }
+.identityContent { max-width: 760px; }
+.metrics { gap: 16px 24px; padding-block: 20px; }
+.metrics dd { font-size: 24px; }
+.metrics > div:first-child dd { color: var(--cp-success); }
+.metrics > div:nth-child(6) dd, .metrics > div:last-child dd { color: var(--cp-warning); }
+.metricTrack { display: none; }
+.dialog .exportChoice { align-items: start; }
+@media (max-width: 640px) { .identityContent { max-width: none; } .metrics { gap: 16px; } }

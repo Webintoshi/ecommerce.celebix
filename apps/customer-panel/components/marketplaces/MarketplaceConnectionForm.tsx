@@ -1,7 +1,7 @@
 "use client";
 
 import type { MerchantAdminRecord } from "@celebix/saas-contracts";
-import { Check, ShieldCheck } from "lucide-react";
+import { Check, Info } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
@@ -34,16 +34,15 @@ export function MarketplaceConnectionForm({ record, returnTo, busy, dirty, onDir
     setValues(current => ({ ...current, [key]: value }));
     onDirtyChange();
   }
-  const complete = Boolean(values.provider.trim() && values.merchantReference.trim() && values.syncEnabled);
 
   return <div className={styles.layout}>
     <form className={styles.form} aria-label="Pazaryeri bağlantısı" aria-busy={busy || undefined} onSubmit={onSubmit}>
       <section className={styles.section} aria-labelledby="marketplace-connection-fields">
-        <h2 id="marketplace-connection-fields">Bağlantı bilgileri</h2>
+        <h2 id="marketplace-connection-fields">Bağlantı kaydı</h2>
         <div className={styles.fields}>
-          <label className={styles.wide}>Bağlantı adı<input name="name" autoComplete="off" required maxLength={160} disabled={busy} value={values.name} onChange={event => change("name", event.target.value)} /></label>
-          <label>Pazaryeri<input name="provider" autoComplete="off" maxLength={1000} disabled={busy} value={values.provider} onChange={event => change("provider", event.target.value)} /></label>
-          <label>Mağaza referansı<input name="merchantReference" autoComplete="off" maxLength={1000} disabled={busy} value={values.merchantReference} onChange={event => change("merchantReference", event.target.value)} /></label>
+          <label className={styles.wide}>Bağlantı adı<input name="name" autoComplete="off" required placeholder="Örn. Hepsiburada mağazam" maxLength={160} disabled={busy} value={values.name} onChange={event => change("name", event.target.value)} /></label>
+          <label>Pazaryeri<input name="provider" placeholder="Örn. Hepsiburada" autoComplete="off" maxLength={1000} disabled={busy} value={values.provider} onChange={event => change("provider", event.target.value)} /></label>
+          <label>Mağaza referansı<input name="merchantReference" placeholder="Satıcı veya mağaza numarası" autoComplete="off" maxLength={1000} disabled={busy} value={values.merchantReference} onChange={event => change("merchantReference", event.target.value)} /></label>
         </div>
       </section>
       <section className={styles.section} aria-labelledby="marketplace-connection-options">
@@ -65,13 +64,8 @@ export function MarketplaceConnectionForm({ record, returnTo, busy, dirty, onDir
     </form>
     <aside className={styles.preview} aria-label="Bağlantı özeti">
       <MarketplaceArtwork variant="connect" className={styles.artwork} />
-      <div className={styles.identity}><span>{values.provider.trim() || "Pazaryeri"}</span><h2>{values.name.trim() || "Yeni bağlantı"}</h2></div>
-      <dl className={styles.summary}>
-        <div><dt>Mağaza referansı</dt><dd>{values.merchantReference.trim() || "—"}</dd></div>
-        <div><dt>Hazırlık durumu</dt><dd>{values.status === "draft" ? "Kapalı" : "Hazırlığa açık"}</dd></div>
-        <div><dt>Senkronizasyon isteği</dt><dd>{values.syncEnabled ? "Açık" : "Kapalı"}</dd></div>
-      </dl>
-      <p className={styles.safety}><ShieldCheck size={18} aria-hidden="true" /><span>Kaydetmek aktarımı başlatmaz.{values.status === "active" && !complete ? " Hazırlık için eksik alanları tamamlayın." : ""}</span></p>
+      <div className={styles.identity}><h2>Aktarım hakkında</h2></div>
+      <p className={styles.safety}><Info size={18} aria-hidden="true" /><span>Bu kayıt bağlantı bilgilerini saklar. Kaydetmek aktarımı başlatmaz. Aktarım için etkin ve doğrulanmış bir sağlayıcı bağlantısı gerekir.</span></p>
     </aside>
   </div>;
 }
