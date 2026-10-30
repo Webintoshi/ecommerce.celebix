@@ -1,7 +1,7 @@
 .form.form.form :global(.checkout-phone-field) {
   min-height: 60px;
   border: 1px solid #d7d3d4;
-  border-radius: 32px;
+  border-radius: 8px;
   background: #fff;
   color: #202020;
   color-scheme: light;
@@ -12,7 +12,7 @@
 .form.form.form :global(.checkout-phone-field)[data-invalid="true"] { border-color: #9b2c2c; }
 .form.form.form :global(.checkout-phone-field)[data-invalid="true"]:focus-within { box-shadow: 0 0 0 1px #9b2c2c; }
 .form.form.form :global(.checkout-phone-field):has(input:disabled) { opacity: .6; }
-.form.form.form :global(.checkout-phone-prefix) { flex-basis: 62px; border-radius: 32px 0 0 32px; }
+.form.form.form :global(.checkout-phone-prefix) { flex-basis: 62px; border-radius: 8px 0 0 8px; }
 .form.form.form :global(.checkout-phone-prefix)::after { background: #e3dee0; top: 17px; bottom: 17px; }
 .form.form.form :global(.checkout-phone-prefix):has(select:focus-visible) { background: #f3ecee; }
 .form.form.form :global(.checkout-phone-country-visual) { color: #202020; }
@@ -22,7 +22,7 @@
   height: 58px;
   padding-inline: 10px 16px;
   border: 0;
-  border-radius: 0 32px 32px 0;
+  border-radius: 0 8px 8px 0;
   background: transparent;
   color: #202020;
   box-shadow: none;
@@ -32,12 +32,12 @@
 .form.form.form :global(.checkout-fields) textarea,
 .form.form.form :global(.promotion-coupon-controls) input {
   border: 1px solid #d7d3d4;
-  border-radius: 20px;
+  border-radius: 8px;
   background: #fff;
   color: #202020;
   color-scheme: light;
 }
-.form.form.form :global(.promotion-coupon-controls) input { min-height: 52px; border-radius: 28px; padding-inline: 18px; }
+.form.form.form :global(.promotion-coupon-controls) input { min-height: 52px; border-radius: 8px; padding-inline: 18px; }
 .form.form.form :global(.promotion-coupon-controls) input::placeholder { color: #756d71; opacity: 1; }
 .form.form.form :global(.checkout-fields) textarea:focus,
 .form.form.form :global(.promotion-coupon-controls) input:focus { border-color: #710f1c; outline: 0; box-shadow: 0 0 0 1px #710f1c; }
