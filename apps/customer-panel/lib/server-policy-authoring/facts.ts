@@ -60,7 +60,7 @@ export async function loadPolicyMerchantFacts(input: Readonly<{ merchantAdmin: P
     catch (error) {
       const descriptor = error && typeof error === 'object' ? Object.getOwnPropertyDescriptor(error, 'code') : null;
       const code = descriptor && 'value' in descriptor ? descriptor.value : null;
-      if (kind === 'accounting_profile' && ['feature_not_enabled', 'membership_denied', 'permission_denied'].includes(String(code))) return [];
+      if (['feature_not_enabled', 'membership_denied', 'permission_denied'].includes(String(code))) return [];
       throw error;
     }
   }));

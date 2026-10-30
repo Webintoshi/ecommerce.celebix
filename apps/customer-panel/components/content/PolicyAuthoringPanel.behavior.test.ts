@@ -85,6 +85,19 @@ test('a confirmed terminal failure permits a fresh operation without applying co
   });
 });
 
+test('terminal preflight denials never direct the merchant to a recovery action that was removed', async () => {
+  for (const code of ['feature_not_enabled', 'feature_unavailable', 'invalid_input', 'unauthenticated', 'membership_denied', 'store_inactive', 'origin_denied']) {
+    const { PolicyAuthoringPanel } = moduleFor(async () => { throw new PolicyAuthoringApiError(code); });
+    await mounted(PolicyAuthoringPanel, { context, onApply: () => { assert.fail('a denied request must not alter content'); }, onClose: () => {} }, async host => {
+      await click(host, 'Metni hazırla');
+      assert.match(host.querySelector('[role="alert"]')?.textContent ?? '', /İşlem başlatılamadı. Mevcut metniniz korundu[.]/, code);
+      assert.doesNotMatch(host.textContent, /aynı işlemin sonucunu kontrol edin/, code);
+      assert.equal([...host.querySelectorAll('button')].some(button => button.textContent === 'İşlemin sonucunu kontrol et'), false, code);
+      assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metni hazırla'), code);
+    });
+  }
+});
+
 test('unavailable recovery storage blocks a paid dispatch before any network request', async () => {
   let calls = 0;
   const { PolicyAuthoringPanel } = moduleFor(async () => { calls++; });

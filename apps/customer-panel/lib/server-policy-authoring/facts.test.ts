@@ -33,3 +33,36 @@ test('optional accounting denial omits private facts without widening access or 
   assert.equal(allowed.facts.length, 0);
   await assert.rejects(loadPolicyMerchantFacts({ ...common, merchantAdmin: { async list() { throw Object.assign(Error(), { code: 'unavailable' }); } } }), { code: 'unavailable' });
 });
+test('an unowned contact widget is omitted while allowed store and shipping facts remain available', async () => {
+  const result = await loadPolicyMerchantFacts({ tenantContext: { store: { id } } as TenantContext, now: new Date(), policyKey: 'membership', includeAccounting: false, merchantAdmin: { async list(input) {
+    if (input.kind === 'contact_widget') throw Object.assign(Error(), { code: 'feature_not_enabled' });
+    if (input.kind === 'general_setting') return [record('general_setting', { storeDisplayName: 'Örnek Mağaza', supportEmail: 'destek@example.test' })];
+    if (input.kind === 'shipping_setting') return [record('shipping_setting', { estimatedDays: 3 })];
+    throw Error('unexpected optional source');
+  } } });
+  assert.equal(result.facts.find(fact => fact.ref.endsWith(':displayName'))?.value, 'Örnek Mağaza');
+  assert.equal(result.facts.find(fact => fact.ref.endsWith(':supportEmail'))?.value, 'destek@example.test');
+  assert.equal(result.facts.find(fact => fact.ref.endsWith(':estimatedDays'))?.value, '3');
+  assert.equal(result.facts.some(fact => fact.ref.includes(':contact.')), false);
+});
+test('optional commercial and permission denials omit only the denied source', async () => {
+  for (const kind of ['general_setting', 'shipping_setting', 'contact_widget'] as const) for (const code of ['feature_not_enabled', 'membership_denied', 'permission_denied']) {
+    const result = await loadPolicyMerchantFacts({ tenantContext: { store: { id } } as TenantContext, now: new Date(), policyKey: 'payment_delivery', includeAccounting: false, merchantAdmin: { async list(input) {
+      if (input.kind === kind) throw Object.assign(Error(), { code });
+      if (input.kind === 'general_setting') return [record('general_setting', { storeDisplayName: 'Örnek Mağaza' })];
+      if (input.kind === 'shipping_setting') return [record('shipping_setting', { estimatedDays: 3 })];
+      return [];
+    } } });
+    if (kind !== 'general_setting') assert.equal(result.facts.find(fact => fact.ref.endsWith(':displayName'))?.value, 'Örnek Mağaza');
+    if (kind !== 'shipping_setting') assert.equal(result.facts.find(fact => fact.ref.endsWith(':estimatedDays'))?.value, '3');
+    if (kind === 'general_setting') assert.ok(result.missing.some(note => /iletişim/iu.test(note)));
+  }
+});
+test('authentication, inactive-store and availability failures remain terminal for optional sources', async () => {
+  for (const code of ['unauthenticated', 'store_inactive', 'unavailable']) {
+    await assert.rejects(loadPolicyMerchantFacts({ tenantContext: { store: { id } } as TenantContext, now: new Date(), policyKey: 'membership', includeAccounting: false, merchantAdmin: { async list(input) {
+      if (input.kind === 'contact_widget') throw Object.assign(Error(), { code });
+      return [];
+    } } }), { code });
+  }
+});

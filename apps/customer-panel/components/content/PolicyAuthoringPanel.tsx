@@ -26,6 +26,7 @@ function errorMessage(error: unknown): string {
   if (code === 'version_conflict') return 'Politika başka bir oturumda değişti. Güncel sürümü alıp yeniden hazırlayın.';
   if (code === 'source_too_large') return 'Bu metin Toshi ile tek seferde düzenlenemeyecek kadar uzun. Metniniz korundu.';
   if (code === 'operation_failed' || code === 'invalid_output') return 'Metin hazırlanamadı. Mevcut metniniz korundu.';
+  if (terminal.has(code)) return 'İşlem başlatılamadı. Mevcut metniniz korundu.';
   return 'İşlem sonucu doğrulanamadı. Metniniz korundu; aynı işlemin sonucunu kontrol edin.';
 }
 
