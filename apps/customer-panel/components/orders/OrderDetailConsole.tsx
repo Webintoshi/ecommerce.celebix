@@ -10,6 +10,7 @@ import {
   type OrderEmailDeliveryStatus,
   type OrderEmailDeliverySummary,
   type OrderEmailEventType,
+  type OrderEvent,
   type OrderNeighbors,
   type OrderPaymentStatus,
   type OrderStatus,
@@ -74,6 +75,45 @@ const EMAIL_STATUS_LABELS: Readonly<Record<OrderEmailDeliveryStatus, string>> = 
   suppressed: "Gönderim engellendi",
 });
 const ARCHIVE_EVIDENCE_REFERENCE = "merchant-panel/orders/archive";
+
+const HISTORY_EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
+  order_created: "Sipariş oluşturuldu",
+  status_changed: "Sipariş durumu değişti",
+  status_transition: "Sipariş durumu değişti",
+  payment_changed: "Ödeme durumu değişti",
+  payment_transition: "Ödeme durumu değişti",
+  shipping_updated: "Kargo bilgileri güncellendi",
+  note_added: "Not eklendi",
+  note_archived: "Not arşivlendi",
+  order_edited: "Sipariş düzenlendi",
+});
+const HISTORY_CREATED_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
+  "Manual order created": "Manuel sipariş oluşturuldu.",
+  "Quick order payment confirmed": "Hızlı sipariş ödemesi doğrulandı.",
+  "Storefront siparişi oluşturuldu.": "Online mağaza siparişi oluşturuldu.",
+  "Storefront kart ödemesi doğrulandı.": "Online mağaza kart ödemesi doğrulandı.",
+});
+
+export function formatOrderHistoryEvent(event: Pick<OrderEvent, "type" | "message">): Readonly<{ label: string; message: string }> {
+  const label = Object.hasOwn(HISTORY_EVENT_LABELS, event.type) ? HISTORY_EVENT_LABELS[event.type]! : "Geçmiş kaydı";
+  let message = event.message;
+  if ((event.type === "status_changed" || event.type === "status_transition") && message.startsWith("Order status changed to ")) {
+    const status = message.slice("Order status changed to ".length);
+    if (Object.hasOwn(STATUS_LABELS, status)) message = `Sipariş durumu: ${STATUS_LABELS[status as OrderStatus]}`;
+  } else if ((event.type === "payment_changed" || event.type === "payment_transition") && message.startsWith("Order payment changed to ")) {
+    const status = message.slice("Order payment changed to ".length);
+    if (Object.hasOwn(PAYMENT_LABELS, status)) message = `Ödeme durumu: ${PAYMENT_LABELS[status as OrderPaymentStatus]}`;
+  } else if (event.type === "order_created" && Object.hasOwn(HISTORY_CREATED_MESSAGES, message)) {
+    message = HISTORY_CREATED_MESSAGES[message]!;
+  } else if (event.type === "shipping_updated" && message === "Order shipping updated") {
+    message = "Kargo bilgileri güncellendi.";
+  } else if (event.type === "note_added" && message === "Order note added") {
+    message = "Sipariş notu eklendi.";
+  } else if (event.type === "note_archived" && message === "Order note archived") {
+    message = "Sipariş notu arşivlendi.";
+  }
+  return { label, message };
+}
 
 export function getAuthorizedOrderStatusOptions(
   current: OrderStatus,
@@ -348,7 +388,10 @@ export function OrderDetailPresentation(props: OrderDetailPresentationProps) {
           <div className={styles.notes}>{order.notes.map(note => <article key={note.id}><div><p>{note.body}</p><time dateTime={note.createdAt}>{date(note.createdAt)}</time></div>{props.capabilities.note ? <button className={styles.iconButton} type="button" aria-label="Notu arşivle" disabled={modalBusy} onClick={() => { setNoteId(note.id); openDialog("note"); }}><Archive size={16} aria-hidden="true" /></button> : null}</article>)}</div>
           {props.capabilities.note ? <form className={styles.noteForm} onSubmit={props.onNoteSubmit}><label><span className="sr-only">Yeni dahili not</span><textarea name="body" required maxLength={2000} placeholder="Dahili not ekle…" rows={2} /></label><button className={styles.secondaryButton} type="submit" disabled={modalBusy} aria-label="Not ekle"><Send size={18} aria-hidden="true" /></button></form> : order.notes.length === 0 ? <p className={styles.muted}>Not yok.</p> : null}
         </section>
-        <section className={styles.section} aria-labelledby="timeline-title"><header className={styles.sectionHeading}><h2 id="timeline-title"><History size={16} aria-hidden="true" />Geçmiş</h2><span className={styles.muted}>{order.events.length} kayıt</span></header>{order.events.length ? <ol className={styles.timeline}>{order.events.map(event => <li key={event.id}><div><strong>{event.message}</strong><time dateTime={event.createdAt}>{date(event.createdAt)} · {event.type === "order_edited" ? "Sipariş düzenlendi" : event.type}</time></div></li>)}</ol> : <p className={styles.muted}>Geçmiş kaydı yok.</p>}</section>
+        <section className={styles.section} aria-labelledby="timeline-title"><header className={styles.sectionHeading}><h2 id="timeline-title"><History size={16} aria-hidden="true" />Geçmiş</h2><span className={styles.muted}>{order.events.length} kayıt</span></header>{order.events.length ? <ol className={styles.timeline}>{order.events.map(event => {
+          const presentation = formatOrderHistoryEvent(event);
+          return <li key={event.id}><div><strong>{presentation.message}</strong><time dateTime={event.createdAt}>{date(event.createdAt)} · {presentation.label}</time></div></li>;
+        })}</ol> : <p className={styles.muted}>Geçmiş kaydı yok.</p>}</section>
       </div>
       <aside className={styles.rail} aria-label="Müşteri ve teslimat">
         <section className={styles.section} aria-labelledby="customer-title"><header className={styles.sectionHeading}><h2 id="customer-title"><UserRound size={16} aria-hidden="true" />Müşteri</h2></header><div className={styles.customerIdentity}><span aria-hidden="true">{customer.name ? customer.name.split(/\s+/).map(part => part[0]).slice(0, 2).join("") : <UserRound size={16} />}</span><strong>{customer.name ?? "Mağaza müşterisi"}</strong></div>{customer.email ? <a className={styles.contact} href={`mailto:${customer.email}`}><Mail size={16} aria-hidden="true" /><span>{customer.email}</span></a> : <p className={styles.muted}>E-posta belirtilmemiş.</p>}{customer.phone ? <a className={styles.contact} href={`tel:${customer.phone}`}><Phone size={16} aria-hidden="true" /><span>{customer.phone}</span></a> : null}</section>
