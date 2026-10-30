@@ -4,7 +4,7 @@ import test from "node:test";
 import { FIXED_STOREFRONT_POLICIES } from "@celebix/saas-contracts";
 import { normalizeProductDescriptionRichText } from "@celebix/platform-config/src/product-description-rich-text.ts";
 import type { StorePolicyAdminPage, StorePolicyStatus } from "@celebix/saas-data";
-import { act, createElement, type ReactNode } from "react";
+import { act, createElement, useEffect, type ReactNode } from "react";
 import type { Window } from "happy-dom";
 
 import { compile, mounted, click } from "../../lib/mira-final-test-support.ts";
@@ -20,13 +20,13 @@ function pages(): readonly StorePolicyAdminPage[] {
   }));
 }
 
-function policyModule(api: Record<string, unknown>) {
-  const BodyField = ({ value, readOnly, onValueChange }: {
-    value: string; readOnly?: boolean; onValueChange: (value: string) => void;
-  }) => createElement("textarea", {
+function policyModule(api: Record<string, unknown>, authoring: Record<string, unknown> = {}) {
+  const BodyField = ({ value, readOnly, onValueChange, toolbarAction, onApplyReady }: {
+    value: string; readOnly?: boolean; onValueChange: (value: string) => void; toolbarAction?: ReactNode; onApplyReady?: (apply: ((html: string) => boolean) | null) => void;
+  }) => { useEffect(() => { onApplyReady?.((html) => { onValueChange(html); return true; }); return () => onApplyReady?.(null); }, [onApplyReady, onValueChange]); return createElement("div", null, toolbarAction, createElement("textarea", {
     "aria-label": "Politika metni", value, readOnly,
     onChange: (event: { target: { value: string } }) => onValueChange(event.target.value),
-  });
+  })); };
   const Preview = ({ source }: { source: string }) => createElement("div", { "data-policy-preview": true }, source);
   return compile("components/content/PolicyConsole.tsx", {
     "@celebix/platform-config/src/product-description-rich-text": { normalizeProductDescriptionRichText },
@@ -39,6 +39,7 @@ function policyModule(api: Record<string, unknown>) {
     "@/components/catalog/ProductDescriptionField": { ProductDescriptionPreview: Preview },
     "./PolicyBodyField": { PolicyBodyField: BodyField },
     "next/dynamic": { __esModule: true, default: () => BodyField },
+    ...authoring,
   });
 }
 
@@ -484,4 +485,170 @@ test("policy save publishes directly while explicit hiding stays available", asy
   await click(host, "Kaydet");
   assert.equal(saves[1].status, "draft");
  });
+});
+
+test("Toshi follows the selected policy body and is absent without AI or edit permission", async () => {
+  const initial = pages().map((page, index) => index === 0 ? { ...page, body: "" } : page);
+  const { PolicyConsole } = policyModule({ list: async () => initial });
+  await mounted(PolicyConsole, { canManage: true, aiEnabled: true, recoveryScope: "policy-toshi-scope" }, async (host) => {
+    const trigger = [...host.querySelectorAll("button")].find(button => button.textContent === "Toshi ile üret");
+    assert.ok(trigger, "An empty policy must offer generation in its editor toolbar");
+    await select(host, "kvkk");
+    assert.ok([...host.querySelectorAll("button")].some(button => button.textContent === "Toshi ile geliştir"));
+  });
+  for (const props of [{ canManage: true }, { canManage: false, aiEnabled: true }]) {
+    await mounted(PolicyConsole, props, async host => {
+      assert.equal([...host.querySelectorAll("button")].some(button => /Toshi ile (üret|geliştir)/.test(button.textContent ?? "")), false);
+    });
+  }
+});
+
+function authoringBoundary(generate: (request: any, operationId: string) => Promise<unknown>) {
+  return {
+    "@/lib/content-authoring-ui/credits-client": { readToshiCredits: async () => ({ wallet: { balance: 50, reserved: 0, available: 50 } }) },
+    "@/lib/policy-authoring-ui/client": { policyAuthoringClient: { generate }, PolicyAuthoringApiError: class extends Error {} },
+  };
+}
+function generated(request: any, operationId: string) {
+  return { kind: "policy", operationId, draftId: request.draftId, policyKey: request.policyKey, policyVersion: request.policyVersion, requestFingerprint: "a".repeat(64), body: "<h2>Hazırlanan politika</h2><p>İncelenecek metin.</p>", suggestions: ["İşletme adresini kontrol edin."], chargedCredits: 7, wallet: { balance: 43, reserved: 0, available: 43 } };
+}
+
+test("Toshi applies only to the selected local body and normal Save preserves explicit hiding", async () => {
+  const initial = pages(), saves: { key: string; input: SaveInput }[] = [], requests: any[] = [];
+  const { PolicyConsole } = policyModule({ list: async () => initial, save: async (key: string, input: SaveInput) => { saves.push({ key, input }); return { ...initial[2], ...input, version: 4 }; } }, authoringBoundary(async (request, operationId) => { requests.push(request); return generated(request, operationId); }));
+  await mounted(PolicyConsole, { canManage: true, aiEnabled: true, recoveryScope: "policy-ai-local-apply" }, async (host, window) => {
+    await select(host, "kvkk");
+    await act(async () => published(host).click());
+    await click(host, "Toshi ile geliştir");
+    assert.equal(window.document.activeElement?.textContent, "Metni hazırla");
+    await click(host, "Metni hazırla");
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].policyKey, "kvkk");
+    assert.equal(requests[0].policyVersion, 3);
+    assert.equal(requests[0].currentBody, initial[2].body);
+    assert.deepEqual(Object.keys(requests[0]).sort(), ["currentBody", "draftId", "kind", "locale", "policyKey", "policyVersion"]);
+    assert.equal(textField(host).value, initial[2].body);
+    assert.equal(saves.length, 0);
+    await click(host, "Metne uygula");
+    assert.equal(textField(host).value, "<h2>Hazırlanan politika</h2><p>İncelenecek metin.</p>");
+    assert.equal(published(host).checked, false);
+    assert.equal(saves.length, 0);
+    await select(host, "privacy_security");
+    assert.equal(textField(host).value, initial[0].body);
+    await select(host, "kvkk");
+    await click(host, "Kaydet");
+    assert.deepEqual(saves, [{ key: "kvkk", input: { expectedVersion: 3, body: "<h2>Hazırlanan politika</h2><p>İncelenecek metin.</p>", status: "draft" } }]);
+  });
+});
+
+test("editing or switching policies invalidates a pending preview and Escape restores trigger focus", async () => {
+  const initial = pages(); let finish: (value: unknown) => void = () => {}; let captured: any, operation = "";
+  const { PolicyConsole } = policyModule({ list: async () => initial }, authoringBoundary((request, operationId) => { captured = request; operation = operationId; return new Promise(resolve => { finish = resolve; }); }));
+  await mounted(PolicyConsole, { canManage: true, aiEnabled: true, recoveryScope: "policy-ai-stale" }, async (host, window) => {
+    await click(host, "Toshi ile geliştir");
+    await click(host, "Metni hazırla");
+    await write(window, host, "Üretim sırasında girilen yeni metin");
+    await act(async () => finish(generated(captured, operation)));
+    const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula");
+    assert.ok(apply); assert.equal(apply.disabled, true);
+    await click(host, "Metne uygula");
+    assert.equal(textField(host).value, "Üretim sırasında girilen yeni metin");
+    const panel = host.querySelector('[aria-label="Toshi ile politika"]'); assert.ok(panel);
+    await act(async () => panel.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event));
+    assert.equal(host.querySelector('[aria-label="Toshi ile politika"]'), null);
+    assert.equal(window.document.activeElement?.textContent, "Toshi ile geliştir");
+    await select(host, "kvkk");
+    assert.equal(textField(host).value, initial[2].body);
+  });
+});
+
+test("a late response after switching away is recovered with its original key and cannot replace another policy", async () => {
+  const initial = pages(), calls: { request: any; operationId: string }[] = [];
+  let finish: (value: unknown) => void = () => {};
+  const { PolicyConsole } = policyModule({ list: async () => initial }, authoringBoundary((request, operationId) => {
+    calls.push({ request, operationId });
+    return calls.length === 1 ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(generated(request, operationId));
+  }));
+  await mounted(PolicyConsole, { canManage: true, aiEnabled: true, recoveryScope: "policy-ai-late-switch" }, async host => {
+    await click(host, "Toshi ile geliştir");
+    await click(host, "Metni hazırla");
+    await select(host, "kvkk");
+    await act(async () => finish(generated(calls[0].request, calls[0].operationId)));
+    assert.equal(textField(host).value, initial[2].body);
+    assert.equal(host.querySelector('[aria-label="Toshi ile politika"]'), null);
+    await select(host, "privacy_security");
+    await click(host, "Toshi ile geliştir");
+    assert.equal(calls.length, 1, "reopening must never poll or automatically repeat a paid operation");
+    await click(host, "İşlemin sonucunu kontrol et");
+    assert.deepEqual(calls[0], calls[1]);
+    const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula")!;
+    assert.equal(apply.disabled, true, "switching away and back invalidates the original editing revision");
+    assert.equal(textField(host).value, initial[0].body);
+  });
+});
+
+test("changing publication after generation invalidates local application", async () => {
+  const initial = pages();
+  const { PolicyConsole } = policyModule({ list: async () => initial }, authoringBoundary(async (request, operationId) => generated(request, operationId)));
+  await mounted(PolicyConsole, { canManage: true, aiEnabled: true, recoveryScope: "policy-ai-status-change" }, async host => {
+    await click(host, "Toshi ile geliştir");
+    await click(host, "Metni hazırla");
+    await act(async () => published(host).click());
+    const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula")!;
+    assert.equal(apply.disabled, true);
+    assert.equal(textField(host).value, initial[0].body);
+  });
+});
+
+test("source view disables preview application and explains how to return to visual editing", async () => {
+  const { PolicyConsole } = policyModule({ list: async () => pages() }, authoringBoundary(async (request, operationId) => generated(request, operationId)));
+  await mounted(PolicyConsole, { canManage: true, aiEnabled: true, recoveryScope: "policy-ai-source-view" }, async (host, window) => {
+    await click(host, "Toshi ile geliştir");
+    await click(host, "Metni hazırla");
+    await click(host, "Kaynak");
+    const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula")!;
+    assert.equal(apply.disabled, true);
+    assert.match(host.textContent, /Düzenle görünümüne dönün/);
+    await click(host, "Düzenle");
+    assert.equal([...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula")!.disabled, false);
+    await click(host, "Kaynak");
+    const close = host.querySelector('[aria-label="Toshi panelini kapat"]')!;
+    close.focus();
+    await act(async () => close.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event));
+    assert.equal(window.document.activeElement?.textContent, "Kaynak", "when the toolbar trigger is unmounted, focus returns to the selected view tab");
+  });
+});
+
+test("a full console remount recovers the same paid operation and applies only when the stable policy context matches", async () => {
+  const initial = pages(), calls: { request: any; operationId: string }[] = [];
+  let saves = 0;
+  const { PolicyConsole } = policyModule({ list: async () => initial, save: async () => { saves++; } }, authoringBoundary(async (request, operationId) => {
+    calls.push({ request, operationId });
+    if (calls.length === 1) throw new Error("lost response before refresh");
+    return generated(request, operationId);
+  }));
+  const props = { canManage: true, aiEnabled: true, recoveryScope: "policy-ai-full-remount", initialPolicyKey: "kvkk" };
+  const persisted: [string, string][] = [];
+  await mounted(PolicyConsole, props, async (host, window) => {
+    await click(host, "Toshi ile geliştir");
+    await click(host, "Metni hazırla");
+    assert.equal(calls.length, 1);
+    for (let index = 0; index < window.sessionStorage.length; index++) {
+      const key = window.sessionStorage.key(index)!;
+      persisted.push([key, window.sessionStorage.getItem(key)!]);
+    }
+    assert.equal(persisted.length, 1);
+  });
+  await mounted(PolicyConsole, props, async host => {
+    assert.equal(textField(host).value, initial[2].body);
+    await click(host, "Toshi ile geliştir");
+    assert.equal(calls.length, 1, "a reload never polls or starts another generation");
+    await click(host, "İşlemin sonucunu kontrol et");
+    assert.deepEqual(calls[0], calls[1], "recovery must retain the original request and operation key");
+    const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula")!;
+    assert.equal(apply.disabled, false, "an unchanged policy after full remount must accept its recovered paid result");
+    await click(host, "Metne uygula");
+    assert.equal(textField(host).value, "<h2>Hazırlanan politika</h2><p>İncelenecek metin.</p>");
+    assert.equal(saves, 0, "recovery and Apply do not save or publish");
+  }, window => { for (const [key, value] of persisted) window.sessionStorage.setItem(key, value); });
 });

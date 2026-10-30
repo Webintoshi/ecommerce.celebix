@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { isMerchantActionAllowed } from "@celebix/saas-contracts";
+import { hasCommercialCapability, isMerchantActionAllowed } from "@celebix/saas-contracts";
 
 import { PolicyConsole } from "@/components/content/PolicyConsole";
 import { PanelWorkspaceShell } from "@/components/panel/PanelWorkspaceShell";
@@ -12,7 +12,7 @@ export default async function ContentPoliciesPage() {
   const recoveryScope = createHash("sha256").update(JSON.stringify([session.id, tenantContext.principal.id, tenantContext.store.id])).digest("hex");
   return (
     <PanelWorkspaceShell title="İçerik" tabs={CONTENT_WORKSPACE_TABS}>
-      <PolicyConsole key={recoveryScope} recoveryScope={recoveryScope} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} embedded />
+      <PolicyConsole key={recoveryScope} recoveryScope={recoveryScope} aiEnabled={hasCommercialCapability(tenantContext.entitlements, "ai")} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} embedded />
     </PanelWorkspaceShell>
   );
 }

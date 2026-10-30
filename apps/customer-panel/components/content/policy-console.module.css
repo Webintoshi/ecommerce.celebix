@@ -181,3 +181,8 @@
   .revertDialog footer { display: grid; grid-template-columns: 1fr 1fr; }
 }
 .splitButton{border-radius:var(--cp-button-radius)}
+.aiButton { display: inline-flex; flex: 0 0 auto; min-width: 0; min-height: 44px; max-width: 100%; margin-left: auto; align-items: center; justify-content: center; gap: var(--cp-button-small-gap); border: 2px solid transparent; border-radius: var(--cp-button-radius); background-color: var(--cp-button-primary); background-clip: padding-box; padding: 0 12px; color: var(--cp-button-primary-text); font: inherit; font-size: 13px; font-weight: var(--cp-font-weight-control); line-height: var(--cp-button-small-line-height); white-space: nowrap; cursor: pointer; }
+.aiButton svg { width: 16px; height: 16px; flex: 0 0 16px; }
+.aiButton:hover:not(:disabled) { background-color: var(--cp-button-primary); }
+.aiButton:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.aiButton:disabled { opacity: .5; cursor: not-allowed; }

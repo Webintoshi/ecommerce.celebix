@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   FIXED_STOREFRONT_POLICIES,
+  hasCommercialCapability,
   isMerchantActionAllowed,
   type StorefrontPolicyKey,
 } from "@celebix/saas-contracts";
@@ -16,5 +17,5 @@ export default async function EditPolicyPage({ params }: { params: Promise<{ pol
   const { session, tenantContext } = await requireServerPanelAccess();
   // Opaque presentation scope for browser-memory drafts; never sent to a policy API.
   const recoveryScope = createHash("sha256").update(JSON.stringify([session.id, tenantContext.principal.id, tenantContext.store.id])).digest("hex");
-  return <PolicyConsole key={recoveryScope} recoveryScope={recoveryScope} initialPolicyKey={definition.key as StorefrontPolicyKey} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
+  return <PolicyConsole key={recoveryScope} recoveryScope={recoveryScope} initialPolicyKey={definition.key as StorefrontPolicyKey} aiEnabled={hasCommercialCapability(tenantContext.entitlements, "ai")} canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} />;
 }

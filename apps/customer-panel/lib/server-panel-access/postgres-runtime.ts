@@ -116,6 +116,7 @@ import { registerServerContentAuthoringRuntime } from "../server-content-authori
 import { PostgresToshiCreditRepository } from "@celebix/saas-data";
 import { registerServerToshiCreditsRuntime } from "../server-toshi-credits/runtime.ts";
 import { registerServerToshiImageAltRuntime } from "../server-toshi-image-alts/runtime.ts";
+import { registerServerPolicyAuthoringRuntime } from "../server-policy-authoring/runtime.ts";
 import { createPostgresCentralToshiRepository,registerServerCentralToshiRepository } from "../server-toshi-providers/central-repository.ts";
 import { registerServerContentResourceAuthoringRuntime } from "../server-content-resource-authoring/runtime.ts";
 import { registerServerContentResearchRuntime } from "../server-content-research/runtime.ts";
@@ -1238,6 +1239,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
     registerServerToshiCreditsRuntime(access, toshiCredits);
     registerServerCentralToshiRepository(access, createPostgresCentralToshiRepository({pool,timeouts:TIMEOUTS}));
     registerServerToshiImageAltRuntime(access, {credits:toshiCredits});
+    registerServerPolicyAuthoringRuntime(access);
     registerServerContentAuthoringRuntime(access, new PostgresContentAuthoringRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined}));
     if (typedMerchantContentReady) {
       const researchRepository = new PostgresContentResearchRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined});

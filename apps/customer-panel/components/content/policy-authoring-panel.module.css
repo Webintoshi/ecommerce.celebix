@@ -1,0 +1,16 @@
+.panel { composes: panel from '../content-authoring/content-authoring.module.css'; border-width: 0 0 1px; border-radius: 0; }
+.heading { composes: heading from '../content-authoring/content-authoring.module.css'; }
+.identity { composes: identity from '../content-authoring/content-authoring.module.css'; }
+.wallet { composes: wallet from '../content-authoring/content-authoring.module.css'; }
+.closeButton { composes: closeButton from '../content-authoring/content-authoring.module.css'; }
+.prepareRow { composes: prepareRow from '../content-authoring/content-authoring.module.css'; }
+.prepareButton { composes: prepareButton from '../content-authoring/content-authoring.module.css'; }
+.previews { composes: previews from '../content-authoring/content-authoring.module.css'; }
+.preview { composes: preview from '../content-authoring/content-authoring.module.css'; }
+.applyButton { composes: applyButton from '../content-authoring/content-authoring.module.css'; }
+.panel button { min-height: 44px; }
+.panel .closeButton { width: 44px; }
+.panel small { font-variant-numeric: tabular-nums; }
+.panel details { min-width: 0; }
+.panel summary { min-height: 44px; align-content: center; cursor: pointer; }
+.panel ul { margin: 8px 0 0; padding-left: 20px; overflow-wrap: anywhere; }

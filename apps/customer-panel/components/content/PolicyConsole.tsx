@@ -4,7 +4,7 @@ import { PanelInitialDataGate } from "@/components/panel/PanelInitialDataGate";
 import { FIXED_STOREFRONT_POLICIES, type StorefrontPolicyKey } from "@celebix/saas-contracts";
 import { normalizeProductDescriptionRichText, type ProductDescriptionRichTextNode } from "@celebix/platform-config/src/product-description-rich-text";
 import type { StorePolicyAdminPage, StorePolicyStatus } from "@celebix/saas-data";
-import { Check, ChevronDown, ChevronRight, Clock3, Cookie, FileText, Fingerprint, Globe, Info, PanelLeftClose, RefreshCcw, Scale, ShieldCheck, Truck, Undo2, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Clock3, Cookie, FileText, Fingerprint, Globe, Info, PanelLeftClose, RefreshCcw, Scale, ShieldCheck, Sparkles, Truck, Undo2, UserRound, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
@@ -14,6 +14,9 @@ import { PanelPageShell, PanelSkeletonBlock } from "@/components/panel/PanelPage
 import { createDirtyNavigationGuard } from "@/lib/catalog-ui/dirty-navigation";
 import { policyBodySourceFormat } from "@/lib/policy-body-editor";
 import { StorePolicyApiError, storePolicyApi } from "@/lib/store-policy-ui/client";
+import { samePolicyAuthoringContext, type PolicyAuthoringContext } from "@/lib/policy-authoring-ui/controller";
+import { PolicyAuthoringPanel } from "./PolicyAuthoringPanel";
+import type { PolicyBodyApply } from "./PolicyBodyField";
 
 import { readPolicyNavigationDrafts, retainPolicyNavigationDrafts } from "./policy-navigation-recovery";
 import styles from "./policy-console.module.css";
@@ -60,8 +63,8 @@ function DocumentArt({ preview = false }: { preview?: boolean }) {
   </svg>;
 }
 
-export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embedded = false }: {
-  canManage: boolean; initialPolicyKey?: StorefrontPolicyKey; recoveryScope?: string; embedded?: boolean;
+export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embedded = false, aiEnabled = false }: {
+  canManage: boolean; initialPolicyKey?: StorefrontPolicyKey; recoveryScope?: string; embedded?: boolean; aiEnabled?: boolean;
 }) {
   const [items, setItems] = useState<readonly StorePolicyAdminPage[]>([]);
   const [selected, setSelected] = useState<StorePolicyAdminPage | null>(null);
@@ -76,6 +79,8 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   const [view, setView] = useState<View>("edit");
   const [split, setSplit] = useState(false);
   const [help, setHelp] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiApplyAvailable, setAiApplyAvailable] = useState(false);
   const [draftRevision, redrawDrafts] = useState(0);
   const draftsRef = useRef(new Map<StorefrontPolicyKey, PolicyDraft>(canManage ? readPolicyNavigationDrafts(recoveryScope).map((draft) => [draft.key, draft]) : []));
   const triggerRefs = useRef(new Map<StorefrontPolicyKey, HTMLButtonElement>());
@@ -90,11 +95,18 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   const requestRef = useRef(0);
   const selectedRef = useRef(selected);
   const itemsRef = useRef(items);
+  const aiRevision = useRef({ epoch: crypto.randomUUID(), value: 0 });
+  const applyBodyRef = useRef<PolicyBodyApply | null>(null);
+  const aiTriggerRef = useRef<HTMLButtonElement>(null);
+  const latestBody = useRef(body), latestStatus = useRef(selectedStatus);
+  latestBody.current = body; latestStatus.current = selectedStatus;
+  const applyReady = useCallback((apply: PolicyBodyApply | null) => { applyBodyRef.current = apply; setAiApplyAvailable(Boolean(apply)); }, []);
   selectedRef.current = selected;
   itemsRef.current = items;
 
   const open = useCallback((page: StorePolicyAdminPage, focus = true) => {
     if (busyRef.current) return;
+    aiRevision.current.value++; setAiOpen(false);
     const draft = draftsRef.current.get(page.key);
     setSelected(page);
     setBody(draft?.body ?? page.body);
@@ -109,6 +121,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
 
   const load = useCallback(async (initial = false) => {
     if (busyRef.current) return;
+    aiRevision.current.value++; setAiOpen(false);
     const request = ++requestRef.current;
     setLoading(true); setLoadError("");
     try {
@@ -188,14 +201,17 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   }
   function changeBody(value: string) {
     if (!canManage || busyRef.current || loading) return;
+    aiRevision.current.value++; latestBody.current = value;
     setBody(value); rememberDraft(value, selectedStatus); setMessage("");
   }
   function changeStatus(value: StorePolicyStatus) {
     if (!canManage || busyRef.current || loading) return;
+    aiRevision.current.value++; latestStatus.current = value;
     setSelectedStatus(value); rememberDraft(body, value); setMessage("");
   }
   function close() {
     if (busyRef.current) return;
+    aiRevision.current.value++; setAiOpen(false);
     const key = selected?.key;
     setSelected(null); setError(""); setMessage(""); setRecovery(null);
     queueMicrotask(() => {
@@ -204,6 +220,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
     });
   }
   function updateSaved(page: StorePolicyAdminPage) {
+    aiRevision.current.value++;
     setItems((current) => current.map((item) => item.key === page.key ? page : item)); setSelected(page);
   }
   async function refreshVersion() {
@@ -252,6 +269,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   }
   function revert() {
     if (!selected || busyRef.current || recovery) return;
+    aiRevision.current.value++; setAiOpen(false);
     draftsRef.current.delete(selected.key); setBody(selected.body); setSelectedStatus(selected.status);
     setMessage(""); setError(""); redrawDrafts((current) => current + 1); dialogRef.current?.close();
   }
@@ -266,6 +284,13 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
   const publishedCount = items.filter((page) => page.status === "published").length;
   const draftCount = items.filter((page) => page.status === "draft").length;
   const sourceFormat = policyBodySourceFormat(body);
+  function authoringContext(): PolicyAuthoringContext | null {
+    const page = selectedRef.current;
+    return page && recoveryScope ? { recoveryScope, policyKey: page.key, policyVersion: page.version, body: latestBody.current, status: latestStatus.current, revision: `${aiRevision.current.epoch}:${aiRevision.current.value}` } : null;
+  }
+  const aiContext = authoringContext();
+  function closeAi() { setAiOpen(false); queueMicrotask(() => (aiTriggerRef.current ?? tabRefs.current.get(view))?.focus()); }
+  const aiAction = aiEnabled && canManage && aiContext ? <button ref={aiTriggerRef} type="button" className={styles.aiButton} aria-expanded={aiOpen} aria-controls="policy-toshi-panel" disabled={busy || loading || !!recovery || tooLong} onClick={() => aiOpen ? closeAi() : setAiOpen(true)}><Sparkles aria-hidden="true" />{hasContent ? "Toshi ile geliştir" : "Toshi ile üret"}</button> : null;
 
   return <PanelInitialDataGate pending={!embedded&&loading&&items.length===0}><PanelPageShell embedded={embedded}>
     {!embedded ? <PanelTopbarBridge title="Politikalar" /> : null}
@@ -328,9 +353,14 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
                 <div className={styles.viewActions}><button className={styles.iconButton} type="button" aria-label="Metin düzenleme yardımı" aria-expanded={help} aria-controls="policy-help" onClick={() => setHelp(!help)}><Info aria-hidden="true" /></button><button className={`${styles.button} ${styles.splitButton}`} type="button" aria-pressed={split} onClick={() => { setSplit(!split); if (view === "preview") setView("edit"); }}><PanelLeftClose aria-hidden="true" />Yan yana</button></div>
               </div>
               {help ? <p className={styles.help} id="policy-help">Kaynak görünümünde HTML veya Markdown düzenleyebilirsiniz. Ctrl / ⌘ S ile kaydedin.</p> : null}
+              {aiOpen && aiEnabled && canManage && aiContext ? <div id="policy-toshi-panel"><PolicyAuthoringPanel key={`${recoveryScope}:${selected?.key}`} context={aiContext} disabled={busy || loading || !!recovery || tooLong} canApply={aiApplyAvailable && view !== "source"} applyUnavailableReason={view === "source" ? "Metne uygulamak için Düzenle görünümüne dönün." : "Bu metnin biçimini korumak için Kaynak sekmesinden düzenleyin."} onClose={closeAi} onApply={(result, captured) => {
+                const current = authoringContext();
+                if (!canManage || busyRef.current || loading || recovery || !current || !samePolicyAuthoringContext(current, captured) || result.policyKey !== current.policyKey || result.policyVersion !== current.policyVersion || !applyBodyRef.current) return false;
+                return applyBodyRef.current(result.body);
+              }} /></div> : null}
               <div className={`${styles.editorColumns} ${split ? styles.split : ""}`}>
                 <div id="policy-source" role="tabpanel" aria-labelledby={view === "source" ? "policy-tab-source" : "policy-tab-edit"} hidden={view === "preview" && !split}>
-                  {view === "source" ? <><label className={styles.srOnly} htmlFor="policy-body-source">Metin kaynağı</label><textarea id="policy-body-source" className={styles.source} value={body} readOnly={!canManage || busy || loading} aria-invalid={tooLong || undefined} aria-describedby={tooLong ? "policy-body-error" : undefined} onChange={(event) => changeBody(event.target.value)} rows={18} spellCheck={false} /></> : <PolicyBodyField key={selected.key} value={body} readOnly={!canManage || busy || loading} onValueChange={changeBody} />}
+                  {view === "source" ? <><label className={styles.srOnly} htmlFor="policy-body-source">Metin kaynağı</label><textarea id="policy-body-source" className={styles.source} value={body} readOnly={!canManage || busy || loading} aria-invalid={tooLong || undefined} aria-describedby={tooLong ? "policy-body-error" : undefined} onChange={(event) => changeBody(event.target.value)} rows={18} spellCheck={false} /></> : <PolicyBodyField key={selected.key} value={body} readOnly={!canManage || busy || loading} onValueChange={changeBody} toolbarAction={aiAction} onApplyReady={applyReady} />}
                 </div>
                 <div id="policy-preview" role="tabpanel" className={styles.preview} aria-label="Markdown önizleme" aria-labelledby="policy-tab-preview" hidden={view !== "preview" && !split}>
                   <div className={styles.previewCaption}><Globe aria-hidden="true" /><span>Mağazadaki görünüm</span><small>Önizleme</small></div>

@@ -127,7 +127,7 @@ test("mounted controlled editor does not emit on loads, read-only changes or pol
       if (name === "@tiptap/react") return { ...tiptap, useEditor: (...args: Parameters<typeof tiptap.useEditor>) => { const current = tiptap.useEditor(...args); actualEditor = current; return current; } };
       return require(name);
     }, compiled, compiled.exports);
-    const Field = compiled.exports.PolicyBodyField as React.ComponentType<{ value: string; readOnly?: boolean; onValueChange(value: string): void }>;
+    const Field = compiled.exports.PolicyBodyField as React.ComponentType<{ value: string; readOnly?: boolean; onValueChange(value: string): void; onApplyReady?(apply: ((html: string) => boolean) | null): void }>;
     const { createRoot } = await import("react-dom/client");
     const container = browser.document.createElement("div"); browser.document.body.append(container);
     const root = createRoot(container as unknown as HTMLElement);
@@ -135,9 +135,11 @@ test("mounted controlled editor does not emit on loads, read-only changes or pol
     const second = "### İkinci metin\n\nDiğer politika.";
     let value = first;
     let readOnly = false;
+    let applyPolicy: ((html: string) => boolean) | null = null;
+    const onApplyReady = (apply: ((html: string) => boolean) | null) => { applyPolicy = apply; };
     const changes: string[] = [];
     const onValueChange = (next: string) => { changes.push(next); value = next; render(); };
-    const render = () => root.render(React.createElement(Field, { value, readOnly, onValueChange }));
+    const render = () => root.render(React.createElement(Field, { value, readOnly, onValueChange, onApplyReady }));
     const current = () => { assert.ok(actualEditor); return actualEditor as import("@tiptap/core").Editor; };
     try {
       await React.act(async () => { render(); });
@@ -145,8 +147,16 @@ test("mounted controlled editor does not emit on loads, read-only changes or pol
       assert.equal(value, first);
       assert.equal(current().isEditable, true);
       assert.equal((container.querySelector('button[aria-label="Geri al"]') as unknown as HTMLButtonElement).disabled, true);
+      assert.ok(applyPolicy);
+      await React.act(async () => { assert.equal(applyPolicy!("<h2>Toshi metni</h2><p>İncelenen politika.</p>"), true); });
+      assert.match(value, /Toshi metni/);
+      await React.act(async () => { current().commands.undo(); });
+      assert.equal(value, first, "one Undo must restore the original Markdown source byte for byte after Toshi applies");
+      assert.equal(current().can().undo(), false);
+      changes.length = 0;
       await React.act(async () => { readOnly = true; render(); });
       assert.equal(current().isEditable, false);
+      assert.equal(applyPolicy, null);
       assert.deepEqual(changes, []);
       await React.act(async () => { readOnly = false; value = second; render(); });
       assert.deepEqual(changes, []);
@@ -166,6 +176,7 @@ test("mounted controlled editor does not emit on loads, read-only changes or pol
       await React.act(async () => { value = "<p>Belge<img src='/image.webp'></p>"; render(); });
       assert.match(container.textContent ?? "", /Kaynak sekmesinden düzenleyin/);
       assert.equal(current().isEditable, false);
+      assert.equal(applyPolicy, null, "unsupported source must not expose an AI mutation bridge");
       assert.equal(changes.length, 3);
       await React.act(async () => { value = "<p>Bağlantı metni</p>"; render(); });
       await React.act(async () => { current().commands.setTextSelection({ from: 1, to: 9 }); });

@@ -6,6 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { TableKit } from "@tiptap/extension-table";
 import Underline from "@tiptap/extension-underline";
 import { EditorState } from "@tiptap/pm/state";
+import { closeHistory } from "@tiptap/pm/history";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
@@ -27,7 +28,10 @@ export type PolicyBodyFieldProps = Readonly<{
   value: string;
   readOnly?: boolean;
   onValueChange(value: string): void;
+  toolbarAction?: ReactNode;
+  onApplyReady?(apply: PolicyBodyApply | null): void;
 }>;
+export type PolicyBodyApply = (html: string) => boolean;
 
 type LoadedDocument = Readonly<{
   source: string;
@@ -75,7 +79,7 @@ function selectedBlock(editor: Editor | null): string {
   return "paragraph";
 }
 
-export function PolicyBodyField({ value, readOnly = false, onValueChange }: PolicyBodyFieldProps) {
+export function PolicyBodyField({ value, readOnly = false, onValueChange, toolbarAction, onApplyReady }: PolicyBodyFieldProps) {
   const linkId = useId();
   const latestValue = useRef(value);
   const latestOnChange = useRef(onValueChange);
@@ -173,6 +177,20 @@ export function PolicyBodyField({ value, readOnly = false, onValueChange }: Poli
     if (readOnly) setLinkPanel(false);
   }, [editor, readOnly, supported]);
 
+  useEffect(() => {
+    if (!editor || supported !== true || readOnly) { onApplyReady?.(null); return; }
+    onApplyReady?.((html) => {
+      if (readOnlyRef.current || !loadedDocument.current?.supported) return false;
+      const safeHtml = policyBodyEditorHtml(html);
+      if (!policyBodyRoundTripSupported(safeHtml, safeHtml)) return false;
+      editor.view.dispatch(closeHistory(editor.state.tr));
+      const applied = editor.chain().focus().setContent(safeHtml, { emitUpdate: true }).run();
+      editor.view.dispatch(closeHistory(editor.state.tr));
+      return applied;
+    });
+    return () => onApplyReady?.(null);
+  }, [editor, supported, readOnly, onApplyReady]);
+
   function setBlock(next: string) {
     if (!editor) return;
     if (next === "h2" || next === "h3" || next === "h4") editor.chain().focus().setHeading({ level: Number(next.slice(1)) as 2 | 3 | 4 }).run();
@@ -237,6 +255,7 @@ export function PolicyBodyField({ value, readOnly = false, onValueChange }: Poli
             <ToolbarButton label="Kod bloğu" active={editorState?.codeBlock} disabled={disabled} onPress={() => editor?.chain().focus().toggleCodeBlock().run()}><Code2 /></ToolbarButton>
             <ToolbarButton label="Tablo ekle" active={editorState?.table} disabled={disabled} onPress={() => editor?.chain().focus().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run()}><Table2 /></ToolbarButton>
           </span>
+          {toolbarAction}
           <span className={styles.toolbarGroup}>
             <ToolbarButton label="Geri al" disabled={disabled || !editorState?.undo} onPress={() => editor?.chain().focus().undo().run()}><Undo2 /></ToolbarButton>
             <ToolbarButton label="Yinele" disabled={disabled || !editorState?.redo} onPress={() => editor?.chain().focus().redo().run()}><Redo2 /></ToolbarButton>
