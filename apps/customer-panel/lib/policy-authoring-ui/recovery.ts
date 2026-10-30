@@ -1,12 +1,14 @@
 import type { StorefrontPolicyKey } from '@celebix/saas-contracts';
-import type { PolicyAuthoringRequest } from '../policy-authoring/types.ts';
-import { parsePolicyAuthoringRequest } from '../policy-authoring/validation.ts';
+import type { PolicyAuthoringRequest, PolicyAuthoringResult } from '../policy-authoring/types.ts';
+import { parsePolicyAuthoringRequest, parsePolicyAuthoringResult } from '../policy-authoring/validation.ts';
 import { parsePolicyAuthoringContext, policyAuthoringRequestMatchesContext, type PolicyAuthoringContext } from './controller.ts';
 
 export type PolicyAuthoringReceipt = Readonly<{ operationId: string; request: PolicyAuthoringRequest; context: PolicyAuthoringContext }>;
+export type PolicyAuthoringCompletedPreview = Readonly<{ receipt: PolicyAuthoringReceipt; result: PolicyAuthoringResult }>;
 type Storage = Pick<globalThis.Storage, 'getItem' | 'setItem' | 'removeItem'>;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const key = (scope: string, policyKey: StorefrontPolicyKey) => `celebix:policy-authoring:v1:${scope}:${policyKey}`;
+const previewKey = (scope: string, policyKey: StorefrontPolicyKey) => `celebix:policy-authoring-preview:v1:${scope}:${policyKey}`;
 
 function parseReceipt(value: unknown): PolicyAuthoringReceipt {
   const receipt = value as PolicyAuthoringReceipt;
@@ -36,4 +38,33 @@ export function clearPolicyAuthoringRecovery(storage: Storage, receipt: PolicyAu
   const current = readPolicyAuthoringRecovery(storage, receipt.context.recoveryScope, receipt.context.policyKey);
   if (current && current.operationId !== receipt.operationId) throw new Error('policy_authoring_recovery_mismatch');
   storage.removeItem(key(receipt.context.recoveryScope, receipt.context.policyKey));
+}
+
+function completedPreview(value: unknown): PolicyAuthoringCompletedPreview {
+  const preview = value as PolicyAuthoringCompletedPreview;
+  if (!preview || typeof preview !== 'object' || Array.isArray(preview)
+    || Object.keys(preview).sort().join(',') !== 'receipt,result') throw new Error('policy_authoring_preview_invalid');
+  const receipt = parseReceipt(preview.receipt);
+  return Object.freeze({ receipt, result: parsePolicyAuthoringResult(preview.result, { request: receipt.request, operationId: receipt.operationId }) });
+}
+
+export function readPolicyAuthoringCompletedPreview(storage: Storage, scope: string, policyKey: StorefrontPolicyKey): PolicyAuthoringCompletedPreview | null {
+  const raw = storage.getItem(previewKey(scope, policyKey));
+  if (raw === null) return null;
+  if (new TextEncoder().encode(raw).byteLength > 1_250_000) throw new Error('policy_authoring_preview_invalid');
+  const preview = completedPreview(JSON.parse(raw));
+  if (preview.receipt.context.recoveryScope !== scope || preview.receipt.context.policyKey !== policyKey) throw new Error('policy_authoring_preview_invalid');
+  return preview;
+}
+
+export function writePolicyAuthoringCompletedPreview(storage: Storage, preview: PolicyAuthoringCompletedPreview): void {
+  const parsed = completedPreview(preview);
+  storage.setItem(previewKey(parsed.receipt.context.recoveryScope, parsed.receipt.context.policyKey), JSON.stringify(parsed));
+}
+
+export function clearPolicyAuthoringCompletedPreview(storage: Storage, preview: PolicyAuthoringCompletedPreview): void {
+  const context = preview.receipt.context;
+  const current = readPolicyAuthoringCompletedPreview(storage, context.recoveryScope, context.policyKey);
+  if (current && current.result.operationId !== preview.result.operationId) throw new Error('policy_authoring_preview_mismatch');
+  storage.removeItem(previewKey(context.recoveryScope, context.policyKey));
 }

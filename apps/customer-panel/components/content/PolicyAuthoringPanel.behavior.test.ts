@@ -5,6 +5,7 @@ import { compile, mounted, click } from '../../lib/mira-final-test-support.ts';
 import { PolicyAuthoringApiError } from '../../lib/policy-authoring-ui/client.ts';
 import type { PolicyAuthoringContext } from '../../lib/policy-authoring-ui/controller.ts';
 import type { PolicyAuthoringRequest } from '../../lib/policy-authoring/types.ts';
+import { readPolicyAuthoringCompletedPreview, readPolicyAuthoringRecovery } from '../../lib/policy-authoring-ui/recovery.ts';
 
 const context: PolicyAuthoringContext = { recoveryScope: 'panel-recovery-scope', policyKey: 'returns_exchanges', policyVersion: 4, body: '<p>Var olan koşullar.</p>', status: 'draft', revision: 'mount-a:1' };
 const result = (request: PolicyAuthoringRequest, operationId: string) => ({ kind: 'policy', operationId, draftId: request.draftId, policyKey: request.policyKey, policyVersion: request.policyVersion, requestFingerprint: 'a'.repeat(64), body: '<p>İncelenecek koşullar.</p>', suggestions: [], chargedCredits: 7, wallet: { balance: 23, reserved: 0, available: 23 } });
@@ -117,4 +118,117 @@ test('an oversized unchanged source is explained without an uncertain-operation 
     const prepare = [...host.querySelectorAll('button')].find(button => button.textContent === 'Metni hazırla')!;
     assert.equal(prepare.disabled, true, 'an oversized source can only be tried again after editing');
   });
+});
+
+test('a long completed preview places Apply before the generated text and explains the next Save step', async () => {
+  const body = `<h2>Koşullar</h2><p>${'Uzun politika metni. '.repeat(300)}</p>`;
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => ({ ...result(request, id), body }));
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => true, onClose: () => {} }, async host => {
+    await click(host, 'Metni hazırla');
+    assert.ok(host.textContent.indexOf('Metne uygula') < host.textContent.indexOf('Uzun politika metni.'), 'Apply must remain above the long preview instead of below its final paragraph');
+    assert.match(host.textContent, /Kaydetmek için önce Metne uygula/);
+  });
+});
+
+test('completed paid previews survive close and reopen without another generation', async () => {
+  let calls = 0;
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => { calls++; return result(request, id); });
+  const Wrapper = () => {
+    const [open, setOpen] = useState(true), [revision, setRevision] = useState(1);
+    return createElement('div', null, createElement('button', { onClick: () => { setRevision(value => value + 1); setOpen(true); } }, 'Önizlemeye dön'), open ? createElement(PolicyAuthoringPanel, { context: { ...context, revision: `mount-a:${revision}` }, onApply: () => true, onClose: () => setOpen(false) }) : null);
+  };
+  await mounted(Wrapper, {}, async host => {
+    await click(host, 'Metni hazırla');
+    await click(host, 'Toshi panelini kapat');
+    await click(host, 'Önizlemeye dön');
+    assert.equal(calls, 1, 'a completed result must resume locally without paying for another generation');
+    const apply = [...host.querySelectorAll('button')].find(button => button.textContent === 'Metne uygula');
+    assert.ok(apply, 'the completed preview must remain available after closing it');
+    assert.equal(apply.disabled, false, 'explicitly reopening unchanged stable content may bind the current editing revision');
+  });
+});
+
+test('restored completed previews reject changed source, version or publication without another generation', async () => {
+  let calls = 0;
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => { calls++; return result(request, id); });
+  const persisted: [string, string][] = [];
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => true, onClose: () => {} }, async (host, window) => {
+    await click(host, 'Metni hazırla');
+    for (let index = 0; index < window.sessionStorage.length; index++) {
+      const key = window.sessionStorage.key(index)!; persisted.push([key, window.sessionStorage.getItem(key)!]);
+    }
+  });
+  for (const changed of [{ body: '<p>Elle değiştirilen kaynak.</p>' }, { policyVersion: 5 }, { status: 'published' }]) {
+    await mounted(PolicyAuthoringPanel, { context: { ...context, ...changed, revision: 'new-mount:2' }, onApply: () => { assert.fail('a mismatching source must never apply'); }, onClose: () => {} }, async host => {
+      const apply = [...host.querySelectorAll('button')].find(button => button.textContent === 'Metne uygula');
+      assert.ok(apply); assert.equal(apply.disabled, true);
+      assert.equal(calls, 1);
+    }, window => { for (const [key, value] of persisted) window.sessionStorage.setItem(key, value); });
+  }
+});
+
+test('a failed completed-preview write keeps its visible result and original recovery key without a new charge', async () => {
+  let calls = 0;
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => { calls++; return result(request, id); });
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => true, onClose: () => {} }, async (host, window) => {
+    await click(host, 'Metni hazırla');
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metne uygula'));
+    assert.ok(readPolicyAuthoringRecovery(window.sessionStorage, context.recoveryScope, context.policyKey));
+    assert.equal(calls, 1);
+    assert.equal([...host.querySelectorAll('button')].some(button => button.textContent === 'Yeniden hazırla'), false);
+    assert.match(host.textContent, /önizleme kaydı saklanamadı/);
+  }, window => {
+    const storage = window.sessionStorage, write = storage.setItem.bind(storage);
+    Object.defineProperty(storage, 'setItem', { value: (key: string, value: string) => { if (key.includes('policy-authoring-preview:')) throw new Error('quota'); write(key, value); } });
+  });
+});
+
+test('Apply and explicit preview discard remove only the stored completed result', async () => {
+  for (const action of ['Metne uygula', 'Önizlemeyi kaldır']) {
+    let calls = 0, applied = 0;
+    const { PolicyAuthoringPanel } = moduleFor(async (request, id) => { calls++; return result(request, id); });
+    await mounted(PolicyAuthoringPanel, { context, onApply: () => { applied++; return true; }, onClose: () => {} }, async (host, window) => {
+      await click(host, 'Metni hazırla');
+      assert.ok(readPolicyAuthoringCompletedPreview(window.sessionStorage, context.recoveryScope, context.policyKey));
+      await click(host, action);
+      assert.equal(readPolicyAuthoringCompletedPreview(window.sessionStorage, context.recoveryScope, context.policyKey), null);
+      assert.equal(applied, action === 'Metne uygula' ? 1 : 0);
+      assert.equal(calls, 1);
+    });
+  }
+});
+
+test('failed preview cleanup keeps the paid content visible and blocks fresh generation', async () => {
+  let calls = 0;
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => { calls++; return result(request, id); });
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => true, onClose: () => {} }, async (host, window) => {
+    await click(host, 'Metni hazırla');
+    const storage = window.sessionStorage, remove = storage.removeItem.bind(storage);
+    Object.defineProperty(storage, 'removeItem', { value: (key: string) => { if (key.includes('policy-authoring-preview:')) throw new Error('storage denied'); remove(key); } });
+    await click(host, 'Önizlemeyi kaldır');
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metne uygula'));
+    const prepare = [...host.querySelectorAll('button')].find(button => button.textContent === 'Yeniden hazırla')!;
+    assert.equal(prepare.disabled, true);
+    assert.equal(calls, 1);
+  });
+});
+
+test('a restored paid preview remains applicable with zero credit and never asks the merchant to buy credits to use it', async () => {
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => ({ ...result(request, id), wallet: { balance: 0, reserved: 0, available: 0 } }));
+  const persisted: [string, string][] = [];
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => true, onClose: () => {} }, async (host, window) => {
+    await click(host, 'Metni hazırla');
+    for (let index = 0; index < window.sessionStorage.length; index++) {
+      const key = window.sessionStorage.key(index)!; persisted.push([key, window.sessionStorage.getItem(key)!]);
+    }
+  });
+  const { PolicyAuthoringPanel: Restored } = moduleFor(async () => { assert.fail('an already paid preview must not be generated again'); }, 0);
+  let applied = 0;
+  await mounted(Restored, { context, onApply: () => { applied++; return true; }, onClose: () => {} }, async host => {
+    const apply = [...host.querySelectorAll('button')].find(button => button.textContent === 'Metne uygula')!;
+    assert.equal(apply.disabled, false);
+    assert.doesNotMatch(host.textContent, /Kredi yükle/);
+    await click(host, 'Metne uygula');
+    assert.equal(applied, 1);
+  }, window => { for (const [key, value] of persisted) window.sessionStorage.setItem(key, value); });
 });

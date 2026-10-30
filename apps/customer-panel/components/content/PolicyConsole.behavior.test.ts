@@ -652,3 +652,50 @@ test("a full console remount recovers the same paid operation and applies only w
     assert.equal(saves, 0, "recovery and Apply do not save or publish");
   }, window => { for (const [key, value] of persisted) window.sessionStorage.setItem(key, value); });
 });
+
+test("a completed preview survives policy switches and enables ordinary Save after Apply without manual typing", async () => {
+  const initial = pages().map(page => ({ ...page, body: "" }));
+  let calls = 0;
+  const saves: { key: string; input: SaveInput }[] = [];
+  const { PolicyConsole } = policyModule({ list: async () => initial, save: async (key: string, input: SaveInput) => { saves.push({ key, input }); return { ...initial[0], ...input, version: 4 }; } }, authoringBoundary(async (request, operationId) => { calls++; return generated(request, operationId); }));
+  await mounted(PolicyConsole, { canManage: true, aiEnabled: true, recoveryScope: "completed-policy-switch" }, async host => {
+    assert.equal(saveButton(host).disabled, true);
+    await click(host, "Toshi ile üret");
+    await click(host, "Metni hazırla");
+    assert.equal(saveButton(host).disabled, true, "a preview has not changed the editor yet");
+    await select(host, "kvkk");
+    await select(host, "privacy_security");
+    await click(host, "Toshi ile üret");
+    assert.equal(calls, 1);
+    const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula");
+    assert.ok(apply, "switching policies must retain the paid result");
+    assert.equal(apply.disabled, false);
+    await click(host, "Metne uygula");
+    assert.equal(saveButton(host).disabled, false, "AI content must enable Save through the normal controlled editor change");
+    assert.equal(saves.length, 0);
+    await click(host, "Kaydet");
+    assert.deepEqual(saves, [{ key: "privacy_security", input: { expectedVersion: 3, body: "<h2>Hazırlanan politika</h2><p>İncelenecek metin.</p>", status: "published" } }]);
+  });
+});
+
+test("refresh restores a completed paid preview without dispatch and Apply enables normal Save", async () => {
+  const initial = pages().map(page => ({ ...page, body: "" }));
+  let calls = 0;
+  const { PolicyConsole } = policyModule({ list: async () => initial }, authoringBoundary(async (request, operationId) => { calls++; return generated(request, operationId); }));
+  const props = { canManage: true, aiEnabled: true, recoveryScope: "completed-policy-refresh", initialPolicyKey: "membership" };
+  const persisted: [string, string][] = [];
+  await mounted(PolicyConsole, props, async (host, window) => {
+    await click(host, "Toshi ile üret"); await click(host, "Metni hazırla");
+    for (let index = 0; index < window.sessionStorage.length; index++) {
+      const key = window.sessionStorage.key(index)!; persisted.push([key, window.sessionStorage.getItem(key)!]);
+    }
+  });
+  await mounted(PolicyConsole, props, async host => {
+    await click(host, "Toshi ile üret");
+    assert.equal(calls, 1, "restoring a completed result must never dispatch another paid request");
+    assert.equal(saveButton(host).disabled, true);
+    await click(host, "Metne uygula");
+    assert.equal(textField(host).value, "<h2>Hazırlanan politika</h2><p>İncelenecek metin.</p>");
+    assert.equal(saveButton(host).disabled, false);
+  }, window => { for (const [key, value] of persisted) window.sessionStorage.setItem(key, value); });
+});

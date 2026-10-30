@@ -40,6 +40,12 @@ export function rebindPolicyAuthoringRecoveryContext(captured: PolicyAuthoringCo
   return captured;
 }
 
+export function restorePolicyAuthoringPreviewContext(captured: PolicyAuthoringContext, current: PolicyAuthoringContext): PolicyAuthoringContext {
+  const previous = parsePolicyAuthoringContext(captured), next = parsePolicyAuthoringContext(current);
+  return previous.recoveryScope === next.recoveryScope && previous.policyKey === next.policyKey
+    && previous.policyVersion === next.policyVersion && previous.body === next.body && previous.status === next.status ? next : captured;
+}
+
 export function policyAuthoringRequestMatchesContext(request: PolicyAuthoringRequest, context: PolicyAuthoringContext): boolean {
   return request.policyKey === context.policyKey && request.policyVersion === context.policyVersion && request.currentBody === context.body;
 }

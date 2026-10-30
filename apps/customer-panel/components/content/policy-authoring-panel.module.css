@@ -14,3 +14,6 @@
 .panel details { min-width: 0; }
 .panel summary { min-height: 44px; align-content: center; cursor: pointer; }
 .panel ul { margin: 8px 0 0; padding-left: 20px; overflow-wrap: anywhere; }
+.previewHeading { display: flex; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.previewHeading h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.previewActions { display: flex; min-width: 0; align-items: center; flex-wrap: wrap; gap: 8px; }
