@@ -1,0 +1,66 @@
+{
+  "phase": "customer-current-identity291",
+  "postgresqlMajor": 16,
+  "baselineThrough": 289,
+  "externalConnections": 0,
+  "productionBusinessMutations": 0,
+  "backupTable": "saas.customer_current_identity291_function_backup",
+  "changedRoutines": [
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "e2f971e4ec017297c3cbb74af097b7147d0505664a0602f38034b362f0e2b646",
+      "strict": false,
+      "definer": true,
+      "parallel": "u",
+      "signature": "saas.abandoned_carts_list_without_durable_reconciliation_v101(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone,text,text,text,bigint,bigint,timestamp with time zone,uuid)",
+      "volatility": "s",
+      "afterSha256": "332ef3ddc982547facc9e5d14c2cdaac2d9863e57faaa7607fd7b0fe52224eb5"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "e96f824519fe4fe2794c607385edbb5c29d391e7529a17620454af8a882020e9",
+      "strict": false,
+      "definer": false,
+      "parallel": "u",
+      "signature": "saas.abandoned_carts_projection(uuid,uuid)",
+      "volatility": "s",
+      "afterSha256": "1133116b8a51efa8719e0d246cb214bf1514ca0d0af152e587f49c43c604d1c2"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "1b9f355323a8d4727cc03da9d4d49f389ad7c691e6da0bb7ba473ba2b21ea418",
+      "strict": false,
+      "definer": true,
+      "parallel": "u",
+      "signature": "saas.accounting_receivable_projection(uuid,uuid)",
+      "volatility": "s",
+      "afterSha256": "5dd750d3133aa97311e24a4739f32395cd5f8012f7bebcf495e0371e736b117f"
+    },
+    {
+      "acl": "{celebix_saas_owner=X/celebix_saas_owner}",
+      "owner": "celebix_saas_owner",
+      "config": [
+        "search_path=pg_catalog, saas"
+      ],
+      "sha256": "29f84ec8829fa86b393835e78553ad9e8b2e8d75c0564cf5b0799d2b7872209d",
+      "strict": false,
+      "definer": true,
+      "parallel": "u",
+      "signature": "saas.in_store_sales_projection_v3(uuid,uuid)",
+      "volatility": "s",
+      "afterSha256": "a20bae5c73624f766e492ce51af1298075e7cd9b42062c3b4790a077ff6bc8b3"
+    }
+  ]
+}

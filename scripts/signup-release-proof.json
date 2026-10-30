@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "c2f044c64db8384fa81b48441377bd5a019a873613e0fd1af158e6db293a93c9",
+  "inputDigest": "58adbec2e33de9282bcc40bcc21843cbf7950c1b5b2aef86a1ef81b31b38bb08",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2916,6 +2916,10 @@
       "sha256": "d2c1f549df80e693a237dc55ecd9aecd8c5035d8266d349982aa7d8a92de91cb"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610300291_customer_current_identity.up.sql",
+      "sha256": "266bb95b30a3e089ec05c24b4d77c7a6e044b35f664badcae8399396db347650"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -2942,6 +2946,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/catalog-collections-manifest.json",
       "sha256": "48da4c250f24f9843a28b6c8b1269bbb02fa61da626918d4b4b5a3fedf768bec"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/customer-current-identity291-manifest.json",
+      "sha256": "c46452eb9d341d0e43a80595d1be136b3f493115d1aaddcb9276ece78b05ec26"
     },
     {
       "path": "apps/owner/scripts/sql/saas/email-marketing-connections.up.sql",

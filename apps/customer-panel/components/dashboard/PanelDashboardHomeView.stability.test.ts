@@ -90,6 +90,29 @@ test('a successfully resolved empty recent list survives refresh but never an er
  });
 });
 
+test('recent orders use current customer identity after profile edits and preserve legacy snapshot fallback',async()=>{
+ const{PanelDashboardPresentation:Presentation}=components();
+ const snapshot=Object.freeze({...recent[0],customerName:'Eski Müşteri',customerEmail:'old@example.test'});
+ const currentCustomer=Object.freeze({id:'22222222-2222-4222-8222-222222222222',name:'Deniz Yeni',email:null,phone:null,archived:false});
+ await withEditor(async({container,render})=>{
+  const cell=()=>container.querySelector('[data-dashboard-body="recent-orders"] td[data-label="Müşteri"]')!;
+  await render(React.createElement(Presentation,{...base,recentOrders:[{...snapshot,currentCustomer}]}));
+  assert.match(cell().textContent!,/Deniz Yeni$/);
+  assert.equal(cell().querySelector('[aria-hidden="true"]')?.textContent,'D');
+  assert.doesNotMatch(cell().textContent!,/Eski Müşteri|old@example\.test/);
+  await render(React.createElement(Presentation,{...base,recentOrders:[{...snapshot,currentCustomer:{...currentCustomer,name:'Ayşe Güncel'}}]}));
+  assert.match(cell().textContent!,/Ayşe Güncel$/);
+  assert.equal(cell().querySelector('[aria-hidden="true"]')?.textContent,'A');
+  assert.doesNotMatch(cell().textContent!,/Deniz Yeni|Eski Müşteri/);
+  for(const order of [snapshot,{...snapshot,currentCustomer:null}]){
+   await render(React.createElement(Presentation,{...base,recentOrders:[order]}));
+   assert.match(cell().textContent!,/Eski Müşteri$/);
+   assert.equal(cell().querySelector('[aria-hidden="true"]')?.textContent,'E');
+  }
+  assert.equal(snapshot.customerName,'Eski Müşteri');
+ });
+});
+
 test('cashier Overview skips forbidden reads and links while its independent Orders grant controls operational rows',async()=>{
  for(const allowed of [false,true]){
   const calls:string[]=[],cashierChrome={...chrome,navigationMode:'register',cashierOverviewAvailable:true,cashierOrdersAvailable:allowed,storefrontHostname:undefined};

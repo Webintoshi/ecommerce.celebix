@@ -487,14 +487,17 @@ function RecentOrdersCard({ orders, state, resolved = false, onRetry }: Readonly
           <div className={styles.recentOrdersViewport}><table className={styles.recentOrdersTable}>
             <caption className={styles.visuallyHidden}>En yeni siparişler</caption>
             <thead><tr><th scope="col">Sipariş</th><th scope="col">Müşteri</th><th scope="col">Ürünler</th><th scope="col">Tutar</th><th scope="col">Durum</th><th scope="col">Tarih</th></tr></thead>
-            <tbody>{orders.map((order) => <tr key={order.id}>
+            <tbody>{orders.map((order) => {
+              const customer = order.currentCustomer ?? { name: order.customerName };
+              const customerName = customer.name ?? "Mağaza müşterisi";
+              return <tr key={order.id}>
               <td data-label="Sipariş"><Link className={styles.orderLink} href={`/orders/${order.id}`}>{order.orderNumber}</Link></td>
-              <td data-label="Müşteri"><span className={styles.customerCell}><span aria-hidden="true">{(order.customerName ?? "Mağaza müşterisi").charAt(0).toLocaleUpperCase("tr-TR")}</span>{order.customerName ?? "Mağaza müşterisi"}</span></td>
+              <td data-label="Müşteri"><span className={styles.customerCell}><span aria-hidden="true">{customerName.charAt(0).toLocaleUpperCase("tr-TR")}</span>{customerName}</span></td>
               <td data-label="Ürünler">{order.itemCount.toLocaleString("tr-TR")} ürün</td>
               <td data-label="Tutar">{formatMoney(order.totalCents, order.currency)}</td>
               <td data-label="Durum"><span className={styles.statusStack}><span className={styles.statusPill} data-tone={orderStatusTone(order.status)}>{ORDER_STATUS_LABELS[order.status]}</span><small>{PAYMENT_STATUS_LABELS[order.paymentStatus]}</small></span></td>
               <td data-label="Tarih"><time dateTime={order.createdAt}>{formatOrderDate(order.createdAt)}</time></td>
-            </tr>)}</tbody>
+            </tr>;})}</tbody>
           </table></div>
         ) : <div className={styles.emptyState}><OrdersEmptyArtwork /><strong>Henüz sipariş bulunmuyor.</strong><span>Siparişleriniz oluştuğunda burada listelenecek.</span></div>
       ) : null}
