@@ -10,6 +10,7 @@ import { resolveStorefrontPage } from "@/lib/page-context.ts";
 import { requireStorefrontPage } from "@/lib/page-resolution.ts";
 import { readCouponCandidateCookie } from "@/lib/promotions/cookie.ts";
 import { checkoutVisualThemeFor } from "@/lib/checkout-visual-theme.ts";
+import { ezmeoThemeFor } from "@/themes/ezmeo/theme.ts";
 
 export const metadata: Metadata = {
   title: "Ödeme",
@@ -49,7 +50,7 @@ async function CheckoutPage({
           <p>Teslimat ve ödeme bilgilerinizi tek ekranda güvenle tamamlayın.</p>
         </header> : null}
         <section className="checkout-page-body store-container">
-          <CheckoutForm intentKind={intent((await searchParams).intent)} initialDraft={initialDraft} initialNormalizedCodes={candidateCodes} visualTheme={visualTheme} locale={storefront.locale} />
+          <CheckoutForm intentKind={intent((await searchParams).intent)} initialDraft={initialDraft} initialNormalizedCodes={candidateCodes} visualTheme={visualTheme} locale={storefront.locale} inputAppearance={ezmeoThemeFor(storefront) ? "orb" : "standard"} />
         </section>
       </div>
     </StorefrontFrame>
