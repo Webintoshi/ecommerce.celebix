@@ -39,8 +39,6 @@ export const OrbInput = forwardRef<HTMLInputElement, OrbInputProps>(function Orb
   }, [focused, currentValue, disabled, placeholder]);
 
   return <span className={styles.shell} data-orb-field data-compact={compact || undefined} data-invalid={props["aria-invalid"] || undefined} data-animating={animatedText !== null || undefined}>
-    <span className={styles.orb} aria-hidden="true" />
-    <span className={styles.divider} aria-hidden="true" />
     <input {...props} ref={ref} className={`${styles.input} ${className ?? ""}`} disabled={disabled} value={value} defaultValue={value === undefined ? defaultValue : undefined}
       placeholder={animatedText === null ? placeholder : `${animatedText}│`}
       onChange={event => { if (value === undefined) setLocalValue(event.currentTarget.value); onChange?.(event); }}

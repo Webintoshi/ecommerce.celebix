@@ -101,6 +101,7 @@ test("Ezmeo orb inputs preserve prefilled native values, labels, country selecti
     await render(React.createElement(Form, { intentKind: "cart", inputAppearance: "orb", initialDraft: validDraft }));
     assert.ok(container.querySelector('form[data-checkout-inputs="orb"]'));
     assert.equal(container.querySelectorAll('[data-orb-field]').length, 7);
+    assert.equal(container.querySelector('[data-orb-field] > span[aria-hidden="true"]'), null, "white inputs have no spheres or decorative dividers");
     for (const name of ["email", "firstName", "lastName", "addressLine1", "city", "district", "postalCode"] as const) {
       const input = container.querySelector<HTMLInputElement>(`input[name="${name}"]`);
       assert.ok(input?.required && input.closest('label'));
