@@ -238,7 +238,7 @@ export function getMerchantModuleDefinition(
 }
 
 export function merchantRecordPresentationStatus(record: MerchantAdminRecord): MerchantAdminRecord["status"] {
-  if (record.kind !== "page" || record.status === "archived") return record.status;
+  if ((record.kind !== "page" && record.kind !== "blog_post") || record.status === "archived") return record.status;
   return record.status === "active" && record.config.published === true ? "active" : "draft";
 }
 

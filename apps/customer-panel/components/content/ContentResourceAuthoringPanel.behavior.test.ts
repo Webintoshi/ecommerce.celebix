@@ -3,6 +3,7 @@ import test from 'node:test';
 import {readFile} from 'node:fs/promises';
 import {Window} from 'happy-dom';
 import React,{createElement} from 'react';
+import * as icons from 'lucide-react';
 import * as jsx from 'react/jsx-runtime';
 import ts from 'typescript';
 import {captureContentResourceApplyContext} from '../../lib/content-resource-authoring-ui/controller.ts';
@@ -30,7 +31,7 @@ test('outline is reviewed before one explicit draft request; preview applies onl
   if(name.includes('content-resource-authoring-ui/controller'))return{captureContentResourceApplyContext};
   if(name.includes('content-resource-authoring-ui/recovery'))return recovery;
   if(name.includes('ContentResearchPanel'))return{ContentResearchPanel:()=>null};
-  throw Error(name);
+  if(name==='lucide-react')return icons;if(name.endsWith('.module.css'))return{__esModule:true,default:new Proxy({},{get:(_,key)=>String(key)})};throw Error(name);
  },compiled,compiled.exports);
  const Panel=compiled.exports.ContentResourceAuthoringPanel as React.ComponentType<any>;
  const container=browser.document.createElement('div') as unknown as HTMLElement;browser.document.body.append(container as never);const root=createRoot(container);
@@ -39,7 +40,7 @@ test('outline is reviewed before one explicit draft request; preview applies onl
  const click=async(label:string)=>{const button=[...container.querySelectorAll('button')].find(item=>item.textContent?.includes(label));assert.ok(button,label);await React.act(async()=>{button.click();await new Promise(resolve=>setTimeout(resolve,0));});};
  const change=async(label:string,value:string)=>{const input=container.querySelector(`[aria-label="${label}"]`) as HTMLInputElement;assert.ok(input,`${label}: ${container.textContent}`);await React.act(async()=>{Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new browser.Event('input',{bubbles:true}) as unknown as Event);});};
  try{
-  await render();await click('Yapay zekâ ile yaz');await change('Yazı konusu','Altın bakımı');await change('Yazı amacı','Bilgilendirme');
+  await render();await click('Toshi ile oluştur');await change('Yazı konusu','Altın bakımı');await change('Yazı amacı','Bilgilendirme');
   await click('1. Yazı planı oluştur');assert.equal(requests.length,1);assert.equal((requests[0] as any).stage,'outline');assert.equal(container.querySelector('[aria-label="Yapay zekâ içerik önizlemesi"]'),null);
   await change('Plan başlığı','Düzenlenmiş bakım rehberi');
   const seo=container.querySelectorAll('fieldset input[type="checkbox"]')[3] as HTMLInputElement;assert.ok(seo);await React.act(async()=>seo.click());
@@ -63,7 +64,7 @@ test('a POST whose reply is lost keeps its operation ID and permits only GET rec
   if(name.includes('content-resource-authoring-ui/controller'))return{captureContentResourceApplyContext};
   if(name.includes('content-resource-authoring-ui/recovery'))return recovery;
   if(name.includes('ContentResearchPanel'))return{ContentResearchPanel:()=>null};
-  throw Error(name);
+  if(name==='lucide-react')return icons;if(name.endsWith('.module.css'))return{__esModule:true,default:new Proxy({},{get:(_,key)=>String(key)})};throw Error(name);
  },compiled,compiled.exports);
  const Panel=compiled.exports.ContentResourceAuthoringPanel as React.ComponentType<any>,container=browser.document.createElement('div')as unknown as HTMLElement;browser.document.body.append(container as never);const root=createRoot(container);
  const click=async(label:string)=>{const button=[...container.querySelectorAll('button')].find(item=>item.textContent?.includes(label));assert.ok(button,label);await React.act(async()=>{button.click();await new Promise(resolve=>setTimeout(resolve,0));});};
@@ -71,7 +72,7 @@ test('a POST whose reply is lost keeps its operation ID and permits only GET rec
  try{
   const blank={...values,name:'',slug:''};
   await React.act(async()=>root.render(createElement(Panel,{storeId:STORE_ID,target,values:blank,selectionText:null,researchEnabled:false,onApply:()=>assert.fail('unexpected apply')})));
-  await click('Yapay zekâ ile yaz');await change('Yazı konusu','Altın bakımı');await change('Yazı amacı','Bilgilendirme');
+  await click('Toshi ile oluştur');await change('Yazı konusu','Altın bakımı');await change('Yazı amacı','Bilgilendirme');
   const outlineButton=[...container.querySelectorAll('button')].find(button=>button.textContent?.includes('1. Yazı planı oluştur'))!;
   assert.equal(outlineButton.disabled,true);assert.match(container.textContent??'',/içerik adı.*URL anahtarı.*dil/i);assert.equal(browser.sessionStorage.length,0);assert.equal(posts.length,0);
   await React.act(async()=>root.render(createElement(Panel,{storeId:STORE_ID,target,values,selectionText:null,researchEnabled:false,onApply:()=>assert.fail('unexpected apply')})));
@@ -102,14 +103,14 @@ test('unknown stays locked; invalid output permits a fresh ID only after explici
   if(name.includes('content-resource-authoring-ui/controller'))return{captureContentResourceApplyContext};
   if(name.includes('content-resource-authoring-ui/recovery'))return recovery;
   if(name.includes('ContentResearchPanel'))return{ContentResearchPanel:()=>null};
-  throw Error(name);
+  if(name==='lucide-react')return icons;if(name.endsWith('.module.css'))return{__esModule:true,default:new Proxy({},{get:(_,key)=>String(key)})};throw Error(name);
  },compiled,compiled.exports);
  const Panel=compiled.exports.ContentResourceAuthoringPanel as React.ComponentType<any>,container=browser.document.createElement('div')as unknown as HTMLElement;browser.document.body.append(container as never);const root=createRoot(container);
  const click=async(label:string)=>{const button=[...container.querySelectorAll('button')].find(item=>item.textContent?.includes(label));assert.ok(button,label);await React.act(async()=>{button.click();await new Promise(resolve=>setTimeout(resolve,0));});};
  const change=async(label:string,value:string)=>{const input=container.querySelector(`[aria-label="${label}"]`)as HTMLInputElement;assert.ok(input,label);await React.act(async()=>{Object.getOwnPropertyDescriptor(browser.HTMLInputElement.prototype,'value')!.set!.call(input,value);input.dispatchEvent(new browser.Event('input',{bubbles:true})as unknown as Event);});};
  try{
   await React.act(async()=>root.render(createElement(Panel,{storeId:STORE_ID,target,values,selectionText:null,researchEnabled:false,onOperationLockChange:(value:boolean)=>locks.push(value),onApply:()=>assert.fail('unexpected apply')})));
-  await click('Yapay zekâ ile yaz');await change('Yazı konusu','Altın bakımı');await change('Yazı amacı','Bilgilendirme');await click('1. Yazı planı oluştur');
+  await click('Toshi ile oluştur');await change('Yazı konusu','Altın bakımı');await change('Yazı amacı','Bilgilendirme');await click('1. Yazı planı oluştur');
   await click('Üretim durumunu yenile');assert.match(container.textContent??'',/Sonuç belirsiz/);assert.equal((container.querySelector('button')?.textContent??'').includes('Yeni denemeye hazırlan'),false);
   await click('1. Yazı planı oluştur');assert.equal(posts.length,1,'unknown cannot send another POST');assert.deepEqual(gets,[posts[0]]);
   await click('Üretim durumunu yenile');assert.match(container.textContent??'',/Başarısız \(invalid_output\)/);assert.equal(posts.length,1);assert.equal(locks.at(-1),false);

@@ -304,6 +304,8 @@ export function MerchantModuleConsole({
 }) {
   const definition = getMerchantModuleDefinition(kind);
   const operational = definition.family !== "settings";
+  const content = kind === "page" || kind === "blog_post";
+  const contentKind = kind === "blog_post" ? "blog_post" : "page";
   const marketplace = kind === "marketplace_connection";
   const accounting = kind === "accounting_profile" || kind === "invoice_integration";
   const invoice = kind === "invoice_integration";
@@ -614,11 +616,11 @@ export function MerchantModuleConsole({
 
   return (
     <PanelInitialDataGate pending={!embedded && loading && !hasLoaded} scopeKey={kind}>
-    <div className={`${operational ? operations.workspace : ""} ${marketplace ? marketplaceStyles.workspace : ""} ${accounting ? accountingStyles.workspace : ""} ${kind === "page" ? pages.workspace : ""}`} data-merchant-kind={kind}>
+    <div className={`${operational ? operations.workspace : ""} ${marketplace ? marketplaceStyles.workspace : ""} ${accounting ? accountingStyles.workspace : ""} ${content ? pages.workspace : ""}`} data-merchant-kind={kind}>
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className={styles.srOnly}>{definition.title}</h1> : null}
       {invoice && canManage && !embedded ? <AccountingNavigation active="invoicing-integration" /> : null}
-      {kind !== "page" ? <PanelPageHeader
+      {!content ? <PanelPageHeader
         title={definition.title}
         description={operational || quietSettings || compactAdministrators ? undefined : definition.description}
         embedded={embedded}
@@ -645,14 +647,14 @@ export function MerchantModuleConsole({
         )}
       /> : null}
 
-      {kind !== "page" && !singleton && !compactAdministrators && operational && (!marketplace || items.length > 0) ? <section className={`${operations.metrics} ${accounting ? accountingStyles.counts : ""}`} aria-label={`${definition.title} özeti`} aria-busy={loading}>
+      {!content && !singleton && !compactAdministrators && operational && (!marketplace || items.length > 0) ? <section className={`${operations.metrics} ${accounting ? accountingStyles.counts : ""}`} aria-label={`${definition.title} özeti`} aria-busy={loading}>
         {([
           ["all", "Toplam", summary.total, ""],
           ["active", quietProvider ? "Açık" : definition.workflow ? "Hazır" : "Aktif", summary.active, definition.workflow ? "Gönderim değil" : ""],
           ["draft", "Kapalı", summary.draft, ""],
           ["archived", "Arşiv", summary.archived, ""],
         ] as const).map(([filter, label, count, detail]) => <button type="button" className={operations.metric} key={filter} aria-pressed={statusFilter === filter} onClick={() => setStatusFilter(filter)}><span>{label}</span><strong>{hasLoaded ? count.toLocaleString("tr-TR") : "—"}</strong>{detail ? <small>{detail}</small> : null}</button>)}
-      </section> : kind !== "page" && !singleton && !compactAdministrators && !marketplace ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
+      </section> : !content && !singleton && !compactAdministrators && !marketplace ? <section className={styles.metrics} aria-label={`${definition.title} özeti`}>
         <PanelMetricCard label="Toplam kayıt" value={summary.total.toLocaleString("tr-TR")} detail="Kalıcı kayıt" />
         <PanelMetricCard label={definition.workflow ? "Hazır yapılandırma" : "Aktif"} value={summary.active.toLocaleString("tr-TR")} detail={definition.workflow ? "Harici çalıştırma değil" : "Yayında"} />
         <PanelMetricCard label="Kapalı" value={summary.draft.toLocaleString("tr-TR")} detail="Etkin olmayan kayıtlar" />
@@ -736,7 +738,7 @@ export function MerchantModuleConsole({
             ) : null}
           </div>
         ) : <>
-        {kind === "page" ? <ContentPagesToolbar query={query} onQuery={setQuery} filter={statusFilter} onFilter={setStatusFilter} counts={summary} loaded={hasLoaded} loading={loading} busy={busy} canManage={canManage} onRefresh={() => void load()} onClear={clearFilters} /> : !marketplace || items.length > 0 || filtersActive ? <div data-merchant-toolbar="">
+        {content ? <ContentPagesToolbar kind={contentKind} query={query} onQuery={setQuery} filter={statusFilter} onFilter={setStatusFilter} counts={summary} loaded={hasLoaded} loading={loading} busy={busy} canManage={canManage} onRefresh={() => void load()} onClear={clearFilters} /> : !marketplace || items.length > 0 || filtersActive ? <div data-merchant-toolbar="">
           <label className={styles.search}>
             <Search aria-hidden="true" />
             <span className={styles.srOnly}>Kayıt ara</span>
@@ -764,25 +766,25 @@ export function MerchantModuleConsole({
           </label>
           {filtersActive ? <button type="button" className={operations.clear} onClick={clearFilters}><X aria-hidden="true" /> Temizle</button> : null}
         </div> : null}
-        {!marketplace || items.length > 0 || filtersActive ? <div className={kind === "page" ? styles.srOnly : operations.result} role="status" aria-live="polite"><span>{loading ? "Yükleniyor…" : hasLoaded ? `${summary.visible.length.toLocaleString("tr-TR")} / ${summary.total.toLocaleString("tr-TR")} ${kind === "page" ? "sayfa" : "kayıt"}` : "Kayıtlar yüklenemedi"}</span>{!canManage ? <span>Salt okunur</span> : null}</div> : null}
+        {!marketplace || items.length > 0 || filtersActive ? <div className={content ? styles.srOnly : operations.result} role="status" aria-live="polite"><span>{loading ? "Yükleniyor…" : hasLoaded ? `${summary.visible.length.toLocaleString("tr-TR")} / ${summary.total.toLocaleString("tr-TR")} ${kind === "page" ? "sayfa" : kind === "blog_post" ? "yazı" : "kayıt"}` : "Kayıtlar yüklenemedi"}</span>{!canManage ? <span>Salt okunur</span> : null}</div> : null}
 
         <div className={styles.listRegion} data-merchant-empty={marketplace && items.length === 0 ? "true" : undefined} aria-busy={loading}>
         {loading && !hasLoaded ? (
-          kind === "page" ? <ContentPagesLoading /> : <MerchantWorkspaceLoading label={`${definition.title} yükleniyor…`} />
+          content ? <ContentPagesLoading kind={contentKind} /> : <MerchantWorkspaceLoading label={`${definition.title} yükleniyor…`} />
         ) : !hasLoaded && error ? null : summary.visible.length === 0 && !(kind === "page" && visiblePolicyPages.length) ? (
           accounting ? <AccountingEmptyState variant={invoice ? "invoice" : "legal"} title={items.length ? "Eşleşen kayıt yok" : invoice ? "Fatura bağlantınızı ekleyin" : "İşletme bilgilerinizi ekleyin"} description={items.length ? "Aramayı veya filtreyi temizleyin." : invoice ? "Sağlayıcı ve hesap bilgilerini bir arada yönetin." : "Fatura kimliğiniz ve mali bilgileriniz burada yer alsın."} action={items.length ? <button type="button" className="button button-secondary" onClick={clearFilters}>Filtreleri temizle</button> : canManage ? createRoute ? <Link href={createRoute} className="button button-secondary"><Plus size={16} aria-hidden="true" />{newLabel}</Link> : <button type="button" className="button button-secondary" onClick={openCreate}><Plus size={16} aria-hidden="true" />{newLabel}</button> : undefined} /> : marketplace ? <div className={marketplaceStyles.empty}>
             <MarketplaceArtwork variant="connect" />
             <div><h2>{items.length ? "Eşleşen bağlantı yok" : "Başka bir pazaryeri için kayıt ekleyin"}</h2>
             <p>{items.length ? "Aramayı veya filtreyi temizleyin." : "Bağlantı bilgilerini burada tutun. Ürün ve sipariş aktarımı için doğrulanmış sağlayıcı bağlantısı gerekir."}</p>
             {items.length ? <button type="button" className="button button-secondary" onClick={clearFilters}>Filtreleri temizle</button> : canManage ? <Link href="/marketplaces/new" className="button button-secondary"><Plus size={16} aria-hidden="true" />Bağlantı ekle</Link> : <p>Bağlantı eklemek için mağaza yöneticinize ulaşın.</p>}</div>
-          </div> : <>{kind === "page" ? <div className={pages.emptyArt}><PageArtwork /></div> : null}<PanelEmptyState
-            title={items.length ? "Filtreyle eşleşen kayıt yok" : `Henüz ${definition.singular} yok`}
-            description={items.length ? "Aramayı veya filtreyi temizleyin." : "Eklediğiniz kayıtlar burada görünür."}
+          </div> : <>{content ? <div className={pages.emptyArt}><PageArtwork page={kind === "blog_post" ? "blog" : undefined} /></div> : null}<PanelEmptyState
+            title={items.length ? "Filtreyle eşleşen kayıt yok" : kind === "blog_post" ? "Henüz yazı yok" : `Henüz ${definition.singular} yok`}
+            description={items.length ? "Aramayı veya filtreyi temizleyin." : kind === "blog_post" ? "İlk yazınızı ekleyin." : "Eklediğiniz kayıtlar burada görünür."}
             action={items.length ? <button type="button" className={styles.button} onClick={clearFilters}>Filtreleri temizle</button> : canManage ? createRoute ? (
-              <Link href={createRoute} className={styles.button}>{createLabel}</Link>
+              <Link href={createRoute} className={content ? "button button-primary" : styles.button}>{content ? newLabel : createLabel}</Link>
             ) : <button type="button" className={styles.button} onClick={openCreate}>{createLabel}</button> : undefined}
           /></>
-        ) : kind === "page" ? <ContentPagesList records={summary.visible} policyRecords={visiblePolicyPages} canManage={canManage} busy={busy} onArchive={record => void archiveRecord(record)} /> : (
+        ) : content ? <ContentPagesList kind={contentKind} records={summary.visible} policyRecords={kind === "page" ? visiblePolicyPages : []} canManage={canManage} busy={busy} onArchive={record => void archiveRecord(record)} /> : (
           <>
             <div className={styles.desktopTable} data-merchant-desktop="">
               <PanelDataTable label={`${definition.title} kayıtları`}>
@@ -842,7 +844,7 @@ export function MerchantModuleConsole({
           {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
         </section> : null}
         {compactAdministrators ? <details className={styles.adminRoleHelp}><summary>Rol bilgisi</summary><AdministratorRoleGuide /></details> : null}
-        <details className={`${styles.audit} ${kind === "page" ? pages.audit : ""}`}>
+        <details className={`${styles.audit} ${content ? pages.audit : ""}`}>
           <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({hasLoaded ? events.length : "—"})</summary>
           {hasLoaded && events.length ? (
             <ol>{events.map((event) => <li key={event.id}><strong>{eventLabel(event)}</strong><time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString("tr-TR")}</time></li>)}</ol>

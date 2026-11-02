@@ -1,0 +1,37 @@
+.panel { min-width: 0; border-top: 1px solid var(--cp-border); padding-top: 16px; }
+.panel[aria-label] button[type=button] { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; max-width: 100%; border: 0; border-radius: var(--cp-button-radius); padding: 8px 14px; background: var(--cp-control-background); color: var(--cp-text-primary); font: inherit; font-size: 13px; font-weight: 500; line-height: 20px; white-space: nowrap; cursor: pointer; text-decoration: none; }
+.panel[aria-label] button[type=button]:hover:not(:disabled) { background: var(--cp-control-hover); text-decoration: none; }
+.panel[aria-label] button[type=button]:disabled { opacity: .5; cursor: not-allowed; }
+.panel[aria-label] button[type=button]:focus-visible, .panel summary:focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }
+.panel[aria-label] .trigger[type=button], .panel[aria-label] .primary[type=button], .panel[aria-label] .trigger[type=button]:hover:not(:disabled), .panel[aria-label] .primary[type=button]:hover:not(:disabled) { background: var(--cp-button-primary); color: var(--cp-button-primary-text); }
+.trigger svg { width: 16px; height: 16px; flex: none; }
+.trigger svg:last-child { margin-left: 8px; }
+.trigger[aria-expanded=true] svg:last-child { transform: rotate(180deg); }
+.panel .workspace { display: grid; align-content: start; gap: 16px; min-width: 0; padding-top: 16px; }
+.panel .workspace > * { min-width: 0; }
+.panel .workspace p { margin: 0; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.intro { color: var(--cp-text-secondary); }
+.panel .workspace label { display: grid; align-content: start; gap: 8px; min-width: 0; color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; }
+.panel .workspace label:has(input[type=checkbox]) { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; color: var(--cp-text-primary); cursor: pointer; }
+.panel .workspace :is(input:not([type=checkbox]), select, textarea) { width: 100%; min-width: 0; height: 40px; min-height: 40px; box-sizing: border-box; border: 1px solid var(--cp-border); border-radius: var(--cp-button-radius); padding: 8px 16px; background-color: var(--cp-surface); color: var(--cp-text-primary); font: inherit; font-size: 14px; font-weight: 500; }
+.panel .workspace select[aria-label] { appearance: none; padding-right: 44px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2369635e' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-size: 16px; background-position: right 16px center; background-repeat: no-repeat; }
+.panel .workspace textarea { height: auto; min-height: 96px; border-radius: 12px; padding: 12px 16px; resize: vertical; line-height: 1.6; }
+.panel .workspace :is(input:not([type=checkbox]), select, textarea):focus-visible { outline: none; box-shadow: none; border-color: var(--cp-text-secondary); }
+.panel .workspace > button, .panel .workspace > div > button { justify-self: start; }
+.panel .workspace > div:has(> button) { display: flex; gap: 8px; flex-wrap: wrap; }
+.options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.preferences { border-top: 1px solid var(--cp-border); border-bottom: 1px solid var(--cp-border); }
+.preferences > summary { min-height: 40px; align-content: center; color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; }
+.preferences > label { margin-bottom: 16px; }
+.preview { display: grid; gap: 16px; min-width: 0; border-top: 1px solid var(--cp-border); padding-top: 16px; }
+.preview h3 { margin: 0; color: var(--cp-text-primary); font-size: 14px; font-weight: 600; }
+.preview > div { display: grid; gap: 12px; min-width: 0; }
+.preview > div > div { max-height: 440px; overflow: auto; padding: 16px; border: 1px solid var(--cp-border); border-radius: 12px; background: var(--cp-surface); }
+.preview > button { justify-self: start; }
+.panel .workspace fieldset { display: flex; flex-wrap: wrap; gap: 8px 16px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.panel .workspace legend { margin-bottom: 8px; padding: 0; color: var(--cp-text-secondary); font-size: 13px; font-weight: 500; }
+.panel .workspace [role=alert] { color: var(--danger); }
+.panel .workspace code { overflow-wrap: anywhere; font-size: 12px; }
+@media (max-width: 640px) { .options { grid-template-columns: minmax(0, 1fr); } .panel .workspace :is(input:not([type=checkbox]), select, textarea) { font-size: 16px; } }
+@media (pointer: coarse) { .panel[aria-label] button[type=button], .panel .workspace label:has(input[type=checkbox]), .preferences > summary { min-height: 44px; } }
+@media (forced-colors: active) { .panel .workspace select[aria-label] { appearance: auto; background-image: none; } }

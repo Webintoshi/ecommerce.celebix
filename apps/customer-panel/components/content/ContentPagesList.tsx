@@ -38,6 +38,7 @@ export function PageArtwork({ page }: { page?: MerchantAdminRecord["requiredPage
 }
 
 type ToolbarProps = Readonly<{
+  kind?: "page" | "blog_post";
   query: string; onQuery: (query: string) => void;
   filter: MerchantModuleStatusFilter; onFilter: (filter: MerchantModuleStatusFilter) => void;
   counts: Readonly<{ total: number; active: number; draft: number; archived: number }>;
@@ -46,11 +47,13 @@ type ToolbarProps = Readonly<{
 }>;
 
 export function ContentPagesToolbar(props: ToolbarProps) {
+  const blog = props.kind === "blog_post";
+  const searchLabel = blog ? "Yazı ara" : "Sayfa ara";
   return <div className={styles.toolbar}>
     <div className={styles.controls}>
-      <label className={styles.search}><Search aria-hidden="true" /><span className="sr-only">Sayfa ara</span><input type="search" aria-label="Sayfa ara" placeholder="Sayfa ara" maxLength={160} value={props.query} onChange={event => props.onQuery(event.currentTarget.value)} /></label>
-      <button type="button" className="button button-text icon-only-button" aria-label="Sayfaları yenile" title="Yenile" disabled={props.loading || props.busy} onClick={props.onRefresh}><RefreshCcw aria-hidden="true" /></button>
-      {props.canManage ? <Link href="/content/pages/new" className="button button-primary"><Plus aria-hidden="true" />Sayfa ekle</Link> : null}
+      <label className={styles.search}><Search aria-hidden="true" /><span className="sr-only">{searchLabel}</span><input type="search" aria-label={searchLabel} placeholder={searchLabel} maxLength={160} value={props.query} onChange={event => props.onQuery(event.currentTarget.value)} /></label>
+      <button type="button" className="button button-text icon-only-button" aria-label={blog ? "Yazıları yenile" : "Sayfaları yenile"} title="Yenile" disabled={props.loading || props.busy} onClick={props.onRefresh}><RefreshCcw aria-hidden="true" /></button>
+      {props.canManage ? <Link href={blog ? "/content/blog/new" : "/content/pages/new"} className="button button-primary"><Plus aria-hidden="true" />{blog ? "Yazı ekle" : "Sayfa ekle"}</Link> : null}
     </div>
     <div className={styles.filterBar}>
       <div className={styles.filters} role="group" aria-label="Durum filtresi">
@@ -61,14 +64,15 @@ export function ContentPagesToolbar(props: ToolbarProps) {
   </div>;
 }
 
-export function ContentPagesList({ records, policyRecords = [], canManage, busy, onArchive }: Readonly<{ records: readonly MerchantAdminRecord[]; policyRecords?: readonly AssociatedPolicyPage[]; canManage: boolean; busy: boolean; onArchive: (record: MerchantAdminRecord) => void }>) {
+export function ContentPagesList({ kind = "page", records, policyRecords = [], canManage, busy, onArchive }: Readonly<{ kind?: "page" | "blog_post"; records: readonly MerchantAdminRecord[]; policyRecords?: readonly AssociatedPolicyPage[]; canManage: boolean; busy: boolean; onArchive: (record: MerchantAdminRecord) => void }>) {
+  const blog = kind === "blog_post";
   const row = (record: MerchantAdminRecord, policyKey?: AssociatedPolicyPage["policyKey"]) => {
       const status = merchantRecordPresentationStatus(record);
       const label = status === "active" ? "Yayında" : status === "draft" ? "Taslak" : "Arşivlendi";
-      const href = editRouteFor("page", record.id)!;
+      const href = editRouteFor(kind, record.id)!;
       const policyHref = policyKey ? `/content/policies/${policyKey}/edit` : null;
       return <li className={styles.row} key={record.id}>
-        <div className={styles.identity}><PageArtwork page={record.requiredPageKey} /><Link href={policyHref ?? href} className={styles.name}>{record.name}</Link></div>
+        <div className={styles.identity}><PageArtwork page={blog ? "blog" : record.requiredPageKey} /><Link href={policyHref ?? href} className={styles.name}>{record.name}</Link></div>
         <div className={styles.status}><PanelStatusBadge tone={status === "active" ? "success" : "neutral"}>{label}</PanelStatusBadge></div>
         <time className={styles.updated} dateTime={record.updatedAt} title={new Date(record.updatedAt).toLocaleString("tr-TR")}>{new Date(record.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}<small>{new Date(record.updatedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</small></time>
         {policyHref ? <div className={styles.policyLinks}>
@@ -79,8 +83,8 @@ export function ContentPagesList({ records, policyRecords = [], canManage, busy,
   };
   return <>
     {records.length ? <div className={styles.list}>
-      <div className={styles.columns} aria-hidden="true"><span>Sayfa</span><span>Durum</span><span>Son düzenleme</span><span /></div>
-      <ul aria-label="Sayfalar">{records.map(record => row(record))}</ul>
+      <div className={styles.columns} aria-hidden="true"><span>{blog ? "Yazı" : "Sayfa"}</span><span>Durum</span><span>Son düzenleme</span><span /></div>
+      <ul aria-label={blog ? "Blog yazıları" : "Sayfalar"}>{records.map(record => row(record))}</ul>
     </div> : null}
     {policyRecords.length ? <div className={`${styles.editorHistory} ${styles.list}`}>
       <details aria-label="Politika metinleri">
@@ -92,6 +96,7 @@ export function ContentPagesList({ records, policyRecords = [], canManage, busy,
   </>;
 }
 
-export function ContentPagesLoading() {
-  return <div className={styles.loading} role="status" aria-label="Sayfalar yükleniyor"><span className="sr-only">Sayfalar yükleniyor…</span>{[0, 1, 2].map(row => <div key={row} aria-hidden="true"><span /><span /><span /></div>)}</div>;
+export function ContentPagesLoading({ kind = "page" }: { kind?: "page" | "blog_post" }) {
+  const label = kind === "blog_post" ? "Yazılar yükleniyor" : "Sayfalar yükleniyor";
+  return <div className={styles.loading} role="status" aria-label={label}><span className="sr-only">{label}…</span>{[0, 1, 2].map(row => <div key={row} aria-hidden="true"><span /><span /><span /></div>)}</div>;
 }

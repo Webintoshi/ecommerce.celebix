@@ -8,7 +8,7 @@ import { requireServerPanelAccess } from "@/lib/server-access";
 export default async function ContentBlogPage() {
   const { tenantContext } = await requireServerPanelAccess();
   return (
-    <PanelWorkspaceShell title="İçerik" description="Blog, sayfa ve politika içeriklerini tek merkezden yönetin." tabs={CONTENT_WORKSPACE_TABS}>
+    <PanelWorkspaceShell title="İçerik" tabs={CONTENT_WORKSPACE_TABS}>
       <MerchantModuleConsole kind="blog_post" canManage={isMerchantActionAllowed(tenantContext.membership.role, "content.manage")} embedded />
     </PanelWorkspaceShell>
   );

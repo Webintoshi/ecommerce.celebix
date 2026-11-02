@@ -334,3 +334,14 @@ test('page list publication agrees with the editor for preserved legacy and cust
   assert.equal(legacy.status, 'active');
   assert.equal(legacy.config.published, false);
 });
+
+test('blog filters agree with the deliberate visibility choice without changing saved records', () => {
+  const hidden = { ...record('hidden', 'active', 'Gizli yazı', { published: false }), kind: 'blog_post' as const };
+  const published = { ...hidden, id: 'published', name: 'Yayındaki yazı', config: { published: true } };
+  const archived = { ...published, id: 'archived', status: 'archived' as const };
+  const summary = buildMerchantModuleSummary([hidden, published, archived], '', 'all');
+  assert.deepEqual([summary.active, summary.draft, summary.archived], [1, 1, 1]);
+  assert.deepEqual(buildMerchantModuleSummary([hidden, published, archived], '', 'active').visible.map(row => row.id), ['published']);
+  assert.equal(hidden.status, 'active');
+  assert.equal(hidden.config.published, false);
+});
