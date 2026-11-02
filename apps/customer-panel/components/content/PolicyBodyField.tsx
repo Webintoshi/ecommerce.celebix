@@ -224,7 +224,7 @@ export function PolicyBodyField({ value, readOnly = false, onValueChange, toolba
 
   if (supported === false) {
     return (
-      <div className={styles.fallback}>
+      <div className={`${styles.fallback} ${styles.compact} ${styles.integrated}`}>
         <p className={styles.fallbackNotice} role="status">Bu metnin biçimini korumak için Kaynak sekmesinden düzenleyin.</p>
         <div className={styles.fallbackPreview}><ProductDescriptionPreview source={value} emptyMessage="Henüz metin yok." /></div>
       </div>
@@ -233,7 +233,7 @@ export function PolicyBodyField({ value, readOnly = false, onValueChange, toolba
 
   const disabled = !editor || readOnly || supported !== true;
   return (
-    <div className={styles.field} aria-busy={supported === null}>
+    <div className={`${styles.field} ${styles.compact} ${styles.integrated}`} aria-busy={supported === null}>
       {!readOnly ? (
         <div className={styles.toolbar} role="toolbar" aria-label="Politika metni biçimlendirme">
           <select className={styles.blockSelect} aria-label="Metin biçimi" value={editorState?.block ?? "paragraph"} disabled={disabled} onChange={(event) => setBlock(event.currentTarget.value)}>

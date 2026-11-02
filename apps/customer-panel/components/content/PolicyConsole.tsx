@@ -20,6 +20,7 @@ import type { PolicyBodyApply } from "./PolicyBodyField";
 
 import { readPolicyNavigationDrafts, retainPolicyNavigationDrafts } from "./policy-navigation-recovery";
 import styles from "./policy-console.module.css";
+import checkbox from "../shared/selection-checkbox.module.css";
 
 const PolicyBodyField = dynamic(() => import("./PolicyBodyField").then((module) => module.PolicyBodyField), {
   ssr: false,
@@ -328,24 +329,23 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
                   <span className={styles.policyText}><strong>{definition.label}</strong><span className={styles.policyMeta} id={`policy-meta-${definition.key}`}>
                     {page ? <>{page.status === "published" ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}<span>{page.status === "published" ? "Yayında" : "Gizli"}</span><time dateTime={page.updatedAt}>{updatedAt(page.updatedAt, true)}</time></> : <span>Kullanılamıyor</span>}
                     {unsaved ? <><i className={styles.dirtyDot} aria-hidden="true" /><span className={styles.srOnly}>Kaydedilmemiş değişiklikler</span></> : null}
-                  </span><code>{definition.route}</code></span>
+                  </span></span>
                   <ChevronRight className={styles.chevron} aria-hidden="true" />
                 </button></li>;
               })}
             </ol>
           </details>
-          <div className={styles.listFoot}><DocumentArt /><div><strong>Mağaza bağlantıları</strong><p>Yayındaki metinler alt menüye eklenir.</p></div></div>
         </aside>
         <section className={styles.editor} ref={editorRef} aria-label="Politika düzenleyicisi" onKeyDown={(event) => {
           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s" && !editorRef.current?.querySelector('dialog[open], [role="dialog"]')) { event.preventDefault(); void save(); }
         }}>
           {selected ? <>
-            <header className={styles.editorHeader}><div><h2>{selected.label}</h2><code>{selected.route}</code><p>Son kayıt <time dateTime={selected.updatedAt}>{updatedAt(selected.updatedAt)}</time><span> · Kaydedilen: {selected.status === "published" ? "Yayında" : "Gizli"}</span></p></div><button className={styles.iconButton} type="button" aria-label="Düzenleyiciyi kapat" ref={closeRef} onClick={close} disabled={busy}><X aria-hidden="true" /></button></header>
+            <header className={styles.editorHeader}><div><h2>{selected.label}</h2><p>Son kayıt <time dateTime={selected.updatedAt}>{updatedAt(selected.updatedAt)}</time></p></div><button className={styles.iconButton} type="button" aria-label="Düzenleyiciyi kapat" ref={closeRef} onClick={close} disabled={busy}><X aria-hidden="true" /></button></header>
             {!canManage ? <p className={styles.readonly}><Info aria-hidden="true" />Bu metinleri yalnızca görüntüleyebilirsiniz.</p> : null}
             {error ? <div className={styles.notice} role="alert"><Info aria-hidden="true" /><p>{error}</p>{recovery ? <button className={styles.button} type="button" disabled={busy || loading} onClick={() => void refreshVersion()}>{recovery === "unknown" ? "Sonucu doğrula" : "Güncel sürümü al"}</button> : null}</div> : null}
             <div className={styles.statusLine}>
-              <fieldset className={styles.publication} disabled={!canManage || busy || loading}><legend>Görünürlük</legend><label className={selectedStatus === "published" ? styles.checked : ""}><input type="checkbox" name="policy-publication" checked={selectedStatus === "published"} onChange={event => changeStatus(event.currentTarget.checked ? "published" : "draft")} />Mağazada göster</label></fieldset>
-              <p>{selectedStatus === "published" ? "Kaydedildiğinde mağazada görünür." : selected.status === "published" ? "Kaydedildiğinde mağazadan kaldırılır." : "Yalnızca panelde saklanır."}</p>
+              <fieldset className={styles.publication} disabled={!canManage || busy || loading}><legend className={styles.srOnly}>Görünürlük</legend><label><input className={checkbox.checkbox} type="checkbox" name="policy-publication" checked={selectedStatus === "published"} onChange={event => changeStatus(event.currentTarget.checked ? "published" : "draft")} />Mağazada göster</label></fieldset>
+              {selectedStatus !== selected.status ? <p>{selectedStatus === "published" ? "Kaydedildiğinde mağazada görünür." : "Kaydedildiğinde mağazadan kaldırılır."}</p> : null}
             </div>
             <div className={styles.editSurface}>
               <div className={styles.editTop}>
@@ -368,7 +368,7 @@ export function PolicyConsole({ canManage, initialPolicyKey, recoveryScope, embe
                 </div>
               </div>
             </div>
-            <div className={styles.editorMeta}><span>{view === "source" ? sourceFormat === "html" ? "HTML kaynağı" : "Markdown kaynağı" : "Biçimlendirilmiş metin"}</span><span>{new Intl.NumberFormat("tr-TR").format(body.length)} karakter</span></div>
+            <div className={styles.editorMeta}><span className={styles.srOnly}>{view === "source" ? sourceFormat === "html" ? "HTML kaynağı" : "Markdown kaynağı" : "Biçimlendirilmiş metin"}</span><span>{new Intl.NumberFormat("tr-TR").format(body.length)} karakter</span></div>
             {tooLong ? <p id="policy-body-error" className={styles.validation} role="alert">Metin sınırı aşıldı. Kaydetmek için içeriği kısaltın (100 KB).</p> : null}
             <footer className={styles.savebar}><div className={styles.saveState} role="status" aria-live="polite">{busy ? "İşlem sürüyor…" : message || (publishEmpty ? "Yayınlamak için metin ekleyin." : dirty ? <><i className={styles.dirtyDot} />Kaydedilmemiş değişiklikler</> : <><Check aria-hidden="true" />Değişiklik yok</>)}</div><div className={styles.saveActions}><button className={`${styles.button} ${styles.footerClose}`} type="button" onClick={close} disabled={busy}>Kapat</button>{canManage && dirty ? <button className={styles.button} type="button" ref={revertRef} disabled={busy || !!recovery} onClick={() => dialogRef.current?.showModal()}><Undo2 aria-hidden="true" />Geri al</button> : null}{canManage ? <button className={`${styles.button} ${styles.primary}`} type="button" disabled={!canSave} onClick={() => void save()}>{busy ? "Kaydediliyor…" : "Kaydet"}</button> : null}</div></footer>
           </> : <div className={styles.emptyEditor}><DocumentArt /><strong>Metin seç</strong><p>Düzenlemek veya görüntülemek için listeden seçin.</p></div>}
