@@ -7,6 +7,7 @@ import Link from "next/link";
 import { PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { editRouteFor } from "@/lib/merchant-admin-ui/record-route";
 import { merchantRecordPresentationStatus, type MerchantModuleStatusFilter } from "@/lib/merchant-admin-ui/presentation";
+import type { AssociatedPolicyPage } from "@/lib/content-pages-ui/policy-associations";
 import styles from "./content-pages.module.css";
 
 export function PageArtwork({ page }: { page?: MerchantAdminRecord["requiredPageKey"] }) {
@@ -60,21 +61,35 @@ export function ContentPagesToolbar(props: ToolbarProps) {
   </div>;
 }
 
-export function ContentPagesList({ records, canManage, busy, onArchive }: Readonly<{ records: readonly MerchantAdminRecord[]; canManage: boolean; busy: boolean; onArchive: (record: MerchantAdminRecord) => void }>) {
-  return <div className={styles.list}>
-    <div className={styles.columns} aria-hidden="true"><span>Sayfa</span><span>Durum</span><span>Son düzenleme</span><span /></div>
-    <ul aria-label="Sayfalar">{records.map(record => {
+export function ContentPagesList({ records, policyRecords = [], canManage, busy, onArchive }: Readonly<{ records: readonly MerchantAdminRecord[]; policyRecords?: readonly AssociatedPolicyPage[]; canManage: boolean; busy: boolean; onArchive: (record: MerchantAdminRecord) => void }>) {
+  const row = (record: MerchantAdminRecord, policyKey?: AssociatedPolicyPage["policyKey"]) => {
       const status = merchantRecordPresentationStatus(record);
       const label = status === "active" ? "Yayında" : status === "draft" ? "Taslak" : "Arşivlendi";
       const href = editRouteFor("page", record.id)!;
+      const policyHref = policyKey ? `/content/policies/${policyKey}/edit` : null;
       return <li className={styles.row} key={record.id}>
-        <div className={styles.identity}><PageArtwork page={record.requiredPageKey} /><Link href={href} className={styles.name}>{record.name}</Link></div>
+        <div className={styles.identity}><PageArtwork page={record.requiredPageKey} /><Link href={policyHref ?? href} className={styles.name}>{record.name}</Link></div>
         <div className={styles.status}><PanelStatusBadge tone={status === "active" ? "success" : "neutral"}>{label}</PanelStatusBadge></div>
         <time className={styles.updated} dateTime={record.updatedAt} title={new Date(record.updatedAt).toLocaleString("tr-TR")}>{new Date(record.updatedAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}<small>{new Date(record.updatedAt).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })}</small></time>
-        <div className={styles.actions}><Link href={href} className="button button-secondary" aria-label={`${record.name} kaydını ${canManage ? "düzenle" : "görüntüle"}`}>{canManage ? "Düzenle" : "Görüntüle"}{canManage ? <ArrowUpRight aria-hidden="true" /> : <Eye aria-hidden="true" />}</Link>{canManage && !record.requiredPageKey ? <button type="button" className="button button-text icon-only-button" aria-label={`${record.name} kaydını arşivle`} title="Arşivle" disabled={busy || record.status === "archived"} onClick={() => onArchive(record)}><Archive aria-hidden="true" /></button> : null}</div>
+        {policyHref ? <div className={styles.policyLinks}>
+          <Link href={policyHref} className="button button-secondary" aria-label={`${record.name} politikasını aç`}>Politikayı aç</Link>
+          <Link href={href} className="button button-text" aria-label={`${record.name} sayfa kaydını ${canManage ? "düzenle" : "görüntüle"}`}>Sayfa kaydı</Link>
+        </div> : <div className={styles.actions}><Link href={href} className="button button-secondary" aria-label={`${record.name} kaydını ${canManage ? "düzenle" : "görüntüle"}`}>{canManage ? "Düzenle" : "Görüntüle"}{canManage ? <ArrowUpRight aria-hidden="true" /> : <Eye aria-hidden="true" />}</Link>{canManage && !record.requiredPageKey ? <button type="button" className="button button-text icon-only-button" aria-label={`${record.name} kaydını arşivle`} title="Arşivle" disabled={busy || record.status === "archived"} onClick={() => onArchive(record)}><Archive aria-hidden="true" /></button> : null}</div>}
       </li>;
-    })}</ul>
-  </div>;
+  };
+  return <>
+    {records.length ? <div className={styles.list}>
+      <div className={styles.columns} aria-hidden="true"><span>Sayfa</span><span>Durum</span><span>Son düzenleme</span><span /></div>
+      <ul aria-label="Sayfalar">{records.map(record => row(record))}</ul>
+    </div> : null}
+    {policyRecords.length ? <div className={`${styles.editorHistory} ${styles.list}`}>
+      <details aria-label="Politika metinleri">
+        <summary>Politika metinleri ({policyRecords.length})</summary>
+        <p>Bu sayfaların aynı metni Politikalar bölümünde de bulunuyor.</p>
+        <ul aria-label="Politika sayfa kayıtları">{policyRecords.map(({ record, policyKey }) => row(record, policyKey))}</ul>
+      </details>
+    </div> : null}
+  </>;
 }
 
 export function ContentPagesLoading() {

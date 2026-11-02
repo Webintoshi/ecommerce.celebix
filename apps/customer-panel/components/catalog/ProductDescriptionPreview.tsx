@@ -15,6 +15,7 @@ function renderRichTextNode(node: ProductDescriptionRichTextNode, key: string): 
       attributes.rel = "noopener noreferrer nofollow";
     }
   }
+  if (node.tag === "br" || node.tag === "hr") return createElement(node.tag, attributes);
   return createElement(
     node.tag,
     attributes,

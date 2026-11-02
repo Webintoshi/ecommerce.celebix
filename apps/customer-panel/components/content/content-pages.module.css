@@ -29,6 +29,8 @@
 .updated small { font-size: 12px; font-weight: var(--cp-font-weight-helper); }
 .actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .actions a { font-size: 13px; }
+.policyLinks { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }
+.policyLinks a { font-size: 13px; }
 .loading > div { display: flex; align-items: center; gap: 24px; min-height: 88px; border-bottom: 1px solid var(--cp-border); }
 .loading span:not(:global(.sr-only)) { display: block; width: 120px; height: 16px; background: var(--cp-soft); border-radius: 4px; }
 .loading > div > span:first-child { flex: 1; }
@@ -63,6 +65,8 @@
   .updated { grid-column: 1; grid-row: 3; display: flex; flex-wrap: wrap; gap: 8px; }
   .actions { grid-column: 2; grid-row: 2 / 4; align-self: center; }
   .actions a { padding-inline: 12px; }
+  .policyLinks { grid-column: 2; grid-row: 2 / 4; align-self: center; flex-direction: column; align-items: flex-end; }
+  .policyLinks a { padding-inline: 12px; }
   .loading > div { gap: 12px; }
   .loading > div > span:last-child { display: none; }
 }

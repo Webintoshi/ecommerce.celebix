@@ -49,6 +49,7 @@ import {
 import { ProviderConnectionPanel } from "@/components/merchant-admin/ProviderConnectionPanel";
 import { ContentPagesList, ContentPagesLoading, ContentPagesToolbar, PageArtwork } from "@/components/content/ContentPagesList";
 import pages from "@/components/content/content-pages.module.css";
+import { partitionContentPages, type ContentPagePolicyAssociation } from "@/lib/content-pages-ui/policy-associations";
 import { MarketplaceArtwork } from "@/components/marketplaces/MarketplaceArtwork";
 import marketplaceStyles from "@/components/marketplaces/marketplaces.module.css";
 import { AccountingNavigation } from "@/components/accounting/AccountingNavigation";
@@ -293,11 +294,13 @@ export function MerchantModuleConsole({
   canManage,
   createFirst = false,
   embedded = false,
+  policyPageAssociations,
 }: {
   kind: MerchantAdminRecordKind;
   canManage: boolean;
   createFirst?: boolean;
   embedded?: boolean;
+  policyPageAssociations?: readonly ContentPagePolicyAssociation[];
 }) {
   const definition = getMerchantModuleDefinition(kind);
   const operational = definition.family !== "settings";
@@ -338,10 +341,10 @@ export function MerchantModuleConsole({
   const activeSubmissionRef = useRef<number | null>(null);
   const submissionVersionRef = useRef(0);
 
-  const summary = useMemo(
-    () => buildMerchantModuleSummary(items, query, statusFilter),
-    [items, query, statusFilter],
-  );
+  const pageGroups = useMemo(() => partitionContentPages(items, kind === "page" ? policyPageAssociations : undefined), [items, kind, policyPageAssociations]);
+  const summary = useMemo(() => buildMerchantModuleSummary(pageGroups.pages, query, statusFilter), [pageGroups, query, statusFilter]);
+  const policySummary = useMemo(() => buildMerchantModuleSummary(pageGroups.policyPages.map(({ record }) => record), query, statusFilter), [pageGroups, query, statusFilter]);
+  const visiblePolicyPages = pageGroups.policyPages.filter(({ record }) => policySummary.visible.some(item => item.id === record.id));
   const activeRecords = useMemo(
     () => items
       .filter((record) => record.status !== "archived")
@@ -766,7 +769,7 @@ export function MerchantModuleConsole({
         <div className={styles.listRegion} data-merchant-empty={marketplace && items.length === 0 ? "true" : undefined} aria-busy={loading}>
         {loading && !hasLoaded ? (
           kind === "page" ? <ContentPagesLoading /> : <MerchantWorkspaceLoading label={`${definition.title} yükleniyor…`} />
-        ) : !hasLoaded && error ? null : summary.visible.length === 0 ? (
+        ) : !hasLoaded && error ? null : summary.visible.length === 0 && !(kind === "page" && visiblePolicyPages.length) ? (
           accounting ? <AccountingEmptyState variant={invoice ? "invoice" : "legal"} title={items.length ? "Eşleşen kayıt yok" : invoice ? "Fatura bağlantınızı ekleyin" : "İşletme bilgilerinizi ekleyin"} description={items.length ? "Aramayı veya filtreyi temizleyin." : invoice ? "Sağlayıcı ve hesap bilgilerini bir arada yönetin." : "Fatura kimliğiniz ve mali bilgileriniz burada yer alsın."} action={items.length ? <button type="button" className="button button-secondary" onClick={clearFilters}>Filtreleri temizle</button> : canManage ? createRoute ? <Link href={createRoute} className="button button-secondary"><Plus size={16} aria-hidden="true" />{newLabel}</Link> : <button type="button" className="button button-secondary" onClick={openCreate}><Plus size={16} aria-hidden="true" />{newLabel}</button> : undefined} /> : marketplace ? <div className={marketplaceStyles.empty}>
             <MarketplaceArtwork variant="connect" />
             <div><h2>{items.length ? "Eşleşen bağlantı yok" : "Başka bir pazaryeri için kayıt ekleyin"}</h2>
@@ -779,7 +782,7 @@ export function MerchantModuleConsole({
               <Link href={createRoute} className={styles.button}>{createLabel}</Link>
             ) : <button type="button" className={styles.button} onClick={openCreate}>{createLabel}</button> : undefined}
           /></>
-        ) : kind === "page" ? <ContentPagesList records={summary.visible} canManage={canManage} busy={busy} onArchive={record => void archiveRecord(record)} /> : (
+        ) : kind === "page" ? <ContentPagesList records={summary.visible} policyRecords={visiblePolicyPages} canManage={canManage} busy={busy} onArchive={record => void archiveRecord(record)} /> : (
           <>
             <div className={styles.desktopTable} data-merchant-desktop="">
               <PanelDataTable label={`${definition.title} kayıtları`}>
