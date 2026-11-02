@@ -614,7 +614,7 @@ export function MerchantModuleConsole({
 
   return (
     <PanelInitialDataGate pending={!embedded && loading && !hasLoaded} scopeKey={kind}>
-    <div className={`${operational ? operations.workspace : ""} ${marketplace ? marketplaceStyles.workspace : ""} ${accounting ? accountingStyles.workspace : ""}`} data-merchant-kind={kind}>
+    <div className={`${operational ? operations.workspace : ""} ${marketplace ? marketplaceStyles.workspace : ""} ${accounting ? accountingStyles.workspace : ""} ${kind === "page" ? pages.workspace : ""}`} data-merchant-kind={kind}>
     <PanelPageShell embedded={embedded}>
       {!embedded ? <h1 className={styles.srOnly}>{definition.title}</h1> : null}
       {invoice && canManage && !embedded ? <AccountingNavigation active="invoicing-integration" /> : null}
@@ -764,7 +764,7 @@ export function MerchantModuleConsole({
           </label>
           {filtersActive ? <button type="button" className={operations.clear} onClick={clearFilters}><X aria-hidden="true" /> Temizle</button> : null}
         </div> : null}
-        {!marketplace || items.length > 0 || filtersActive ? <div className={operations.result} role="status" aria-live="polite"><span>{loading ? "Yükleniyor…" : hasLoaded ? `${summary.visible.length.toLocaleString("tr-TR")} / ${summary.total.toLocaleString("tr-TR")} ${kind === "page" ? "sayfa" : "kayıt"}` : "Kayıtlar yüklenemedi"}</span>{!canManage ? <span>Salt okunur</span> : null}</div> : null}
+        {!marketplace || items.length > 0 || filtersActive ? <div className={kind === "page" ? styles.srOnly : operations.result} role="status" aria-live="polite"><span>{loading ? "Yükleniyor…" : hasLoaded ? `${summary.visible.length.toLocaleString("tr-TR")} / ${summary.total.toLocaleString("tr-TR")} ${kind === "page" ? "sayfa" : "kayıt"}` : "Kayıtlar yüklenemedi"}</span>{!canManage ? <span>Salt okunur</span> : null}</div> : null}
 
         <div className={styles.listRegion} data-merchant-empty={marketplace && items.length === 0 ? "true" : undefined} aria-busy={loading}>
         {loading && !hasLoaded ? (
@@ -842,7 +842,7 @@ export function MerchantModuleConsole({
           {providerCapability ? <ProviderConnectionPanel capability={providerCapability} canManage={canManage} /> : null}
         </section> : null}
         {compactAdministrators ? <details className={styles.adminRoleHelp}><summary>Rol bilgisi</summary><AdministratorRoleGuide /></details> : null}
-        <details className={styles.audit}>
+        <details className={`${styles.audit} ${kind === "page" ? pages.audit : ""}`}>
           <summary><DatabaseZap aria-hidden="true" /> İşlem geçmişi ({hasLoaded ? events.length : "—"})</summary>
           {hasLoaded && events.length ? (
             <ol>{events.map((event) => <li key={event.id}><strong>{eventLabel(event)}</strong><time dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleString("tr-TR")}</time></li>)}</ol>

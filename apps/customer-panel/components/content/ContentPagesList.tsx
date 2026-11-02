@@ -1,7 +1,7 @@
 "use client";
 
 import type { MerchantAdminRecord } from "@celebix/saas-contracts";
-import { Archive, ArrowUpRight, Eye, Plus, RefreshCcw, Search, X } from "lucide-react";
+import { Archive, Eye, Pencil, Plus, RefreshCcw, Search, X } from "lucide-react";
 import Link from "next/link";
 
 import { PanelStatusBadge } from "@/components/panel/PanelPageShell";
@@ -74,7 +74,7 @@ export function ContentPagesList({ records, policyRecords = [], canManage, busy,
         {policyHref ? <div className={styles.policyLinks}>
           <Link href={policyHref} className="button button-secondary" aria-label={`${record.name} politikasını aç`}>Politikayı aç</Link>
           <Link href={href} className="button button-text" aria-label={`${record.name} sayfa kaydını ${canManage ? "düzenle" : "görüntüle"}`}>Sayfa kaydı</Link>
-        </div> : <div className={styles.actions}><Link href={href} className="button button-secondary" aria-label={`${record.name} kaydını ${canManage ? "düzenle" : "görüntüle"}`}>{canManage ? "Düzenle" : "Görüntüle"}{canManage ? <ArrowUpRight aria-hidden="true" /> : <Eye aria-hidden="true" />}</Link>{canManage && !record.requiredPageKey ? <button type="button" className="button button-text icon-only-button" aria-label={`${record.name} kaydını arşivle`} title="Arşivle" disabled={busy || record.status === "archived"} onClick={() => onArchive(record)}><Archive aria-hidden="true" /></button> : null}</div>}
+        </div> : <div className={styles.actions}><Link href={href} className="button button-secondary" aria-label={`${record.name} kaydını ${canManage ? "düzenle" : "görüntüle"}`}>{canManage ? <Pencil aria-hidden="true" /> : <Eye aria-hidden="true" />}{canManage ? "Düzenle" : "Görüntüle"}</Link>{canManage && !record.requiredPageKey ? <button type="button" className="button button-text icon-only-button" aria-label={`${record.name} kaydını arşivle`} title="Arşivle" disabled={busy || record.status === "archived"} onClick={() => onArchive(record)}><Archive aria-hidden="true" /></button> : null}</div>}
       </li>;
   };
   return <>

@@ -23,6 +23,7 @@ export type MerchantContentBodyFieldProps = Readonly<{
   bodyFormat: MerchantContentBodyFormat;
   readOnly?: boolean;
   hideCounter?: boolean;
+  compact?: boolean;
   onChange(value: string, bodyFormat: MerchantContentBodyFormat, valid: boolean): void;
   onEditorReady?(editor: Editor | null): void;
   onTransaction?(editor: Editor): void;
@@ -44,7 +45,7 @@ function blockType(editor: Editor | null): string {
   return 'paragraph';
 }
 
-export function MerchantContentBodyField({value, bodyFormat, readOnly = false, hideCounter = false, onChange, onEditorReady, onTransaction}: MerchantContentBodyFieldProps) {
+export function MerchantContentBodyField({value, bodyFormat, readOnly = false, hideCounter = false, compact = false, onChange, onEditorReady, onTransaction}: MerchantContentBodyFieldProps) {
   const linkId = useId();
   const latest = useRef({value, bodyFormat, onChange, onEditorReady, onTransaction, readOnly});
   latest.current = {value, bodyFormat, onChange, onEditorReady, onTransaction, readOnly};
@@ -137,7 +138,7 @@ export function MerchantContentBodyField({value, bodyFormat, readOnly = false, h
   const countText = `${error ? 'Taslak: ' : ''}${bytes.toLocaleString('tr-TR')} / 80.000 bayt`;
 
   if (supported === false) {
-    return <section className={styles.fallback}>
+    return <section className={`${styles.fallback} ${compact ? styles.compact : ''}`}>
       <p className={styles.fallbackNotice} role="status">Bu kaynak görsel düzenleyicide kayıpsız açılamıyor. Metin korunur; düzenlemek için güvenli HTML'e dönüştürün.</p>
       <label className={styles.fallbackNotice} htmlFor={`${linkId}-source`}>Kaynak metin</label>
       <textarea id={`${linkId}-source`} value={value} readOnly={readOnly} onChange={(event) => { const next = event.currentTarget.value; emitted.current = {value: next, bodyFormat: 'legacy'}; setBytes(encoder.encode(next).length); setError(''); latest.current.onChange(next, 'legacy', false); }}
@@ -171,7 +172,7 @@ export function MerchantContentBodyField({value, bodyFormat, readOnly = false, h
     setLinkOpen(false); setError(''); editor?.commands.focus();
   }
 
-  return <section className={styles.field} aria-busy={supported === null}>
+  return <section className={`${styles.field} ${compact ? styles.compact : ''}`} aria-busy={supported === null}>
     {!readOnly ? <div className={styles.toolbar} role="toolbar" aria-label="İçerik metni biçimlendirme">
       <select className={styles.blockSelect} aria-label="Metin biçimi" value={editorState?.block ?? 'paragraph'} disabled={disabled} onChange={(event) => setBlock(event.currentTarget.value)}>
         <option value="paragraph">Paragraf</option><option value="h2">Başlık 2</option><option value="h3">Başlık 3</option><option value="h4">Başlık 4</option>
