@@ -550,6 +550,5 @@
     font-weight: 600;
   }
   .starter-storefront[data-storefront-theme="ezmeo-deniz"]:has(.ez-bottom-nav) { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
-  body:has(.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-bottom-nav:not([hidden])) :is(.google-consent-preferences, .google-consent-banner) { bottom: calc(74px + env(safe-area-inset-bottom)); }
   body:has(.starter-storefront[data-storefront-theme="ezmeo-deniz"] .ez-bottom-nav:not([hidden])) [data-contact-widget] { --contact-mobile-offset: 62px !important; }
 }
