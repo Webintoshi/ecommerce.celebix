@@ -4,26 +4,27 @@ import React from 'react';
 import {compile,withEditor} from '../settings/design/design-editor-test-utils.ts';
 const STORE='11111111-1111-4111-8111-111111111111',OP='22222222-2222-4222-8222-222222222222',ORDER='33333333-3333-4333-8333-333333333333';
 const NEXT_OP='44444444-4444-4444-8444-444444444444';
-test('exact test-credit auto start creates one signed checkout intent under StrictMode and retains its operation across remount',async()=>{
+test('retired test-credit auto start performs no checkout or form handoff under StrictMode or remount',async()=>{
  const {PlatformCheckoutButton}=compile<any>(new URL('./PlatformCheckoutButton.tsx',import.meta.url));
- await withEditor(async({window,container,render})=>{const operations:string[]=[],forms:string[]=[];let ids=0,release!:(value:Response)=>void;
- const deferred=new Promise<Response>(resolve=>{release=resolve;});window.HTMLFormElement.prototype.submit=function(){forms.push(this.action);};
- const props={storeId:STORE,kind:'toshi_credit',offerId:'toshi-test-1',term:'once',autoStart:true,createOperationId:()=>{ids++;return OP;},fetcher:async(_url:string,init:RequestInit)=>{operations.push(JSON.parse(String(init.body)).operationId);return operations.length===1?deferred:Response.json({orderId:ORDER,handoff:'A'.repeat(43),checkoutUrl:'https://celebix.net/api/platform-checkout/handoff'});}};
+ await withEditor(async({window,render})=>{const operations:string[]=[],forms:string[]=[];let ids=0;
+ window.HTMLFormElement.prototype.submit=function(){forms.push(this.action);};
+ const props={storeId:STORE,kind:'toshi_credit',offerId:'toshi-test-1',term:'once',autoStart:true,createOperationId:()=>{ids++;return OP;},fetcher:async(_url:string,init:RequestInit)=>{operations.push(JSON.parse(String(init.body)).operationId);return Response.json({orderId:ORDER,handoff:'A'.repeat(43),checkoutUrl:'https://celebix.net/api/platform-checkout/handoff'});}};
  await render(React.createElement(React.StrictMode,null,React.createElement(PlatformCheckoutButton,props)));
- assert.deepEqual(operations,[OP]);assert.equal(ids,1);assert.equal(forms.length,0);assert.equal((container.querySelector('button')as HTMLButtonElement).disabled,true);
- await React.act(async()=>release(Response.json({orderId:ORDER,handoff:'A'.repeat(43),checkoutUrl:'https://celebix.net/api/platform-checkout/handoff'})));
- assert.equal(forms.length,1);await render(null);await render(React.createElement(PlatformCheckoutButton,props));
- assert.deepEqual(operations,[OP,OP]);assert.equal(ids,1);assert.equal(forms.length,2);
+ assert.deepEqual(operations,[]);assert.equal(ids,0);assert.equal(forms.length,0);
+ await render(null);await render(React.createElement(PlatformCheckoutButton,props));
+ assert.deepEqual(operations,[]);assert.equal(ids,0);assert.equal(forms.length,0);
+ assert.equal(window.sessionStorage.length,0);
  });
 });
-test('auto start is limited to authorized exact test SKU and an error leaves an explicit same-operation fallback',async()=>{
+test('legacy auto-start input never purchases any offer; normal credit purchase still requires an explicit click',async()=>{
  const {PlatformCheckoutButton}=compile<any>(new URL('./PlatformCheckoutButton.tsx',import.meta.url));
  await withEditor(async({window,container,render,click})=>{const operations:string[]=[];let ids=0;
  const base={storeId:STORE,kind:'toshi_credit',offerId:'toshi-test-1',term:'once',autoStart:true,createOperationId:()=>{ids++;return OP;},fetcher:async(_url:string,init:RequestInit)=>{operations.push(JSON.parse(String(init.body)).operationId);throw Error('transport_unknown');}};
- for(const changed of [{disabled:true},{autoStart:false},{kind:'tool',offerId:'restock'},{offerId:'toshi-500'},{term:'monthly'}]){await render(React.createElement(PlatformCheckoutButton,{...base,...changed}));await render(null);}
- assert.deepEqual(operations,[]);await render(React.createElement(PlatformCheckoutButton,base));assert.deepEqual(operations,[OP]);assert.match(container.textContent??'',/Aynı işlemi yeniden dene/);
- await click(container.querySelector('button')!);assert.deepEqual(operations,[OP,OP]);assert.equal(ids,1);
- assert.equal(window.sessionStorage.getItem(`celebix-platform-checkout:v1:${window.location.hostname}:${STORE}:toshi_credit:toshi-test-1:once`),OP);
+ for(const changed of [{},{disabled:true},{autoStart:false},{kind:'tool',offerId:'restock'},{offerId:'toshi-500'},{term:'monthly'}]){await render(React.createElement(PlatformCheckoutButton,{...base,...changed}));await render(null);}
+ assert.deepEqual(operations,[]);assert.equal(ids,0);
+ await render(React.createElement(PlatformCheckoutButton,{...base,offerId:'toshi-500'}));assert.deepEqual(operations,[]);
+ await click(container.querySelector('button')!);assert.deepEqual(operations,[OP]);assert.equal(ids,1);assert.match(container.textContent??'',/Aynı işlemi yeniden dene/);
+ assert.equal(window.sessionStorage.getItem(`celebix-platform-checkout:v1:${window.location.hostname}:${STORE}:toshi_credit:toshi-500:once`),OP);
  });
 });
 test('checkout double click sends one canonical intent and posts handoff through hidden form',async()=>{

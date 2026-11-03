@@ -56,17 +56,14 @@ test('a failed refresh retains the known wallet and offers with an actionable er
  assert.match(container.querySelector('[role="alert"]')?.textContent??'',/yüklenemedi/);assert.match(container.textContent??'',/493/);assert.equal(container.querySelectorAll('article').length,4);assert.equal(refresh.disabled,false);
 },1));
 
-test('one-credit test product shows the exact one TRY VAT-inclusive checkout without weakening purchase authority',async()=>{
+test('retired test product stays hidden even in a stale credits response and legacy purchase hint',async()=>{
  const value={...overview,offers:[{id:'toshi-test-1',credits:1,netCents:83},...overview.offers]};
  for(const canManage of [true,false])await mount(canManage,async(container,calls)=>{
-  const card=container.querySelector('[data-credit-offer="toshi-test-1"]');assert.ok(card);
-  assert.match(card.querySelector('h3')?.textContent??'',/1 kredi/);
-  assert.ok(card.querySelector('[data-credit-price="total"]')?.textContent?.includes('1,00'));
-  assert.ok(card.querySelector('[data-credit-price="vat"]')?.textContent?.includes('0,17'));
-  assert.match(card.textContent??'',/Deneme|deneme/);
-  const intent=(calls as any[]).find(call=>call.offerId==='toshi-test-1');assert.ok(intent);
-  assert.equal(intent.kind,'toshi_credit');assert.equal(intent.term,'once');assert.equal(intent.disabled,!canManage);assert.equal(intent.autoStart,canManage);
-  assert.ok((calls as any[]).filter(call=>call.offerId!=='toshi-test-1').every(call=>call.autoStart===false));
-  assert.equal(container.querySelectorAll('article').length,5);
+  assert.equal(Boolean(container.querySelector('[data-credit-offer="toshi-test-1"]')),false);
+  assert.equal((calls as any[]).some(call=>call.offerId==='toshi-test-1'),false);
+  assert.equal((calls as any[]).some(call=>call.autoStart),false);
+  assert.equal(container.querySelectorAll('article').length,4);
+  assert.match(container.textContent??'',/493/);
+  assert.match(container.textContent??'',/7 kredi devam eden/);
  },false,value,true);
 });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash,createHmac} from 'node:crypto';
 import test from 'node:test';
-import {COMMERCIAL_PACKAGES,type TenantContext} from '@celebix/saas-contracts';
+import {COMMERCIAL_PACKAGES,TOSHI_CREDIT_OFFERS,type TenantContext} from '@celebix/saas-contracts';
 import {createPostgresPlatformCommerceRepository,parsePlatformCheckoutIntent} from './repository.ts';
 const ID='11111111-1111-4111-8111-111111111111',OP='22222222-2222-4222-8222-222222222222',ORDER='33333333-3333-4333-8333-333333333333',NOW=new Date('2026-10-26T12:00:00Z');
 const KEY=new Uint8Array(32).fill(7),PLAN=COMMERCIAL_PACKAGES[0]!;
@@ -45,13 +45,14 @@ test('credit offers use once-only checkout and owner or admin authority without 
  await assert.rejects(()=>s.repository.createCheckout({tenantContext:{...context,membership:{...context.membership,role:'editor'}},now:NOW,intent:selected}));assert.equal(s.connections(),0);
 });
 
-test('one TRY test offer is server-priced and uses the same authenticated signed handoff',async()=>{
+test('retired one TRY offer is absent from sale catalog and rejected before opening a database connection',async()=>{
  const selected={kind:'toshi_credit' as const,offerId:'toshi-test-1',term:'once' as const,operationId:OP};
+ assert.deepEqual(TOSHI_CREDIT_OFFERS.map(offer=>offer.id),['toshi-500','toshi-2500','toshi-10000','toshi-50000']);
+ assert.throws(()=>parsePlatformCheckoutIntent(selected),error=>(error as {code?:string}).code==='invalid_input');
  for(const role of ['store_owner','admin']as const){
   const s=setup({credit:true,testCredit:true});
-  assert.equal((await s.repository.createCheckout({tenantContext:{...context,membership:{...context.membership,role}},now:NOW,intent:selected})).orderId,ORDER);
-  const call=s.queries.find(q=>q.text.includes('saas.platform_checkout_create'))!;
-  assert.deepEqual(JSON.parse(call.values![8]as string),{kind:'toshi_credit',offerId:'toshi-test-1',term:'once'});
+  await assert.rejects(()=>s.repository.createCheckout({tenantContext:{...context,membership:{...context.membership,role}},now:NOW,intent:selected}),error=>(error as {code?:string}).code==='invalid_input');
+  assert.equal(s.connections(),0);assert.deepEqual(s.queries,[]);
  }
  for(const bad of [{...selected,totalCents:100},{...selected,netCents:83},{...selected,credits:100},{...selected,term:'monthly'}])assert.throws(()=>parsePlatformCheckoutIntent(bad));
 });

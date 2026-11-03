@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "a1ed771b748d95bee43d4efc0a4b42104e67fb75d2fd268afb0e282475f87182",
+  "inputDigest": "681854a69e834c59bfafc0843990cdac586da9dbfc01ba9edadb719bd2709ede",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -4281,7 +4281,7 @@
     },
     {
       "path": "packages/saas-contracts/src/toshi/credits.ts",
-      "sha256": "58d8d167155e7aa18da85c3011cf637f176a6800a45ca6e4f653265df6191335"
+      "sha256": "7b10a7417801ee068450fef26942e4b92f6862a2404f2a868a4c60359fd3c59d"
     },
     {
       "path": "packages/saas-contracts/src/toshi/index.ts",
