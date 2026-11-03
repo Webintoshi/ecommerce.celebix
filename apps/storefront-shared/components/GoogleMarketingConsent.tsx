@@ -1,32 +1,15 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import type { PublicGoogleMarketingProjection } from "../../../packages/saas-contracts/src/google-marketing/index.ts";
-import { createGoogleMarketingClient, type GoogleConsent, type GoogleMarketingClient } from "../lib/google-marketing.ts";
+import { createGoogleMarketingClient, type GoogleMarketingClient } from "../lib/google-marketing.ts";
 import { GOOGLE_MARKETING_PAYMENT_CAPTURED_EVENT } from "../lib/google-marketing-events.ts";
 import { STOREFRONT_COMMERCE_EVENT, type PublicCommerceEvent } from "../lib/analytics/events.ts";
 
-export function GoogleMarketingConsent(props: Readonly<{ storeId: string; hostname: string; nonce: string; projection: PublicGoogleMarketingProjection; preferencesPlacement?: "floating" | "footer" }>) {
+export function GoogleMarketingConsent(props: Readonly<{ storeId: string; hostname: string; nonce: string; projection: PublicGoogleMarketingProjection }>) {
   const pathname = usePathname(), manager = useRef<GoogleMarketingClient | null>(null);
   const configuration = JSON.stringify([props.storeId, props.hostname, props.projection.gtmContainerId, props.projection.ads?.tagId ?? null, props.projection.ads?.conversionLabel ?? null]);
   const currentConfiguration = useRef<string | null>(null), documentNonce = useRef(props.nonce), generation = useRef(0), reloading = useRef(false);
-  const [consent, setConsent] = useState<GoogleConsent>("undecided"), [preferences, setPreferences] = useState(false);
-  const acceptButton = useRef<HTMLButtonElement>(null);
-  const [preferencesHost, setPreferencesHost] = useState<HTMLElement | null>(null);
-  const footerPreferences = props.preferencesPlacement === "footer";
-  useEffect(() => {
-    if (!footerPreferences) return;
-    const findHost = () => {
-      const host = document.querySelector<HTMLElement>("[data-google-consent-preferences-host]");
-      setPreferencesHost((current) => current === host ? current : host);
-    };
-    findHost();
-    // Streaming and route transitions may insert or replace the footer later.
-    const observer = new window.MutationObserver(findHost);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, [footerPreferences]);
   function reloadDocument() {
     if (reloading.current) return;
     reloading.current = true; manager.current?.dispose(); manager.current = null;
@@ -49,9 +32,10 @@ export function GoogleMarketingConsent(props: Readonly<{ storeId: string; hostna
       if (!initialNonce) return;
       if (initialNonce !== documentNonce.current) { reloadDocument(); return; }
       manager.current = createGoogleMarketingClient({ ...props, nonce: documentNonce.current, browser: window as never });
-      currentConfiguration.current = configuration; setPreferences(false);
+      currentConfiguration.current = configuration;
     }
-    const runtime = manager.current; setConsent(runtime.consent());
+    const runtime = manager.current;
+    if (runtime.consent() !== "granted") runtime.setConsent("granted");
     const controller = new AbortController(); let purchaseRequested = false, ready = false;
     const readPurchase = () => {
       if (reloading.current || controller.signal.aborted || pathname !== "/checkout/payment/result" || purchaseRequested || runtime.consent() !== "granted") return;
@@ -81,23 +65,5 @@ export function GoogleMarketingConsent(props: Readonly<{ storeId: string; hostna
       });
     };
   }, [pathname, configuration]);
-  function choose(value: "granted" | "denied") {
-    if (reloading.current || !manager.current) return;
-    const previouslyGranted = manager.current?.consent() === "granted";
-    manager.current?.setConsent(value); setConsent(value); setPreferences(false);
-    // A fresh document unloads every handler installed by the previously granted container.
-    if (value === "denied" && previouslyGranted) reloadDocument();
-  }
-  const open = preferences;
-  const preferencesButton = <button type="button" className={footerPreferences ? "google-consent-preferences-inline" : "google-consent-preferences"} aria-expanded="false" onClick={() => { setPreferences(true); requestAnimationFrame(() => acceptButton.current?.focus()); }}>Çerez tercihleri</button>;
-  return <div className="google-consent-shell">
-    {open ? <section className="google-consent-banner" role="region" aria-label="Çerez tercihleri">
-      <div><h2>Çerez tercihleri</h2><p>Google analiz ve reklam ölçümü için çerez kullanımına izin veriyor musunuz? Tercihinizi istediğiniz zaman değiştirebilirsiniz. <a href="/policies/cookies">Çerez politikası</a></p></div>
-      <div className="google-consent-actions">
-        <button type="button" data-google-consent="denied" onClick={() => choose("denied")}>{consent === "granted" ? "İzni geri çek" : "Reddet"}</button>
-        <button ref={acceptButton} type="button" data-google-consent="granted" onClick={() => choose("granted")}>Kabul et</button>
-      </div>
-    </section> : null}
-    {!open ? footerPreferences ? preferencesHost ? createPortal(preferencesButton, preferencesHost) : null : preferencesButton : null}
-  </div>;
+  return null;
 }

@@ -679,4 +679,4 @@
 }
 
 /* Utility launchers must never cover an active purchase dialog. */
-body:has(.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-view]) :is(.google-consent-preferences, [data-contact-widget]) { visibility: hidden; pointer-events: none; }
+body:has(.starter-storefront[data-storefront-theme="ezmeo-deniz"] [data-ezmeo-quick-view]) [data-contact-widget] { visibility: hidden; pointer-events: none; }
