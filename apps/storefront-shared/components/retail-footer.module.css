@@ -7,6 +7,8 @@
   color-scheme: light;
 }
 .root[data-footer-tone="dark"] { color-scheme: dark; }
+.root.root[data-footer-tone="dark"] { --retail-footer-fg: #fff; --retail-footer-muted: #c8d0d8; --retail-footer-line: rgb(255 255 255 / 14%); background: #121518; }
+.main, .bottom { box-sizing: border-box; width: min(100% - 40px, 1240px); margin-inline: auto; }
 
 .root[data-footer-tone="light"] {
   --retail-footer-fg: #202020;
@@ -48,6 +50,10 @@
 
 .brandLogo { display: block; width: auto; max-width: 180px; height: auto; max-height: 60px; object-fit: contain; }
 .root[data-footer-tone="dark"] .brandLogo { filter: brightness(0) invert(1); }
+.root .brandLogo[data-footer-logo-tone] { display: none; }
+.root[data-footer-tone="light"] .brandLogo[data-footer-logo-tone="light"],
+.root[data-footer-tone="dark"] .brandLogo[data-footer-logo-tone="dark"] { display: block; }
+.brand[data-footer-emblem="true"] .brandLogo { max-height: 110px; filter: none; }
 .storeAddress { color: var(--retail-footer-muted); font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .newsletter { display: grid; gap: 16px; width: 100%; max-width: 450px; }
 .newsletter h2 { margin: 0; color: var(--retail-footer-fg); font-family: var(--store-heading-font, inherit); font-size: clamp(24px, 2.3vw, 32px); font-weight: 550; line-height: 1.2; letter-spacing: -.025em; text-wrap: balance; }
@@ -85,6 +91,16 @@
 .root :is(a, summary, button):focus-visible { outline: 2px solid var(--retail-footer-fg); outline-offset: 4px; }
 .group a:hover, .mobileGroups nav a:hover, .contact a:hover, .storeAddress:hover { color: var(--retail-footer-fg); text-decoration: underline; text-underline-offset: 4px; }
 .social a:hover { opacity: .7; }
+
+:global([data-storefront-theme="guzide-deniz"]) .root.root[data-footer-tone="light"] { --retail-footer-fg: #171717; --retail-footer-muted: #6b6863; --retail-footer-line: #e8e6e2; background: #fff; }
+:global([data-storefront-theme="siora-deniz"]) .root.root[data-footer-tone="light"] { --retail-footer-fg: var(--ink, #171717); --retail-footer-muted: var(--muted, #70706b); --retail-footer-line: var(--line, #e6e4de); background: var(--paper, #f8f8f6); }
+:global([data-storefront-theme="siora-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #f6f6f3; --retail-footer-muted: #bdbdb6; --retail-footer-line: #3c3c38; background: #171717; }
+:global([data-storefront-theme="alpler-deniz"]) .root.root[data-footer-tone="light"] { --retail-footer-fg: var(--ink, #111); --retail-footer-muted: var(--muted, #646464); --retail-footer-line: var(--line, #e7e7e7); background: color-mix(in srgb, var(--paper, #fff) 97%, var(--ink, #111)); }
+:global([data-storefront-theme="alpler-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #fff; --retail-footer-muted: #b3b3b3; --retail-footer-line: #353535; background: #111; }
+:global([data-storefront-theme="lilyum-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #fff; --retail-footer-muted: color-mix(in srgb, #fff 80%, var(--lf-green, #24493b)); --retail-footer-line: rgb(255 255 255 / 20%); background: var(--lf-green, #24493b); }
+:global([data-storefront-theme="hizli-kutu-deniz"]) .root.root[data-footer-tone="light"] { --retail-footer-fg: #202221; --retail-footer-muted: #666b61; --retail-footer-line: #dedfd8; background: #f6f6f2; }
+:global([data-storefront-theme="hizli-kutu-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #f8f8f5; --retail-footer-muted: #c9cdc3; --retail-footer-line: rgb(255 255 255 / 14%); background: #242622; }
+:global([data-storefront-theme="hizli-kutu-deniz"]) .root .brandLogo { padding: 7px; background: #fff; border-radius: 3px; filter: none; }
 
 @media (min-width: 768px) and (max-width: 1099px) {
   .intro { flex-basis: calc(55% - 40px); }

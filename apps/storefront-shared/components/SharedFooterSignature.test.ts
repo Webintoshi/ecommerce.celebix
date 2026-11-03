@@ -7,15 +7,16 @@ import { buildDefaultStarterPresentation, FIXED_STOREFRONT_POLICIES, type Public
 import { mergePublishedPolicyFooterGroups } from "../lib/footer-policies.ts";
 import { mergePublishedRequiredPageFooterGroups, readPublishedRequiredPageFooterLinks } from "../lib/footer-required-pages.ts";
 import { localizeStorefrontPath } from "../lib/storefront-routes.ts";
+import { ALPLER_NAVY_LOGO_URL, ALPLER_WHITE_LOGO_URL } from "../themes/alpler/logo.ts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
 const tenantCases = [
-  { name: "Siora", id: "ff465e64-1491-40ef-8840-c66281155a1d", footerClass: "siora-footer" },
-  { name: "Alpler", id: "9f1f6aed-8719-407e-b64c-fd8e956d3277", footerClass: "alpler-footer" },
-  { name: "Guzide", id: "a828862c-4cc1-475a-89cc-5fbee31eb43f", footerClass: "guzide-footer" },
+  { name: "Siora", id: "ff465e64-1491-40ef-8840-c66281155a1d", footerClass: "retail-footer" },
+  { name: "Alpler", id: "9f1f6aed-8719-407e-b64c-fd8e956d3277", footerClass: "retail-footer" },
+  { name: "Guzide", id: "a828862c-4cc1-475a-89cc-5fbee31eb43f", footerClass: "retail-footer" },
   { name: "Generic", id: "00000000-0000-4000-8000-000000000001", footerClass: "retail-footer" },
-  { name: "Lilyum", id: "89e1e15f-8282-4e9b-ae3e-f417501bd54a", footerClass: "lf-footer" },
-  { name: "Hizli", id: "eae7be09-f362-4681-9df7-18de95eff4cf", footerClass: "hk-footer" },
+  { name: "Lilyum", id: "89e1e15f-8282-4e9b-ae3e-f417501bd54a", footerClass: "retail-footer" },
+  { name: "Hizli", id: "eae7be09-f362-4681-9df7-18de95eff4cf", footerClass: "retail-footer" },
   { name: "Ezmeo", id: "7892a771-67a9-42d7-9b36-f4c3e8562e95", footerClass: "retail-footer" },
 ] as const;
 
@@ -33,7 +34,7 @@ function storefront(id: string, name: string, legacy = false): PublicStorefront 
   };
 }
 
-async function renderFooter(store: PublicStorefront, checkout: boolean, run: (container: HTMLElement) => Promise<void>, content: Record<string, unknown> = {}) {
+async function renderFooter(store: PublicStorefront, checkout: boolean, run: (container: HTMLElement) => Promise<void>, content: Record<string, unknown> = {}, logo = { url: "https://media.example/tenant-logo.png", altText: "Mağaza logosu" }) {
   const load = componentLoader({
     "@/lib/page-context.ts": { resolveStorefrontPage: async () => ({ kind: "active", context: { storefront: store, runtime: { content: { listPolicies: async () => FIXED_STOREFRONT_POLICIES.map(definition => ({ ...definition, published: definition.key === "kvkk" })), ...content } } } }) },
     "@/lib/footer-policies.ts": { mergePublishedPolicyFooterGroups },
@@ -42,7 +43,7 @@ async function renderFooter(store: PublicStorefront, checkout: boolean, run: (co
     "next/link": { __esModule: true, default: ({ children, prefetch: _prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => React.createElement("a", props, children) },
   });
   const { Footer } = load<{ Footer: (props: { storefront: PublicStorefront; checkout: boolean; logo: { url: string; altText: string } }) => Promise<React.ReactNode> }>(new URL("./Footer.tsx", import.meta.url));
-  const element = await Footer({ storefront: store, checkout, logo: { url: "https://media.example/tenant-logo.png", altText: "Mağaza logosu" } });
+  const element = await Footer({ storefront: store, checkout, logo });
   await withProductBrowser(async ({ container, render }) => { await render(element); await run(container); });
 }
 
@@ -115,6 +116,29 @@ function assertSignature(container: HTMLElement) {
 }
 
 for (const tenant of tenantCases) {
+  test(`${tenant.name} uses the shared footer layout with its configured newsletter, contacts, social links and working appearance switch`, async () => {
+    const original = storefront(tenant.id, tenant.name);
+    assert.ok(original.presentation.schemaVersion === 3 || original.presentation.schemaVersion === 4);
+    const store: PublicStorefront = { ...original, presentation: { ...original.presentation, supportEmail: "destek@fixture.invalid", footer: {
+      ...original.presentation.footer, newsletter: { ...original.presentation.footer.newsletter, enabled: true, heading: "Mağazadan haberler" },
+      social: [{ network: "instagram", url: "https://www.instagram.com/fixture-store/" }],
+    } } };
+    await renderFooter(store, false, async container => {
+      assert.ok(container.querySelector('footer.retail-footer[data-footer-section]'));
+      assert.ok(container.querySelector('nav[aria-label="Admin menüsü"]'));
+      assert.equal(container.querySelector('#retail-newsletter-heading')?.textContent, "Mağazadan haberler");
+      assert.ok(container.querySelector('a[href="mailto:destek@fixture.invalid"]'));
+      assert.ok(container.querySelector('a[href="https://www.instagram.com/fixture-store/"] svg'));
+      const toggle = container.querySelector<HTMLButtonElement>('button[role="switch"]')!;
+      const initial = container.querySelector('[data-footer-section]')?.getAttribute('data-footer-tone');
+      const consent = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+      await React.act(() => consent.click());
+      await React.act(() => toggle.click());
+      assert.notEqual(container.querySelector('[data-footer-section]')?.getAttribute('data-footer-tone'), initial);
+      assert.equal(consent.checked, true);
+      assertSignature(container);
+    });
+  });
   test(`${tenant.name} footer removes the account section and prioritizes published policies without changing configured groups`, async () => {
     const original = storefront(tenant.id, tenant.name);
     assert.ok(original.presentation.schemaVersion === 3 || original.presentation.schemaVersion === 4);
@@ -152,6 +176,19 @@ for (const tenant of tenantCases) {
     });
   }
 }
+
+test("Alpler retains its supplied navy and white artwork and intrinsic emblem dimensions in the shared footer", async () => {
+  await renderFooter(storefront(tenantCases[1].id, "Alpler"), false, async container => {
+    const light = container.querySelector<HTMLImageElement>('[data-footer-emblem="true"] img[data-footer-logo-tone="light"]');
+    const dark = container.querySelector<HTMLImageElement>('[data-footer-emblem="true"] img[data-footer-logo-tone="dark"]');
+    assert.equal(light?.getAttribute('src'), ALPLER_NAVY_LOGO_URL);
+    assert.equal(dark?.getAttribute('src'), ALPLER_WHITE_LOGO_URL);
+    assert.equal(light?.getAttribute('width'), '720');
+    assert.equal(dark?.getAttribute('height'), '540');
+    await React.act(() => container.querySelector<HTMLButtonElement>('button[role="switch"]')!.click());
+    assertSignature(container);
+  }, {}, { url: ALPLER_NAVY_LOGO_URL, altText: "Alpler Spor" });
+});
 
 test("legacy footer replaces its old text signature without changing navigation or copyright", async () => {
   await renderFooter(storefront(tenantCases[3].id, "Legacy", true), false, async (container) => {
