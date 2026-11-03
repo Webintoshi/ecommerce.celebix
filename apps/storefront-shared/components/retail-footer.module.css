@@ -97,10 +97,15 @@
 :global([data-storefront-theme="siora-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #f6f6f3; --retail-footer-muted: #bdbdb6; --retail-footer-line: #3c3c38; background: #171717; }
 :global([data-storefront-theme="alpler-deniz"]) .root.root[data-footer-tone="light"] { --retail-footer-fg: var(--ink, #111); --retail-footer-muted: var(--muted, #646464); --retail-footer-line: var(--line, #e7e7e7); background: color-mix(in srgb, var(--paper, #fff) 97%, var(--ink, #111)); }
 :global([data-storefront-theme="alpler-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #fff; --retail-footer-muted: #b3b3b3; --retail-footer-line: #353535; background: #111; }
+:global([data-storefront-theme="lilyum-deniz"]) .root.root[data-footer-tone="light"] { --retail-footer-fg: var(--lf-ink, #171b1a); --retail-footer-muted: #626962; --retail-footer-line: #e0e5e1; background: #fff; }
 :global([data-storefront-theme="lilyum-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #fff; --retail-footer-muted: color-mix(in srgb, #fff 80%, var(--lf-green, #24493b)); --retail-footer-line: rgb(255 255 255 / 20%); background: var(--lf-green, #24493b); }
 :global([data-storefront-theme="hizli-kutu-deniz"]) .root.root[data-footer-tone="light"] { --retail-footer-fg: #202221; --retail-footer-muted: #666b61; --retail-footer-line: #dedfd8; background: #f6f6f2; }
 :global([data-storefront-theme="hizli-kutu-deniz"]) .root.root[data-footer-tone="dark"] { --retail-footer-fg: #f8f8f5; --retail-footer-muted: #c9cdc3; --retail-footer-line: rgb(255 255 255 / 14%); background: #242622; }
 :global([data-storefront-theme="hizli-kutu-deniz"]) .root .brandLogo { padding: 7px; background: #fff; border-radius: 3px; filter: none; }
+
+@media (min-width: 1100px) {
+  :global([data-storefront-theme="lilyum-deniz"]) .main { display: grid; grid-template-columns: minmax(220px, 1.25fr) minmax(290px, 1.65fr) minmax(140px, .9fr) minmax(140px, .8fr); gap: 32px; padding-block: 44px 36px; }
+}
 
 @media (min-width: 768px) and (max-width: 1099px) {
   .intro { flex-basis: calc(55% - 40px); }

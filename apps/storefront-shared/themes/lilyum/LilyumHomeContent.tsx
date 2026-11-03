@@ -9,12 +9,13 @@ import { formatTry } from "../../lib/format.ts";
 import { categoryPath, localizeStorefrontPath, productIndexPath, productPath } from "../../lib/storefront-routes.ts";
 import { LilyumIcon } from "./LilyumIcon";
 import { LILYUM_COPY, lilyumHomeModel } from "./lilyum-model.ts";
+import { LILYUM_COLLECTION_IMAGE_SIZES, lilyumImageSources } from "./lilyum-images.ts";
 
 type CategoryItem = Extract<PublicStarterHomeSection, { kind: "category_grid" }>["items"][number];
-function LilyumCollectionTiles({ items, locale, className = "", prefetch }: { items: readonly CategoryItem[]; locale: string; className?: string; prefetch?: boolean }) {
+function LilyumCollectionTiles({ items, locale, className = "", prefetch, assetBaseUrl }: { items: readonly CategoryItem[]; locale: string; className?: string; prefetch?: boolean; assetBaseUrl?: string }) {
   if (!items.length) return null;
   return <div className={`lf-collections ${className}`}>{items.map(item => <Link prefetch={prefetch} href={categoryPath(locale, item.slug)} key={item.slug} className="lf-collection">
-    <img src={item.image.url} alt={item.image.altText || item.name} width={item.image.width ?? 800} height={item.image.height ?? 600} loading="lazy" decoding="async" />
+    <img {...lilyumImageSources(item.image.url, LILYUM_COLLECTION_IMAGE_SIZES, assetBaseUrl)} alt={item.image.altText || item.name} width={item.image.width ?? 800} height={item.image.height ?? 600} loading="lazy" decoding="async" />
     <span><strong>{item.name}</strong><small>Keşfet<LilyumIcon name="arrow" /></small></span>
   </Link>)}</div>;
 }
@@ -34,7 +35,8 @@ export function LilyumHomeContent<Product extends ProductCardContentProduct>({ s
   const { hero, multiHeroSection, categories, productRows, story } = lilyumHomeModel(presentation, design, projection);
   const locale = storefront.locale;
   const catalog = productIndexPath(locale);
-  const assetUrl = (url: string) => assetBaseUrl && url.startsWith("/") ? new URL(url, assetBaseUrl).href : url;
+  const heroImage = previewMode === "mobile" ? hero.mobileImage ?? hero.image : hero.image;
+  const heroSources = lilyumImageSources(heroImage, "(max-width: 760px) 185vw, 100vw", assetBaseUrl);
   const primaryBanner = presentation.schemaVersion === 1 ? undefined : presentation.sections.find(section => section.kind === "banner");
   const primaryHero = presentation.schemaVersion === 1 ? undefined : presentation.sections.find(section => section.kind === "hero");
   const remainingSections = presentation.schemaVersion === 1 ? [] : presentation.sections.filter(section => section !== primaryBanner && section !== primaryHero && !["category_grid", "product_row"].includes(section.kind));
@@ -42,7 +44,7 @@ export function LilyumHomeContent<Product extends ProductCardContentProduct>({ s
   return <div className="lf-home">
       {isStorefrontPromotionActive(design.promotion, now) ? <aside className="lf-promotion lf-container"><strong>{design.promotion.headline}</strong>{design.promotion.body ? <p>{design.promotion.body}</p> : null}{design.promotion.destination ? <Link prefetch={prefetch} href={localizeStorefrontPath(design.promotion.destination.path, locale)}>İncele<LilyumIcon name="arrow" /></Link> : null}</aside> : null}
       {renderSection(primaryBanner ?? primaryHero, multiHeroSection && presentation.schemaVersion !== 1 ? <CampaignSectionContent section={multiHeroSection} presentation={presentation} productRows={projection.productRows} locale={locale} priority renderProductRow={renderProductRow} prefetch={prefetch} previewMode={previewMode} /> : hero.enabled ? <section className="lf-hero" aria-labelledby="lf-hero-title">
-        <picture className="lf-hero-media" data-mobile-image={previewMode && hero.mobileImage ? "true" : undefined}>{hero.mobileImage && !previewMode ? <source media="(max-width: 760px)" srcSet={hero.mobileImage} /> : null}<img src={assetUrl(previewMode === "mobile" ? hero.mobileImage ?? hero.image : hero.image)} alt="Pembe lilyum ve beyaz gerbera çiçek aranjmanı" width="2164" height="727" fetchPriority="high" /></picture>
+        <picture className="lf-hero-media" data-mobile-image={previewMode && hero.mobileImage ? "true" : undefined}>{hero.mobileImage && !previewMode ? <source media="(max-width: 760px)" srcSet={hero.mobileImage} /> : null}<img {...heroSources} alt="Pembe lilyum ve beyaz gerbera çiçek aranjmanı" width="2164" height="727" fetchPriority="high" decoding="async" /></picture>
         <div className="lf-container lf-hero-copy"><span className="lf-eyebrow">{hero.eyebrow}</span><h1 id="lf-hero-title">{hero.heading}</h1><p>{hero.body}</p><Link prefetch={prefetch} className="lf-button" href={localizeStorefrontPath(hero.destination || catalog, locale)}>{LILYUM_COPY.cta}<LilyumIcon name="arrow" /></Link></div>
       </section> : null)}
       <div className="lf-container lf-home-content">
@@ -53,13 +55,13 @@ export function LilyumHomeContent<Product extends ProductCardContentProduct>({ s
         </section>
         {categories.map((section, index) => renderSection(section, <section className="lf-collection-section" aria-labelledby={`lf-collections-${index}`} key={section.sectionId ?? index}>
           <div className="lf-section-heading"><h2 id={`lf-collections-${index}`}>{section.heading}</h2><Link prefetch={prefetch} href={catalog}>Tümünü gör<LilyumIcon name="arrow" /></Link></div>
-          <LilyumCollectionTiles items={section.items.slice(0, 2)} locale={locale} prefetch={prefetch} />
+          <LilyumCollectionTiles items={section.items.slice(0, 2)} locale={locale} prefetch={prefetch} assetBaseUrl={assetBaseUrl} />
         </section>))}
-        {!productRows.length ? <LilyumCollectionTiles items={remainingCategories} locale={locale} prefetch={prefetch} /> : null}
+        {!productRows.length ? <LilyumCollectionTiles items={remainingCategories} locale={locale} prefetch={prefetch} assetBaseUrl={assetBaseUrl} /> : null}
         {productRows.map(({ section, heading, products }, index) => renderSection(section, <section className="lf-product-section" aria-labelledby={`lf-row-${section.key}`} key={section.key}>
           <div className="lf-section-heading"><h2 id={`lf-row-${section.key}`}>{heading}</h2><Link prefetch={prefetch} href={"categorySlug" in section && section.categorySlug ? categoryPath(locale, section.categorySlug) : catalog}>Tümünü incele<LilyumIcon name="arrow" /></Link></div>
           {renderProductCards(products)}
-          {index === 0 ? <LilyumCollectionTiles items={remainingCategories} locale={locale} className="lf-more-collections" prefetch={prefetch} /> : null}
+          {index === 0 ? <LilyumCollectionTiles items={remainingCategories} locale={locale} className="lf-more-collections" prefetch={prefetch} assetBaseUrl={assetBaseUrl} /> : null}
         </section>))}
         {presentation.schemaVersion !== 1 ? remainingSections.map((section, index) => renderSection(section, <CampaignSectionContent key={"sectionId" in section ? section.sectionId : `${section.kind}-${index}`} section={section} presentation={presentation} productRows={projection.productRows} locale={locale} priority={false} renderProductRow={renderProductRow} prefetch={prefetch} previewMode={previewMode} />)) : null}
       </div>

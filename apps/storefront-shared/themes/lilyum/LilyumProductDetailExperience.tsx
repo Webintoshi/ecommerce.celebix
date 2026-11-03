@@ -21,7 +21,7 @@ export function LilyumProductDetailExperience({ product,initialVariantId, locale
     <Link className="lf-product-back" href={product.categoryPath?.[0] ? categoryPath(locale, product.categoryPath[0].slug) : productIndexPath(locale)}><LilyumIcon name="arrow" />Çiçekleri keşfet</Link>
     <ProductVariantMediaProvider key={`${product.id}:${initialVariantId??''}`} product={product} initialVariantId={initialVariantId}>
       <section className="lf-product-stage" aria-label={`${product.title} ürün ayrıntıları`}>
-        <ProductGallery product={product} style={options.galleryStyle} />
+        <ProductGallery product={product} style={options.galleryStyle} optimizeLoading />
         <div className="lf-product-column">
           <LilyumProductPurchase product={product} options={options} showQuantitySelector={showQuantitySelector}>
             <div className="lf-product-delivery"><LilyumIcon name="truck" /><div><strong>Ordu’da aynı gün teslimat</strong><p>Adres ve güncel teslimat saati için mağazayla iletişime geçebilirsiniz.</p><Link href="/#lilyum-delivery">Teslimat bilgisi<LilyumIcon name="arrow" /></Link></div></div>

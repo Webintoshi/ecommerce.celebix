@@ -61,7 +61,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
   ]);
   const modernPresentation = storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4;
   const footerTone = checkout || (modernPresentation && guzideThemeFor(storefront)) ? "light"
-    : lilyumThemeFor(storefront) ? "dark"
+    : modernPresentation && lilyumThemeFor(storefront) ? "light"
     : storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4 ? storefront.presentation.footer.tone : "dark";
   const signature = <FooterPaymentBranding tone={footerTone} />;
   if (checkout) {

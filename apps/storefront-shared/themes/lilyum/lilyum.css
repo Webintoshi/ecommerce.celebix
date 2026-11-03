@@ -1,8 +1,19 @@
 [data-storefront-theme="lilyum-deniz"] {
-  --lf-ivory:var(--store-lilyum-background,#f7f4ee);--lf-green:var(--store-lilyum-primary,#24493b);--lf-gold:var(--store-lilyum-accent,#b58a53);--lf-ink:var(--store-lilyum-text,#171b1a);--lf-border:#dedbd4;
+  --lf-ivory:#fff;--lf-green:var(--store-lilyum-primary,#24493b);--lf-gold:var(--store-lilyum-accent,#b58a53);--lf-ink:var(--store-lilyum-text,#171b1a);--lf-border:#e5e8e5;
   --store-background:var(--lf-ivory);--store-primary:var(--lf-green);--store-text:var(--lf-ink);
   background:var(--lf-ivory);color:var(--lf-ink);
 }
+body:has([data-storefront-theme="lilyum-deniz"]){background:#fff}
+body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-widget]{--contact-brand:var(--store-lilyum-primary,#24493b);--contact-brand-ink:#fff;--contact-line:#dce3de;--contact-ink:#24493b}
+body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher]{min-width:48px;min-height:48px;gap:8px;padding:10px 15px;border-radius:12px;background:#fff;color:#24493b;box-shadow:0 2px 10px #24493b0a;transition:background .15s,border-color .15s}
+body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher]:hover{background:#f4f7f5;border-color:#9cafa3;filter:none}
+body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-widget] [data-contact-launcher] [data-contact-launcher-icon]{width:24px;height:24px;border-radius:0;background:transparent;color:inherit}
+body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher-icon]>svg{width:22px;height:22px}
+@media(max-width:767px){
+  body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher]{padding:11px;min-width:48px;min-height:48px}
+  body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher-label]{display:none}
+}
+@media(prefers-reduced-motion:reduce){body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher]{transition:none}}
 [data-storefront-theme="lilyum-deniz"] .lf-container{width:calc(100% - 96px);max-width:1380px;margin-inline:auto}
 [data-storefront-theme="lilyum-deniz"] .lf-icon{width:22px;height:22px;flex-shrink:0;display:block}
 [data-storefront-theme="lilyum-deniz"] .lf-header{background:var(--lf-ivory);position:relative;z-index:30;border-bottom:1px solid rgba(36,73,59,.07)}

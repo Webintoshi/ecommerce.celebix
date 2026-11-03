@@ -136,6 +136,6 @@ export function ContactWidget({ config, storefrontName, hostname, brandColor, lo
         </a>)}</div>
       </div>
     </section> : null}
-    <button ref={triggerRef} type="button" className={styles.launcher} hidden={open && state.device === "mobile"} aria-label={config.buttonLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={panelId} onClick={() => open ? close() : setOpen(true)}><span className={styles.launcherIcon}><ContactLauncherIcon headset={config.icon === "headset"} /></span><span>{config.buttonLabel}</span></button>
+    <button ref={triggerRef} type="button" className={styles.launcher} data-contact-launcher hidden={open && state.device === "mobile"} aria-label={config.buttonLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={panelId} onClick={() => open ? close() : setOpen(true)}><span className={styles.launcherIcon} data-contact-launcher-icon><ContactLauncherIcon headset={config.icon === "headset"} /></span><span data-contact-launcher-label>{config.buttonLabel}</span></button>
   </div>;
 }

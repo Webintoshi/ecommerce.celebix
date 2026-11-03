@@ -190,6 +190,34 @@ test("Alpler retains its supplied navy and white artwork and intrinsic emblem di
   }, {}, { url: ALPLER_NAVY_LOGO_URL, altText: "Alpler Spor" });
 });
 
+test("Lilyum starts light and combines store information without account links or duplicate destinations", async () => {
+  const original = storefront(tenantCases[4].id, "Lilyum");
+  assert.ok(original.presentation.schemaVersion === 3 || original.presentation.schemaVersion === 4);
+  const groups = [
+    { heading: "Mağaza", links: [{ label: "Tüm Ürünler", destination: "/products" }, { label: "Hesabım", destination: "/account" }] },
+    { heading: "Bilgi", links: [{ label: "Ürünleri keşfet", destination: "/products" }, { label: "Atölyemiz", destination: "/pages/atolye" }, { label: "Siparişlerim", destination: "/account/orders?tab=recent" }] },
+    { heading: "Politikalar", links: [{ label: "Teslimat bilgileri", destination: "/pages/teslimat" }] },
+  ];
+  const before = JSON.stringify(groups);
+  const store: PublicStorefront = { ...original, presentation: { ...original.presentation, supportEmail: "destek@lilyum.example", footer: {
+    ...original.presentation.footer, tone: "dark", groups,
+    social: [{ network: "instagram", url: "https://www.instagram.com/lilyum-fixture/" }],
+  } } };
+  await renderFooter(store, false, async container => {
+    const footer = container.querySelector('footer.retail-footer')!;
+    assert.equal(footer.getAttribute("data-footer-tone"), "light");
+    assertSignature(container);
+    const storeLinks = [...footer.querySelectorAll('nav[aria-label="Mağaza"] a')];
+    assert.deepEqual(storeLinks.map(link => [link.textContent, link.getAttribute("href")]), [["Tüm Ürünler", "/urunler"], ["Atölyemiz", "/pages/atolye"]]);
+    assert.equal(footer.querySelector('nav[aria-label="Bilgi"], nav[aria-label="Bilgi mobil"]'), null);
+    assert.equal(footer.querySelector('a[href^="/account"]'), null);
+    assert.ok(footer.querySelector('nav[aria-label="Politikalar"] a[href="/pages/teslimat"]'));
+    assert.ok(footer.querySelector('a[href="mailto:destek@lilyum.example"]'));
+    assert.ok(footer.querySelector('a[href="https://www.instagram.com/lilyum-fixture/"] svg'));
+  });
+  assert.equal(JSON.stringify(groups), before);
+});
+
 test("legacy footer replaces its old text signature without changing navigation or copyright", async () => {
   await renderFooter(storefront(tenantCases[3].id, "Legacy", true), false, async (container) => {
     assertSignature(container);

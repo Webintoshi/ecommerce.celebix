@@ -57,7 +57,7 @@ export function StorefrontFrame({
         "--store-background": design.brand.backgroundColor,
         "--store-text": design.brand.textColor,
       } : {}),
-    ...(lilyumThemeFor(storefront) ? lilyumBrandTokens(design) : {}),
+    ...(lilyumThemeFor(storefront) ? { ...lilyumBrandTokens(design), "--store-background": "#ffffff" } : {}),
   };
   const typographyLinks = <>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
