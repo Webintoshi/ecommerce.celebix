@@ -2,10 +2,12 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { PublicDesignMedia, PublicStarterFooter, PublicStorefront } from "@celebix/saas-contracts";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
+import { visibleFooterGroups } from "../../lib/footer-navigation.ts";
 import { NewsletterForm } from "../../components/NewsletterForm";
 import { LILYUM_REFINED_LOGO } from "./logo.ts";
 
-export function LilyumFooter({ storefront, logo, groups, signature, renderNewsletter, prefetch }: { storefront: PublicStorefront; logo?: PublicDesignMedia; groups: PublicStarterFooter["groups"]; signature: React.ReactNode; renderNewsletter?: (newsletter: PublicStarterFooter["newsletter"]) => ReactNode; prefetch?: boolean }) {
+export function LilyumFooter({ storefront, logo, groups: configuredGroups, signature, renderNewsletter, prefetch }: { storefront: PublicStorefront; logo?: PublicDesignMedia; groups: PublicStarterFooter["groups"]; signature: React.ReactNode; renderNewsletter?: (newsletter: PublicStarterFooter["newsletter"]) => ReactNode; prefetch?: boolean }) {
+  const groups = visibleFooterGroups(configuredGroups);
   const presentation = storefront.presentation;
   const footer = presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.footer : null;
   return <footer className="lf-footer">

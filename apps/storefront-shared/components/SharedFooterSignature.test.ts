@@ -115,6 +115,28 @@ function assertSignature(container: HTMLElement) {
 }
 
 for (const tenant of tenantCases) {
+  test(`${tenant.name} footer removes the account section and prioritizes published policies without changing configured groups`, async () => {
+    const original = storefront(tenant.id, tenant.name);
+    assert.ok(original.presentation.schemaVersion === 3 || original.presentation.schemaVersion === 4);
+    const groups = [
+      { heading: "Mağaza", links: [{ label: "Tüm Ürünler", destination: "/products" }] },
+      { heading: "Hesap", links: [{ label: "Hesabım", destination: "/account" }] },
+      { heading: "Markamız", links: [{ label: "Koleksiyonlarımız", destination: "/products?collection=brand" }] },
+    ];
+    const before = JSON.stringify(groups);
+    const store: PublicStorefront = { ...original, presentation: { ...original.presentation, footer: { ...original.presentation.footer, groups } } };
+    await renderFooter(store, false, async container => {
+      const footer = container.querySelector("footer")!;
+      assert.equal(footer.querySelector('a[href="/account"]'), null);
+      assert.equal(footer.querySelector('nav[aria-label="Hesap"]'), null);
+      const navigation = [...footer.querySelectorAll('nav[aria-label]')].map(nav => nav.getAttribute("aria-label"));
+      assert.ok(navigation.indexOf("Mağaza") < navigation.indexOf("Politikalar"));
+      assert.ok(navigation.indexOf("Politikalar") < navigation.indexOf("Markamız"));
+      assert.ok(footer.querySelector('a[href="/policies/kvkk"]'));
+      assert.ok(footer.querySelector('a[href="/urunler?collection=brand"]'));
+    });
+    assert.equal(JSON.stringify(groups), before);
+  });
   for (const checkout of [false, true]) {
     test(`${tenant.name} ${checkout ? "checkout" : "storefront"} footer contains one real Celebix logo/link and preserves tenant content`, async () => {
       const store = storefront(tenant.id, tenant.name);

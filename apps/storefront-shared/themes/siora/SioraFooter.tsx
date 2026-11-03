@@ -3,8 +3,9 @@ import type { ReactNode } from "react";
 import type { PublicDesignMedia, PublicStarterThemePresentationV3, PublicStarterThemePresentationV4, PublicStorefront } from "@celebix/saas-contracts";
 import { NewsletterForm } from "../../components/NewsletterForm";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
+import { visibleFooterGroups } from "../../lib/footer-navigation.ts";
 
-export function SioraFooter({ storefront, presentation, groups, logo, checkout = false, signature, renderNewsletter, prefetch }: Readonly<{
+export function SioraFooter({ storefront, presentation, groups: configuredGroups, logo, checkout = false, signature, renderNewsletter, prefetch }: Readonly<{
   storefront: PublicStorefront;
   presentation: PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
   groups: PublicStarterThemePresentationV3["footer"]["groups"];
@@ -14,6 +15,7 @@ export function SioraFooter({ storefront, presentation, groups, logo, checkout =
   renderNewsletter?: (newsletter: PublicStarterThemePresentationV3["footer"]["newsletter"]) => ReactNode;
   prefetch?: boolean;
 }>) {
+  const groups = visibleFooterGroups(configuredGroups);
   if (checkout) return <footer className="siora-checkout-footer store-container"><span>© {new Date().getUTCFullYear()} {presentation.displayName}</span><nav aria-label="Ödeme bilgileri">{groups.flatMap((group) => group.links).filter((link) => link.destination.startsWith("/policies/")).map((link) => <Link prefetch={prefetch} href={localizeStorefrontPath(link.destination, storefront.locale)} key={`${link.destination}-${link.label}`}>{link.label}</Link>)}</nav>{signature}</footer>;
   return <footer className="siora-footer" data-footer-tone={presentation.footer.tone}>
     <div className="siora-footer-top store-container">

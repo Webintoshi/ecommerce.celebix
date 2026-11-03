@@ -8,6 +8,7 @@ import type {
 
 import { NewsletterForm } from "../../components/NewsletterForm";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
+import { visibleFooterGroups } from "../../lib/footer-navigation.ts";
 
 import "./guzide-footer.css";
 
@@ -60,7 +61,7 @@ function Chevron() {
 }
 
 export function GuzideFooter({
-  groups,
+  groups: configuredGroups,
   presentation,
   storefront,
   logo,
@@ -68,6 +69,7 @@ export function GuzideFooter({
   prefetch,
   signature,
 }: GuzideFooterProps) {
+  const groups = visibleFooterGroups(configuredGroups);
   const brandLogo = logo ?? presentation.logo;
   const newsletter = presentation.footer.newsletter;
   const style: FooterStyle = {

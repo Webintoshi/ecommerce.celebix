@@ -3,10 +3,11 @@ import type { ReactNode } from "react";
 import type { PublicDesignMedia, PublicStarterThemePresentationV3, PublicStarterThemePresentationV4, PublicStorefront } from "@celebix/saas-contracts";
 import { NewsletterForm } from "../../components/NewsletterForm";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
+import { visibleFooterGroups } from "../../lib/footer-navigation.ts";
 import { alplerFooterLogo, alplerLogoDimensions } from "./logo.ts";
 import { AlplerCheckoutFooter } from "./AlplerCheckoutChrome";
 
-export function AlplerFooter({ storefront, presentation, groups, logo, checkout = false, signature, renderNewsletter, prefetch }: Readonly<{
+export function AlplerFooter({ storefront, presentation, groups: configuredGroups, logo, checkout = false, signature, renderNewsletter, prefetch }: Readonly<{
   storefront: PublicStorefront;
   presentation: PublicStarterThemePresentationV3 | PublicStarterThemePresentationV4;
   groups: PublicStarterThemePresentationV3["footer"]["groups"];
@@ -16,6 +17,7 @@ export function AlplerFooter({ storefront, presentation, groups, logo, checkout 
   renderNewsletter?: (newsletter: PublicStarterThemePresentationV3["footer"]["newsletter"]) => ReactNode;
   prefetch?: boolean;
 }>) {
+  const groups = visibleFooterGroups(configuredGroups);
   if (checkout) return <AlplerCheckoutFooter groups={groups} storefront={storefront} signature={signature} />;
   const footerLogo = alplerFooterLogo(storefront, logo, presentation.footer.tone);
   const logoDimensions = alplerLogoDimensions(storefront, footerLogo);

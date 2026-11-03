@@ -3,9 +3,11 @@ import type { ReactNode } from "react";
 import type { PublicDesignMedia, PublicStarterThemePresentationV3, PublicStorefront } from "@celebix/saas-contracts";
 import { NewsletterForm } from "../../components/NewsletterForm";
 import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
+import { visibleFooterGroups } from "../../lib/footer-navigation.ts";
 import { HizliIcon } from "./HizliIcon";
 
-export function HizliFooter({ storefront, logo, groups, signature }: { storefront: PublicStorefront; logo?: PublicDesignMedia; groups: PublicStarterThemePresentationV3["footer"]["groups"]; signature: ReactNode }) {
+export function HizliFooter({ storefront, logo, groups: configuredGroups, signature }: { storefront: PublicStorefront; logo?: PublicDesignMedia; groups: PublicStarterThemePresentationV3["footer"]["groups"]; signature: ReactNode }) {
+  const groups = visibleFooterGroups(configuredGroups);
   const p = storefront.presentation;
   const footer = p.schemaVersion === 3 || p.schemaVersion === 4 ? p.footer : null;
   const links = (group: typeof groups[number]) => group.links.map(link => <Link key={`${link.destination}-${link.label}`} href={localizeStorefrontPath(link.destination, storefront.locale)}>{link.label}</Link>);

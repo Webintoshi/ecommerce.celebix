@@ -7,6 +7,7 @@ import { FooterSocialIcon } from "./FooterSocialIcon";
 import { FooterPaymentBranding } from "./PaymentTrust";
 import { FooterSection } from "./ui/footer-section";
 import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
+import { visibleFooterGroups } from "../lib/footer-navigation.ts";
 import styles from "./retail-footer.module.css";
 
 type FooterPresentation = Pick<PublicStarterThemePresentationV3, "displayName" | "supportEmail"> & Readonly<{
@@ -25,7 +26,7 @@ export function RetailFooter({ groups, presentation, storefront, logo, signature
   const newsletter = presentation.footer.newsletter;
   const brandLogo = logo ?? storefront.presentation.logo;
   const links = (group: typeof groups[number]) => group.links.map(link => <li key={`${link.destination}-${link.label}`}><Link prefetch={false} href={localizeStorefrontPath(link.destination, storefront.locale)}>{link.label}</Link></li>);
-  const visibleGroups = groups.filter(group => group.links.length > 0);
+  const visibleGroups = visibleFooterGroups(groups);
   const localeLabel = storefront.locale === "tr" ? "Türkçe" : storefront.locale;
   return <FooterSection tone={presentation.footer.tone}
     intro={<>
