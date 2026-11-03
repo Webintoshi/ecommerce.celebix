@@ -166,5 +166,53 @@ try{
   assert.throws(()=>sql(read(migration+'.up.sql')),/ALREADY_APPLIED_OR_DRIFT/);assert.throws(()=>sql(read(migration+'.down.sql')),/PUBLIC_TEST289_FORWARD_ONLY/);
  });
  writeFileSync('/tmp/toshi-public-test289-after.json',JSON.stringify(j("BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_owner;SET LOCAL search_path=pg_catalog;"+catalogSql+";ROLLBACK;")),{mode:0o600});
+ sql('SET ROLE celebix_saas_owner;DELETE FROM saas.platform_checkout_public_test_limits289');
+ const retiredUnstarted=orderOf(pub('public-1',800));
+ const retiredReady=orderOf(pub('public-1',801));
+ const retiredApproval=payment(retiredReady.orderId,801,100,true);
+ const retirementCatalog=j("BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_owner;SET LOCAL search_path=pg_catalog;"+catalogSql+";ROLLBACK;");
+ const paymentData=()=>j(`SELECT jsonb_build_object(${['platform_checkout_orders','platform_checkout_intents','platform_checkout_attempts','platform_checkout_audit','toshi_credit_wallets','toshi_credit_ledger'].map(table=>`${lit(table)},(SELECT encode(sha256(convert_to(coalesce(jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text),'[]'::jsonb)::text,'UTF8')),'hex') FROM saas.${table} t)`).join(',')})`);
+ const retirementData=paymentData();
+ const retirementSql=read('202611030501_toshi_test_retirement.up.sql');
+ sql(retirementSql);
+ check('retirement rejects fresh authenticated and anonymous test orders without changing payment data',()=>{
+  assert.equal(checkout(2,802).outcome,'invalid_input');
+  assert.equal(pub('public-1',803).outcome,'store_unavailable');
+  assert.deepEqual(paymentData(),retirementData);
+ });
+ check('an old unpaid test checkout cannot initialize another bank payment',()=>{
+  assert.equal(machine('begin',{orderId:retiredUnstarted.orderId,sessionDigest:hash('session800'),attemptId:id(10800),requestDigest:hash('request800'),sealedBuyer:seal}).outcome,'checkout_expired');
+  assert.equal(sql(`SELECT count(*) FROM saas.platform_checkout_attempts WHERE order_id='${retiredUnstarted.orderId}'`),'0');
+ });
+ check('an already initialized test payment can resume and a late approval grants exactly one credit',()=>{
+  assert.equal(machine('begin',{orderId:retiredReady.orderId,sessionDigest:hash('session801'),attemptId:id(11801),requestDigest:hash('request801'),sealedBuyer:seal}).outcome,'attempt_in_progress');
+  const beforeBalance=balance(1);
+  assert.equal(machine('finish',retiredApproval).outcome,'fulfilled');
+  assert.equal(machine('finish',retiredApproval).outcome,'operation_replayed');
+  assert.equal(balance(1),beforeBalance+1);
+  assert.equal(machine('read',{orderId:retiredReady.orderId,sessionDigest:hash('session801')}).result_payload.order.status,'fulfilled');
+ });
+ check('normal credit purchases retain their original amount and fulfill after retirement',()=>{
+  const regular=checkout(2,804,'toshi-500');assert.equal(regular.outcome,'created');
+  const selected=regular.result_payload,beforeBalance=balance(2);
+  assert.equal(selected.totalCents,29880);
+  assert.equal(machine('finish',payment(selected.orderId,804,29880)).outcome,'fulfilled');
+  assert.equal(balance(2),beforeBalance+500);
+ });
+ check('retirement changes exactly three routine bodies and preserves every other schema object and ACL',()=>{
+  const after=j("BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_owner;SET LOCAL search_path=pg_catalog;"+catalogSql+";ROLLBACK;");
+  const allowed=['saas.platform_checkout_create(','saas.platform_checkout_machine(','saas.platform_checkout_public_test_create('];
+  for(const [signature,old] of Object.entries(retirementCatalog.functions)){
+   const current=after.functions[signature];assert.ok(current,signature);
+   if(allowed.some(prefix=>signature.startsWith(prefix))){assert.notEqual(current.hash,old.hash,signature);const {hash:oldHash,definition:oldDefinition,...oldMeta}=old;const {hash:newHash,definition:newDefinition,...newMeta}=current;assert.deepEqual(newMeta,oldMeta,signature);}
+   else assert.deepEqual(current,old,signature);
+  }
+  for(const key of ['constraints','columns','relations','triggers','policies'])assert.deepEqual(after[key],retirementCatalog[key],key);
+  assert.equal(Object.keys(after.functions).length,Object.keys(retirementCatalog.functions).length);
+  sql(retirementSql);
+  sql(read('202611030501_toshi_test_retirement_assertions.sql'));
+  assert.deepEqual(j("BEGIN READ ONLY;SET LOCAL ROLE celebix_saas_owner;SET LOCAL search_path=pg_catalog;"+catalogSql+";ROLLBACK;"),after);
+  writeFileSync('/tmp/toshi-test-retirement501-after.json',JSON.stringify(after),{mode:0o600});
+ });
  console.log(JSON.stringify({passed:checks,externalCalls:0,livePayments:0,postgresMajor:16}));
 }finally{pg.stop();}

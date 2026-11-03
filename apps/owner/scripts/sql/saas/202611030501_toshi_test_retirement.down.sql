@@ -1,0 +1,1 @@
+DO $forward_only$BEGIN RAISE EXCEPTION 'TOSHI_RETIRE501_FORWARD_ONLY';END $forward_only$;
