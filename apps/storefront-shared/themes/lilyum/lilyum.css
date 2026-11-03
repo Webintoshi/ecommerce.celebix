@@ -92,6 +92,7 @@ body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher-icon]>sv
 [data-storefront-theme="lilyum-deniz"] [data-footer-signature]{border:0;padding:0;background:transparent;margin:0;display:block;flex:0 0 84px;width:84px;max-width:84px;min-width:0}
 [data-storefront-theme="lilyum-deniz"] [data-footer-signature] a{display:block;width:84px}
 [data-storefront-theme="lilyum-deniz"] [data-footer-signature] img{width:84px;height:auto;filter:brightness(0) invert(1);opacity:.8}
+[data-storefront-theme="lilyum-deniz"] [data-footer-tone="light"] [data-footer-signature] img{filter:none}
 [data-storefront-theme="lilyum-deniz"] .lf-footer-details{border-top:1px solid #ffffff26;padding-block:14px 18px;display:flex;align-items:baseline;justify-content:space-between;gap:24px;font-size:11px}
 [data-storefront-theme="lilyum-deniz"] .lf-footer-details summary{cursor:pointer;min-height:28px}
 [data-storefront-theme="lilyum-deniz"] .lf-footer-groups{display:flex;gap:30px;flex-wrap:wrap;padding-top:18px;font-size:12px}
