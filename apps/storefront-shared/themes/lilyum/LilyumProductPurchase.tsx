@@ -17,7 +17,7 @@ import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
 import { formatTry } from "@/lib/format.ts";
 import { LilyumIcon } from "./LilyumIcon";
 
-const DEFAULT_VARIANTS = new Set(["varsayılan", "varsayilan", "varsayılan varyant", "varsayilan varyant", "default", "default title"]);
+const DEFAULT_VARIANTS = new Set(["varsayılan", "varsayilan", "varsayılan varyant", "varsayilan varyant", "default", "default title", "standart", "standard"]);
 
 export function LilyumProductPurchase({ product, options, showQuantitySelector, children }: Readonly<{
   product: PublicProduct; options: StarterProductDetailConfigV2; showQuantitySelector: boolean; children?: ReactNode;
@@ -32,6 +32,8 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
   const [quantity, setQuantity] = useState(1);
   const [pending, setPending] = useState<"add" | "buy" | null>(null);
   const [status, setStatus] = useState("");
+  const [orderVisible, setOrderVisible] = useState(false);
+  const orderRef = useRef<HTMLDivElement>(null);
   const mounted = useRef(true), requestPending = useRef(false);
   const titleId = useId();
   const quantityLimit = variant?.stockTracking ? clampPurchaseQuantity(variant.stockQuantity) : 99;
@@ -40,9 +42,16 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
   const amount = variant?.priceCents ?? product.priceCents;
   const compareAt = variant ? variant.compareAtCents : product.compareAtCents;
   const choices = product.variants.length > 1 || product.variants.some(item => !DEFAULT_VARIANTS.has(item.title.trim().toLocaleLowerCase("tr-TR")));
+  const whatsAppPrimary = policy.enabled && policy.hideAddToCart && !policy.checkoutAllowed;
 
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   useEffect(() => { setQuantity(1); setStatus(""); }, [product.id, selectedId]);
+  useEffect(() => {
+    if (!options.mobileStickyPurchase || !window.IntersectionObserver || !orderRef.current) return;
+    const observer = new window.IntersectionObserver(([entry]) => setOrderVisible(entry?.isIntersecting ?? false), { threshold: .2, rootMargin: "0px 0px -84px 0px" });
+    observer.observe(orderRef.current);
+    return () => observer.disconnect();
+  }, [options.mobileStickyPurchase]);
 
   const run = async (kind: "add" | "buy", trigger: HTMLButtonElement) => {
     if (policy.hideAddToCart || (kind === "buy" && !policy.checkoutAllowed) || requestPending.current) return;
@@ -83,6 +92,7 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
           <span>{item.title}<small>{item.available ? "Stokta" : "Tükendi"}</small></span>{!pricesHidden ? <strong>{formatTry(item.priceCents)}</strong> : null}
         </label>)}
       </fieldset> : null}
+      <div ref={orderRef} className="lf-product-order" data-order-mode={whatsAppPrimary ? "whatsapp" : "cart"} data-quantity-hidden={!showQuantitySelector || undefined}>
       <PurchaseActionLayout className="lf-purchase-actions" quantity={showQuantitySelector ? <div className="lf-product-quantity" aria-label="Adet seçimi">
         <button type="button" aria-label="Adedi azalt" disabled={pending !== null || !available || quantity <= 1} onClick={() => setQuantity(value => decrementPurchaseQuantity(value, quantityLimit))}>−</button>
         <output aria-label="Adet" aria-live="polite">{quantity}</output>
@@ -91,14 +101,15 @@ export function LilyumProductPurchase({ product, options, showQuantitySelector, 
         {!policy.hideAddToCart ? <button className="lf-button" type="button" data-purchase-action="add" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
         {policy.checkoutAllowed ? <button className="lf-button lf-purchase-buy" type="button" data-purchase-action="buy" disabled={pending !== null || !allowed} onClick={event => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Hemen satın al"}</button> : null}
       </PurchaseActionLayout>
+      <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} className="lf-button lf-whatsapp-button" />
+      </div>
       <p className="lf-purchase-status" role="status" aria-live="polite">{status}</p>
-      <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />
       {children}
     </section>
-    {options.mobileStickyPurchase ? <div className="lf-product-sticky" data-lilyum-sticky-purchase hidden={drawerOpen}>
+    {options.mobileStickyPurchase ? <div className="lf-product-sticky" data-lilyum-sticky-purchase hidden={drawerOpen || orderVisible}>
       <div><span>{product.title}</span>{!pricesHidden ? <strong>{formatTry(amount)}</strong> : null}</div>
-      {!policy.hideAddToCart ? <button className="lf-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><LilyumIcon name="bag" />{pending === "add" ? "Ekleniyor…" : available ? "Sepete ekle" : "Tükendi"}</button> : null}{policy.hideAddToCart ? <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} /> : null}
+      {!policy.hideAddToCart ? <button className="lf-button" type="button" disabled={pending !== null || !allowed} onClick={event => void run("add", event.currentTarget)}><LilyumIcon name="bag" />{pending === "add" ? "Ekleniyor…" : available ? "Sepete ekle" : "Tükendi"}</button> : null}{policy.hideAddToCart ? <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} className="lf-button lf-whatsapp-button" /> : null}
     </div> : null}
   </>;
 }

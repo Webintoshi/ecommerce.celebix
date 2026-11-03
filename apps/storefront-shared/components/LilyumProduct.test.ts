@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import React from "react";
-import { buildDefaultStarterPresentation, createDefaultStarterThemeComposition, type PublicProduct } from "@celebix/saas-contracts";
+import { buildDefaultStarterPresentation, createDefaultStarterThemeComposition, resolveStorefrontCommercePolicy, type PublicProduct, type StorefrontCommercePolicy } from "@celebix/saas-contracts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 import { formatTry } from "../lib/format.ts";
 import { isStorefrontPromotionActive } from "../../../packages/storefront-design-ui/src/model.ts";
@@ -19,9 +19,10 @@ const product: PublicProduct = {
   media: [1, 2].map((value, sortOrder) => ({ id: `40000000-0000-4000-8000-00000000000${value}`, productId: "20000000-0000-4000-8000-000000000001", url: `https://media.example/flower-${value}.webp`, sortOrder, width: 600, height: 600, mediaType: "image/webp", altText: "Çiçek" })),
 };
 
-function setup(add?: (input: unknown) => Promise<unknown>) {
+function setup(add?: (input: unknown) => Promise<unknown>, policy?: StorefrontCommercePolicy) {
   const calls: unknown[] = [], routes: string[] = [];
   const load = componentLoader({
+    ...(policy ? { "../../components/CommercePolicyProvider": { useCommercePolicy: () => policy }, "./CommercePolicyProvider": { useCommercePolicy: () => policy } } : {}),
     "next/link": { __esModule: true, default: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => React.createElement("a", props, children) },
     "next/navigation": { useRouter: () => ({ push: (route: string) => routes.push(route) }) },
     "@/lib/format.ts": { formatTry },
@@ -54,6 +55,54 @@ test("Lilyum variant changes update actual media, price and SKU and bound the se
     await click('.lf-purchase-actions button');
     assert.deepEqual(subject.calls, [{ productId: product.id, variantId: product.variants[1].id, quantity: 3 }]);
     assert.equal(container.querySelector('[role="status"]')?.textContent, "Ürün sepete eklendi.");
+  });
+});
+
+test("Lilyum groups WhatsApp ordering with quantity and hides a single standard option without hiding real choices", async () => {
+  const policy = resolveStorefrontCommercePolicy({ schemaVersion: 1, enabled: true, phone: "+905551112233", hidePrices: false, hideAddToCart: true, messageIntro: "Merhaba" });
+  const subject = setup(undefined, policy);
+  const standard = { ...product, variants: [{ ...product.variants[0], title: "Standart", stockQuantity: 5 }] };
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(subject.tree(standard));
+    const order = container.querySelector('.lf-product-order[data-order-mode="whatsapp"]');
+    assert.ok(order?.querySelector('[aria-label="Adet seçimi"]'));
+    assert.ok(order?.querySelector('.whatsapp-order-action .lf-whatsapp-button'));
+    assert.equal(container.querySelector('.lf-product-choices'), null);
+    assert.equal(container.querySelector('[data-purchase-action]'), null);
+    await click('button[aria-label="Adedi artır"]');
+    assert.equal(container.querySelector('output[aria-label="Adet"]')?.textContent, "2");
+    await render(subject.tree(standard, options, false));
+    assert.ok(container.querySelector('.lf-product-order[data-quantity-hidden="true"] .lf-whatsapp-button'));
+    assert.equal(container.querySelector('[aria-label="Adet seçimi"]'), null);
+    await render(subject.tree({ ...product, variants: [standard.variants[0], product.variants[1]] }));
+    assert.equal(container.querySelectorAll('.lf-product-choices input').length, 2);
+    assert.ok(container.querySelector('.lf-product-choices')?.textContent?.includes("Büyük buket"));
+    assert.deepEqual(subject.calls, []);
+    assert.deepEqual(subject.routes, []);
+  });
+});
+
+test("Lilyum shows the mobile purchase bar only while the main ordering controls are outside view", async () => {
+  const subject = setup();
+  await withProductBrowser(async ({ container, render }) => {
+    let visibility: IntersectionObserverCallback = () => {};
+    let observed: Element | null = null;
+    let disconnected = 0;
+    window.IntersectionObserver = class {
+      constructor(callback: IntersectionObserverCallback) { visibility = callback; }
+      observe(element: Element) { observed = element; }
+      disconnect() { disconnected += 1; }
+    } as unknown as typeof IntersectionObserver;
+    await render(subject.tree(product, { ...options, mobileStickyPurchase: true }));
+    const sticky = container.querySelector<HTMLElement>('[data-lilyum-sticky-purchase]')!;
+    assert.equal(observed, container.querySelector('.lf-product-order'));
+    assert.equal(sticky.hidden, false);
+    await React.act(async () => visibility([{ isIntersecting: true } as IntersectionObserverEntry], {} as IntersectionObserver));
+    assert.equal(sticky.hidden, true);
+    await React.act(async () => visibility([{ isIntersecting: false } as IntersectionObserverEntry], {} as IntersectionObserver));
+    assert.equal(sticky.hidden, false);
+    await render(React.createElement("p", null, "Başka sayfa"));
+    assert.equal(disconnected, 1);
   });
 });
 

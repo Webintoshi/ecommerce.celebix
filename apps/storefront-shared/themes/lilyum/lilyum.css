@@ -83,6 +83,16 @@ body:has([data-storefront-theme="lilyum-deniz"]) [data-contact-launcher-icon]>sv
 [data-storefront-theme="lilyum-deniz"] .lf-product-price strong{font-size:16px;font-weight:500;line-height:1.3}
 [data-storefront-theme="lilyum-deniz"] .lf-product-price a{display:flex;align-items:center;gap:8px;font-size:11px}
 [data-storefront-theme="lilyum-deniz"] .lf-product-price .lf-icon{width:18px;height:18px}
+[data-storefront-theme="lilyum-deniz"] .product-card>.whatsapp-order-action{width:100%;min-width:0}
+[data-storefront-theme="lilyum-deniz"] .product-card{display:flex;flex-direction:column}
+[data-storefront-theme="lilyum-deniz"] .product-card-link{align-content:start}
+[data-storefront-theme="lilyum-deniz"] .product-card>.whatsapp-order-action,[data-storefront-theme="lilyum-deniz"] .product-card>.product-card-cart{margin-top:auto}
+[data-storefront-theme="lilyum-deniz"] .product-card .product-card-cart{display:flex;align-items:center;justify-content:center;width:100%;min-width:0;max-width:100%;min-height:48px;padding:10px 12px;border:1px solid var(--lf-green);border-radius:6px;background:var(--lf-green);color:#fff;font-family:var(--store-body-font);font-size:12px;font-weight:500;line-height:1.4;letter-spacing:0;text-align:center;text-transform:none;white-space:normal;overflow-wrap:anywhere}
+[data-storefront-theme="lilyum-deniz"] .product-card .product-card-cart.is-options{background:transparent;color:var(--lf-green)}
+[data-storefront-theme="lilyum-deniz"] .product-card .product-card-cart:hover:not(:disabled){background:#1a382d;border-color:#1a382d;color:#fff}
+[data-storefront-theme="lilyum-deniz"] .product-card .product-card-cart:focus-visible{outline:2px solid var(--lf-green);outline-offset:3px}
+[data-storefront-theme="lilyum-deniz"] .product-card>.whatsapp-order-action>p:empty{display:none}
+[data-storefront-theme="lilyum-deniz"] .product-card>.whatsapp-order-action>textarea{width:100%;max-width:100%;min-width:0}
 [data-storefront-theme="lilyum-deniz"] .lf-footer{background:var(--lf-green);color:#fff}
 [data-storefront-theme="lilyum-deniz"] .lf-footer-main{display:flex;align-items:center;justify-content:space-between;gap:30px;padding-block:22px}
 [data-storefront-theme="lilyum-deniz"] .lf-footer-logo{width:150px;flex-shrink:0}
