@@ -54,7 +54,7 @@ export function RetailFooter({ groups, presentation, storefront, logo, signature
       </> : null}
     contact={<>{presentation.supportEmail ? <a href={`mailto:${presentation.supportEmail}`}>{presentation.supportEmail}</a> : <Link href="/" prefetch={false}>{storefront.hostname}</Link>}<span>{storefront.currency} · {localeLabel}</span></>}
     social={presentation.footer.social.length ? <nav className={styles.social} aria-label="Sosyal medya">{presentation.footer.social.map(item => <a href={item.url} key={item.network} aria-label={item.network === "x" ? "X" : item.network} title={item.network === "x" ? "X" : item.network} rel="noopener noreferrer"><FooterSocialIcon network={item.network} /></a>)}</nav> : null}
-    copyright={<>© {new Date().getUTCFullYear()} {presentation.displayName}<span data-google-consent-preferences-host /></>}
+    copyright={<>© {new Date().getUTCFullYear()} {presentation.displayName}</>}
     signature={signature}
     alternateSignature={signature ? <FooterPaymentBranding tone={presentation.footer.tone === "dark" ? "light" : "dark"} /> : null}
   />;

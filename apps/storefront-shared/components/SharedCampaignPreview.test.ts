@@ -22,7 +22,7 @@ test("shared campaign row keeps manual order and Güzide rails with inert previe
   assert.doesNotMatch(markup, /Sepete ekle/);
 });
 
-test("shared Güzide footer renders V4 links and the supplied inert newsletter", () => {
+test("shared Güzide footer renders V4 links without cookie preference controls", () => {
   const { GuzideFooter } = compile<{ GuzideFooter: (props: Record<string, unknown>) => ReactNode }>(new URL("../themes/guzide/GuzideFooter.tsx", import.meta.url));
   const newsletter = { enabled: true, heading: "Haberler", body: "Yenilikler", consentLabel: "Kabul ediyorum" };
   let selected: unknown;
@@ -34,7 +34,7 @@ test("shared Güzide footer renders V4 links and the supplied inert newsletter",
   }));
   assert.equal(selected, newsletter);
   assert.match(markup, /data-retail-footer-mobile/);
-  assert.match(markup, /data-google-consent-preferences-host/);
+  assert.doesNotMatch(markup, /data-google-consent-preferences-host/);
   assert.match(markup, /href="\/urunler"/);
   assert.match(markup, /Haberler/);
   assert.match(markup, /data-inert-newsletter/);
