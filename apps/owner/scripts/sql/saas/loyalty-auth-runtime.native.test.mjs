@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import {randomBytes,randomUUID,createHash} from 'node:crypto';
 import {readFileSync,readdirSync} from 'node:fs';
 import path from 'node:path';
+import {execFileSync} from 'node:child_process';
+import {stripTypeScriptTypes} from 'node:module';
+import {parseInStoreBootstrap} from '../../../../../packages/saas-contracts/src/in-store-sales/validation.ts';
 import pgDriver from 'pg';
 import {PostgresStorefrontCommerceRepository} from '../../../../../packages/saas-data/src/storefront-commerce/repository.ts';
 import {createStorefrontCommerceRuntime} from '../../../../storefront-shared/lib/cart/runtime.ts';
@@ -11,6 +14,7 @@ import {applyBaseline} from '../../../../../tests/saas-phase3/admin-login-securi
 import {startDisposablePostgres} from '../../../../../tests/saas-phase3/merchant-signup-profile/disposable-postgres.mjs';
 const dir=import.meta.dirname,pg=startDisposablePostgres({database:'loyalty_auth_runtime_native'}),{sql}=pg;
 let pool;const failures=[],sources={};let passed=0;
+const historicalCommit='2ff0a006c453f6492870e4c603bb4e4433872e49';let historicalConsumer;
 async function check(label,run){try{await run();passed++;console.log(`PASS ${label}`);}catch(error){failures.push({label,message:error.message,stack:error.stack});console.error(`FAIL ${label}: ${error.message}`);}}
 try{
  applyBaseline(sql,dir);
@@ -49,6 +53,20 @@ try{
  const publicRpc=(name,args)=>read(`SET ROLE celebix_saas_host_resolver;SELECT jsonb_build_object('outcome',outcome,'result',result_payload)FROM saas.${name}(${args})`);
  const [firstCode,secondCode]=rewards.map(reward=>sql(`SELECT code FROM saas.loyalty_rewards WHERE id='${reward}'`));
  let completedOwner;
+ const historicalRead=file=>execFileSync('git',['show',`${historicalCommit}:packages/saas-contracts/src/in-store-sales/${file}`],{cwd:path.resolve(dir,'../../../../..'),encoding:'utf8'}),moduleUrl=code=>`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
+ const historicalSources=Object.fromEntries(['types.ts','calculation.ts','validation.ts'].map(file=>[file,historicalRead(file)])),historicalTypes=moduleUrl(stripTypeScriptTypes(historicalSources['types.ts'],{mode:'strip'})),historicalCalculation=moduleUrl(stripTypeScriptTypes(historicalSources['calculation.ts'],{mode:'strip'})),historicalValidation=stripTypeScriptTypes(historicalSources['validation.ts'],{mode:'strip'}).replaceAll("'./types.ts'",JSON.stringify(historicalTypes)).replaceAll("'./calculation.ts'",JSON.stringify(historicalCalculation)),historical=await import(moduleUrl(historicalValidation));
+ historicalConsumer={commit:historicalCommit,sourceSha256:Object.fromEntries(Object.entries(historicalSources).map(([file,source])=>[file,createHash('sha256').update(source).digest('hex')]))};
+ const appRpc=(name,args)=>read(`SET ROLE celebix_saas_app;SELECT jsonb_build_object('outcome',outcome,'result',result_payload)FROM saas.${name}(${args})`);
+ await check('the real historical V1 through V4 bootstrap consumers accept the new native migration before panel rollout',()=>{
+  for(const version of [1,2,3,4]){
+   const result=appRpc(`in_store_sales_bootstrap${version===1?'':`_v${version}`}`,authority);assert.equal(result.outcome,'found',JSON.stringify(result));const parsed=historical.parseInStoreBootstrap(result.result,version);assert.equal(parsed.permissions.canSell,true);assert.equal(Object.hasOwn(result.result.permissions,'canManageLoyalty'),false);
+   assert.throws(()=>historical.parseInStoreBootstrap({...result.result,permissions:{...result.result.permissions,canManageLoyalty:true}},version),/in_store_contract_invalid/);
+  }
+ });
+ await check('new V5 bootstrap adds the loyalty permission while preserving the historical V4 payload',()=>{
+  const legacy=appRpc('in_store_sales_bootstrap_v4',authority),current=appRpc('in_store_sales_bootstrap_v5',authority);assert.equal(legacy.outcome,'found');assert.equal(current.outcome,'found');const parsed=parseInStoreBootstrap(current.result,4);assert.equal(parsed.permissions.canManageLoyalty,true);const withoutNewPermission=structuredClone(current.result);delete withoutNewPermission.permissions.canManageLoyalty;assert.deepEqual(withoutNewPermission,legacy.result);
+ });
+
  await check('actual runtime and native repository accept account-only gift quote, prepare, completion and stable replay',async()=>{
   const cart=await makeCart(accountCookie),quote=await runtime.quote(host,cart.cookie,'cart',undefined,[firstCode]);assert.equal(quote.quote.cart.totalCents,0);assert.equal(quote.quote.appliedPromotions.length,1);assert.equal(quote.quote.appliedPromotions[0].normalizedCode,firstCode);
   const input={operationId:id(50),cartVersion:cart.cart.version,intentKind:'cart',contact:ownerContact,shippingAddress,shippingMethod:'standard',normalizedCodes:[firstCode]},prepared=await runtime.prepareCheckout(host,cart.cookie,{...input,kind:'prepare'});assert.equal(prepared.quote.cart.totalCents,0);assert.equal(sql(`SELECT status FROM saas.loyalty_rewards WHERE id='${rewards[0]}'`),'available');
@@ -109,5 +127,5 @@ try{
   const cart=await makeCart(accountCookie),beforeStock=Number(sql(`SELECT stock_quantity FROM saas.product_variants WHERE id='${variant}'`)),beforeOrders=Number(sql(`SELECT count(*)FROM saas.orders WHERE store_id='${store}'`)),input={operationId:id(223),cartVersion:cart.cart.version,intentKind:'cart',contact:ownerContact,shippingAddress,shippingMethod:'standard',normalizedCodes:[normal]};
   await assert.rejects(async()=>{const prepared=await runtime.prepareCheckout(host,cart.cookie,{...input,kind:'prepare'});assert.equal(prepared.quote.paymentMethods.some(m=>m.kind==='reward'),false);await runtime.complete(host,cart.cookie,{...input,kind:'complete',paymentKind:'reward',expectedQuoteDigest:prepared.quoteDigest});},error=>['invalid_input','payment_unavailable','price_changed','unavailable'].includes(error?.code));assert.equal(Number(sql(`SELECT stock_quantity FROM saas.product_variants WHERE id='${variant}'`)),beforeStock);assert.equal(Number(sql(`SELECT count(*)FROM saas.orders WHERE store_id='${store}'`)),beforeOrders);
  });
- console.log(JSON.stringify({passed,failed:failures.length,postgresqlMajor:16,externalConnections:0,productionMutations:0,sources,failures}));if(failures.length)process.exitCode=1;
+ console.log(JSON.stringify({passed,failed:failures.length,postgresqlMajor:16,externalConnections:0,productionMutations:0,sources,historicalConsumer,failures}));if(failures.length)process.exitCode=1;
 }finally{await pool?.end();pg.stop();}

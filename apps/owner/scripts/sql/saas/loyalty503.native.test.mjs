@@ -8,7 +8,10 @@ const dir=import.meta.dirname,pg=startDisposablePostgres({database:'loyalty503_n
 try{
  applyBaseline(sql,dir);
  for(const f of readdirSync(dir).filter(f=>/^\d{12}/.test(f)&&Number(f.slice(8,12))>227&&Number(f.slice(8,12))<=502&&/(?:\.up|\.seed|\.freeze|_grants)\.sql$/.test(f)).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12))||a.localeCompare(b)))sql(readFileSync(path.join(dir,f),'utf8'));
+ const bootstrapV4Snapshot="SELECT jsonb_build_object('oid',p.oid,'definition',pg_get_functiondef(p.oid),'owner',p.proowner,'acl',p.proacl,'config',p.proconfig,'securityDefiner',p.prosecdef,'volatility',p.provolatile,'strict',p.proisstrict,'parallel',p.proparallel)FROM pg_proc p WHERE p.oid='saas.in_store_sales_bootstrap_v4(uuid,uuid,uuid,uuid,text,bigint,timestamptz)'::regprocedure";
+ const bootstrapV4Before=sql(bootstrapV4Snapshot);
  const file=path.join(dir,'202611040503_loyalty_checkout_pos.up.sql');if(!process.argv.includes('--baseline-red')&&existsSync(file))sql(readFileSync(file,'utf8'));
+ assert.equal(sql(bootstrapV4Snapshot),bootstrapV4Before,'native-first rollout must preserve the historical V4 bootstrap definition, OID, ACL and metadata');
  assert.equal(sql("SELECT count(*) FROM information_schema.columns WHERE table_schema='saas' AND table_name='in_store_staff_grants' AND column_name='can_manage_loyalty' AND column_default='false' AND is_nullable='NO'"),'1');
  assert.equal(sql('SELECT count(*) FROM saas.in_store_staff_grants WHERE can_manage_loyalty'),'0');console.log('PASS existing cashier grants default to no loyalty authority');
  assert.equal(sql("SELECT saas.loyalty_pos_authority_error_v1(NULL,NULL,NULL,NULL,NULL,NULL,'2026-11-04T12:00:00Z') IS NOT NULL"),'t');console.log('PASS forged POS authority is denied before customer data');
@@ -17,7 +20,7 @@ try{
  assert.equal(sql("SELECT has_function_privilege('celebix_saas_app','saas.loyalty_pos_bind_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,text)','EXECUTE')"),'f');
  console.log('PASS only the authenticated command can bind a verified POS approval');
  sql(readFileSync(path.join(dir,'202611040503_loyalty_checkout_pos_assertions.sql'),'utf8'));
- sql(readFileSync(file,'utf8'));sql(readFileSync(path.join(dir,'202611040503_loyalty_checkout_pos.down.sql'),'utf8'));assert.equal(sql("SELECT count(*)FROM information_schema.columns WHERE table_schema='saas'AND table_name='in_store_staff_grants'AND column_name='can_manage_loyalty'"),'0');sql(readFileSync(file,'utf8'));sql(readFileSync(path.join(dir,'202611040503_loyalty_checkout_pos_assertions.sql'),'utf8'));console.log('PASS exact migration reapply and empty-state rollback restore the original native interfaces');
+ sql(readFileSync(file,'utf8'));sql(readFileSync(path.join(dir,'202611040503_loyalty_checkout_pos.down.sql'),'utf8'));assert.equal(sql("SELECT count(*)FROM information_schema.columns WHERE table_schema='saas'AND table_name='in_store_staff_grants'AND column_name='can_manage_loyalty'"),'0');assert.equal(sql("SELECT to_regprocedure('saas.in_store_sales_bootstrap_v5(uuid,uuid,uuid,uuid,text,bigint,timestamptz)')IS NULL"),'t');assert.equal(sql(bootstrapV4Snapshot),bootstrapV4Before);sql(readFileSync(file,'utf8'));sql(readFileSync(path.join(dir,'202611040503_loyalty_checkout_pos_assertions.sql'),'utf8'));console.log('PASS exact migration reapply and empty-state rollback restore the original native interfaces');
  const id=n=>`50300000-0000-4000-8000-${String(n).padStart(12,'0')}`,lit=x=>`'${String(x).replaceAll("'","''")}'`,json=x=>`${lit(JSON.stringify(x))}::jsonb`,at=new Date(Date.now()+86400000).toISOString(),owned=q=>sql('SET ROLE celebix_saas_owner;'+q),read=q=>JSON.parse(sql(q)),rpc=(name,args)=>read(`SET ROLE celebix_saas_owner;SELECT jsonb_build_object('outcome',outcome,'result',result_payload)FROM saas.${name}(${args})`);
  const store=id(1),principal=id(2),member=id(3),customer=id(4),account=id(5),product=id(6),variant=id(7),sale=id(8),cart=id(9),host='loyalty503.saas-staging.celebix.site';
  const plan=read("SELECT to_jsonb(p)FROM(SELECT id,plan_code,version FROM saas.plans WHERE plan_code='professional'AND status='active'ORDER BY version DESC LIMIT 1)p");assert.ok(plan);
@@ -32,6 +35,12 @@ try{
  SELECT set_config('saas.inventory.source_marker','catalog_adjustment',false);SELECT set_config('saas.inventory.source_id','${id(11)}',false);SELECT set_config('saas.inventory.source_time','${at}',false);
  INSERT INTO saas.product_variants(id,store_id,product_id,title,price_cents,cost_cents,stock_tracking,stock_quantity,status,created_at,updated_at)VALUES('${variant}','${store}','${product}','Standard',10000,3000,true,10,'active','${at}','${at}');
  UPDATE saas.accounting_release_state SET manual_sales_v4_enabled=true,credit_sales_enabled=true;`);
+ const oldBootstrap=rpc('in_store_sales_bootstrap_v4',authority),loyaltyBootstrap=rpc('in_store_sales_bootstrap_v5',authority);
+ assert.equal(oldBootstrap.outcome,'found');assert.equal(Object.hasOwn(oldBootstrap.result.permissions,'canManageLoyalty'),false);
+ assert.equal(loyaltyBootstrap.outcome,'found');assert.equal(loyaltyBootstrap.result.permissions.canManageLoyalty,true);
+ assert.deepEqual({...loyaltyBootstrap.result,permissions:oldBootstrap.result.permissions},oldBootstrap.result);
+ assert.equal(sql("SELECT has_function_privilege('celebix_saas_app','saas.in_store_sales_bootstrap_v5(uuid,uuid,uuid,uuid,text,bigint,timestamptz)','EXECUTE')AND NOT has_function_privilege('celebix_saas_host_resolver','saas.in_store_sales_bootstrap_v5(uuid,uuid,uuid,uuid,text,bigint,timestamptz)','EXECUTE')"),'t');
+ console.log('PASS historical bootstrap V4 stays exact while app-only V5 adds loyalty permission');
  const config={schemaVersion:1,template:'product_gift',target:5,eligibleProductIds:[],reward:{kind:'gift',variantId:variant,quantity:1},minimumBasketMinor:0,rewardMinimumBasketMinor:0,channels:['storefront','in_store','manual'],startsAt:null,endsAt:null,timezone:'Europe/Istanbul',repeat:true,maxOncePerDay:false,allowMultiplePrograms:false,allowCombination:false,progressExpiryDays:null,rewardExpiryDays:null};
  const saved=rpc('loyalty_admin_command_v1',`${authority},'save','${id(12)}',${json({name:'Five coffees',enabled:true,config})}`);assert.equal(saved.outcome,'committed',JSON.stringify(saved));const program=saved.result.program.id;
  owned(`SELECT saas.loyalty_apply_effect_v1('${store}','${program}',1,'${account}','${customer}','${id(13)}',10,'${at}','fixture','{}')`);

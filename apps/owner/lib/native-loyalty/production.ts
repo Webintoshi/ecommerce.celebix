@@ -20,6 +20,7 @@ export async function initializeLoyaltyProductionRuntime(database:OwnerStagingAu
     AND to_regclass('saas.loyalty504_functions') IS NOT NULL
     AND to_regprocedure('saas.loyalty504_captured_group_v1(uuid,uuid,uuid,timestamp with time zone)') IS NOT NULL
     AND to_regprocedure('saas.loyalty_pos_projection_v1(uuid,uuid,jsonb)') IS NOT NULL
+    AND to_regprocedure('saas.in_store_sales_bootstrap_v5(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)') IS NOT NULL
     AND EXISTS(SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid=to_regclass('saas.in_store_staff_grants')AND attname='can_manage_loyalty'AND NOT attisdropped)
     AND has_function_privilege(current_user,'saas.loyalty_process_pending_v1(timestamp with time zone,integer)','EXECUTE') AS loyalty_lifecycle
     FROM pg_catalog.pg_roles session WHERE session.rolname=session_user`);

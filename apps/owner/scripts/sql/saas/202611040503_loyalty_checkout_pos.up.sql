@@ -178,8 +178,12 @@ SELECT CASE WHEN base IS NULL THEN NULL ELSE base||coalesce((SELECT jsonb_build_
 $f$;
 DO $projection$BEGIN
  PERFORM saas.loyalty503_patch('saas.in_store_sales_projection_v4(uuid,uuid)',jsonb_build_array(jsonb_build_array(' SELECT saas.in_store_projection_v4_value(', ' SELECT saas.loyalty_pos_projection_v1(p_store,p_sale,saas.in_store_projection_v4_value('),jsonb_build_array(' FROM saas.in_store_sales s WHERE s.store_id=p_store AND s.id=p_sale',') FROM saas.in_store_sales s WHERE s.store_id=p_store AND s.id=p_sale')));
- PERFORM saas.loyalty503_patch('saas.in_store_sales_bootstrap_v4(uuid,uuid,uuid,uuid,text,bigint,timestamp with time zone)',jsonb_build_array(jsonb_build_array('''canManageStaff'',manager,','''canManageStaff'',manager,''canManageLoyalty'',saas.loyalty_pos_authority_error_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now)IS NULL,')));
 END $projection$;
+
+CREATE OR REPLACE FUNCTION saas.in_store_sales_bootstrap_v5(p_store_id uuid,p_principal_id uuid,p_membership_id uuid,p_plan_id uuid,p_plan_code text,p_plan_version bigint,p_now timestamptz)RETURNS TABLE(outcome text,result_payload jsonb)LANGUAGE sql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
+SELECT r.outcome,CASE WHEN r.outcome='found'THEN jsonb_set(r.result_payload,'{permissions,canManageLoyalty}',to_jsonb(saas.loyalty_pos_authority_error_v1(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now)IS NULL))ELSE r.result_payload END
+FROM saas.in_store_sales_bootstrap_v4(p_store_id,p_principal_id,p_membership_id,p_plan_id,p_plan_code,p_plan_version,p_now)r
+$f$;
 
 CREATE OR REPLACE FUNCTION saas.in_store_staff_projection_v9(p_store uuid,p_member uuid)RETURNS jsonb LANGUAGE sql STABLE SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
 SELECT saas.in_store_staff_projection_v8(p_store,p_member)||jsonb_build_object('canManageLoyalty',coalesce((SELECT can_manage_loyalty FROM saas.in_store_staff_grants WHERE store_id=p_store AND membership_id=p_member),false))
@@ -405,10 +409,10 @@ CREATE CONSTRAINT TRIGGER loyalty_pos_order_binding AFTER UPDATE ON saas.in_stor
 
 DO $acl$DECLARE f record;r record;BEGIN
  FOR r IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'celebix_saas_%'AND rolname<>'celebix_saas_owner'LOOP EXECUTE format('REVOKE ALL ON saas.loyalty_checkout_authorizations FROM %I',r.rolname);END LOOP;
- FOR f IN SELECT oid,proname FROM pg_proc WHERE pronamespace='saas'::regnamespace AND(proname LIKE 'loyalty_pos_%'OR proname LIKE 'loyalty_checkout_%'OR proname IN('public_storefront_checkout_prepare_quote_v5','loyalty_reward_held_v1','loyalty_code_allowed_v1','loyalty503_patch','in_store_staff_projection_v9','in_store_sales_list_staff_v9','in_store_sales_set_staff_v9','in_store_sales_recover_staff_v9'))LOOP
+ FOR f IN SELECT oid,proname FROM pg_proc WHERE pronamespace='saas'::regnamespace AND(proname LIKE 'loyalty_pos_%'OR proname LIKE 'loyalty_checkout_%'OR proname IN('public_storefront_checkout_prepare_quote_v5','loyalty_reward_held_v1','loyalty_code_allowed_v1','loyalty503_patch','in_store_sales_bootstrap_v5','in_store_staff_projection_v9','in_store_sales_list_staff_v9','in_store_sales_set_staff_v9','in_store_sales_recover_staff_v9'))LOOP
   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC',f.oid::regprocedure);
   FOR r IN SELECT rolname FROM pg_roles WHERE rolname LIKE 'celebix_saas_%'AND rolname<>'celebix_saas_owner'LOOP EXECUTE format('REVOKE ALL ON FUNCTION %s FROM %I',f.oid::regprocedure,r.rolname);END LOOP;
-  IF f.proname IN('in_store_sales_list_staff_v9','in_store_sales_set_staff_v9','in_store_sales_recover_staff_v9')THEN EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO celebix_saas_app',f.oid::regprocedure);END IF;
+  IF f.proname IN('in_store_sales_bootstrap_v5','in_store_sales_list_staff_v9','in_store_sales_set_staff_v9','in_store_sales_recover_staff_v9')THEN EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO celebix_saas_app',f.oid::regprocedure);END IF;
   IF f.proname='public_storefront_checkout_prepare_quote_v5'THEN EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO celebix_saas_host_resolver',f.oid::regprocedure);END IF;
  END LOOP;
  UPDATE saas.loyalty503_functions SET patched_hash=encode(sha256(convert_to(pg_get_functiondef(identity::regprocedure),'UTF8')),'hex');

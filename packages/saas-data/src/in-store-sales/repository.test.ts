@@ -130,6 +130,18 @@ test("POS bootstrap hydrates every sale group once for a repeated product varian
  assert.deepEqual(result.summary,original.summary);
 });
 
+test('loyalty bootstrap uses V5 while older sale contracts retain their exact native versions',async()=>{
+ for(const contractVersion of [1,2,3,4]as const){
+  const permissions={canSell:true,canDiscount:true,discountLimitBps:9999,canResolve:true,canManageStaff:true,...(contractVersion>=2?{canEditPrice:true}:{}),...(contractVersion>=3?{canSellOnCredit:true,canCollectReceivables:true,creditSalesAvailable:true}:{}),...(contractVersion===4?{manualSalesV4Available:true,canManageLoyalty:true}:{})};
+  const original={scopeKey:`${STORE}:${MEMBERSHIP}`,locations:[{id:LOCATION,name:'Mağaza',isDefault:true}],permissions,activeDraft:null,heldSales:[],pendingSales:[],recentSales:[],summary:{completedCount:0,grossCents:0,discountCents:0,netCents:0,pendingPaymentCount:0}};
+  const client=new Client({outcome:'found',result_payload:original});
+  assert.deepEqual((await repo(client).bootstrap({...authority(),contractVersion})).permissions,permissions);
+  const query=client.queries.find(q=>q.text.includes('FROM saas.in_store_sales_bootstrap'))!;
+  assert.match(query.text,new RegExp(`FROM saas.in_store_sales_bootstrap${contractVersion===4?'_v5':contractVersion===1?'':`_v${contractVersion}`}\\(`));
+  assert.equal(query.values?.length,7);
+ }
+});
+
 test('v3 prepares bank transfer credit with a separate fingerprint and exact frozen collection fields',async()=>{
  const customer={id:PRODUCT,name:'Ali Veli',firstName:'Ali',lastName:'Veli',phone:'+905551234567',email:null,archived:false};const old=sale();
  const v3={...old,contractVersion:3,customerId:customer.id,customer,customerName:customer.name,initialCollectionCents:5000,dueDate:'2026-11-01',finance:null,paymentMethod:'bank_transfer',items:old.items.map(i=>({...i,catalogUnitPriceCents:i.unitPriceCents,unitPriceOverrideCents:null,priceOverrideActorMembershipId:null}))};
