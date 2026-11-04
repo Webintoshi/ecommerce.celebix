@@ -197,7 +197,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
                 </button>
               </div>
               <div className={styles.drawerNavigation} onClick={handleNavigationClick}>
-                <PanelNavigation mode="drawer" analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOverviewAvailable={model.cashierOverviewAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
+                <PanelNavigation mode="drawer" commerceNavigationAvailable={model.commerceNavigationAvailable} analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOverviewAvailable={model.cashierOverviewAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
               </div>
               <SidebarFooter homeHref={homeHref} onBrandClick={onClose} />
             </motion.aside>
@@ -210,7 +210,7 @@ export function PanelSidebar({ model, mode, open = false, onClose, onRestoreFocu
   return (
     <aside className={styles.desktopSidebar}>
       <StoreIdentity model={model} />
-      <PanelNavigation mode={mode} analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOverviewAvailable={model.cashierOverviewAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
+      <PanelNavigation mode={mode} commerceNavigationAvailable={model.commerceNavigationAvailable} analyticsAvailable={model.analyticsAvailable} navigationMode={model.navigationMode} staffManagementAvailable={model.staffManagementAvailable} cashierOverviewAvailable={model.cashierOverviewAvailable} cashierOrdersAvailable={model.cashierOrdersAvailable} cashierAccountingAvailable={model.cashierAccountingAvailable} accountingCommissionsAvailable={model.accountingCommissionsAvailable} lockedNavigationHrefs={model.lockedNavigationHrefs} />
       <SidebarFooter homeHref={homeHref} />
     </aside>
   );

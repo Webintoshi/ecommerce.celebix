@@ -13,6 +13,7 @@ export interface PanelPublicChromeModel {
   readonly cashierOrdersAvailable?: boolean;
   readonly cashierAccountingAvailable?: boolean;
   readonly accountingCommissionsAvailable?: boolean;
+  readonly commerceNavigationAvailable?: boolean;
 }
 
 export interface PanelClientStoreOption {

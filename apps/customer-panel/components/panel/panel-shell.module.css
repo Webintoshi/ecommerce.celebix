@@ -1405,3 +1405,15 @@
 
 .navigationLock { display: inline-flex; align-items: center; flex-shrink: 0; margin-left: auto; opacity: .7; }
 .navigationLock svg { width: 12px; height: 12px; }
+.commerceNavigation .navigationQuickSale { flex-shrink: 0; padding: 0 0.75rem 0.25rem; }
+.commerceNavigation .navigationQuickSale .navigationLink { background: var(--cp-brand); color: #201C19; font-weight: 700; }
+.commerceNavigation .navigationQuickSale .navigationLink:hover { background: var(--cp-brand); filter: brightness(0.96); }
+.commerceNavigation .navigationQuickSale .iconBox { color: #201C19; }
+.commerceNavigation .navigationSectionLabel small { font-size: 0.6875rem; font-weight: 400; }
+.commerceNavigation .navigationChildren { max-height: none; overflow: visible; }
+.commerceNavigation .navigationNestedGroup .navigationGroupLabel { min-height: 40px; padding: 0.375rem 0.5rem; }
+.commerceNavigation .navigationNestedGroup .navigationGroupHeader { gap: 0; }
+.commerceNavigation .navigationNestedGroup .navigationGroupToggle { min-width: 32px; }
+.commerceNavigation .navigationNestedGroup .navigationChildren { margin-left: 0.5rem; }
+.commerceNavigation .navigationNestedGroup .navigationGroupLabel .iconBox { display: none; }
+.commerceNavigation .navigationNestedGroup .navigationLabel { font-size: 0.8125rem; }

@@ -8,6 +8,7 @@ import { resolveDefaultPanelStoreOptions } from "@/lib/panel-store-options/defau
 import { resolveDefaultPanelStoreBranding } from "@/lib/server-panel-branding/default";
 import { PanelLayoutClient } from "./PanelLayoutClient";
 import { commercialNavigationLocks } from "@/lib/commercial-packages/route-model";
+import { isCommerceNavigationStoreEnabled } from "@/lib/panel-ui/commerce-navigation";
 
 const SERVER_CONTEXT_PROP = "tenant\u0043ontext" as const;
 
@@ -32,6 +33,8 @@ export async function PanelShell(props: PanelShellProps) {
   const activeStoreName = storeOptions?.find((store) => store.selectionKey === context?.store.id)?.displayName;
   const model = Object.freeze({
     ...entitledModel,
+    ...(context && isCommerceNavigationStoreEnabled(context.store.slug, process.env.CELEBIX_PANEL_COMMERCE_NAV_STORES)
+      ? { commerceNavigationAvailable: true } : {}),
     analyticsAvailable,
     accountingCommissionsAvailable: context?.membership.role === "store_owner" || context?.membership.role === "admin",
     cashierOrdersAvailable: context?.membership.role === "cashier" && props.ordersAccess?.canManageOrders === true,

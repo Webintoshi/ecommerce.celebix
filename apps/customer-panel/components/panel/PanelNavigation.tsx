@@ -77,6 +77,7 @@ import {
   type PanelNavigationItem,
 } from "@/lib/panel-ui/navigation";
 import styles from "./panel-shell.module.css";
+import { createCommerceNavigation } from "@/lib/panel-ui/commerce-navigation";
 
 const CommercialLocks = createContext<readonly string[]>([]);
 function NavigationLock({ href }: { href: string }) {
@@ -188,6 +189,46 @@ function findNavigationMatches(navigation: readonly PanelNavigationItem[], searc
     }
   }
   return matches;
+}
+
+const COMMERCE_SEARCH_ALIASES: Partial<Record<PanelNavigationHref, string>> = {
+  "/orders/quick-links": "manuel satış yeni satış kasiyer telefon sosyal sipariş",
+  "/products/attributes": "beden renk ağırlık ölçü nitelik",
+  "/products/stock": "stok depo sayım taşıma satın alma",
+  "/products/price-lists": "fiyat liste fiyatlandırma",
+  "/products/barcode-labels": "barkod etiket yazdır",
+  "/accounting/accounts": "kasa banka para",
+};
+
+function commerceEntries(items: readonly PanelNavigationItem[]): readonly PanelNavigationItem[] {
+  return items.flatMap(item => [item, ...commerceEntries(item.children ?? [])]);
+}
+
+function commerceContainsHref(item: PanelNavigationItem, currentHref: PanelNavigationHref | undefined): boolean {
+  return currentHref !== undefined && commerceEntries([item]).some(entry => entry.href === currentHref);
+}
+
+function findCommerceMatches(items: readonly PanelNavigationItem[], searchTerm: string) {
+  const seen = new Set<PanelNavigationHref>();
+  const matches: Array<{ item: PanelNavigationItem; context?: string }> = [];
+  const visit = (entries: readonly PanelNavigationItem[], context?: string) => {
+    for (const item of entries) {
+      if (normalizeSearch(`${getSidebarLabel(item)} ${COMMERCE_SEARCH_ALIASES[item.href] ?? ""}`).includes(searchTerm) && !seen.has(item.href)) {
+        seen.add(item.href); matches.push({ item, context });
+      }
+      visit(item.children ?? [], getSidebarLabel(item));
+    }
+  };
+  visit(items);
+  return matches;
+}
+
+function getCommerceCurrentHref(pathname: string, items: readonly PanelNavigationItem[]) {
+  let current: PanelNavigationHref | undefined;
+  for (const item of commerceEntries(items)) {
+    if (isPanelNavigationPathActive(pathname, item.href) && (!current || item.href.length > current.length)) current = item.href;
+  }
+  return current;
 }
 
 function getCurrentNavigationHref(
@@ -305,6 +346,39 @@ function NavigationEntry({
   );
 }
 
+function CommerceNavigationEntry({ item, pathname, currentHref, mode, depth = 0 }: {
+  item: PanelNavigationItem;
+  pathname: string;
+  currentHref: PanelNavigationHref | undefined;
+  mode: "desktop" | "drawer";
+  depth?: number;
+}) {
+  const active = commerceContainsHref(item, currentHref);
+  const [expansion, setExpansion] = useState({ pathname, open: active });
+  let open = expansion.open;
+  if (expansion.pathname !== pathname) {
+    open = active;
+    setExpansion({ pathname, open });
+  }
+  if (!item.children?.length) return <NavigationLink item={item} currentHref={currentHref} />;
+  const label = getSidebarLabel(item);
+  const Icon = ICONS[item.icon];
+  const childrenId = `panel-commerce-nav-${item.key}-${mode}`;
+  const parentCurrent = currentHref === item.href && !commerceEntries(item.children).some(child => child.href === item.href);
+  return <div className={`${styles.navigationGroup} ${depth ? styles.navigationNestedGroup : ""}`}>
+    <div className={styles.navigationGroupHeader}>
+      <Link href={item.href} className={`${styles.navigationGroupLabel} ${parentCurrent ? styles.navigationGroupActive : ""} ${active ? styles.navigationGroupInPath : ""}`} aria-current={parentCurrent ? "page" : undefined}>
+        <span className={styles.iconBox}><Icon aria-hidden="true" /></span>
+        <span className={styles.navigationLabel}>{label}</span><NavigationLock href={item.href} />
+      </Link>
+      <button type="button" className={styles.navigationGroupToggle} aria-label={`${label} alt menüsünü ${open ? "kapat" : "aç"}`} aria-expanded={open} aria-controls={childrenId} onClick={() => setExpansion({ pathname, open: !open })}><ChevronDown aria-hidden="true" /></button>
+    </div>
+    <div id={childrenId} className={styles.navigationChildren} hidden={!open}>
+      {item.children.map(child => <CommerceNavigationEntry key={child.key} item={child} pathname={pathname} currentHref={currentHref} mode={mode} depth={depth + 1} />)}
+    </div>
+  </div>;
+}
+
 export function PanelNavigation({
   mode,
   analyticsAvailable = false,
@@ -315,6 +389,7 @@ export function PanelNavigation({
   cashierAccountingAvailable = false,
   accountingCommissionsAvailable = false,
   lockedNavigationHrefs = [],
+  commerceNavigationAvailable = false,
 }: {
   mode: "desktop" | "drawer";
   analyticsAvailable?: boolean;
@@ -325,6 +400,7 @@ export function PanelNavigation({
   cashierAccountingAvailable?: boolean;
   accountingCommissionsAvailable?: boolean;
   lockedNavigationHrefs?: readonly string[];
+  commerceNavigationAvailable?: boolean;
 }) {
   const pathname = usePathname() ?? "";
   const navigation = getPanelNavigation({ analyticsAvailable, navigationMode, cashierOverviewAvailable, cashierOrdersAvailable, cashierAccountingAvailable, accountingCommissionsAvailable }).filter(({ key }) => key !== "setup").map((item) => ({
@@ -333,13 +409,15 @@ export function PanelNavigation({
       .filter((child) => child.href !== "/settings/administrators" || staffManagementAvailable)
       .map((child) => child.href === "/settings/administrators" ? { ...child, label: "Personel" } : child) } : {}),
   }));
-  const currentHref = getCurrentNavigationHref(pathname, navigation);
+  const commerce = commerceNavigationAvailable === true && navigationMode !== "register" ? createCommerceNavigation(navigation) : null;
+  const commerceNavigation = commerce ? [...(commerce.quickSale ? [commerce.quickSale] : []), ...commerce.sections.flatMap(section => section.items)] : [];
+  const currentHref = commerce ? getCommerceCurrentHref(pathname, commerceNavigation) : getCurrentNavigationHref(pathname, navigation);
   const searchRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLElement>(null);
   const [query, setQuery] = useState("");
   const searchTerm = normalizeSearch(query);
   const navigationByKey = new Map(navigation.map((item) => [item.key, item]));
-  const searchResults = searchTerm ? findNavigationMatches(navigation, searchTerm) : [];
+  const searchResults = searchTerm ? (commerce ? findCommerceMatches(commerceNavigation, searchTerm) : findNavigationMatches(navigation, searchTerm)) : [];
   const activeGroupKeys = navigation.filter((item) => (
     item.children?.length && isPanelNavigationPathActive(pathname, item.href)
   )).map(({ key }) => key);
@@ -386,7 +464,7 @@ export function PanelNavigation({
   }
 
   return (
-    <CommercialLocks.Provider value={lockedNavigationHrefs}><div className={styles.navigationShell}>
+    <CommercialLocks.Provider value={lockedNavigationHrefs}><div className={`${styles.navigationShell} ${commerce ? styles.commerceNavigation : ""}`}>
       <div className={styles.navigationSearch}>
         <Search aria-hidden="true" />
         <input
@@ -401,6 +479,7 @@ export function PanelNavigation({
         />
         {!query ? <kbd aria-hidden="true">⌘ K</kbd> : null}
       </div>
+      {commerce?.quickSale ? <div className={styles.navigationQuickSale}><NavigationLink item={commerce.quickSale} currentHref={currentHref} /></div> : null}
       <nav className={styles.navigation} aria-label={mode === "drawer" ? "Mobil panel menüsü" : "Panel menüsü"}>
         {searchTerm ? (
           <section ref={resultsRef} className={styles.navigationSection} aria-label="Arama sonuçları">
@@ -409,7 +488,13 @@ export function PanelNavigation({
               <NavigationLink key={item.key} item={item} currentHref={currentHref} context={context} />
             )) : <p className={styles.navigationEmpty}>Sonuç bulunamadı. Başka bir kelime deneyin.</p>}
           </section>
-        ) : (navigationMode === 'register' ? [{key:'register',label:'Mağaza',items:['summary','orders','quick-orders','cashier-receivables','accounting','analytics','catalog']}] : NAVIGATION_SECTIONS).map((section) => {
+        ) : commerce ? commerce.sections.map(section => {
+          const headingId = `panel-commerce-section-${section.key}-${mode}`;
+          return <section className={styles.navigationSection} aria-labelledby={headingId} key={section.key}>
+            <span id={headingId} className={styles.navigationSectionLabel}>{section.label}{section.subtitle ? <small> · {section.subtitle}</small> : null}</span>
+            {section.items.map(item => <CommerceNavigationEntry key={item.key} item={item} pathname={pathname} currentHref={currentHref} mode={mode} />)}
+          </section>;
+        }) : (navigationMode === 'register' ? [{key:'register',label:'Mağaza',items:['summary','orders','quick-orders','cashier-receivables','accounting','analytics','catalog']}] : NAVIGATION_SECTIONS).map((section) => {
           const sectionItems = section.items.map((key) => navigationByKey.get(key)).filter((item): item is PanelNavigationItem => Boolean(item));
           if (!sectionItems.length) return null;
           const headingId = `panel-nav-section-${section.key}-${mode}`;
