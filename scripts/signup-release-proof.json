@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "20420f8e38dee72d2248754e9eb99904b821c79fde0066c2f04e06a972a59fc0",
+  "inputDigest": "cdc299a6455d963ecfe66fdb9919114ce58dac46f8a80e41735d93b34c458159",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -821,7 +821,7 @@
     },
     {
       "path": "apps/owner/instrumentation.ts",
-      "sha256": "0397e83a6e51852eac675e6143d0c564bee933b72fa586c4e35739a845f731ec"
+      "sha256": "0fadad1deeb2023993503d0185bfd9eecdbb18e23ad33696217e32fc60d0ab89"
     },
     {
       "path": "apps/owner/lib/admin-deployment-coolify.ts",
@@ -990,6 +990,18 @@
     {
       "path": "apps/owner/lib/merchant-whatsapp/service.ts",
       "sha256": "0678cd0682b2bfce682598363163896033be05a757c94f155ba115bb6bd7755c"
+    },
+    {
+      "path": "apps/owner/lib/native-loyalty/default.ts",
+      "sha256": "2c978ed588b4d43898f6e9bce39c9f6802438b2ddb0b82d858acc2f9253cbf99"
+    },
+    {
+      "path": "apps/owner/lib/native-loyalty/production.ts",
+      "sha256": "bd83d0597b4e194bfe26a6c552a0b9085afd06c580b2e9d20638bbbe74161234"
+    },
+    {
+      "path": "apps/owner/lib/native-loyalty/worker.ts",
+      "sha256": "b5149a7f80d732c638d710fa51ca4d013ab42bbe78a071ef2c207de1ead20655"
     },
     {
       "path": "apps/owner/lib/native-marketing/config.ts",
@@ -2916,12 +2928,28 @@
       "sha256": "d2c1f549df80e693a237dc55ecd9aecd8c5035d8266d349982aa7d8a92de91cb"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202610290290_storefront_product_review_summaries.up.sql",
+      "sha256": "0666425208a318246baa7bad3f0c046d29976ca295cdf280af9eb98eb6b7bb92"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/202610300291_customer_current_identity.up.sql",
       "sha256": "266bb95b30a3e089ec05c24b4d77c7a6e044b35f664badcae8399396db347650"
     },
     {
       "path": "apps/owner/scripts/sql/saas/202611030501_toshi_test_retirement.up.sql",
       "sha256": "4eca250efcbdd17a7fd6459f1b4810b29ef4121d32f4156042152dfbf72ff606"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202611040502_loyalty_programs.up.sql",
+      "sha256": "69a87fd9d378250892214abb660c36d966c0e36411007ab1534bb7169f34e1a4"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202611040503_loyalty_checkout_pos.up.sql",
+      "sha256": "adcfeae065ee5004bc636440cb64ea9078ef53424648b7db1260a275de152c2e"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202611040504_loyalty_bank_settlement.up.sql",
+      "sha256": "d872b5233e8302111aa26be209f6f508cb99094a09a65e9c9fff8c1ce2d3002f"
     },
     {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
@@ -2958,6 +2986,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/email-marketing-connections.up.sql",
       "sha256": "9ca7571f3cb877b13c4bb0e9516687772afa6650bd67c74076ab5e97255b8fbf"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/loyalty-actual-baseline.mjs",
+      "sha256": "66a8704360c6741e60784d7d712628b48455177197a95ec6753e53be87e6d5dd"
     },
     {
       "path": "apps/owner/scripts/sql/saas/order-delete-quotes277-manifest.json",
@@ -3453,7 +3485,7 @@
     },
     {
       "path": "apps/storefront-shared/package.json",
-      "sha256": "d212b1fdf96f99f6aa9526af139f380e79170d7f96f0deb1c79bab41309bb06a"
+      "sha256": "5a9e1198fce337c7e3dc64502eec7825d7cb20cff5189e750fab0c86fc023948"
     },
     {
       "path": "apps/storefront-test1/package.json",
@@ -3465,7 +3497,7 @@
     },
     {
       "path": "package-lock.json",
-      "sha256": "b5ca8769a7e0bb74034cb8c167b0622f878ea3a8aef608487d935211820421fa"
+      "sha256": "c0711d80c4c7fe6f40642f809c771bb3e7cad7e7b7a5fa3dea3b14ed07feee20"
     },
     {
       "path": "package.json",
@@ -3957,15 +3989,15 @@
     },
     {
       "path": "packages/saas-contracts/src/in-store-sales/types.ts",
-      "sha256": "ab07e3b607cdbee4592fbc3c3dd01c53dfa3fc7ce5dbcd269772f0fad36de36c"
+      "sha256": "0e68403efdf197fac731cf0f505c29ae6d4d8e2c3fe22fb3c69d87a3ba5f4c11"
     },
     {
       "path": "packages/saas-contracts/src/in-store-sales/validation.ts",
-      "sha256": "b1575ba95a967e4540e430469ae28e7ac1c2d04ce8857f959b9b13cf2930ac13"
+      "sha256": "8db8ef496b21d6f609edc090c24d64d6cbdd25cb9dd935f1a92662ea5b31a502"
     },
     {
       "path": "packages/saas-contracts/src/index.ts",
-      "sha256": "dff565b0cd2b112274f8b8a53da8abab529b1a41540aa94624c019802f3eaa72"
+      "sha256": "258b6b0d3ec578132044560dc4bbec90f43124d0b721962598908182c49bec6f"
     },
     {
       "path": "packages/saas-contracts/src/inventory/index.ts",
@@ -3978,6 +4010,18 @@
     {
       "path": "packages/saas-contracts/src/inventory/validation.ts",
       "sha256": "49c44aea5a25e7d2f935e2c340dd2ab60e5275feec175707a5de7ffbc49249e4"
+    },
+    {
+      "path": "packages/saas-contracts/src/loyalty/index.ts",
+      "sha256": "f4f928c9b1b8c1345c829a44b89d05f847b057051aff05ce6d8cd8b98ed897c2"
+    },
+    {
+      "path": "packages/saas-contracts/src/loyalty/types.ts",
+      "sha256": "7d1e6b1d45f7de5fed7662ff6fe16fbee7c7cae29c01b21e21881d00ac924aba"
+    },
+    {
+      "path": "packages/saas-contracts/src/loyalty/validation.ts",
+      "sha256": "89fd458b84caced57ab6a0dc72c03878040c8c2baf63379633c45e8f33cc7733"
     },
     {
       "path": "packages/saas-contracts/src/lucky-wheel/index.ts",
@@ -4253,7 +4297,7 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/commerce.ts",
-      "sha256": "b3efd4de2ecaa3939df3036bba9c7f13b2f7778caa7c5de781dce0204a7137cd"
+      "sha256": "39bed67661e02ff2004af8b9bd67b84e969c22052ce943985ff5c31d84b73f9d"
     },
     {
       "path": "packages/saas-contracts/src/storefront/index.ts",
@@ -4273,11 +4317,11 @@
     },
     {
       "path": "packages/saas-contracts/src/storefront/types.ts",
-      "sha256": "fedaa3a6a03ef29f89df236ce8ffd41333acadb7f40e685b20fc96b93afa4cbf"
+      "sha256": "62637269db1c404c2f64b1fe9ae5e2b45b6c5fe3952b44d446ce4a8431a41f0a"
     },
     {
       "path": "packages/saas-contracts/src/storefront/validation.ts",
-      "sha256": "e0bbe8542ffbb2bc0eba5fc1cd001f482cace2fb072919ab569fe208e449d324"
+      "sha256": "cb5582f7c1a8bbdcc55b38198c39e9e8156611896df574b4b26e9fd097ed5204"
     },
     {
       "path": "packages/saas-contracts/src/toshi/conversations.ts",
@@ -4833,15 +4877,15 @@
     },
     {
       "path": "packages/saas-data/src/in-store-sales/repository.ts",
-      "sha256": "dfa093367621247719c59c4a91126cea06e428c5d4de7a9d822c304e000b22f0"
+      "sha256": "19d6e6fd5c170b13f37caf16b336275b16e336f3bb0d511e0f027273236740f2"
     },
     {
       "path": "packages/saas-data/src/in-store-sales/types.ts",
-      "sha256": "a141b61e17ebdc8668e9926f2caa07524dd571f588f897608a07d630235d4ec4"
+      "sha256": "8135d5ca7360dc9d47bc6e625e3cf1e9008388e61ad14d4ec266c4e73ad564cb"
     },
     {
       "path": "packages/saas-data/src/index.ts",
-      "sha256": "319a7a7e1266723703e426f6a726d7fefd1ee48b20d416654f12f4a0552062c4"
+      "sha256": "07b372d215b18bd9f35e18d0e2f5ed07a9b59ff587e8d196ee875abcf58ab64c"
     },
     {
       "path": "packages/saas-data/src/inventory/canonical.ts",
@@ -4886,6 +4930,18 @@
     {
       "path": "packages/saas-data/src/iyzico-sandbox-evidence/validation.ts",
       "sha256": "cf10066e6dab1ee044315d129287ebae7c51128c2628adbce9f9c79c2245bb58"
+    },
+    {
+      "path": "packages/saas-data/src/loyalty/index.ts",
+      "sha256": "4d6a04683d54d1a12b7cb57bf446ae1d572d546692484d3976cac4a3d3b042a2"
+    },
+    {
+      "path": "packages/saas-data/src/loyalty/repository.ts",
+      "sha256": "094939d638caa13a3684fa0efed1da87feb18e9cd05972501b904781240133c9"
+    },
+    {
+      "path": "packages/saas-data/src/loyalty/types.ts",
+      "sha256": "59bb8ae8727c22dafe481265073fc49196d171fce8c7bca0b2843c7bdc285da6"
     },
     {
       "path": "packages/saas-data/src/lucky-wheel/index.ts",
@@ -5441,11 +5497,11 @@
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/repository.ts",
-      "sha256": "34a7b2d5ec5e30193ea6d1497c02f6f85d348b3d80509cc7cbc53bc6b5d6bf9f"
+      "sha256": "189829d0f4aa7495ed4098eed57279a33123704ee8620c53f5e3f4750065a583"
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/types.ts",
-      "sha256": "ad5ef4dbdfac9df29cb7094326ac7f6b4a7214e4bd448b49aee28f5d22864c90"
+      "sha256": "33f45082b82a9545da8fad10370894676aa1bce3424b1836e147db4d02c99843"
     },
     {
       "path": "packages/saas-data/src/storefront-commerce/validation.ts",
@@ -5461,7 +5517,7 @@
     },
     {
       "path": "packages/saas-data/src/storefront-content/repository.ts",
-      "sha256": "c2e58b0fb3b6dd6ad5b48fc8838b5716f89d51b8c5cd4fa618cc72e44b183493"
+      "sha256": "e36d3849796e2a13be3a621ec9e45b20c1a4169058a10c140774c18059f6916e"
     },
     {
       "path": "packages/saas-data/src/storefront-content/types.ts",
@@ -5544,8 +5600,12 @@
       "sha256": "83e14887d0f3cb6ea7146ffec88f84a6fd231a1992ae2fa1b9b801b788ea006a"
     },
     {
+      "path": "packages/saas-data/src/storefront/product-review-summaries.ts",
+      "sha256": "56ac31302234033e0ebf6453de1f0d60b34db39f3cdcb7dfd8c0bcda19cfb560"
+    },
+    {
       "path": "packages/saas-data/src/storefront/repository.ts",
-      "sha256": "b3bfbc72927ab9957c8f46cfec7b8d25674098552a3b4b3c8ea7a06330a4e10a"
+      "sha256": "8718d9fb95d002f5a3dec952692ae4dccbf06f5c069a1ea480054bdff1948659"
     },
     {
       "path": "packages/saas-data/src/storefront/types.ts",
