@@ -24,6 +24,7 @@ type Draft = Readonly<{
   canSellOnCredit: boolean;
   canCollectReceivables: boolean;
   canManageAccounting: boolean;
+  canManageLoyalty: boolean;
   canManageOrders: boolean;
   canViewOverview: boolean;
   commissionEnabled: boolean;
@@ -31,7 +32,7 @@ type Draft = Readonly<{
 }>;
 const percent = (bps: number) => String(bps / 100).replace('.', ',');
 function draftFor(grant: InStoreStaffGrant): Draft {
-  return { enabled: grant.enabled, locationIds: grant.locationIds, discount: percent(grant.discountLimitBps), canEditPrice: grant.canEditPrice === true, canSellOnCredit: grant.canSellOnCredit === true, canCollectReceivables: grant.version === 0 || grant.canCollectReceivables === true, canManageAccounting: grant.canManageAccounting === true, canManageOrders: grant.canManageOrders === true, canViewOverview: grant.canViewOverview === true, commissionEnabled: grant.commissionEnabled === true, commissionRate: percent(grant.commissionRateBps ?? 0) };
+  return { enabled: grant.enabled, locationIds: grant.locationIds, discount: percent(grant.discountLimitBps), canEditPrice: grant.canEditPrice === true, canSellOnCredit: grant.canSellOnCredit === true, canCollectReceivables: grant.version === 0 || grant.canCollectReceivables === true, canManageAccounting: grant.canManageAccounting === true, canManageLoyalty: grant.canManageLoyalty === true, canManageOrders: grant.canManageOrders === true, canViewOverview: grant.canViewOverview === true, commissionEnabled: grant.commissionEnabled === true, commissionRate: percent(grant.commissionRateBps ?? 0) };
 }
 async function readSnapshot(client: CashierSalesPermissionsClient, membershipId: string): Promise<Snapshot> {
   const [bootstrap, grants] = await Promise.all([client.bootstrap(), client.listStaff()]);
@@ -108,7 +109,7 @@ export function CashierSalesPermissions({ membershipId, staff, active, client = 
       const enteredCommissionRate = parseMinorUnits(draft.commissionRate.trim() || '0');
       const commissionRateBps = !draft.commissionEnabled && (enteredCommissionRate === null || enteredCommissionRate > 10000) ? snapshot.grant.commissionRateBps ?? 0 : enteredCommissionRate;
       if (commissionRateBps === null || commissionRateBps > 10000 || (draft.commissionEnabled && commissionRateBps < 1)) { setError('Prim oranı %0,01 ile %100 arasında olmalı.'); return; }
-      const input: GrantInput = { expectedVersion: snapshot.grant.version, enabled: draft.enabled, locationIds: draft.locationIds, discountLimitBps, canEditPrice: draft.canEditPrice, canSellOnCredit: draft.canSellOnCredit, canCollectReceivables: draft.canCollectReceivables, canManageAccounting: draft.canManageAccounting, canManageOrders: draft.canManageOrders, canViewOverview: draft.canViewOverview, commissionEnabled: draft.commissionEnabled, commissionRateBps };
+      const input: GrantInput = { expectedVersion: snapshot.grant.version, enabled: draft.enabled, locationIds: draft.locationIds, discountLimitBps, canEditPrice: draft.canEditPrice, canSellOnCredit: draft.canSellOnCredit, canCollectReceivables: draft.canCollectReceivables, canManageAccounting: draft.canManageAccounting, canManageLoyalty: draft.canManageLoyalty, canManageOrders: draft.canManageOrders, canViewOverview: draft.canViewOverview, commissionEnabled: draft.commissionEnabled, commissionRateBps };
       const fingerprint = JSON.stringify([membershipId, input]);
       if (request?.fingerprint !== fingerprint) {
         try { request = { fingerprint, membershipId, input, key: client.newId() }; }
@@ -165,6 +166,7 @@ export function CashierSalesPermissions({ membershipId, staff, active, client = 
             <label className={styles.check}><input type="checkbox" name="canSellOnCredit" checked={draft.canSellOnCredit} onChange={event => setDraft({ ...draft, canSellOnCredit: event.target.checked })}/><span>Veresiye satış yapabilir</span></label>
             <label className={styles.check}><input type="checkbox" name="canCollectReceivables" checked={draft.canCollectReceivables} onChange={event => setDraft({ ...draft, canCollectReceivables: event.target.checked })}/><span>Müşteri borcu tahsil edebilir</span></label>
             <label className={styles.check}><input type="checkbox" name="canManageAccounting" checked={draft.canManageAccounting} onChange={event => setDraft({ ...draft, canManageAccounting: event.target.checked })}/><span>Tüm muhasebeye erişebilir</span></label>
+            <label className={styles.check}><input type="checkbox" name="canManageLoyalty" checked={draft.canManageLoyalty} onChange={event => setDraft({ ...draft, canManageLoyalty: event.target.checked })}/><span>Müşteri onayıyla sadakat ödüllerini kullanabilir</span></label>
           </fieldset>
           <fieldset className={styles.group} disabled={locked}>
             <legend>Prim</legend>

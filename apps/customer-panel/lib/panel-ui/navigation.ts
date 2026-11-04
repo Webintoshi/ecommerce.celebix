@@ -31,6 +31,7 @@ export type PanelNavigationHref =
   | "/products/bulk-upload"
   | "/discounts"
   | "/discounts/new"
+  | "/discounts/loyalty"
   | "/discounts/popups"
   | "/discounts/lucky-wheel"
   | "/marketing"
@@ -208,6 +209,7 @@ const CATALOG_CHILDREN = Object.freeze([
 const DISCOUNT_CHILDREN = Object.freeze([
   item("all-discounts", "Tüm İndirimler", "/discounts", "all-discounts"),
   item("new-discount", "Yeni indirim", "/discounts/new", "new-discount"),
+  item("loyalty-programs", "Sadakat Programları", "/discounts/loyalty", "all-discounts"),
   item("popups", "Popuplar", "/discounts/popups", "popups"),
   item("lucky-wheel", "Şans Çarkı", "/discounts/lucky-wheel", "lucky-wheel"),
 ]);
@@ -338,6 +340,7 @@ const TITLES = Object.freeze<Record<string, PanelRoutePresentation>>({
   "/products/bulk-upload": presentation("Toplu Yükle"),
   "/discounts": presentation("İndirimler"),
   "/discounts/new": presentation("Yeni İndirim"),
+  "/discounts/loyalty": presentation("Sadakat programları"),
   "/discounts/popups": presentation("Popuplar"),
   "/discounts/lucky-wheel": presentation("Şans Çarkı"),
   "/marketing": presentation("Pazarlama Özeti"),
@@ -503,6 +506,7 @@ const DETAIL_DEPTHS = new Map<PanelNavigationHref, number>([
   ["/content", 3],
   ["/orders/drafts", 1],
   ["/orders/abandoned-carts", 1],
+  ["/discounts/loyalty", 2],
   ["/products/collections", 2],
   ["/products/brands", 2],
   ["/products/attributes", 2],
@@ -546,6 +550,9 @@ const DYNAMIC_TITLES = Object.freeze<readonly Readonly<{
   pattern: readonly string[];
   presentation: PanelRoutePresentation;
 }>[]>([
+  { pattern: ["discounts", "loyalty", "new"], presentation: presentation("Program oluştur") },
+  { pattern: ["discounts", "loyalty", "*", "report"], presentation: presentation("Sadakat raporu") },
+  { pattern: ["discounts", "loyalty", "*"], presentation: presentation("Sadakat programı") },
   { pattern: ["orders", "drafts", "new"], presentation: presentation("Manuel satış") },
   { pattern: ["orders", "drafts", "*"], presentation: presentation("Geçmiş manuel satış") },
   { pattern: ["customers", "*", "edit"], presentation: presentation("Müşteriyi düzenle") },

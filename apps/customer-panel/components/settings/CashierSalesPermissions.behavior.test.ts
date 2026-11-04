@@ -41,6 +41,16 @@ test('orders permission defaults closed and saves one explicit checkbox without 
  });
 });
 
+test('loyalty permission starts closed and can be enabled without granting accounting or orders', async () => {
+  const writes: any[] = [];
+  await mounted(dialog(), props(client({ setStaffGrant: async (_id: string, body: any) => { writes.push(body); return { ...grant, ...body, version: 5 }; } })), async (host, window) => {
+    assert.equal(field(host, 'canManageLoyalty').checked, false);
+    assert.match(field(host, 'canManageLoyalty').closest('label').textContent, /Müşteri onayıyla/);
+    await toggle(host, 'canManageLoyalty'); await submit(host, window);
+    assert.equal(writes[0].canManageLoyalty, true); assert.equal(writes[0].canManageAccounting, false); assert.equal(writes[0].canManageOrders, false);
+  });
+});
+
 test('Personnel offers sales permissions only for an enabled cashier with an active membership', async () => {
   const { MerchantStaffConsole } = compile('components/settings/MerchantStaffConsole.tsx', overrides);
   let reads = 0;
@@ -89,7 +99,7 @@ test('save uses the selected membership, server version and explicit flags witho
     await input(window, field(host, 'discount'), '20,25'); await toggle(host, 'canCollectReceivables'); await toggle(host, 'canEditPrice');
     await submit(host, window);
     assert.equal(writes.length, 1); assert.equal(saved, 1);
-    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false, canManageOrders: false, canViewOverview: false, commissionEnabled: false, commissionRateBps: 0 });
+    assert.deepEqual(writes[0].body, { expectedVersion: 4, enabled: true, locationIds: [DEPOT], discountLimitBps: 2025, canEditPrice: false, canSellOnCredit: true, canCollectReceivables: true, canManageAccounting: false, canManageLoyalty: false, canManageOrders: false, canViewOverview: false, commissionEnabled: false, commissionRateBps: 0 });
     assert.equal(writes[0].id, MEMBER); assert.ok(writes[0].key);
   });
 });

@@ -93,6 +93,7 @@ test("contains the approved workspace-level sidebar destinations", () => {
       "/products/bulk-upload",
       "/discounts",
       "/discounts/new",
+      "/discounts/loyalty",
       "/discounts/popups",
       "/discounts/lucky-wheel",
       "/marketing",
