@@ -797,7 +797,7 @@ export function parsePublicCheckoutQuoteV2(value: unknown): PublicCheckoutQuoteV
   const hostedIds = methods.flatMap((method) => method.kind === "hosted_card" ? [method.id] : []);
   if (new Set(hostedIds).size !== hostedIds.length) invalid();
   const presentation = promotionPresentation(parsed, cart, gifts, merchandiseItems.length);
-  if(methods.some(method=>method.kind==='reward')&&(methods.length!==1||cart.totalCents!==0||!gifts.length||!presentation.appliedPromotions.some(p=>p.benefitKind==='gift'&&/^L-[A-F0-9]{32}$/u.test(p.normalizedCode??''))))invalid();
+  if(methods.some(method=>method.kind==='reward')&&(methods.length!==1||cart.totalCents!==0||!presentation.appliedPromotions.some(p=>['gift','fixed_amount','free_shipping'].includes(p.benefitKind)&&(p.benefitKind!=='gift'||gifts.length>0)&&/^L-[A-F0-9]{32}$/u.test(p.normalizedCode??''))))invalid();
   return Object.freeze({
     cart,
     paymentMethods: Object.freeze(methods),
@@ -858,7 +858,7 @@ export function parsePublicCheckoutReceiptV2(value: unknown): PublicCheckoutRece
     || shippingDiscountCents > shippingCents || discountCents !== lineDiscountCents + shippingDiscountCents
     || totalCents !== subtotalCents + shippingCents - discountCents) invalid();
   const appliedPromotions = denseArray(parsed.appliedPromotions, 0, 100).map(appliedPromotion);
-  if(selectedPaymentMethod.kind==='reward'&&(parsed.paymentStatus!=='completed'||totalCents!==0||!gifts.length||!appliedPromotions.some(p=>p.benefitKind==='gift'&&/^L-[A-F0-9]{32}$/u.test(p.normalizedCode??''))))invalid();
+  if(selectedPaymentMethod.kind==='reward'&&(parsed.paymentStatus!=='completed'||totalCents!==0||!appliedPromotions.some(p=>['gift','fixed_amount','free_shipping'].includes(p.benefitKind)&&(p.benefitKind!=='gift'||gifts.length>0)&&/^L-[A-F0-9]{32}$/u.test(p.normalizedCode??''))))invalid();
   if (appliedPromotions.reduce((total, promotion) => total + promotion.discountCents, 0) !== discountCents) invalid();
   const promotionStatus = promotionEvaluationStatus(parsed.promotionStatus);
   if ((promotionStatus.kind === "evaluated" && merchandiseItems.length > 20)

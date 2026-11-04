@@ -100,6 +100,16 @@ test('zero-total loyalty gift has an explicit reward method and never masquerade
  assert.throws(()=>parsePublicCheckoutReceiptV2({...receipt,totalCents:1}));
  assert.throws(()=>parsePublicCheckoutReceiptV2({...receipt,gifts:[]}));
 });
+test('a full owned loyalty discount may settle at zero without a gift or physical payment, while ordinary coupons may not',()=>{
+ const line={...CART_LINE,discountCents:CART_LINE.lineTotalCents,payableCents:0},method={kind:'reward',label:'Ödül kullanımı',instructions:'Bu sipariş için ödeme alınmaz.'};
+ const promotions={promotionStatus:{kind:'evaluated'},appliedPromotions:[{name:'Sadakat indirimi',benefitKind:'fixed_amount',normalizedCode:'L-'+'B'.repeat(32),lineDiscountCents:CART_LINE.lineTotalCents,shippingDiscountCents:0,discountCents:CART_LINE.lineTotalCents}],gifts:[]};
+ const quote={...promotions,cart:{...CART,totalCents:0,lineDiscountCents:CART_LINE.lineTotalCents,shippingDiscountCents:0,discountCents:CART_LINE.lineTotalCents,items:[line]},paymentMethods:[method],rejectedPromotions:[],progressMessages:[]};
+ assert.equal(parsePublicCheckoutQuoteV2(quote).paymentMethods[0]?.kind,'reward');
+ const receipt={...promotions,orderReference:'LOYALTY-DISCOUNT-1',currency:'TRY',subtotalCents:CART_LINE.lineTotalCents,shippingCents:0,lineDiscountCents:CART_LINE.lineTotalCents,shippingDiscountCents:0,discountCents:CART_LINE.lineTotalCents,totalCents:0,paymentStatus:'completed',paymentMethod:method,delivery:{recipientName:'Örnek Müşteri',addressLine1:'Örnek adres',city:'Ankara',country:'TR'},items:[line],createdAt:'2026-11-04T12:00:00.000Z'};
+ assert.equal(parsePublicCheckoutReceiptV2(receipt).totalCents,0);
+ const ordinary=promotions.appliedPromotions.map(p=>({...p,normalizedCode:'NORMAL100'}));assert.throws(()=>parsePublicCheckoutQuoteV2({...quote,appliedPromotions:ordinary}));assert.throws(()=>parsePublicCheckoutReceiptV2({...receipt,appliedPromotions:ordinary}));
+ const wrongKind=promotions.appliedPromotions.map(p=>({...p,benefitKind:'percentage'}));assert.throws(()=>parsePublicCheckoutQuoteV2({...quote,appliedPromotions:wrongKind}));assert.throws(()=>parsePublicCheckoutReceiptV2({...receipt,appliedPromotions:wrongKind}));
+});
 
 const HOSTED_CARD = Object.freeze({
   kind: "hosted_card" as const,
