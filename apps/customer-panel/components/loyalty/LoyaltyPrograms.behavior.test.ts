@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import React, { act } from "react";
+import { flushSync } from "react-dom";
 import { compile, mounted, click, input } from "../../lib/mira-final-test-support.ts";
 import { createLoyaltyDraft, loyaltyConfigFor } from "./model.ts";
 import { LoyaltyRequestError } from "./client.ts";
@@ -35,6 +36,31 @@ test("three-step editor submits an active program directly and preserves the for
     assert.equal(writes.length, 1); assert.equal(writes[0].action, "save"); assert.equal(writes[0].payload.name, "Tekrar alışveriş"); assert.equal(writes[0].payload.enabled, true);
     assert.equal(writes[0].payload.config.target, 200000); assert.equal(writes[0].payload.config.reward.amountMinor, 15000);
     assert.match(host.textContent, /Bilgiler korunuyor/); await click(host, "Geri"); await click(host, "Geri"); assert.equal(host.querySelector('input[maxlength="120"]').value, "Tekrar alışveriş");
+  });
+});
+test("native Continue clicks reach preview without saving; only the final Save click writes", async () => {
+  const writes: Array<{ action: string; payload: any }> = [];
+  const { LoyaltyProgramEditor } = compile("components/loyalty/LoyaltyEditor.tsx", { ...chrome, "./client": client({ mutateLoyaltyProgram: async (action: string, payload: any) => { writes.push({ action, payload }); throw new Error("connection"); } }) });
+  await mounted(LoyaltyProgramEditor, { timezone: "Europe/Istanbul", canManage: true, canPublish: true }, async (host, window) => {
+    // Commit discrete React updates before the button's native activation, as a browser does.
+    const commitClick = () => flushSync(() => {});
+    window.document.addEventListener("click", commitClick);
+    try {
+      await act(async () => [...host.querySelectorAll("button")].find((button: any) => button.textContent.includes("Harcama hedefine ulaş"))!.click());
+      await input(window, host.querySelector('input[maxlength="120"]'), "Önizlemeyi kontrol et");
+      const heading = () => host.querySelector('h2[tabindex="-1"]').textContent;
+      assert.equal(heading(), "Hedef ve ödül"); assert.equal(writes.length, 0);
+      await click(host, "Devam et");
+      assert.equal(heading(), "Kullanım koşulları"); assert.equal(writes.length, 0);
+      await click(host, "Devam et");
+      assert.equal(heading(), "Önizleme ve başlatma");
+      assert.equal(writes.length, 0, "advancing to preview must never send a save request");
+      assert.ok(host.querySelector("dl"), "the reward preview remains visible before saving");
+      await click(host, "Kaydet ve başlat");
+      assert.equal(writes.length, 1); assert.equal(writes[0].action, "save");
+      assert.equal(writes[0].payload.name, "Önizlemeyi kontrol et");
+      assert.match(host.textContent, /Bilgiler korunuyor/);
+    } finally { window.document.removeEventListener("click", commitClick); }
   });
 });
 test("read-only access can inspect all conditions and preview without offering a save", async () => {
