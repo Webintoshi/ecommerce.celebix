@@ -54,6 +54,11 @@ export function loyaltyConfigFor(draft: LoyaltyDraft, timezone: string): Loyalty
 }
 
 export const formatLoyaltyMoney = (minor: number) => new Intl.NumberFormat("tr-TR", { style: "currency", currency: "TRY" }).format(minor / 100);
+export function loyaltyReturnPolicy(config: Pick<LoyaltyConfig, "template" | "eligibleProductIds">): string {
+  return config.template === "spend_discount" && config.eligibleProductIds.length === 0
+    ? "İadeler ürün alışveriş tutarından düşülür."
+    : "İade yapılan alışveriş hedefe sayılmaz. Yetkili kişi ilerlemeyi düzeltebilir.";
+}
 export function loyaltySummary(config: LoyaltyConfig): string {
   const target = config.template === "spend_discount" ? `${formatLoyaltyMoney(config.target)} ürün alışverişi` : `${config.target} ${config.template === "product_gift" ? "ürün" : "ayrı alışveriş"}`;
   const reward = config.reward.kind === "gift" ? `${config.reward.quantity} hediye ürün` : config.reward.kind === "discount" ? `${formatLoyaltyMoney(config.reward.amountMinor)} indirim` : "ücretsiz kargo";

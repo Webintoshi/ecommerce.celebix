@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createLoyaltyDraft, draftForProgram, loyaltyConfigFor } from "./model.ts";
+import { createLoyaltyDraft, draftForProgram, loyaltyConfigFor, loyaltyReturnPolicy } from "./model.ts";
 
 const ID = "11111111-1111-4111-8111-111111111111";
+test("return policy distinguishes exact all-product spend from quantity or selected-product attribution", () => {
+  assert.match(loyaltyReturnPolicy(createLoyaltyDraft("product_gift")), /İade yapılan alışveriş hedefe sayılmaz/);
+  assert.match(loyaltyReturnPolicy(createLoyaltyDraft("purchase_gift")), /Yetkili kişi ilerlemeyi düzeltebilir/);
+  assert.equal(loyaltyReturnPolicy(createLoyaltyDraft("spend_discount")), "İadeler ürün alışveriş tutarından düşülür.");
+  assert.match(loyaltyReturnPolicy({ template: "spend_discount", eligibleProductIds: [ID] }), /alışveriş hedefe sayılmaz/);
+});
 test("spend targets and rewards use exact minor units while purchase targets remain counts", () => {
   const money = loyaltyConfigFor({ ...createLoyaltyDraft("spend_discount"), target: "2000,05", amount: "150,01", minimumBasket: "0,10" }, "Europe/Istanbul");
   assert.equal(money.target, 200005); assert.deepEqual(money.reward, { kind: "discount", amountMinor: 15001 }); assert.equal(money.minimumBasketMinor, 10);
