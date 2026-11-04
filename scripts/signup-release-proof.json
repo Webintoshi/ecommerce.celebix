@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "516d15be9ce69a0c97ea97deb3e6bde82cb1afc448e8a5a6c876ada556e5866f",
+  "inputDigest": "0d40263615da1ee053d2425656ac29790c34da7842d611bd4baed0b6d8096104",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -997,7 +997,7 @@
     },
     {
       "path": "apps/owner/lib/native-loyalty/production.ts",
-      "sha256": "bd83d0597b4e194bfe26a6c552a0b9085afd06c580b2e9d20638bbbe74161234"
+      "sha256": "c66730a9d04d8c5bf5a3704c8be2e7b2c360307dfe3002f64b383ffd26c256df"
     },
     {
       "path": "apps/owner/lib/native-loyalty/worker.ts",
@@ -2941,11 +2941,11 @@
     },
     {
       "path": "apps/owner/scripts/sql/saas/202611040502_loyalty_programs.up.sql",
-      "sha256": "69a87fd9d378250892214abb660c36d966c0e36411007ab1534bb7169f34e1a4"
+      "sha256": "0ca69d8d1b2c5368b9939db94392b30ee3d44ec0e16df7aabaaaf37082a72695"
     },
     {
       "path": "apps/owner/scripts/sql/saas/202611040503_loyalty_checkout_pos.up.sql",
-      "sha256": "b073add8ba867f92aa0e342f894bb22917b13d4f92ef6ebc4ac41324144c4ddb"
+      "sha256": "fdf1419073c0295409532b12397fbc4689cd4ccbd1c930ed214c9c066e55a63d"
     },
     {
       "path": "apps/owner/scripts/sql/saas/202611040504_loyalty_bank_settlement.up.sql",
@@ -4877,7 +4877,7 @@
     },
     {
       "path": "packages/saas-data/src/in-store-sales/repository.ts",
-      "sha256": "19d6e6fd5c170b13f37caf16b336275b16e336f3bb0d511e0f027273236740f2"
+      "sha256": "2f91e44e2501f7e05ed524745547c8225b0d98f7f79fcbb83392da625703894f"
     },
     {
       "path": "packages/saas-data/src/in-store-sales/types.ts",
