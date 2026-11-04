@@ -36,6 +36,12 @@ try{
  INSERT INTO saas.product_variants(id,store_id,product_id,title,price_cents,cost_cents,stock_tracking,stock_quantity,status,created_at,updated_at)VALUES('${variant}','${store}','${product}','Standard',10000,3000,true,10,'active','${at}','${at}');
  UPDATE saas.accounting_release_state SET manual_sales_v4_enabled=true,credit_sales_enabled=true;`);
  const config={schemaVersion:1,template:'product_gift',target:5,eligibleProductIds:[],reward:{kind:'gift',variantId:variant,quantity:1},minimumBasketMinor:0,rewardMinimumBasketMinor:0,channels:['storefront','in_store','manual'],startsAt:null,endsAt:null,timezone:'Europe/Istanbul',repeat:true,maxOncePerDay:false,allowMultiplePrograms:false,allowCombination:false,progressExpiryDays:null,rewardExpiryDays:null};
+ await check('native-first rollout rejects a valid new loyalty write without creating a program, promotion or operation',()=>{
+  assert.equal(sql('SELECT ready FROM saas.loyalty_release_state WHERE singleton'),'f');
+  const counts=()=>read(`SELECT jsonb_build_object('programs',(SELECT count(*)FROM saas.loyalty_programs WHERE store_id='${store}'),'versions',(SELECT count(*)FROM saas.loyalty_program_versions WHERE store_id='${store}'),'promotions',(SELECT count(*)FROM saas.promotions WHERE store_id='${store}'),'operations',(SELECT count(*)FROM saas.loyalty_operations WHERE store_id='${store}'))`),before=counts();
+  const denied=read(`SET ROLE celebix_saas_app;SELECT jsonb_build_object('outcome',outcome,'result',result_payload)FROM saas.loyalty_admin_command_v1(${authority},'save','${id(12)}',${json({name:'Five coffees',enabled:true,config})})`);assert.equal(denied.outcome,'invalid_transition',JSON.stringify(denied));assert.deepEqual(counts(),before);assert.equal(before.programs,0);assert.equal(before.operations,0);
+ });
+ owned('UPDATE saas.loyalty_release_state SET ready=true,completed_at=clock_timestamp()WHERE singleton');
  const saved=rpc('loyalty_admin_command_v1',`${authority},'save','${id(12)}',${json({name:'Five coffees',enabled:true,config})}`);assert.equal(saved.outcome,'committed',JSON.stringify(saved));const program=saved.result.program.id;
  owned(`SELECT saas.loyalty_apply_effect_v1('${store}','${program}',1,'${account}','${customer}','${id(13)}',10,'${at}','fixture','{}')`);
  const rewards=read(`SELECT jsonb_agg(id ORDER BY sequence)FROM saas.loyalty_rewards WHERE store_id='${store}'`);assert.equal(rewards.length,2);

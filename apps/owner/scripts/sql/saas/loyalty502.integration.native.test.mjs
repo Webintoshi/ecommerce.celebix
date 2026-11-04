@@ -75,6 +75,9 @@ try{
   assert.equal(sql("SELECT to_regprocedure('saas.loyalty_pos_reward_v1(uuid,uuid,uuid,uuid,text,bigint,timestamptz,uuid,jsonb)')IS NOT NULL"),'t');assert.equal(sql("SELECT to_regclass('saas.loyalty_pos_redemptions')IS NULL"),'t');
  });
  if(process.argv.includes('--with503')){const source=readFileSync(path.join(dir,'202611040503_loyalty_checkout_pos.up.sql'),'utf8');sources.native503Up=createHash('sha256').update(source).digest('hex');sql(source);}
+ // GIVEN the platform release has completed; native installation defaults closed.
+ assert.equal(owned('SELECT ready FROM saas.loyalty_release_state WHERE singleton'),'f');
+ assert.equal(owned(`UPDATE saas.loyalty_release_state SET ready=true,completed_at='${NOW}' WHERE singleton RETURNING ready`),'t');
  await check('owner-bound rewards reject another customer and another tenant through native public commands',()=>{
   const t=setup(100),foreign=setup(300),reward=issue(t);assert.equal(customer(t,'prepare-reward',{rewardId:reward.id}).outcome,'committed');assert.equal(customer(t,'prepare-reward',{rewardId:reward.id},t.otherDigest).outcome,'not_found');assert.equal(customer(foreign,'prepare-reward',{rewardId:reward.id}).outcome,'not_found');
   const good=query(`SET ROLE celebix_saas_owner;SELECT saas.promotion_evaluator_code_facts('${t.store}',${json(context(t,reward.code))},'${LATER}')`);assert.equal(Object.keys(good).length,1);

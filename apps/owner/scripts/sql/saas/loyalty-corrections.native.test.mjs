@@ -49,6 +49,7 @@ try{
  applyBaseline(sql,dir);
  for(const f of readdirSync(dir).filter(f=>/^\d{12}/.test(f)&&Number(f.slice(8,12))>227&&Number(f.slice(8,12))<=501&&/(?:\.up|\.seed|\.freeze|_grants)\.sql$/.test(f)).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12))||a.localeCompare(b)))sql(readFileSync(path.join(dir,f),'utf8'));
  sql(source);
+ owned("DO $released$BEGIN IF to_regclass('saas.loyalty_release_state')IS NOT NULL THEN UPDATE saas.loyalty_release_state SET ready=true,completed_at=clock_timestamp()WHERE singleton;END IF;END $released$");
  await check('returning a v1 order after a v2 reward restores current progress without minting an archived v1 reward',()=>{
   const t=setup(100),a=order(t,10000,{quantity:4});assert.equal(drain().failed,0);editTarget(t,10);order(t,10100,{quantity:6});assert.equal(drain().failed,0);assert.equal(member(t).balance,0);
   owned(`UPDATE saas.accounting_receivables SET return_cents=100 WHERE store_id='${t.store}'AND order_id='${a.oid}'`);assert.equal(drain().failed,0);

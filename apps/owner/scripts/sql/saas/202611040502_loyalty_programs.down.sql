@@ -12,6 +12,6 @@ DO $restore$DECLARE r record;BEGIN FOR r IN SELECT * FROM saas.loyalty_migration
 END LOOP;END $restore$;
 DO $triggers$DECLARE r record;BEGIN FOR r IN SELECT c.relname,t.tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='saas'AND t.tgname LIKE 'loyalty_%'LOOP EXECUTE format('DROP TRIGGER %I ON saas.%I',r.tgname,r.relname);END LOOP;END $triggers$;
 DROP FUNCTION saas.loyalty_program_json_v1(saas.loyalty_programs,timestamptz),saas.loyalty_reward_json_v1(saas.loyalty_rewards,timestamptz);
-DROP TABLE saas.loyalty_pos_approvals,saas.loyalty_operations,saas.loyalty_order_queue,saas.loyalty_order_members,saas.loyalty_order_effects,saas.loyalty_rewards,saas.loyalty_effects,saas.loyalty_members,saas.loyalty_program_versions,saas.loyalty_programs,saas.loyalty_migration_baseline;
+DROP TABLE saas.loyalty_pos_approvals,saas.loyalty_operations,saas.loyalty_order_queue,saas.loyalty_order_members,saas.loyalty_order_effects,saas.loyalty_rewards,saas.loyalty_effects,saas.loyalty_members,saas.loyalty_program_versions,saas.loyalty_programs,saas.loyalty_migration_baseline,saas.loyalty_release_state;
 DO $functions$DECLARE r record;BEGIN FOR r IN SELECT oid::regprocedure::text signature FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname LIKE 'loyalty_%'ORDER BY proname LOOP EXECUTE 'DROP FUNCTION '||r.signature;END LOOP;END $functions$;
 COMMIT;

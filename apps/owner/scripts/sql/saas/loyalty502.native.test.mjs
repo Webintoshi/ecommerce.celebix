@@ -43,6 +43,15 @@ try {
  const principal=id(20),membership=id(21),plan='00000000-0000-4000-8000-000000000010';
  owned(`INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at)VALUES('${principal}','fixture','loyalty502','loyalty502@example.test',true,'2026-01-01','2026-01-01');INSERT INTO saas.memberships(id,principal_id,store_id,role,status,created_at,updated_at)VALUES('${membership}','${principal}','${store}','store_owner','active','2026-01-01','2026-01-01');INSERT INTO saas.subscriptions(id,store_id,plan_id,plan_code,plan_version,status,valid_from,created_at,updated_at)VALUES('${id(22)}','${store}','${plan}','professional',2,'active','2026-01-01','2026-01-01','2026-01-01');`);
  const admin=(action,operation,payload)=>j(`SET ROLE celebix_saas_app;SELECT to_jsonb(r)FROM saas.loyalty_admin_command_v1('${store}','${principal}','${membership}','${plan}','professional',2,'${at}',${lit(action)},${lit(operation)}::uuid,${json(payload)})r`);
+ check('shared release starts closed and refuses new writes without creating an operation',()=>{
+  assert.equal(sql('SELECT ready FROM saas.loyalty_release_state WHERE singleton'),'f');
+  const before=sql(`SELECT count(*)FROM saas.loyalty_operations WHERE store_id='${store}'`);
+  assert.equal(admin('save',id(26),{name:'Before release',enabled:true,config}).outcome,'invalid_transition');
+  assert.equal(sql(`SELECT count(*)FROM saas.loyalty_operations WHERE store_id='${store}'`),before);
+  assert.equal(admin('list',id(27),{}).outcome,'found');
+  for(const role of['celebix_saas_app','celebix_saas_host_resolver','celebix_saas_workflow'])assert.throws(()=>sql(`SET ROLE ${role};UPDATE saas.loyalty_release_state SET ready=true,completed_at=now()WHERE singleton`),/permission denied/);
+  owned('UPDATE saas.loyalty_release_state SET ready=true,completed_at=clock_timestamp()WHERE singleton');
+ });
  check('save creates the real active promotion once and recovers stable replay',()=>{
   const op=id(23),payload={name:'Harcama hediyesi',enabled:true,config:{...config,template:'spend_discount',target:200000,reward:{kind:'discount',amountMinor:15000}}};
   const saved=admin('save',op,payload);assert.equal(saved.outcome,'committed',JSON.stringify(saved));assert.equal(saved.result_payload.program.status,'active');

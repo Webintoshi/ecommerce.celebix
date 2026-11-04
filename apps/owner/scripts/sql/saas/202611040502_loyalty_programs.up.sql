@@ -5,6 +5,9 @@ SET LOCAL lock_timeout='5s';
 SET LOCAL statement_timeout='120s';
 
 CREATE TABLE IF NOT EXISTS saas.loyalty_migration_baseline(identity text PRIMARY KEY,definition text NOT NULL,patched_hash text NOT NULL);
+CREATE TABLE IF NOT EXISTS saas.loyalty_release_state(singleton boolean PRIMARY KEY CHECK(singleton),ready boolean NOT NULL DEFAULT false,completed_at timestamptz,CHECK((ready AND completed_at IS NOT NULL)OR(NOT ready AND completed_at IS NULL)));
+INSERT INTO saas.loyalty_release_state(singleton,ready)VALUES(true,false)ON CONFLICT DO NOTHING;
+CREATE OR REPLACE FUNCTION saas.loyalty_release_ready_v1()RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$SELECT coalesce((SELECT ready FROM saas.loyalty_release_state WHERE singleton),false)$f$;
 
 CREATE OR REPLACE FUNCTION saas.loyalty_config_valid_v1(p jsonb) RETURNS boolean
 LANGUAGE plpgsql STABLE SET search_path=pg_catalog,saas AS $f$
@@ -61,7 +64,7 @@ CREATE INDEX IF NOT EXISTS loyalty_queue_due ON saas.loyalty_order_queue(next_at
 CREATE TABLE IF NOT EXISTS saas.loyalty_operations(store_id uuid NOT NULL,actor_id uuid NOT NULL,operation_id uuid NOT NULL,action text NOT NULL,payload jsonb NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL,PRIMARY KEY(store_id,actor_id,operation_id));
 CREATE TABLE IF NOT EXISTS saas.loyalty_pos_approvals(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),store_id uuid NOT NULL,account_id uuid NOT NULL,customer_id uuid NOT NULL,token_digest text NOT NULL UNIQUE,created_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,consumed_at timestamptz,sale_id uuid,FOREIGN KEY(store_id,account_id)REFERENCES saas.storefront_accounts(store_id,id),UNIQUE(store_id,id));
 CREATE INDEX IF NOT EXISTS loyalty_pos_sale ON saas.loyalty_pos_approvals(store_id,sale_id)WHERE consumed_at IS NOT NULL;
-DO $t$ DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['loyalty_migration_baseline','loyalty_programs','loyalty_program_versions','loyalty_members','loyalty_effects','loyalty_rewards','loyalty_order_effects','loyalty_order_members','loyalty_order_queue','loyalty_operations','loyalty_pos_approvals'] LOOP
+DO $t$ DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['loyalty_migration_baseline','loyalty_release_state','loyalty_programs','loyalty_program_versions','loyalty_members','loyalty_effects','loyalty_rewards','loyalty_order_effects','loyalty_order_members','loyalty_order_queue','loyalty_operations','loyalty_pos_approvals'] LOOP
  EXECUTE format('ALTER TABLE saas.%I ENABLE ROW LEVEL SECURITY',t);EXECUTE format('ALTER TABLE saas.%I FORCE ROW LEVEL SECURITY',t);
  IF NOT EXISTS(SELECT 1 FROM pg_policy WHERE polrelid=('saas.'||t)::regclass AND polname=t||'_owner')THEN EXECUTE format('CREATE POLICY %I ON saas.%I TO celebix_saas_owner USING(true) WITH CHECK(true)',t||'_owner',t);END IF;
  EXECUTE format('REVOKE ALL ON saas.%I FROM PUBLIC,celebix_saas_app,celebix_saas_host_resolver,celebix_saas_workflow,celebix_saas_identity,celebix_saas_migrator,celebix_saas_bootstrap,celebix_saas_observability',t);
@@ -315,6 +318,7 @@ DECLARE err text;pr saas.loyalty_programs;cfg jsonb;result jsonb;existing saas.l
  SELECT * INTO existing FROM saas.loyalty_operations WHERE store_id=s AND actor_id=p AND operation_id=op;
  IF action='recover'THEN IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;ELSIF existing.action=payload->>'action'AND existing.payload=payload->'payload'THEN RETURN QUERY SELECT 'operation_replayed',existing.result;ELSE RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;END IF;RETURN;END IF;
  IF FOUND THEN IF existing.action=action AND existing.payload=payload THEN RETURN QUERY SELECT 'operation_replayed',existing.result;ELSE RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;END IF;RETURN;END IF;
+ IF NOT saas.loyalty_release_ready_v1()THEN RETURN QUERY SELECT 'invalid_transition',NULL::jsonb;RETURN;END IF;
  err:=saas.promotion_operation_authority_lock_v1(s,p,m,pl,c,v,n,op,CASE WHEN action IN('approve-pos','prepare-pos-reward')THEN 'promotions.read'ELSE 'promotions.publish'END);
  IF err IS NOT NULL AND action NOT IN('approve-pos','prepare-pos-reward')THEN RETURN QUERY SELECT err,NULL::jsonb;RETURN;END IF;
  IF action IN('save','pause','duplicate')THEN
@@ -376,6 +380,7 @@ DECLARE ctx record;result jsonb;existing saas.loyalty_operations;r saas.loyalty_
  SELECT * INTO existing FROM saas.loyalty_operations WHERE store_id=ctx.store_id AND actor_id=ctx.account_id AND operation_id=op;
  IF action='recover'THEN IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;ELSIF existing.action=payload->>'action'AND existing.payload=payload->'payload'THEN RETURN QUERY SELECT 'operation_replayed',existing.result;ELSE RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;END IF;RETURN;END IF;
  IF FOUND THEN IF existing.action=action AND existing.payload=payload THEN RETURN QUERY SELECT 'operation_replayed',existing.result;ELSE RETURN QUERY SELECT 'operation_mismatch',NULL::jsonb;END IF;RETURN;END IF;
+ IF NOT saas.loyalty_release_ready_v1()THEN RETURN QUERY SELECT 'invalid_transition',NULL::jsonb;RETURN;END IF;
  IF action='prepare-reward'THEN
   SELECT * INTO r FROM saas.loyalty_rewards WHERE store_id=ctx.store_id AND id=(payload->>'rewardId')::uuid AND account_id=ctx.account_id FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;RETURN;END IF;

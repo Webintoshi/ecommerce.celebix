@@ -91,6 +91,10 @@ try{
   const pool=new pgDriver.Pool({...pg.poolOptions,user:'loyalty_runtime504'}),database={name:pg.database,url:`postgresql://unused:unused@localhost/${pg.database}`,ca:'fixture-only'};
   await assert.rejects(initializeLoyaltyProductionRuntime(database,{createPool:()=>pool,now:()=>new Date(LATER)}),/loyalty_production_preflight_failed/);
  });
+ // GIVEN a completed platform release, before creating the pre-504 expired hold.
+ // Catalog exports above deliberately retain the native default of ready=false.
+ assert.equal(owned('SELECT ready FROM saas.loyalty_release_state WHERE singleton'),'f');
+ assert.equal(owned(`UPDATE saas.loyalty_release_state SET ready=true,completed_at='${NOW}' WHERE singleton RETURNING ready`),'t');
  const legacy=setup(100),legacyH=normalHosted(legacy,10000),legacyLate=new Date(Date.parse(legacyH.expires)+1000).toISOString();
  owned(`SELECT saas.promotion_expire_due_reservations_v1('${legacyLate}',500)`);assert.equal(sql(`SELECT min(status)FROM saas.promotion_usage_reservations WHERE store_id='${legacy.store}'`),'expired');
  if(!process.argv.includes('--baseline-red')){sql(up);}

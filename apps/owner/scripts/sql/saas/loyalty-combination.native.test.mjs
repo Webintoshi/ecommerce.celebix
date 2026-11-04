@@ -39,6 +39,7 @@ function memberProof(t){return `DO $proof$BEGIN PERFORM set_config('saas.loyalty
 try{
  applyBaseline(sql,dir);
  for(const f of readdirSync(dir).filter(f=>/^\d{12}/.test(f)&&Number(f.slice(8,12))>227&&Number(f.slice(8,12))<=504&&/(?:\.up|\.seed|\.freeze|_grants)\.sql$/.test(f)).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12))||a.localeCompare(b)))sql(readFileSync(path.join(dir,f),'utf8'));
+ owned('UPDATE saas.loyalty_release_state SET ready=true,completed_at=clock_timestamp()WHERE singleton');
  const t=setup(100,{template:'spend_discount',target:100,reward:{kind:'discount',amountMinor:10},allowCombination:true});
  const saved=admin(t,'save',{name:'Second reward program',enabled:true,config:t.config});assert.equal(saved.outcome,'committed',JSON.stringify(saved));
  const first=issue(t,100),second=issue({...t,program:saved.result_payload.program.id},100);assert.notEqual(first.code,second.code);
