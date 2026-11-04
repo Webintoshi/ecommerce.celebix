@@ -1,24 +1,34 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import type { PublicDesignMedia, PublicStarterFooter, PublicStorefront } from "@celebix/saas-contracts";
-import { localizeStorefrontPath } from "../../lib/storefront-routes.ts";
-import { NewsletterForm } from "../../components/NewsletterForm";
-import { LILYUM_REFINED_LOGO } from "./logo.ts";
+import { RetailFooter } from "../../components/RetailFooter";
 
-export function LilyumFooter({ storefront, logo, groups, signature, renderNewsletter, prefetch }: { storefront: PublicStorefront; logo?: PublicDesignMedia; groups: PublicStarterFooter["groups"]; signature: React.ReactNode; renderNewsletter?: (newsletter: PublicStarterFooter["newsletter"]) => ReactNode; prefetch?: boolean }) {
-  const presentation = storefront.presentation;
-  const footer = presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.footer : null;
-  return <footer className="lf-footer">
-    <div className="lf-container lf-footer-main">
-      <Link prefetch={prefetch} className="lf-footer-logo" data-refined-logo={logo?.url === LILYUM_REFINED_LOGO || logo?.url === new URL(LILYUM_REFINED_LOGO, storefront.canonicalUrl).href ? "true" : undefined} href="/" aria-label={`${presentation.displayName} ana sayfa`}>{logo ? <img src={logo.url} alt={logo.altText || presentation.displayName} width="180" height="70" loading="lazy" /> : presentation.displayName}</Link>
-      <nav aria-label="Yardım"><Link prefetch={prefetch} href="/#lilyum-delivery">Teslimat</Link><a href={presentation.supportEmail ? `mailto:${presentation.supportEmail}` : "/pages/iletisim"}>İletişim</a></nav>
-      <div className="lf-social">{footer?.social.map(item => <a key={item.url} href={item.url} aria-label={item.network}>{item.network}</a>)}</div>
-      {signature}
-    </div>
-    <div className="lf-container lf-footer-details">
-      <details><summary>Mağaza bilgileri ve politikalar</summary><div className="lf-footer-groups">{groups.map(group => <nav aria-label={group.heading} key={group.heading}><strong>{group.heading}</strong>{group.links.map(link => <Link prefetch={prefetch} key={`${link.destination}-${link.label}`} href={localizeStorefrontPath(link.destination, storefront.locale)}>{link.label}</Link>)}</nav>)}{presentation.supportEmail ? <a href={`mailto:${presentation.supportEmail}`}>{presentation.supportEmail}</a> : null}</div></details>
-      {footer?.newsletter.enabled ? <section className="lf-footer-newsletter"><h2>{footer.newsletter.heading}</h2><p>{footer.newsletter.body}</p>{renderNewsletter ? renderNewsletter(footer.newsletter) : <NewsletterForm consentLabel={footer.newsletter.consentLabel} />}</section> : null}
-      <small>© {new Date().getUTCFullYear()} {presentation.displayName}</small>
-    </div>
-  </footer>;
+function lilyumFooterGroups(groups: PublicStarterFooter["groups"]): PublicStarterFooter["groups"] {
+  const storeInformation = (heading: string) => ["mağaza", "bilgi"].includes(heading.trim().toLocaleLowerCase("tr-TR"));
+  const publicLink = (link: PublicStarterFooter["groups"][number]["links"][number]) => !/^\/(?:account|hesabim|hesabım|hesap)(?:\/|$)/u.test(link.destination.split(/[?#]/u)[0]!.toLocaleLowerCase("tr-TR"));
+  const destinations = new Set<string>();
+  const storeLinks = groups.filter(group => storeInformation(group.heading)).flatMap(group => group.links).filter(link => {
+    if (!publicLink(link) || destinations.has(link.destination)) return false;
+    destinations.add(link.destination);
+    return true;
+  });
+  let storeInserted = false;
+  return groups.flatMap(group => {
+    if (!storeInformation(group.heading)) return [{ ...group, links: group.links.filter(publicLink) }];
+    if (storeInserted) return [];
+    storeInserted = true;
+    return [{ heading: "Mağaza", links: storeLinks }];
+  });
+}
+
+export function LilyumFooter({ storefront, logo, groups, signature, renderNewsletter }: {
+  storefront: PublicStorefront;
+  logo?: PublicDesignMedia;
+  groups: PublicStarterFooter["groups"];
+  signature: ReactNode;
+  renderNewsletter?: (newsletter: PublicStarterFooter["newsletter"]) => ReactNode;
+  prefetch?: boolean;
+}) {
+  const p = storefront.presentation;
+  const footer = p.schemaVersion === 3 || p.schemaVersion === 4 ? p.footer : { social: [], tone: "dark" as const };
+  return <RetailFooter storefront={storefront} presentation={{ ...p, footer: { ...footer, tone: "light" } }} groups={lilyumFooterGroups(groups)} logo={logo} signature={signature} renderNewsletter={renderNewsletter} />;
 }

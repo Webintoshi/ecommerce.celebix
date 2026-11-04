@@ -3,6 +3,13 @@ import { parsePublicGoogleMarketingProjection, type PublicGoogleMarketingProject
 import type { PublicCommerceEvent } from "./analytics/events.ts";
 
 export type GoogleConsent = "undecided" | "denied" | "granted";
+export function parseStoredGoogleConsent(value: string | null): GoogleConsent {
+  try {
+    const stored = JSON.parse(value ?? "null");
+    if (stored?.version === 1 && Number.isFinite(stored.expires) && stored.expires > Date.now() && (stored.value === "granted" || stored.value === "denied")) return stored.value;
+  } catch { /* Missing or corrupt consent means no permission. */ }
+  return "undecided";
+}
 export type GoogleConfirmedPurchase = Readonly<{ transactionId: string; valueCents: number; currency: string }>;
 type Storage = Pick<globalThis.Storage, "getItem" | "setItem">;
 type Script = Pick<HTMLScriptElement, "src" | "nonce" | "async" | "onload" | "onerror" | "remove">;
@@ -65,10 +72,9 @@ export function createGoogleMarketingClient(input: Readonly<{ storeId: string; h
     started = true;
     browser.document.head.appendChild(script);
   }
-  function setConsent(value: "granted" | "denied") {
+  function applyConsent(value: "granted" | "denied") {
     if (disposed || !safe || value !== "granted" && value !== "denied") return;
     consent = value;
-    try { browser.localStorage?.setItem(consentKey, JSON.stringify({ version: 1, value, expires: Date.now() + 180 * 86_400_000 })); } catch { /* choice remains effective in this page */ }
     if (hasGoogleMarketingTags(projection)) command("consent", "update", value === "granted" ? { ad_storage: "granted", ad_user_data: "granted", ad_personalization: "granted", analytics_storage: "granted" } : DEFAULTS);
     if (value === "granted") load();
     else { ready = false; pendingCommerce.length = 0; script?.remove(); script = null;
@@ -81,7 +87,12 @@ export function createGoogleMarketingClient(input: Readonly<{ storeId: string; h
       }
     }
   }
-  try { const stored = JSON.parse(browser.localStorage?.getItem(consentKey) ?? "null"); if (stored?.version === 1 && Number.isFinite(stored.expires) && stored.expires > Date.now() && ["granted", "denied"].includes(stored.value)) setConsent(stored.value); } catch { /* missing or corrupt consent means no permission */ }
+  function setConsent(value: "granted" | "denied") {
+    if (disposed || !safe || value !== "granted" && value !== "denied") return;
+    try { browser.localStorage?.setItem(consentKey, JSON.stringify({ version: 1, value, expires: Date.now() + 180 * 86_400_000 })); } catch { /* choice remains effective in this page */ }
+    applyConsent(value);
+  }
+  try { const stored = parseStoredGoogleConsent(browser.localStorage?.getItem(consentKey) ?? null); if (stored !== "undecided") applyConsent(stored); } catch { /* Unreadable consent means no permission. */ }
   return Object.freeze({ consent: () => consent, setConsent,
     hasStarted: () => started,
     dispose() {

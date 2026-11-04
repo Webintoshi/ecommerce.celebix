@@ -46,7 +46,7 @@ function environment(pathname: string, hostname: string): Environment {
   }
   // Güzide's purchase bar also appears on small tablets up to 900px.
   if (guzidePurchase) mobileOffset = Math.max(mobileOffset, 82);
-  for (const actions of document.querySelectorAll(".purchase-panel.is-mobile-sticky .purchase-actions, [data-lilyum-sticky-purchase]")) {
+  for (const actions of document.querySelectorAll(".purchase-panel.is-mobile-sticky [data-standard-purchase-actions], .purchase-panel.is-mobile-sticky .purchase-actions, [data-lilyum-sticky-purchase]")) {
     if (!visible(actions) || !["sticky", "fixed"].includes(window.getComputedStyle(actions).position)) continue;
     const bounds = actions.getBoundingClientRect();
     const baseBottom = window.innerHeight - mobileOffset - (device === "mobile" ? 16 : 24);
@@ -136,6 +136,6 @@ export function ContactWidget({ config, storefrontName, hostname, brandColor, lo
         </a>)}</div>
       </div>
     </section> : null}
-    <button ref={triggerRef} type="button" className={styles.launcher} hidden={open && state.device === "mobile"} aria-label={config.buttonLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={panelId} onClick={() => open ? close() : setOpen(true)}><span className={styles.launcherIcon}><ContactLauncherIcon headset={config.icon === "headset"} /></span><span>{config.buttonLabel}</span></button>
+    <button ref={triggerRef} type="button" className={styles.launcher} data-contact-launcher hidden={open && state.device === "mobile"} aria-label={config.buttonLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={panelId} onClick={() => open ? close() : setOpen(true)}><span className={styles.launcherIcon} data-contact-launcher-icon><ContactLauncherIcon headset={config.icon === "headset"} /></span><span data-contact-launcher-label>{config.buttonLabel}</span></button>
   </div>;
 }

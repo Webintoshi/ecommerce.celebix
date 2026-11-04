@@ -19,7 +19,7 @@ test("purchase panel requires an available variant and exposes both real purchas
   assert.match(source, /type="radio"/u);
   assert.match(source, /variant[.]available/u);
   assert.match(source, /Sepete ekle/u);
-  assert.match(source, /Şimdi satın al/u);
+  assert.match(source, /Hemen satın al/u);
   assert.match(source, /storefrontCartClient[.]add/u);
   assert.match(source, /replaceCart/u);
   assert.match(source, /router[.]push\("\/checkout"\)/u);
@@ -69,6 +69,6 @@ test("purchase panel hides the stepper and retains a one-item default when disab
     source,
     /showQuantitySelector\s*[?]\s*[(]?\s*<div className="purchase-quantity"/u,
   );
-  assert.match(source, /is-quantity-hidden/u);
+  assert.match(source, /<PurchaseActionLayout/u);
   assert.match(source, /useState\(1\)/u);
 });

@@ -1,0 +1,129 @@
+.layout[data-standard-purchase-actions] {
+  --purchase-action-ink: var(--ink, var(--store-text, #262626));
+  --purchase-action-paper: var(--paper, var(--store-background, #fff));
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  min-width: 0;
+  width: 100%;
+}
+
+.layout[data-quantity-hidden] { grid-template-columns: minmax(0, 1fr); }
+.layout[data-quantity-only] { grid-template-columns: 132px; width: 132px; max-width: 100%; }
+
+.layout[data-standard-purchase-actions] > .quantity {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.layout[data-standard-purchase-actions] > .quantity > div[aria-label] {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  min-height: 56px;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  border: 1px solid var(--line, #d8d8d8);
+  border-radius: 0;
+  background: transparent;
+  color: var(--purchase-action-ink);
+}
+
+.layout[data-standard-purchase-actions] > .quantity > div[aria-label] :is(button, output) {
+  display: grid;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-width: 0;
+  height: auto;
+  min-height: 54px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.layout[data-standard-purchase-actions] > .quantity > div[aria-label] button { cursor: pointer; font-size: 21px; }
+.layout[data-standard-purchase-actions] > .quantity > div[aria-label] button:disabled { opacity: .35; cursor: default; }
+
+.layout[data-standard-purchase-actions] > .actions { display: contents; }
+
+.layout[data-standard-purchase-actions] > .actions > button[data-purchase-action] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 0;
+  height: auto;
+  min-height: 56px;
+  margin: 0;
+  padding: 14px 12px;
+  border: 1px solid var(--purchase-action-ink);
+  border-radius: 0;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: .04em;
+  text-align: center;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.layout[data-standard-purchase-actions] > .actions > button[data-purchase-action="add"] {
+  grid-column: 2;
+  grid-row: 1;
+  background: transparent;
+  color: var(--purchase-action-ink);
+}
+
+.layout[data-quantity-hidden] > .actions > button[data-purchase-action="add"] { grid-column: 1; }
+
+.layout[data-standard-purchase-actions] > .actions > button[data-purchase-action="buy"] {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  background: var(--purchase-action-ink);
+  color: var(--purchase-action-paper);
+}
+
+.layout[data-standard-purchase-actions] > .actions > button[data-purchase-action="add"]:hover:not(:disabled),
+.layout[data-standard-purchase-actions] > .quantity > div[aria-label] button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--purchase-action-ink) 5%, transparent);
+}
+
+.layout[data-standard-purchase-actions] > .actions > button[data-purchase-action="buy"]:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--purchase-action-ink) 88%, var(--purchase-action-paper));
+  color: var(--purchase-action-paper);
+}
+
+.layout[data-standard-purchase-actions] button:disabled { opacity: .45; cursor: default; }
+.layout[data-standard-purchase-actions] button:focus-visible { outline: 2px solid var(--purchase-action-ink); outline-offset: 3px; }
+.layout[data-standard-purchase-actions] button:active:not(:disabled) { filter: brightness(.94); }
+
+@media (max-width: 640px) {
+  .layout[data-standard-purchase-actions] { gap: 10px; }
+  .layout[data-standard-purchase-actions] > .quantity > div[aria-label],
+  .layout[data-standard-purchase-actions] > .actions > button[data-purchase-action] { min-height: 52px; }
+  .layout[data-standard-purchase-actions] > .quantity > div[aria-label] :is(button, output) { min-height: 50px; }
+  .layout[data-standard-purchase-actions] > .actions > button[data-purchase-action] { font-size: 11px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .layout[data-standard-purchase-actions] > .actions > button[data-purchase-action] { transition: none; }
+}

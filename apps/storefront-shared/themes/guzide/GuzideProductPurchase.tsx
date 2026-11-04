@@ -1,6 +1,7 @@
 "use client";
 import { useCommercePolicy } from "../../components/CommercePolicyProvider";
 import { WhatsAppOrderButton } from "../../components/WhatsAppOrderButton";
+import { PurchaseActionLayout } from "../../components/PurchaseActionLayout";
 import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/RestockAlerts";
 
 import Link from "next/link";
@@ -110,16 +111,14 @@ export function GuzideProductPurchase({ product, options, showQuantitySelector, 
           {!pricesHidden ? <strong>{formatTry(item.priceCents)}</strong> : null}
         </label>)}
       </fieldset> : null}
-      {showQuantitySelector ? <div className={styles.quantity} aria-label="Adet seçimi">
-        <span>Adet</span>
+      <PurchaseActionLayout className={styles.actions} quantity={showQuantitySelector ? <div className={styles.quantity} aria-label="Adet seçimi">
         <button type="button" aria-label="Adedi azalt" disabled={pending !== null || !available || quantity <= 1} onClick={() => setQuantity((value) => decrementPurchaseQuantity(value, quantityLimit))}>−</button>
         <output aria-live="polite" aria-label="Adet">{quantity}</output>
         <button type="button" aria-label="Adedi artır" disabled={pending !== null || !available || quantity >= quantityLimit} onClick={() => setQuantity((value) => incrementPurchaseQuantity(value, quantityLimit))}>+</button>
-      </div> : null}
-      <div className={styles.actions}>
-        {!policy.hideAddToCart ? <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
-        {policy.checkoutAllowed ? <button type="button" disabled={pending !== null || !allowed} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Şimdi satın al"}</button> : null}
-      </div>
+      </div> : null}>
+        {!policy.hideAddToCart ? <button type="button" data-purchase-action="add" disabled={pending !== null || !allowed} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "Ekleniyor…" : "Sepete ekle"}</button> : null}
+        {policy.checkoutAllowed ? <button type="button" data-purchase-action="buy" disabled={pending !== null || !allowed} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Hemen satın al"}</button> : null}
+      </PurchaseActionLayout>
       <p className={styles.status} aria-live="polite" role="status">{status}</p>
       <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} />
       <RestockSubscriptionForm product={product} variant={variant} />

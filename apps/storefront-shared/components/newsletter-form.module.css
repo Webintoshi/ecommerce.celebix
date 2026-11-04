@@ -1,0 +1,19 @@
+.form { display: grid; gap: 8px; width: 100%; color: var(--retail-footer-fg); }
+.emailField { display: block; min-width: 0; }
+.emailField > span:first-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.form .emailField > span:last-child { display: grid; min-height: 56px; grid-template-columns: minmax(0, 1fr) 52px; align-items: center; border: 1px solid var(--retail-footer-line); border-radius: 4px; padding-left: 16px; }
+.form .emailField > span:last-child:focus-within { border-color: var(--retail-footer-fg); outline: 1px solid var(--retail-footer-fg); outline-offset: 2px; }
+.form .emailField input { min-width: 0; min-height: 52px; border: 0; padding: 0; background: transparent; color: var(--retail-footer-fg); font-family: inherit; font-size: 16px; }
+.form .emailField input::placeholder { color: var(--retail-footer-muted); opacity: 1; }
+.form .emailField input:focus-visible { outline: 0; }
+.form .emailField button { display: grid; place-items: center; width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--retail-footer-fg); cursor: pointer; }
+.form .emailField button svg { width: 20px; height: 20px; }
+.form .emailField button:disabled { opacity: .5; cursor: default; }
+.form .emailField button:hover:not(:disabled) { background: color-mix(in srgb, var(--retail-footer-fg) 8%, transparent); }
+.form .emailField button:focus-visible { outline: 2px solid var(--retail-footer-fg); outline-offset: 1px; }
+.form .consent { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: center; min-height: 44px; color: var(--retail-footer-muted); font-size: 11px; line-height: 1.55; cursor: pointer; }
+.form .consent input { width: 17px; height: 17px; margin: 0; accent-color: var(--retail-footer-fg); }
+.form .consent input:focus-visible { outline: 2px solid var(--retail-footer-fg); outline-offset: 3px; }
+.form .consent > span { display: block; border: 0; padding: 0; }
+.form > p { min-height: 0; margin: 0; color: var(--retail-footer-muted); font-size: 12px; line-height: 1.5; }
+.form > p:empty { display: none; }

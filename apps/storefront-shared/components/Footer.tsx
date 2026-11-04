@@ -4,13 +4,11 @@ import type {
   PublicStorefront,
   PublicDesignMedia,
 } from "@celebix/saas-contracts";
-import Link from "next/link";
 import { cache } from "react";
 
 import { mergePublishedPolicyFooterGroups } from "@/lib/footer-policies.ts";
 import { mergePublishedRequiredPageFooterGroups, readPublishedRequiredPageFooterLinks } from "@/lib/footer-required-pages.ts";
 import { resolveStorefrontPage } from "@/lib/page-context.ts";
-import { localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 
 import { RetailFooter } from "./RetailFooter";
 import { GuzideFooter } from "../themes/guzide/GuzideFooter";
@@ -20,7 +18,7 @@ import { AlplerFooter } from "../themes/alpler/AlplerFooter";
 import { alplerThemeFor } from "../themes/alpler/theme.ts";
 import { SioraFooter } from "../themes/siora/SioraFooter";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
-import { SharedFooterSignature } from "./SharedFooterSignature";
+import { FooterPaymentBranding } from "./PaymentTrust";
 import { LilyumFooter } from "../themes/lilyum/LilyumFooter";
 import { lilyumThemeFor } from "../themes/lilyum/theme.ts";
 import { hizliThemeFor } from "../themes/hizli-kutu/theme.ts";
@@ -61,7 +59,11 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
     publicPolicyIndex(storefront.hostname),
     checkout ? Promise.resolve(Object.freeze([])) : publicRequiredPageIndex(storefront.hostname),
   ]);
-  const signature = <SharedFooterSignature />;
+  const modernPresentation = storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4;
+  const footerTone = checkout || (modernPresentation && guzideThemeFor(storefront)) ? "light"
+    : modernPresentation && lilyumThemeFor(storefront) ? "light"
+    : storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4 ? storefront.presentation.footer.tone : "dark";
+  const signature = <FooterPaymentBranding tone={footerTone} />;
   if (checkout) {
     const groups = mergePublishedPolicyFooterGroups(
       storefront.presentation.schemaVersion === 3 || storefront.presentation.schemaVersion === 4 ? storefront.presentation.footer.groups : LEGACY_GROUPS,
@@ -85,6 +87,7 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
         groups={groups}
         presentation={storefront.presentation}
         storefront={storefront}
+        logo={logo}
         signature={signature}
       />
     );
@@ -92,34 +95,5 @@ export async function Footer({ storefront, logo, checkout = false }: { storefron
   const { displayName, supportEmail } = storefront.presentation;
   const groups = mergePublishedRequiredPageFooterGroups(mergePublishedPolicyFooterGroups(LEGACY_GROUPS, policies), requiredPages);
   if (hizliThemeFor(storefront)) return <HizliFooter storefront={storefront} logo={logo} groups={groups} signature={signature} />;
-  return (
-    <footer className="store-footer">
-      <div className="store-container footer-grid">
-        <div>
-          <strong>{displayName}</strong>
-          <p>Özenle seçilen ürünler, güvenli ve sade bir mağaza deneyimi.</p>
-        </div>
-        {groups.map((group) => (
-          <nav aria-label={group.heading} key={group.heading}>
-            <span>{group.heading}</span>
-            {group.links.map((link) => (
-              <Link href={localizeStorefrontPath(link.destination, storefront.locale)} key={`${link.destination}-${link.label}`}>
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        ))}
-        <div>
-          <span>Mağaza</span>
-          <p>{storefront.hostname}</p>
-          {supportEmail ? <a href={`mailto:${supportEmail}`}>{supportEmail}</a> : null}
-          <p>TRY · Türkçe</p>
-        </div>
-      </div>
-      <div className="store-container footer-bottom">
-        <span>© {new Date().getUTCFullYear()} {displayName}</span>
-      </div>
-      {signature}
-    </footer>
-  );
+  return <RetailFooter storefront={storefront} logo={logo} groups={groups} signature={signature} presentation={{ displayName, supportEmail, footer: { tone: "dark", social: [] } }} />;
 }

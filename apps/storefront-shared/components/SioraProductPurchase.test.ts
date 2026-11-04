@@ -60,7 +60,7 @@ const choose = async (browser: Browser, label: string) => {
 test("add asks for an explicit size and never auto-adds; sold-out size is disabled", async () => {
   await withPurchase(async ({ container, click, calls }) => {
     assert.equal(container.querySelector(".selector")?.textContent, "Beden seçin");
-    await click(".actions button:nth-child(2)");
+    await click('[data-purchase-action="add"]');
     assert.deepEqual(calls, []);
     assert.equal(container.querySelector<HTMLDialogElement>("dialog")?.open, true);
     assert.match(container.querySelector('[role="status"]')?.textContent ?? "", /beden seçin/u);
@@ -77,7 +77,7 @@ test("chosen color and size send the real API variant and its price in commerce 
     await context.click('.swatches button[aria-label="Mavi"]');
     await choose(context, "S");
     assert.equal(context.container.querySelector(".price span")?.textContent, "₺39");
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.deepEqual(context.calls, [{ productId, variantId: "blue-small", quantity: 1 }]);
     assert.equal(context.events[0].data.variantId, "blue-small");
     assert.equal(context.events[0].data.valueMinor, 3900);
@@ -90,11 +90,11 @@ test("color changes preserve an available exact size and clear a sold-out matchi
     await choose(context, "M");
     await context.click('.swatches button[aria-label="Siyah"]');
     assert.equal(context.container.querySelector(".selector")?.textContent, "Beden: M");
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.equal(context.calls[0].variantId, "black-medium");
     await context.click('.swatches button[aria-label="Mavi"]');
     assert.equal(context.container.querySelector(".selector")?.textContent, "Beden seçin");
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.equal(context.calls.length, 1);
     assert.equal(context.container.querySelector<HTMLDialogElement>("dialog")?.open, true);
   });
@@ -105,7 +105,7 @@ test("identical displayed Small/S labels do not preserve distinct raw options", 
     await choose(context, "S");
     await context.click('.swatches button[aria-label="Beyaz"]');
     assert.equal(context.container.querySelector(".selector")?.textContent, "Beden seçin");
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.deepEqual(context.calls, []);
   });
 });
@@ -113,7 +113,7 @@ test("identical displayed Small/S labels do not preserve distinct raw options", 
 test("buy adds the selected variant to the shared cart before navigating to checkout", async () => {
   await withPurchase(async (context) => {
     await choose(context, "M");
-    await context.click(".actions button:first-child");
+    await context.click('[data-purchase-action="buy"]');
     assert.deepEqual(context.calls, [{ productId, variantId: "brown-medium", quantity: 1 }]);
     assert.deepEqual(context.order, ["add", "replace", "event:add_to_cart", "event:begin_checkout", "push:/checkout"]);
     assert.equal(context.events[1].data.valueMinor, 3700);
@@ -131,8 +131,8 @@ test("leaving the product page during a pending buy prevents late checkout navig
   const request = deferredCart();
   await withPurchase(async (context) => {
     await choose(context, "M");
-    await context.click(".actions button:first-child");
-    assert.equal(context.container.querySelector<HTMLButtonElement>(".actions button:first-child")?.disabled, true);
+    await context.click('[data-purchase-action="buy"]');
+    assert.equal(context.container.querySelector<HTMLButtonElement>('[data-purchase-action="buy"]')?.disabled, true);
     assert.deepEqual(context.calls, [{ productId, variantId: "brown-medium", quantity: 1 }]);
     await context.render(null);
     const returnedCart = { itemCount: 1 };
@@ -148,7 +148,7 @@ test("a changed URL query while buy is pending prevents checkout even before the
   const request = deferredCart();
   await withPurchase(async (context) => {
     await choose(context, "M");
-    await context.click(".actions button:first-child");
+    await context.click('[data-purchase-action="buy"]');
     window.history.pushState({}, "", `${window.location.pathname}?view=collection`);
     await React.act(async () => request.resolve({ itemCount: 1 }));
     assert.equal(context.events.some(({ name }) => name === "begin_checkout"), false);
@@ -160,7 +160,7 @@ test("a deferred cart drawer callback cannot open after the purchase page unmoun
   const request = deferredCart();
   await withPurchase(async (context) => {
     await choose(context, "M");
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.equal(context.calls.length, 1);
     assert.equal(context.order.includes("drawer"), false);
     await context.render(null);
@@ -175,11 +175,11 @@ test("a failed request clears pending, shows retry guidance and allows the same 
   let attempts = 0;
   await withPurchase(async (context) => {
     await choose(context, "M");
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.match(context.container.querySelector('[role="status"]')?.textContent ?? "", /yeniden deneyin/u);
-    assert.equal(context.container.querySelector<HTMLButtonElement>(".actions button:nth-child(2)")?.disabled, false);
+    assert.equal(context.container.querySelector<HTMLButtonElement>('[data-purchase-action="add"]')?.disabled, false);
     assert.equal(context.events.length, 0);
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.equal(context.calls.length, 2);
     assert.equal(context.calls[1].variantId, "brown-medium");
     assert.match(context.container.querySelector('[role="status"]')?.textContent ?? "", /sepete eklendi/u);
@@ -195,7 +195,7 @@ test("quantity controls honor the feature flag, stock limit and selected variant
     await context.click('button[aria-label="Adedi artır"]');
     assert.equal(context.container.querySelector(".quantity output")?.textContent, "2");
     assert.equal(context.container.querySelector<HTMLButtonElement>('button[aria-label="Adedi artır"]')?.disabled, true);
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.deepEqual(context.calls, [{ productId, variantId: "brown-medium", quantity: 2 }]);
     assert.equal(context.events[0].data.valueMinor, 7400);
   }, { quantity: true });
@@ -225,7 +225,7 @@ test("a meaningful single title-only variant remains visible and purchases its a
   const only = { ...product.variants[0], id: "only-xl", title: "XL", attributes: {} };
   await withPurchase(async (context) => {
     assert.equal(context.container.querySelector(".selector")?.textContent, "Seçenek: XL");
-    await context.click(".actions button:nth-child(2)");
+    await context.click('[data-purchase-action="add"]');
     assert.deepEqual(context.calls, [{ productId, variantId: "only-xl", quantity: 1 }]);
   }, { product: { ...product, variants: [only] } });
 });

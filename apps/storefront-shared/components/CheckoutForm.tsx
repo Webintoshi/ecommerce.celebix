@@ -37,6 +37,13 @@ import { PromotionCouponField } from "./PromotionCouponField";
 import { createCheckoutQuoteQueue } from "../lib/checkout/quote-queue.ts";
 import { reconcileCheckoutQuote } from "../lib/checkout/reconcile-quote.ts";
 import { OrderBumpOffers } from "./OrderBumpOffers";
+import { CheckoutPaymentSecurity } from "./PaymentTrust";
+import { OrbInput } from "./ui/animated-input";
+import inputStyles from "../themes/ezmeo/ezmeo-checkout-inputs.module.css";
+
+function CheckoutTextInput({ appearance, example, compact, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "defaultValue"> & Readonly<{ value?: string; defaultValue?: string; appearance: "standard" | "orb"; example: string; compact?: boolean }>) {
+  return appearance === "orb" ? <OrbInput {...props} placeholder={example} compact={compact} /> : <input {...props} />;
+}
 
 const EMPTY: CheckoutFormDraft = Object.freeze({
   firstName: "",
@@ -95,12 +102,14 @@ export function CheckoutForm({
   initialNormalizedCodes = [],
   visualTheme = "shared-checkout",
   locale = "tr",
+  inputAppearance = "standard",
 }: Readonly<{
   intentKind: CheckoutIntentKind;
   initialDraft?: Partial<CheckoutFormDraft>;
   initialNormalizedCodes?: readonly string[];
   visualTheme?: CheckoutVisualTheme;
   locale?: string;
+  inputAppearance?: "standard" | "orb";
 }>) {
   const hydrated = useHydrated();
   const { cart, loading: cartLoading } = useCartStatus();
@@ -572,7 +581,8 @@ export function CheckoutForm({
   return (
     <form
       ref={formRef}
-      className="checkout-form checkout-layout checkout-single-screen"
+      className={`checkout-form checkout-layout checkout-single-screen ${inputAppearance === "orb" ? inputStyles.form : ""}`}
+      data-checkout-inputs={inputAppearance === "orb" ? "orb" : undefined}
       onSubmit={(event) => void submit(event)}
       noValidate
     >
@@ -590,7 +600,7 @@ export function CheckoutForm({
             <div className="checkout-fields">
               <label>
                 E-posta
-                <input
+                <CheckoutTextInput appearance={inputAppearance} example="ornek@eposta.com"
                   {...field("email")}
                   name="email"
                   autoComplete="email"
@@ -628,7 +638,7 @@ export function CheckoutForm({
               <div className="checkout-wide checkout-name-fields">
               <label>
                 Ad
-                <input
+                <CheckoutTextInput appearance={inputAppearance} example="Adınız"
                   {...field("firstName")}
                   name="firstName"
                   autoComplete="given-name"
@@ -639,13 +649,13 @@ export function CheckoutForm({
               </label>
               <label>
                 Soyad
-                <input {...field("lastName")} name="lastName" autoComplete="family-name" maxLength={100} required />
+                <CheckoutTextInput appearance={inputAppearance} example="Soyadınız" {...field("lastName")} name="lastName" autoComplete="family-name" maxLength={100} required />
                 {error("lastName")}
               </label>
               </div>
               <label className="checkout-wide">
                 Adres
-                <input
+                <CheckoutTextInput appearance={inputAppearance} example="Mahalle, cadde, bina ve daire no"
                   {...field("addressLine1")}
                   name="addressLine1"
                   autoComplete="address-line1"
@@ -657,7 +667,7 @@ export function CheckoutForm({
               <div className="checkout-wide checkout-location-fields">
               <label>
                 Şehir
-                <input
+                <CheckoutTextInput appearance={inputAppearance} example="Şehir" compact
                   {...field("city")}
                   name="city"
                   autoComplete="address-level1"
@@ -668,7 +678,7 @@ export function CheckoutForm({
               </label>
               <label>
                 İlçe
-                <input
+                <CheckoutTextInput appearance={inputAppearance} example="İlçe" compact
                   {...field("district")}
                   name="district"
                   autoComplete="address-level2"
@@ -679,7 +689,7 @@ export function CheckoutForm({
               </label>
               <label>
                 Posta kodu
-                <input
+                <CheckoutTextInput appearance={inputAppearance} example="34000" compact
                   {...field("postalCode")}
                   name="postalCode"
                   autoComplete="postal-code"
@@ -769,7 +779,7 @@ export function CheckoutForm({
             ) ? (
               <label className="checkout-identity">
                 T.C. kimlik numarası
-                <input
+                <CheckoutTextInput appearance={inputAppearance} example="11 haneli kimlik numaranız"
                   name="identityNumber"
                   inputMode="numeric"
                   autoComplete="off"
@@ -815,6 +825,7 @@ export function CheckoutForm({
               ? "Güvenli ödemeye geç"
               : "Siparişi tamamla"}
         </button>
+        <CheckoutPaymentSecurity cardPayment={!quotePending && quote?.paymentMethods.some(method => method.kind === "hosted_card" && paymentKind === "hosted_card") === true} />
         <Link className="shared-checkout-return" href={localizeStorefrontPath("/cart", locale)}><span aria-hidden="true">←</span> Sepete dön</Link>
       </footer>
     </form>

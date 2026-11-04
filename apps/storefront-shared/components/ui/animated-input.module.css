@@ -1,0 +1,50 @@
+.shell {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 60px;
+  padding: 7px 18px;
+  border: 1px solid #d7d3d4;
+  border-radius: 8px;
+  background: #fff;
+  color: #202020;
+  color-scheme: light;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.shell:hover { border-color: #a99da1; }
+.shell:focus-within { border-color: #710f1c; box-shadow: 0 0 0 1px #710f1c; }
+.shell[data-invalid="true"] { border-color: #9b2c2c; }
+.shell[data-invalid="true"]:focus-within { box-shadow: 0 0 0 1px #9b2c2c; }
+.shell:has(input:disabled) { opacity: .6; }
+.shell > .input,
+:global(.checkout-form[data-checkout-inputs="orb"]) .shell > .input {
+  display: block;
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #202020;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  box-shadow: none;
+  caret-color: #710f1c;
+}
+.shell > .input:is(:focus, :focus-visible),
+:global(.checkout-form[data-checkout-inputs="orb"]) .shell > .input:is(:focus, :focus-visible) { outline: 0; border: 0; background: transparent; box-shadow: none; }
+.input::placeholder { color: #756d71; opacity: 1; }
+.input:autofill,
+:global(.checkout-form[data-checkout-inputs="orb"]) .shell > .input:autofill { box-shadow: 0 0 0 100px #fff inset; }
+@media (max-width: 600px) {
+  .shell[data-compact="true"] { padding-inline: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell { transition: none; }
+}

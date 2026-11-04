@@ -355,6 +355,7 @@ export type PublicProduct = Readonly<{
   media: readonly PublicProductMedia[];
   merchandising?: PublicProductMerchandising;
   reviews?: readonly PublicStarterReview[];
+  reviewSummary?: Readonly<{ averageRating: number; reviewCount: number }>;
 }>;
 
 export type PublicProductList = Readonly<{ items: readonly PublicProduct[] }>;

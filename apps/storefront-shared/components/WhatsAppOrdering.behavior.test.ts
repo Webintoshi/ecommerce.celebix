@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import React from 'react';
+import { productPath } from '../lib/storefront-routes.ts';
 import { resolveStorefrontCommercePolicy, buildDefaultStarterPresentation, type PublicProduct } from '@celebix/saas-contracts';
 import { componentLoader, withProductBrowser } from './product-variant-media-test-utils.ts';
 const product:PublicProduct={id:'20000000-0000-4000-8000-000000000001',slug:'ornek-urun',title:'Gül & Çiçek',currency:'TRY',status:'active',priceCents:null,pricesHidden:true,available:true,variants:[{id:'30000000-0000-4000-8000-000000000001',title:'Küçük',priceCents:null,pricesHidden:true,stockTracking:true,stockQuantity:5,available:true,attributes:{}},{id:'30000000-0000-4000-8000-000000000002',title:'Büyük',priceCents:null,pricesHidden:true,stockTracking:true,stockQuantity:5,available:true,attributes:{}}],media:[]};
@@ -13,7 +14,7 @@ for(const [name,path] of [['shared','./ProductPurchasePanel.tsx'],['Güzide','..
  const {ProductVariantMediaProvider:Variants}=load<{ProductVariantMediaProvider:Component}>(new URL('./ProductVariantMedia.tsx',import.meta.url));
  const purchaseModule=load<Record<string,Component>>(new URL(path,import.meta.url));const Purchase=Object.values(purchaseModule)[0]!;
  await withProductBrowser(async({container,render,click})=>{await render(React.createElement(Provider,{policy},React.createElement(Variants,{product},React.createElement(Purchase,{product,available:true,showQuantitySelector:true,options:{...buildDefaultStarterPresentation({name:'Örnek'}).productDetail,mobileStickyPurchase:false},storefrontId:'example',locale:'tr'}))));
- assert.doesNotMatch(container.textContent??'',/₺|Sepete ekle|SEPETE EKLE|Şimdi satın al/);
+ assert.doesNotMatch(container.textContent??'',/₺|Sepete ekle|SEPETE EKLE|Hemen satın al/);
  assert.equal(container.querySelector<HTMLInputElement>('input[type="radio"]:checked'),null);
  const button=Array.from(container.querySelectorAll('button')).find(item=>item.textContent==='WhatsApp ile sipariş ver');assert.ok(button);assert.equal(button.disabled,true);
  if(name!=='Siora'){await click(`input[value="${product.variants[1]!.id}"]`);assert.equal(Array.from(container.querySelectorAll('button')).find(item=>item.textContent==='WhatsApp ile sipariş ver')?.disabled,false);}
@@ -127,7 +128,7 @@ for(const explicit of [false,true])test(`Siora production detail wrapper require
   'next/navigation':{useRouter:()=>({push(){},back(){}}),usePathname:()=>'/products/ornek-urun'},
   '@/lib/product-description.ts':{renderStarterProductDescription(){return undefined;}},
   '@/lib/public-product-ordering.ts':{availableProductsFirst:(items:unknown)=>items},
-  '@/lib/storefront-routes.ts':{productIndexPath:()=>'/products',categoryPath:()=>'/products'},
+  '@/lib/storefront-routes.ts':{productPath,productIndexPath:()=>'/products',categoryPath:()=>'/products'},
   '@/lib/cart/client.ts':{storefrontCartClient:{}},'@/lib/analytics/events.ts':{emitStorefrontCommerceEvent(){}},'@/lib/format.ts':{formatTry:(value:number|null)=>value===null?'':`₺${value}`},
   '../../components/CartStatusProvider':{useCartStatus:()=>({})},'../../components/FavoriteButton':{FavoriteButton:()=>null},
   '../../components/ProductCard':{ProductCard:()=>null},'../../components/ProductApprovedReviews':{ProductApprovedReviews:()=>null},
@@ -138,7 +139,7 @@ for(const explicit of [false,true])test(`Siora production detail wrapper require
  await withProductBrowser(async({container,render,click})=>{
   await render(React.createElement(Provider,{policy},React.createElement(Detail,{product:colorProduct,initialVariantId:explicit?colorProduct.variants[1]!.id:undefined,storefrontId:'store',locale:'tr',relatedProducts:[],publishedPolicies:[],options:{...buildDefaultStarterPresentation({name:'Örnek'}).productDetail,mobileStickyPurchase:false},cardStyle:'compact',imageRatio:'portrait',showQuantitySelector:true})));
   const request=()=>Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(button=>button.textContent==='WhatsApp ile sipariş ver');assert.equal(request()?.disabled,!explicit);
-  if(!explicit){await click('.swatches button[aria-label="Mavi"]');assert.equal(request()?.disabled,false);}assert.doesNotMatch(container.textContent??'',/₺|Sepete ekle|Şimdi satın al/);
+  if(!explicit){await click('.swatches button[aria-label="Mavi"]');assert.equal(request()?.disabled,false);}assert.doesNotMatch(container.textContent??'',/₺|Sepete ekle|Hemen satın al/);
  });
 });
 

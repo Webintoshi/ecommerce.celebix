@@ -69,17 +69,17 @@ for(const quickView of [false,true]) for(const hideAddToCart of [false,true]) {
  test(`Hızlı ${quickView?'quick view':'detail and sticky'} hides all money and requires pack choice (hide add ${hideAddToCart})`,async()=>{
   const s=subject({policy:policyFor(true,hideAddToCart),product:hiddenProduct,quickView});
   await withProductBrowser(async({container,render,change,click})=>{
-   await render(s.tree());assert.doesNotMatch(container.textContent??'',/₺|Toplam|Şimdi satın al/);assert.equal(container.querySelector('.hk-unit-price'),null);
+   await render(s.tree());assert.doesNotMatch(container.textContent??'',/₺|Toplam|Hemen satın al/);assert.equal(container.querySelector('.hk-unit-price'),null);
    const select=container.querySelector<HTMLSelectElement>('select');assert.equal(select?.value,'');
    assert.equal(container.querySelector('.hk-purchase-actions button.hk-button')===null,hideAddToCart);
    const whatsapp=()=>Array.from(container.querySelectorAll<HTMLButtonElement>('button')).find(button=>button.textContent==='WhatsApp ile sipariş ver');assert.equal(whatsapp()?.disabled,true);
    await change('select',product.variants[1].id);assert.equal(whatsapp()?.disabled,false);
-   assert.doesNotMatch(container.textContent??'',/₺|Toplam|Şimdi satın al/);
+   assert.doesNotMatch(container.textContent??'',/₺|Toplam|Hemen satın al/);
    if(!hideAddToCart){await click('.hk-purchase-actions button');assert.deepEqual(s.calls,[{productId:product.id,variantId:product.variants[1].id,quantity:1}]);assert.deepEqual(s.events,[]);}
    assert.deepEqual(s.routes,[]);
   });
  });
 }
 test('Hızlı visible prices with hidden add retains canonical values and replaces detail/sticky purchases with WhatsApp',async()=>{
- const s=subject({policy:policyFor(false,true)});await withProductBrowser(async({container,render,change})=>{await render(s.tree());assert.equal(container.querySelector('.hk-purchase-actions button'),null);assert.ok(container.querySelector('.hk-purchase-sticky .whatsapp-order-action'));assert.doesNotMatch(container.querySelector('.hk-purchase-sticky')?.textContent??'',/Sepete ekle|Şimdi satın al/);assert.equal(container.querySelector('select')?.value,'');await change('select',product.variants[1].id);assert.equal(container.querySelector('.hk-price strong')?.textContent,formatTry(800000));assert.equal(container.querySelector('.hk-unit-price')?.textContent,`${formatTry(1600)} / adet`);assert.deepEqual(s.calls,[]);assert.deepEqual(s.routes,[]);});
+ const s=subject({policy:policyFor(false,true)});await withProductBrowser(async({container,render,change})=>{await render(s.tree());assert.equal(container.querySelector('.hk-purchase-actions button'),null);assert.ok(container.querySelector('.hk-purchase-sticky .whatsapp-order-action'));assert.doesNotMatch(container.querySelector('.hk-purchase-sticky')?.textContent??'',/Sepete ekle|Hemen satın al/);assert.equal(container.querySelector('select')?.value,'');await change('select',product.variants[1].id);assert.equal(container.querySelector('.hk-price strong')?.textContent,formatTry(800000));assert.equal(container.querySelector('.hk-unit-price')?.textContent,`${formatTry(1600)} / adet`);assert.deepEqual(s.calls,[]);assert.deepEqual(s.routes,[]);});
 });

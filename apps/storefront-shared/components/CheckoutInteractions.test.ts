@@ -51,6 +51,28 @@ function loadForm(quote: (_intent: string, codes: readonly string[]) => Promise<
   return load<{ CheckoutForm: Form }>(new URL("./CheckoutForm.tsx", import.meta.url)).CheckoutForm;
 }
 
+test("checkout shows 3D Secure only for the selected quoted card method and keeps encryption wording for offline methods", async () => {
+  const Form = loadForm(async () => {
+    const selected = response([]);
+    const quote = { ...selected.quote, paymentMethods: [
+      ...selected.quote.paymentMethods,
+      { kind: "hosted_card", id: "30000000-0000-4000-8000-000000000001", label: "Kart", instructions: "Güvenli ödeme", providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: [] },
+      { kind: "bank_transfer", label: "Banka havalesi", instructions: "Havale ile ödeyin.", bankName: "Örnek Banka", accountHolder: "Örnek Mağaza", iban: "TR330006100519786457841326" },
+    ] };
+    return { quote, quoteDigest: digest(quote) };
+  });
+  await withProductBrowser(async ({ container, render, click }) => {
+    await render(React.createElement(Form, { intentKind: "cart" }));
+    assert.match(container.querySelector('[data-checkout-payment-security]')?.textContent ?? '', /SSL \/ TLS/);
+    assert.equal(container.querySelector('[data-payment-three-d-secure]'), null);
+    await click('input[value="hosted_card"]');
+    assert.match(container.querySelector('[data-payment-three-d-secure]')?.textContent ?? '', /3D Secure/);
+    await click('input[value="bank_transfer"]');
+    assert.equal(container.querySelector('[data-payment-three-d-secure]'), null);
+    assert.ok(!container.querySelector('[data-checkout-payment-security]')?.textContent?.includes("256"));
+  });
+});
+
 test("checkout coupon application and removal re-quote the displayed total without submitting the order", async () => {
   const calls: string[][] = [];
   const Form = loadForm(async (_intent, codes) => { calls.push([...codes]); return response(codes); });
@@ -72,6 +94,92 @@ test("checkout coupon application and removal re-quote the displayed total witho
 const bumpOffer = { ruleId: "30000000-0000-4000-8000-000000000002", productId: "10000000-0000-4000-8000-000000000002", variantId: "20000000-0000-4000-8000-000000000002", slug: "tamamlayici", title: "Tamamlayıcı ürün", variantTitle: "Varsayılan", priceCents: 2500, currency: "TRY", media: null };
 const bumpProjection = { cartVersion: 1, heading: "Birlikte iyi gider", offers: [bumpOffer] };
 const validDraft = { firstName: "Ada", lastName: "Lovelace", email: "ada@example.test", phone: "+14155552671", addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy", postalCode: "34710", note: "" };
+
+test("Ezmeo orb inputs preserve prefilled native values, labels, country selection and edits", async () => {
+  const Form = loadForm(async () => response([]));
+  await withProductBrowser(async ({ container, render, change }) => {
+    await render(React.createElement(Form, { intentKind: "cart", inputAppearance: "orb", initialDraft: validDraft }));
+    assert.ok(container.querySelector('form[data-checkout-inputs="orb"]'));
+    assert.equal(container.querySelectorAll('[data-orb-field]').length, 7);
+    assert.equal(container.querySelector('[data-orb-field] > span[aria-hidden="true"]'), null, "white inputs have no spheres or decorative dividers");
+    for (const name of ["email", "firstName", "lastName", "addressLine1", "city", "district", "postalCode"] as const) {
+      const input = container.querySelector<HTMLInputElement>(`input[name="${name}"]`);
+      assert.ok(input?.required && input.closest('label'));
+      assert.equal(input.value, validDraft[name]);
+      assert.ok(input.autocomplete);
+    }
+    assert.equal(container.querySelector<HTMLSelectElement>('[aria-label="Telefon ülke kodu"]')?.value, "US");
+    await change('input[name="firstName"]', "Deniz");
+    assert.equal(container.querySelector<HTMLInputElement>('input[name="firstName"]')?.value, "Deniz");
+    await change('[aria-label="Telefon ülke kodu"]', "TR");
+    assert.equal(container.querySelector<HTMLSelectElement>('[aria-label="Telefon ülke kodu"]')?.value, "TR");
+    assert.equal(container.querySelector('input[name="postalCode"]')?.getAttribute('aria-describedby'), null);
+    assert.equal(container.querySelector('details.checkout-optional-fields')?.hasAttribute('open'), false);
+  });
+});
+
+test("other checkout appearances retain the original native fields", async () => {
+  const Form = loadForm(async () => response([]));
+  await withProductBrowser(async ({ container, render }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    assert.equal(container.querySelector('[data-checkout-inputs]'), null);
+    assert.equal(container.querySelector('[data-orb-field]'), null);
+    assert.equal(container.querySelector<HTMLInputElement>('input[name="firstName"]')?.value, validDraft.firstName);
+  });
+});
+
+test("orb placeholder animation never writes form values and cleans up on edit and unmount", async () => {
+  const { OrbInput } = componentLoader()< { OrbInput: React.ComponentType<Record<string, unknown>> } >(new URL("./ui/animated-input.tsx", import.meta.url));
+  const callbacks = new Map<number, () => void>();
+  let id = 0;
+  await withProductBrowser(async ({ container, render }) => {
+    Object.defineProperty(document, "hidden", { configurable: true, value: false });
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    Object.defineProperty(preference, "matches", { configurable: true, value: false });
+    window.matchMedia = () => preference;
+    window.setInterval = ((callback: () => void) => { callbacks.set(++id, callback); return id; }) as typeof window.setInterval;
+    window.clearInterval = handle => { callbacks.delete(Number(handle)); };
+    await render(React.createElement(OrbInput, { value: "", placeholder: "ornek@eposta.com", "aria-label": "E-posta" }));
+    const input = container.querySelector<HTMLInputElement>('input')!;
+    await React.act(() => input.focus());
+    assert.equal(callbacks.size, 1);
+    await React.act(() => callbacks.values().next().value?.());
+    assert.equal(input.value, "");
+    assert.match(input.placeholder, /^o/u);
+    await render(React.createElement(OrbInput, { value: "deniz@example.test", placeholder: "ornek@eposta.com", "aria-label": "E-posta" }));
+    assert.equal(callbacks.size, 0);
+    assert.equal(input.value, "deniz@example.test");
+    await render(React.createElement(OrbInput, { value: "", placeholder: "ornek@eposta.com", "aria-label": "E-posta" }));
+    assert.equal(callbacks.size, 1);
+  });
+  assert.equal(callbacks.size, 0);
+});
+
+test("orb stays still when the customer requests reduced motion", async () => {
+  const { OrbInput } = componentLoader()< { OrbInput: React.ComponentType<Record<string, unknown>> } >(new URL("./ui/animated-input.tsx", import.meta.url));
+  await withProductBrowser(async ({ container, render }) => {
+    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+    Object.defineProperty(preference, "matches", { configurable: true, value: true });
+    window.matchMedia = () => preference;
+    await render(React.createElement(OrbInput, { value: "", placeholder: "Adınız", "aria-label": "Ad" }));
+    await React.act(() => container.querySelector<HTMLInputElement>('input')!.focus());
+    assert.equal(container.querySelector('[data-animating="true"]'), null);
+    assert.equal(container.querySelector('input')?.placeholder, "Adınız");
+  });
+});
+
+test("uncontrolled orb inputs retain native form reset behavior", async () => {
+  const { OrbInput } = componentLoader()< { OrbInput: React.ComponentType<Record<string, unknown>> } >(new URL("./ui/animated-input.tsx", import.meta.url));
+  await withProductBrowser(async ({ container, render, change }) => {
+    await render(React.createElement("form", null, React.createElement(OrbInput, { defaultValue: "Ada", name: "firstName", "aria-label": "Ad" })));
+    await change('input[name="firstName"]', "Deniz");
+    assert.equal(container.querySelector<HTMLInputElement>('input')?.value, "Deniz");
+    await React.act(() => container.querySelector('form')!.reset());
+    assert.equal(container.querySelector<HTMLInputElement>('input')?.value, "Ada");
+    await React.act(() => container.querySelector<HTMLInputElement>('input')!.focus());
+    assert.equal(container.querySelector('[data-animating="true"]'), null);
+  });
+});
 
 test("checkout acceptance fences the old digest until a fresh quote preserves coupon and delivery inputs", async () => {
   let finishAdd!: (value: typeof cart) => void;

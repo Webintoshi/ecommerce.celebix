@@ -7,14 +7,17 @@ import { buildDefaultStarterPresentation, FIXED_STOREFRONT_POLICIES, type Public
 import { mergePublishedPolicyFooterGroups } from "../lib/footer-policies.ts";
 import { mergePublishedRequiredPageFooterGroups, readPublishedRequiredPageFooterLinks } from "../lib/footer-required-pages.ts";
 import { localizeStorefrontPath } from "../lib/storefront-routes.ts";
+import { ALPLER_NAVY_LOGO_URL, ALPLER_WHITE_LOGO_URL } from "../themes/alpler/logo.ts";
 import { componentLoader, withProductBrowser } from "./product-variant-media-test-utils.ts";
 
 const tenantCases = [
-  { name: "Siora", id: "ff465e64-1491-40ef-8840-c66281155a1d", footerClass: "siora-footer" },
-  { name: "Alpler", id: "9f1f6aed-8719-407e-b64c-fd8e956d3277", footerClass: "alpler-footer" },
-  { name: "Guzide", id: "a828862c-4cc1-475a-89cc-5fbee31eb43f", footerClass: "guzide-footer" },
+  { name: "Siora", id: "ff465e64-1491-40ef-8840-c66281155a1d", footerClass: "retail-footer" },
+  { name: "Alpler", id: "9f1f6aed-8719-407e-b64c-fd8e956d3277", footerClass: "retail-footer" },
+  { name: "Guzide", id: "a828862c-4cc1-475a-89cc-5fbee31eb43f", footerClass: "retail-footer" },
   { name: "Generic", id: "00000000-0000-4000-8000-000000000001", footerClass: "retail-footer" },
-  { name: "Lilyum", id: "89e1e15f-8282-4e9b-ae3e-f417501bd54a", footerClass: "lf-footer" },
+  { name: "Lilyum", id: "89e1e15f-8282-4e9b-ae3e-f417501bd54a", footerClass: "retail-footer" },
+  { name: "Hizli", id: "eae7be09-f362-4681-9df7-18de95eff4cf", footerClass: "retail-footer" },
+  { name: "Ezmeo", id: "7892a771-67a9-42d7-9b36-f4c3e8562e95", footerClass: "retail-footer" },
 ] as const;
 
 function storefront(id: string, name: string, legacy = false): PublicStorefront {
@@ -31,7 +34,7 @@ function storefront(id: string, name: string, legacy = false): PublicStorefront 
   };
 }
 
-async function renderFooter(store: PublicStorefront, checkout: boolean, run: (container: HTMLElement) => Promise<void>, content: Record<string, unknown> = {}) {
+async function renderFooter(store: PublicStorefront, checkout: boolean, run: (container: HTMLElement) => Promise<void>, content: Record<string, unknown> = {}, logo = { url: "https://media.example/tenant-logo.png", altText: "Mağaza logosu" }) {
   const load = componentLoader({
     "@/lib/page-context.ts": { resolveStorefrontPage: async () => ({ kind: "active", context: { storefront: store, runtime: { content: { listPolicies: async () => FIXED_STOREFRONT_POLICIES.map(definition => ({ ...definition, published: definition.key === "kvkk" })), ...content } } } }) },
     "@/lib/footer-policies.ts": { mergePublishedPolicyFooterGroups },
@@ -40,7 +43,7 @@ async function renderFooter(store: PublicStorefront, checkout: boolean, run: (co
     "next/link": { __esModule: true, default: ({ children, prefetch: _prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => React.createElement("a", props, children) },
   });
   const { Footer } = load<{ Footer: (props: { storefront: PublicStorefront; checkout: boolean; logo: { url: string; altText: string } }) => Promise<React.ReactNode> }>(new URL("./Footer.tsx", import.meta.url));
-  const element = await Footer({ storefront: store, checkout, logo: { url: "https://media.example/tenant-logo.png", altText: "Mağaza logosu" } });
+  const element = await Footer({ storefront: store, checkout, logo });
   await withProductBrowser(async ({ container, render }) => { await render(element); await run(container); });
 }
 
@@ -91,6 +94,14 @@ function assertSignature(container: HTMLElement) {
   const footer = container.querySelector("footer");
   assert.ok(footer);
   assert.equal(container.querySelectorAll("footer").length, 1, "the signature does not introduce a nested footer");
+  assert.equal(footer.querySelectorAll('[data-payment-brand-marks]').length, 1, "every footer branch receives one shared card-logo row");
+  const mark = footer.querySelector<HTMLImageElement>('[data-payment-brand-marks] img');
+  const dark = footer.matches('.lf-footer, .store-footer:not([data-footer-tone]), [data-footer-tone="dark"], .hk-footer:not([data-tone="light"])');
+  assert.equal(mark?.getAttribute("src"), dark ? "/payment-marks/card-brands-on-dark.svg" : "/payment-marks/card-brands.svg");
+  assert.equal(footer.querySelectorAll('[data-payment-brand-marks] img').length, 1);
+  assert.equal(mark?.getAttribute("width"), "300");
+  assert.equal(mark?.getAttribute("height"), "32");
+  for (const brand of ["Mastercard", "Visa", "TROY", "American Express"]) assert.ok(mark?.getAttribute("alt")?.includes(brand));
   const links = footer.querySelectorAll<HTMLAnchorElement>('a[href="https://celebix.net/tr/e-ticaret-paketleri"]');
   assert.equal(links.length, 1, "the actual footer contains exactly one Celebix signature");
   const link = links[0];
@@ -105,6 +116,51 @@ function assertSignature(container: HTMLElement) {
 }
 
 for (const tenant of tenantCases) {
+  test(`${tenant.name} uses the shared footer layout with its configured newsletter, contacts, social links and working appearance switch`, async () => {
+    const original = storefront(tenant.id, tenant.name);
+    assert.ok(original.presentation.schemaVersion === 3 || original.presentation.schemaVersion === 4);
+    const store: PublicStorefront = { ...original, presentation: { ...original.presentation, supportEmail: "destek@fixture.invalid", footer: {
+      ...original.presentation.footer, newsletter: { ...original.presentation.footer.newsletter, enabled: true, heading: "Mağazadan haberler" },
+      social: [{ network: "instagram", url: "https://www.instagram.com/fixture-store/" }],
+    } } };
+    await renderFooter(store, false, async container => {
+      assert.ok(container.querySelector('footer.retail-footer[data-footer-section]'));
+      assert.ok(container.querySelector('nav[aria-label="Admin menüsü"]'));
+      assert.equal(container.querySelector('#retail-newsletter-heading')?.textContent, "Mağazadan haberler");
+      assert.ok(container.querySelector('a[href="mailto:destek@fixture.invalid"]'));
+      assert.ok(container.querySelector('a[href="https://www.instagram.com/fixture-store/"] svg'));
+      const toggle = container.querySelector<HTMLButtonElement>('button[role="switch"]')!;
+      const initial = container.querySelector('[data-footer-section]')?.getAttribute('data-footer-tone');
+      const consent = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+      await React.act(() => consent.click());
+      await React.act(() => toggle.click());
+      assert.notEqual(container.querySelector('[data-footer-section]')?.getAttribute('data-footer-tone'), initial);
+      assert.equal(consent.checked, true);
+      assertSignature(container);
+    });
+  });
+  test(`${tenant.name} footer removes the account section and prioritizes published policies without changing configured groups`, async () => {
+    const original = storefront(tenant.id, tenant.name);
+    assert.ok(original.presentation.schemaVersion === 3 || original.presentation.schemaVersion === 4);
+    const groups = [
+      { heading: "Mağaza", links: [{ label: "Tüm Ürünler", destination: "/products" }] },
+      { heading: "Hesap", links: [{ label: "Hesabım", destination: "/account" }] },
+      { heading: "Markamız", links: [{ label: "Koleksiyonlarımız", destination: "/products?collection=brand" }] },
+    ];
+    const before = JSON.stringify(groups);
+    const store: PublicStorefront = { ...original, presentation: { ...original.presentation, footer: { ...original.presentation.footer, groups } } };
+    await renderFooter(store, false, async container => {
+      const footer = container.querySelector("footer")!;
+      assert.equal(footer.querySelector('a[href="/account"]'), null);
+      assert.equal(footer.querySelector('nav[aria-label="Hesap"]'), null);
+      const navigation = [...footer.querySelectorAll('nav[aria-label]')].map(nav => nav.getAttribute("aria-label"));
+      assert.ok(navigation.indexOf("Mağaza") < navigation.indexOf("Politikalar"));
+      assert.ok(navigation.indexOf("Politikalar") < navigation.indexOf("Markamız"));
+      assert.ok(footer.querySelector('a[href="/policies/kvkk"]'));
+      assert.ok(footer.querySelector('a[href="/urunler?collection=brand"]'));
+    });
+    assert.equal(JSON.stringify(groups), before);
+  });
   for (const checkout of [false, true]) {
     test(`${tenant.name} ${checkout ? "checkout" : "storefront"} footer contains one real Celebix logo/link and preserves tenant content`, async () => {
       const store = storefront(tenant.id, tenant.name);
@@ -114,12 +170,53 @@ for (const tenant of tenantCases) {
         assert.match(container.querySelector("footer")?.textContent ?? "", new RegExp(`© .*${tenant.name}`));
         if (!checkout) {
           assert.ok(container.querySelector('a[href="/urunler"]'), "the admin menu link keeps its Turkish storefront route");
-          if (tenant.name !== "Generic") assert.ok(container.querySelector('img[alt="Mağaza logosu"]'), "the tenant logo is preserved");
+          assert.ok(container.querySelector('img[alt="Mağaza logosu"]'), "the tenant logo is preserved");
         }
       });
     });
   }
 }
+
+test("Alpler retains its supplied navy and white artwork and intrinsic emblem dimensions in the shared footer", async () => {
+  await renderFooter(storefront(tenantCases[1].id, "Alpler"), false, async container => {
+    const light = container.querySelector<HTMLImageElement>('[data-footer-emblem="true"] img[data-footer-logo-tone="light"]');
+    const dark = container.querySelector<HTMLImageElement>('[data-footer-emblem="true"] img[data-footer-logo-tone="dark"]');
+    assert.equal(light?.getAttribute('src'), ALPLER_NAVY_LOGO_URL);
+    assert.equal(dark?.getAttribute('src'), ALPLER_WHITE_LOGO_URL);
+    assert.equal(light?.getAttribute('width'), '720');
+    assert.equal(dark?.getAttribute('height'), '540');
+    await React.act(() => container.querySelector<HTMLButtonElement>('button[role="switch"]')!.click());
+    assertSignature(container);
+  }, {}, { url: ALPLER_NAVY_LOGO_URL, altText: "Alpler Spor" });
+});
+
+test("Lilyum starts light and combines store information without account links or duplicate destinations", async () => {
+  const original = storefront(tenantCases[4].id, "Lilyum");
+  assert.ok(original.presentation.schemaVersion === 3 || original.presentation.schemaVersion === 4);
+  const groups = [
+    { heading: "Mağaza", links: [{ label: "Tüm Ürünler", destination: "/products" }, { label: "Hesabım", destination: "/account" }] },
+    { heading: "Bilgi", links: [{ label: "Ürünleri keşfet", destination: "/products" }, { label: "Atölyemiz", destination: "/pages/atolye" }, { label: "Siparişlerim", destination: "/account/orders?tab=recent" }] },
+    { heading: "Politikalar", links: [{ label: "Teslimat bilgileri", destination: "/pages/teslimat" }] },
+  ];
+  const before = JSON.stringify(groups);
+  const store: PublicStorefront = { ...original, presentation: { ...original.presentation, supportEmail: "destek@lilyum.example", footer: {
+    ...original.presentation.footer, tone: "dark", groups,
+    social: [{ network: "instagram", url: "https://www.instagram.com/lilyum-fixture/" }],
+  } } };
+  await renderFooter(store, false, async container => {
+    const footer = container.querySelector('footer.retail-footer')!;
+    assert.equal(footer.getAttribute("data-footer-tone"), "light");
+    assertSignature(container);
+    const storeLinks = [...footer.querySelectorAll('nav[aria-label="Mağaza"] a')];
+    assert.deepEqual(storeLinks.map(link => [link.textContent, link.getAttribute("href")]), [["Tüm Ürünler", "/urunler"], ["Atölyemiz", "/pages/atolye"]]);
+    assert.equal(footer.querySelector('nav[aria-label="Bilgi"], nav[aria-label="Bilgi mobil"]'), null);
+    assert.equal(footer.querySelector('a[href^="/account"]'), null);
+    assert.ok(footer.querySelector('nav[aria-label="Politikalar"] a[href="/pages/teslimat"]'));
+    assert.ok(footer.querySelector('a[href="mailto:destek@lilyum.example"]'));
+    assert.ok(footer.querySelector('a[href="https://www.instagram.com/lilyum-fixture/"] svg'));
+  });
+  assert.equal(JSON.stringify(groups), before);
+});
 
 test("legacy footer replaces its old text signature without changing navigation or copyright", async () => {
   await renderFooter(storefront(tenantCases[3].id, "Legacy", true), false, async (container) => {
@@ -132,4 +229,52 @@ test("legacy footer replaces its old text signature without changing navigation 
 test("the shipped signature is the exact supplied SVG asset", () => {
   const asset = readFileSync(new URL("../public/brand/celebix-dark.svg", import.meta.url));
   assert.equal(createHash("sha256").update(asset).digest("hex"), "216cd8cd8d0a4c4598af888618813cb595ac09604d084cc0290b5e35022500d0");
+});
+
+test("shared footer keeps the configured newsletter, actual social destinations and no empty link group", async () => {
+  const store = storefront(tenantCases[3].id, "Ortak mağaza");
+  assert.ok(store.presentation.schemaVersion === 3 || store.presentation.schemaVersion === 4);
+  const configured: PublicStorefront = { ...store, presentation: { ...store.presentation, footer: {
+    ...store.presentation.footer,
+    newsletter: { enabled: true, heading: "Mağazamızdan haber alın", body: "Yeni ürünlerimizi e-postanızda görün.", consentLabel: "E-posta duyurularına izin veriyorum." },
+    social: [{ network: "instagram", url: "https://www.instagram.com/fixture-store/" }],
+    groups: [...store.presentation.footer.groups, { heading: "Boş grup", links: [] }],
+  } } };
+  await renderFooter(configured, false, async container => {
+    assertSignature(container);
+    assert.equal(container.querySelectorAll('form').length, 1);
+    assert.equal(container.querySelector('#retail-newsletter-heading')?.textContent, "Mağazamızdan haber alın");
+    assert.ok(container.querySelector('button[aria-label="E-bültene kaydol"]'));
+    assert.ok(container.querySelector('a[href="https://www.instagram.com/fixture-store/"] svg'));
+    assert.equal(container.textContent?.includes("Boş grup"), false);
+    assert.equal(container.textContent?.includes("MAĞAZADAN HABERLER"), false);
+    assert.equal(container.querySelector('input[type="checkbox"]')?.hasAttribute('checked'), false);
+  });
+});
+
+test("starter footer appearance changes locally with matching payment assets and preserves form state", async () => {
+  const initial = storefront(tenantCases[3].id, "Starter");
+  assert.ok(initial.presentation.schemaVersion === 3 || initial.presentation.schemaVersion === 4);
+  const store: PublicStorefront = { ...initial, presentation: { ...initial.presentation, footer: {
+    ...initial.presentation.footer, newsletter: { ...initial.presentation.footer.newsletter, enabled: true },
+  } } };
+  await renderFooter(store, false, async container => {
+    const rootClass = container.ownerDocument.documentElement.className;
+    const footer = container.querySelector<HTMLElement>('[data-footer-section]');
+    const toggle = container.querySelector<HTMLButtonElement>('button[role="switch"]');
+    assert.ok(footer && toggle);
+    const initial = footer.dataset.footerTone;
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]');
+    assert.ok(checkbox);
+    await React.act(() => checkbox.click());
+    await React.act(() => toggle.click());
+    assert.equal(footer.dataset.footerTone, initial === "dark" ? "light" : "dark");
+    assert.equal(toggle.getAttribute("aria-checked"), String(initial !== "dark"));
+    assertSignature(container);
+    assert.equal(container.ownerDocument.documentElement.className, rootClass, "page appearance is untouched");
+    assert.equal(checkbox.checked, true, "appearance does not reset newsletter consent");
+    await React.act(() => toggle.click());
+    assert.equal(footer.dataset.footerTone, initial);
+    assertSignature(container);
+  });
 });

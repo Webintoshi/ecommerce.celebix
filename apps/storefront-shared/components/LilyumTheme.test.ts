@@ -48,10 +48,10 @@ test("removed home sections do not reappear, and unavailable items are not adver
   assert.equal(model.productRows[0].products[0].priceCents, 177700);
 });
 
-test("admin color changes and multi-slide campaigns survive the accepted defaults", () => {
+test("Lilyum uses the requested white canvas while keeping admin accents and multi-slide campaigns", () => {
   const branded = { ...design, brand: { primaryColor: "#123456", backgroundColor: "#FAFAFA", textColor: "#222222", accentColor: "#BB9944" } } as PublicStorefrontDesign;
   assert.equal(lilyumBrandTokens(branded)["--store-lilyum-primary"], "#123456");
-  assert.equal(lilyumBrandTokens(branded)["--store-lilyum-background"], "#FAFAFA");
+  assert.equal(lilyumBrandTokens(branded)["--store-lilyum-background"], "#ffffff");
   const multi = { ...presentation, sections: presentation.sections.map(section => section.kind === "banner" ? { ...section, slides: [...section.slides, { ...section.slides[0], slideId: "new", headline: "New campaign" }] } : section) };
   const model = lilyumHomeModel(multi, design);
   assert.equal(model.multiHeroSection?.kind, "banner");

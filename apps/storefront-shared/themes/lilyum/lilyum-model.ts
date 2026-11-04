@@ -9,7 +9,7 @@ export function lilyumBrandTokens(design: PublicStorefrontDesign) {
   const brand = design.brand;
   return {
     "--store-lilyum-primary": brand.primaryColor.toLowerCase() === "#ff5a00" ? "#24493b" : brand.primaryColor,
-    "--store-lilyum-background": brand.backgroundColor.toLowerCase() === "#ffffff" ? "#f7f4ee" : brand.backgroundColor,
+    "--store-lilyum-background": "#ffffff",
     "--store-lilyum-text": brand.textColor.toLowerCase() === "#171717" ? "#171b1a" : brand.textColor,
     "--store-lilyum-accent": brand.accentColor.toLowerCase() === "#171717" ? "#b58a53" : brand.accentColor,
   };

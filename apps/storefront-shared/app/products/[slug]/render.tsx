@@ -14,6 +14,8 @@ import { GuzideProductDetailExperience } from "../../../themes/guzide/GuzideProd
 import { SioraProductDetailExperience } from "../../../themes/siora/SioraProductDetailExperience";
 import { sioraInitialVariant } from "../../../themes/siora/product-options.ts";
 import { ProductDetailExperience } from "@/components/ProductDetailExperience";
+import { ezmeoThemeFor } from "../../../themes/ezmeo/theme.ts";
+import { EzmeoProductGallery } from "../../../themes/ezmeo/EzmeoProductGallery";
 import { lilyumThemeFor } from "../../../themes/lilyum/theme.ts";
 import { hizliThemeFor } from "../../../themes/hizli-kutu/theme.ts";
 import { HizliProductDetail } from "../../../themes/hizli-kutu/HizliProductDetail";
@@ -192,6 +194,7 @@ export async function renderProductPage({
         supportEmail={presentation.supportEmail}
         showQuantitySelector={presentation.schemaVersion === 2 || presentation.schemaVersion === 3 || presentation.schemaVersion === 4 ? presentation.cart.showQuantitySelector : true}
       /> : <ProductDetailExperience product={item} initialVariantId={initialVariantId}
+        gallery={ezmeoThemeFor(storefront) ? <EzmeoProductGallery product={item} /> : undefined}
         locale={storefront.locale}
         relatedProducts={relatedProducts}
         publishedPolicies={publishedPolicies}

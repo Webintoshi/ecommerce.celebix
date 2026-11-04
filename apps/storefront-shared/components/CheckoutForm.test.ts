@@ -33,6 +33,11 @@ test("checkout renders delivery and server-projected payment on one screen", () 
   assert.doesNotMatch(form, /setDraft\(\(current\)[\s\S]{0,160}event\.currentTarget/u);
 });
 
+test("orb checkout input pilot is selected only by the Ezmeo storefront identity", () => {
+  assert.match(checkout, /inputAppearance=\{ezmeoThemeFor\(storefront\) \? "orb" : "standard"\}/u);
+  assert.match(form, /inputAppearance = "standard"/u);
+});
+
 test("checkout submission contains only the exact server-owned contract and fixed success path", () => {
   for (const proof of ["operationId", "cartVersion", "intentKind", "contact", "shippingAddress", "shippingMethod", "paymentKind", "note"]) assert.match(form, new RegExp(proof, "u"));
   assert.match(form, /\/api\/checkout\/complete/u);

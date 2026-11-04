@@ -28,7 +28,7 @@ test("theme preview prefers the next applied draft logo and clears it using only
  assert.equal(container.querySelector('.alpler-wordmark img')?.getAttribute("src"),"https://media.fixture.invalid/new-draft.webp");
  await render(React.createElement(VisualStorefrontCanvas,props(base,{storefront:identity,publishedVersion:4,previewResources:resources})));
  assert.equal(container.querySelector('.alpler-wordmark img')?.getAttribute("src"),inherited.url);
- assert.equal(container.querySelector('.alpler-footer-contact')?.getAttribute("href"),"mailto:destek@atlas.example");
+ assert.ok(container.querySelector('footer.retail-footer a[href="mailto:destek@atlas.example"]'));
  await render(React.createElement(VisualStorefrontCanvas,props(base,{storefront:identity,publishedVersion:4,previewResources:{...resources,presentation:{supportEmail:"destek@atlas.example"}}})));
  assert.equal(container.querySelector('.alpler-wordmark img'),null);
 }));
@@ -76,7 +76,7 @@ test("Lilyum canvas uses the live home layout and the selected mobile hero witho
  assert.equal(container.querySelector('.lf-home .lf-hero img')?.getAttribute("src"),"https://media.fixture.invalid/mobile.webp");
  assert.match(container.querySelector('.lf-hero-copy')?.textContent??"",/Yeni çiçekler/);
  assert.ok(container.querySelector('.lf-delivery'));
- assert.ok(container.querySelector('.lf-footer'));
+ assert.ok(container.querySelector('footer.retail-footer[data-footer-section]'));
  assert.equal(container.querySelectorAll('[data-preview-section-id="home_flowers"]').length,1);
  assert.equal(container.querySelectorAll('[data-insert-index]').length,2);
  const defaultArtwork={...design,composition:{...design.composition,sections:[{...design.composition.sections[0]!,slides:[{...design.composition.sections[0]!.slides[0]!,desktopImage:null,mobileImage:null}]}]}};
@@ -85,7 +85,7 @@ test("Lilyum canvas uses the live home layout and the selected mobile hero witho
  const legacyLogo={url:`https://media.saas-staging.celebix.site/stores/${identity.id}/design/c9c0df33-d646-59a4-ba36-a538b32d2a31.jpg`,mediaType:"image/jpeg",altText:"Lilyum",width:800,height:300};
  await render(React.createElement(VisualStorefrontCanvas,props(defaultArtwork,{storefront:identity,previewResources:{...resources,presentation:{logo:legacyLogo}}})));
  assert.equal(container.querySelector('.lf-logo img')?.getAttribute("src"),"https://lilyum.fixture.invalid/themes/lilyum/logo-refined-v1.webp");
- assert.equal(container.querySelector('.lf-footer-logo')?.getAttribute("data-refined-logo"),"true");
+ assert.equal(container.querySelector('footer.retail-footer img')?.getAttribute("src"),"https://lilyum.fixture.invalid/themes/lilyum/logo-refined-v1.webp");
 }));
 test("enabled text-only overlay banner uses the live section renderer without requiring an image",()=>{
  const base=baseline(),design={...base,composition:{...base.composition,sections:[{kind:"banner" as const,sectionId:"home_text_banner" as const,enabled:true,layout:"single" as const,autoplay:false,presentation:"overlay" as const,slides:[{slideId:"slide_text_banner",enabled:true,headline:"Text-only banner",body:"Details",desktopImage:null,mobileImage:null,destination:{kind:"none" as const}}]}]}};

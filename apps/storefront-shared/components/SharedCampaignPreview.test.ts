@@ -22,7 +22,7 @@ test("shared campaign row keeps manual order and Güzide rails with inert previe
   assert.doesNotMatch(markup, /Sepete ekle/);
 });
 
-test("shared Güzide footer renders V4 links and the supplied inert newsletter", () => {
+test("shared Güzide footer renders V4 links without cookie preference controls", () => {
   const { GuzideFooter } = compile<{ GuzideFooter: (props: Record<string, unknown>) => ReactNode }>(new URL("../themes/guzide/GuzideFooter.tsx", import.meta.url));
   const newsletter = { enabled: true, heading: "Haberler", body: "Yenilikler", consentLabel: "Kabul ediyorum" };
   let selected: unknown;
@@ -33,7 +33,8 @@ test("shared Güzide footer renders V4 links and the supplied inert newsletter",
     renderNewsletter: (value: unknown) => { selected = value; return React.createElement("div", { "data-inert-newsletter": true }, React.createElement("input", { disabled: true }), React.createElement("button", { disabled: true }, "Kaydol")); },
   }));
   assert.equal(selected, newsletter);
-  assert.match(markup, /guzide-footer__mobile-groups/);
+  assert.match(markup, /data-retail-footer-mobile/);
+  assert.doesNotMatch(markup, /data-google-consent-preferences-host/);
   assert.match(markup, /href="\/urunler"/);
   assert.match(markup, /Haberler/);
   assert.match(markup, /data-inert-newsletter/);
@@ -50,7 +51,8 @@ test("Güzide preview disables prefetch for every shared footer navigation link"
     presentation: { schemaVersion: 4, displayName: "Güzide", logo: null, footer: { newsletter: { enabled: false }, social: [] } },
     storefront: { canonicalUrl: "https://guzide.example", hostname: "guzide.example", locale: "tr", currency: "TRY" },
   }));
-  assert.deepEqual(values, [false, false, false]);
+  assert.ok(values.length > 0);
+  assert.ok(values.every(value => value === false));
 });
 
 

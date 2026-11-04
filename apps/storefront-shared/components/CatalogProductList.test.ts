@@ -7,7 +7,7 @@ import { componentLoader, withProductBrowser } from "./product-variant-media-tes
 const product = (n: number) => ({ id: `10000000-0000-4000-8000-${String(n).padStart(12,"0")}`, slug: `product-${n}`, title: `Ürün ${n}`, currency: "TRY", status: "active", priceCents: n * 100, available: true, media: [], variants: [{ id: `20000000-0000-4000-8000-${String(n).padStart(12,"0")}`, title: "Standart", priceCents: n * 100, stockTracking: false, stockQuantity: 0, available: true, attributes: {} }] });
 const base = { products: [product(1),product(2)], total: 4, nextOffset: 24, path: "/urunler", locale: "tr", cardStyle: "compact", imageRatio: "portrait", selection: { query: "", filter: "all", order: "featured", offset: 0 } };
 async function withList(run: (b: any) => Promise<void>) {
-  const load = componentLoader({ "./ProductGrid": { ProductGrid: ({ products, preserveOrder }: any) => React.createElement("div", {"data-test-products":products.map((p: any)=>p.title).join(","),"data-preserve-order":String(preserveOrder),"data-prices":products.map((p:any)=>String(p.priceCents)).join(",")}) } });
+  const load = componentLoader({ "./ProductGrid": { ProductGrid: ({ products, preserveOrder }: any) => React.createElement("div", {"data-test-products":products.map((p: any)=>p.title).join(","),"data-preserve-order":String(preserveOrder),"data-prices":products.map((p:any)=>String(p.priceCents)).join(","),"data-review-counts":products.map((p:any)=>String(p.reviewSummary?.reviewCount ?? "off")).join(",")}) } });
   const { CatalogProductList: List } = load<{ CatalogProductList: React.ComponentType<any> }>(new URL("./CatalogProductList.tsx",import.meta.url));
   const {CommercePolicyProvider:Provider}=load<{CommercePolicyProvider:React.ComponentType<any>}>(new URL("./CommercePolicyProvider.tsx",import.meta.url));
   await withProductBrowser(async b => {
@@ -100,4 +100,20 @@ test("a policy version or mode change cannot restore old priced continuation pro
   assert.equal(container.querySelector('[data-test-products]')?.getAttribute('data-test-products'),'Ürün 1,Ürün 2');
   assert.equal(container.querySelector('[data-test-products]')?.getAttribute('data-prices'),'null,null');
  });
+});
+
+test("a review setting change cannot restore appended stars from an enabled catalog snapshot", async () => {
+  await withList(async ({ container, render, notify, queue, requests }) => {
+    const rated = (value: ReturnType<typeof product>) => ({ ...value, reviewSummary: { averageRating: 4.5, reviewCount: 2 } });
+    await render({ products: base.products.map(rated) });
+    assert.equal(container.querySelector('[data-review-counts]')?.getAttribute('data-review-counts'), "2,2");
+    await notify();
+    await React.act(async () => queue[0].resolve(Response.json({ items: [rated(product(3))], total: 4, nextOffset: null })));
+    assert.equal(container.querySelector('[data-review-counts]')?.getAttribute('data-review-counts'), "2,2,2");
+    await render({ path: "/products" });
+    await render();
+    assert.equal(container.querySelector('[data-test-products]')?.getAttribute('data-test-products'), "Ürün 1,Ürün 2");
+    assert.equal(container.querySelector('[data-review-counts]')?.getAttribute('data-review-counts'), "off,off");
+    assert.equal(requests.length, 1);
+  });
 });

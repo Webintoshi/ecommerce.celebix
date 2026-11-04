@@ -34,6 +34,27 @@ test("acceptance loads exactly one nonce-bearing GTM runtime after denied defaul
   assert.equal(f.scripts[0]?.nonce, "validNonce123456789");
   assert.ok(f.browser.dataLayer.some((entry) => (entry as Record<string, unknown>)["gtm.blocklist"]));
 });
+for (const value of ["granted", "denied"] as const) {
+  test(`restoring ${value} consent applies the saved choice without extending or rewriting it`, () => {
+    const f = fixture(), key = `celebix:google-consent:v1:${STORE}:shop.example.com`;
+    const saved = JSON.stringify({ version: 1, value, expires: Date.now() + 60000 });
+    f.storage.set(key, saved);
+    const { manager } = client(f);
+    assert.equal(manager.consent(), value);
+    assert.equal(f.storage.get(key), saved);
+    assert.equal(f.scripts.length, value === "granted" ? 1 : 0);
+  });
+}
+for (const saved of [null, "broken", "null", JSON.stringify({ version: 1, value: "granted", expires: 1 }), JSON.stringify({ version: 2, value: "granted", expires: 9999999999999 })]) {
+  test(`invalid or expired saved consent stays undecided without loading or rewriting: ${saved}`, () => {
+    const f = fixture(), key = `celebix:google-consent:v1:${STORE}:shop.example.com`;
+    if (saved !== null) f.storage.set(key, saved);
+    const { manager } = client(f);
+    assert.equal(manager.consent(), "undecided");
+    assert.equal(f.scripts.length, 0);
+    assert.equal(f.storage.get(key) ?? null, saved);
+  });
+}
 test("Ads-only stores use their actual AW tag and inactive stores load nothing", () => {
   const ads = client(fixture(), { ...projection, gtmContainerId: null } as never); ads.manager.setConsent("granted");
   assert.equal(ads.f.scripts[0]?.src, "https://www.googletagmanager.com/gtag/js?id=AW-123456");
