@@ -54,19 +54,21 @@ CREATE INDEX IF NOT EXISTS loyalty_rewards_program ON saas.loyalty_rewards(store
 CREATE TABLE IF NOT EXISTS saas.loyalty_order_effects(
  store_id uuid NOT NULL,order_id uuid NOT NULL,program_id uuid NOT NULL,program_version bigint NOT NULL,account_id uuid NOT NULL,customer_id uuid NOT NULL,amount bigint NOT NULL,paid_at timestamptz NOT NULL,updated_at timestamptz NOT NULL,PRIMARY KEY(store_id,order_id,program_id),FOREIGN KEY(store_id,program_id,program_version)REFERENCES saas.loyalty_program_versions(store_id,program_id,version));
 CREATE INDEX IF NOT EXISTS loyalty_order_member_day ON saas.loyalty_order_effects(store_id,program_id,account_id,paid_at)WHERE amount>0;
+CREATE TABLE IF NOT EXISTS saas.loyalty_order_members(
+ store_id uuid NOT NULL,order_id uuid NOT NULL,account_id uuid NOT NULL,customer_id uuid NOT NULL,source_kind text NOT NULL CHECK(source_kind IN('account_session','pos_approval')),source_id uuid NOT NULL,verified_at timestamptz NOT NULL,PRIMARY KEY(store_id,order_id),FOREIGN KEY(store_id,account_id)REFERENCES saas.storefront_accounts(store_id,id),FOREIGN KEY(store_id,customer_id)REFERENCES saas.customers(store_id,id));
 CREATE TABLE IF NOT EXISTS saas.loyalty_order_queue(store_id uuid NOT NULL,order_id uuid NOT NULL,revision bigint NOT NULL DEFAULT 1,queued_at timestamptz NOT NULL,attempts integer NOT NULL DEFAULT 0,next_attempt_at timestamptz NOT NULL,last_error text,program_snapshot jsonb NOT NULL DEFAULT '{}',PRIMARY KEY(store_id,order_id));
 CREATE INDEX IF NOT EXISTS loyalty_queue_due ON saas.loyalty_order_queue(next_attempt_at,store_id,order_id);
 CREATE TABLE IF NOT EXISTS saas.loyalty_operations(store_id uuid NOT NULL,actor_id uuid NOT NULL,operation_id uuid NOT NULL,action text NOT NULL,payload jsonb NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL,PRIMARY KEY(store_id,actor_id,operation_id));
 CREATE TABLE IF NOT EXISTS saas.loyalty_pos_approvals(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),store_id uuid NOT NULL,account_id uuid NOT NULL,customer_id uuid NOT NULL,token_digest text NOT NULL UNIQUE,created_at timestamptz NOT NULL,expires_at timestamptz NOT NULL,consumed_at timestamptz,sale_id uuid,FOREIGN KEY(store_id,account_id)REFERENCES saas.storefront_accounts(store_id,id),UNIQUE(store_id,id));
 CREATE INDEX IF NOT EXISTS loyalty_pos_sale ON saas.loyalty_pos_approvals(store_id,sale_id)WHERE consumed_at IS NOT NULL;
-DO $t$ DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['loyalty_migration_baseline','loyalty_programs','loyalty_program_versions','loyalty_members','loyalty_effects','loyalty_rewards','loyalty_order_effects','loyalty_order_queue','loyalty_operations','loyalty_pos_approvals'] LOOP
+DO $t$ DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['loyalty_migration_baseline','loyalty_programs','loyalty_program_versions','loyalty_members','loyalty_effects','loyalty_rewards','loyalty_order_effects','loyalty_order_members','loyalty_order_queue','loyalty_operations','loyalty_pos_approvals'] LOOP
  EXECUTE format('ALTER TABLE saas.%I ENABLE ROW LEVEL SECURITY',t);EXECUTE format('ALTER TABLE saas.%I FORCE ROW LEVEL SECURITY',t);
  IF NOT EXISTS(SELECT 1 FROM pg_policy WHERE polrelid=('saas.'||t)::regclass AND polname=t||'_owner')THEN EXECUTE format('CREATE POLICY %I ON saas.%I TO celebix_saas_owner USING(true) WITH CHECK(true)',t||'_owner',t);END IF;
  EXECUTE format('REVOKE ALL ON saas.%I FROM PUBLIC,celebix_saas_app,celebix_saas_host_resolver,celebix_saas_workflow,celebix_saas_identity,celebix_saas_migrator,celebix_saas_bootstrap,celebix_saas_observability',t);
 END LOOP;END $t$;
 
 CREATE OR REPLACE FUNCTION saas.loyalty_immutable_v1() RETURNS trigger LANGUAGE plpgsql SET search_path=pg_catalog AS $f$ BEGIN RAISE EXCEPTION 'LOYALTY_IMMUTABLE';END $f$;
-DO $t$ DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['loyalty_program_versions','loyalty_effects','loyalty_operations']LOOP IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=('saas.'||t)::regclass AND tgname=t||'_immutable')THEN EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE OR DELETE ON saas.%I FOR EACH ROW EXECUTE FUNCTION saas.loyalty_immutable_v1()',t||'_immutable',t);END IF;END LOOP;END $t$;
+DO $t$ DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['loyalty_program_versions','loyalty_effects','loyalty_operations','loyalty_order_members']LOOP IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid=('saas.'||t)::regclass AND tgname=t||'_immutable')THEN EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE OR DELETE ON saas.%I FOR EACH ROW EXECUTE FUNCTION saas.loyalty_immutable_v1()',t||'_immutable',t);END IF;END LOOP;END $t$;
 CREATE OR REPLACE FUNCTION saas.loyalty_iso_v1(t timestamptz) RETURNS text LANGUAGE sql IMMUTABLE AS $f$SELECT to_char(t AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')$f$;
 CREATE OR REPLACE FUNCTION saas.loyalty_program_json_v1(p saas.loyalty_programs,n timestamptz) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
 SELECT jsonb_build_object('id',p.id,'name',p.name,'status',CASE WHEN NOT p.enabled THEN 'paused' WHEN(p.config->>'startsAt')::timestamptz>n THEN 'scheduled' ELSE 'active' END,'version',p.version,'config',p.config,'createdAt',saas.loyalty_iso_v1(p.created_at),'updatedAt',saas.loyalty_iso_v1(p.updated_at))$f$;
@@ -75,12 +77,16 @@ CREATE OR REPLACE FUNCTION saas.loyalty_reward_held_v1(s uuid,c uuid,n timestamp
 SELECT EXISTS(SELECT 1 FROM saas.promotion_usage_reservations r LEFT JOIN saas.storefront_hosted_checkout_sessions h ON r.source_kind='hosted_checkout' AND h.store_id=r.store_id AND h.id::text=r.source_reference WHERE r.store_id=s AND r.code_id=c AND ((r.status='reserved'AND r.expires_at>n)OR(r.status<>'committed'AND h.id IS NOT NULL AND h.terminal_at IS NULL AND h.status IN('active','provider_ready','processing'))))$f$;
 CREATE OR REPLACE FUNCTION saas.loyalty_reward_json_v1(r saas.loyalty_rewards,n timestamptz) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
 SELECT jsonb_build_object('id',r.id,'programId',r.program_id,'programName',(SELECT name FROM saas.loyalty_programs WHERE store_id=r.store_id AND id=r.program_id),'reward',r.reward,'status',CASE WHEN r.status IN('used','revoked','expired')THEN r.status WHEN saas.loyalty_reward_held_v1(r.store_id,r.code_id,n)OR r.status='reserved' THEN 'reserved' WHEN r.expires_at<=n THEN 'expired' ELSE 'available' END,'earnedAt',saas.loyalty_iso_v1(r.earned_at),'expiresAt',saas.loyalty_iso_v1(r.expires_at))$f$;
+CREATE OR REPLACE FUNCTION saas.loyalty_available_rewards_v1(s uuid,a uuid,n timestamptz)RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
+ SELECT coalesce(jsonb_agg(saas.loyalty_reward_json_v1(r,n)ORDER BY r.earned_at,r.id),'[]')FROM(
+ SELECT * FROM saas.loyalty_rewards WHERE store_id=s AND account_id=a AND status IN('available','reserved')AND(expires_at IS NULL OR expires_at>n OR saas.loyalty_reward_held_v1(s,code_id,n))ORDER BY earned_at,id LIMIT 100
+ )r $f$;
 
 CREATE OR REPLACE FUNCTION saas.loyalty_rule_v1(c jsonb,currency_code text) RETURNS jsonb LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
 SELECT jsonb_build_object('schemaVersion',1,'benefit',CASE c->'reward'->>'kind' WHEN 'gift' THEN jsonb_build_object('kind','gift','giftVariantId',c->'reward'->>'variantId','quantity',c->'reward'->'quantity','autoAdd',false)WHEN 'discount'THEN jsonb_build_object('kind','fixed_amount','amountMinor',c->'reward'->'amountMinor','currency',currency_code)ELSE jsonb_build_object('kind','free_shipping')END,'targets',jsonb_build_object('mode','all','include','[]'::jsonb,'exclude','[]'::jsonb),'audience',jsonb_build_object('mode','everyone'),'trigger',jsonb_build_object('kind','code','codes',jsonb_build_array('LOYALTY-MANAGED')),'schedule',jsonb_build_object('timezone',c->>'timezone'),'limits',jsonb_build_object('totalUsage',NULL,'perCustomerUsage',NULL,'budgetMinor',NULL,'orderMaximumMinor',NULL),'conditions',jsonb_build_object('minimumBasketMinor',c->'rewardMinimumBasketMinor','minimumQuantity',0,'minimumProductQuantity',0)||CASE WHEN c->'reward'->>'kind'='shipping'AND jsonb_array_length(c->'reward'->'shippingMethodIds')>0 THEN jsonb_build_object('shippingMethodIds',c->'reward'->'shippingMethodIds')ELSE '{}'::jsonb END,'combinationPolicy',CASE WHEN(c->>'allowCombination')::boolean THEN jsonb_build_object('kind','benefit_classes','benefitClasses',jsonb_build_array('percentage','fixed_amount','free_shipping','buy_x_get_y','quantity_tiers','bundle_price','gift'))ELSE jsonb_build_object('kind','none')END,'priority',100,'marginPolicy',jsonb_build_object('kind','warn'),'progressMessagePolicy',jsonb_build_object('enabled',false))$f$;
 
 CREATE OR REPLACE FUNCTION saas.loyalty_apply_effect_v1(s uuid,p uuid,v bigint,a uuid,c uuid,op uuid,d bigint,n timestamptz,why text,meta jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
-DECLARE cfg jsonb;m saas.loyalty_members;r saas.loyalty_rewards;threshold bigint;issued integer:=0;pid uuid;rid uuid;cid uuid;code_value text;
+DECLARE cfg jsonb;m saas.loyalty_members;r saas.loyalty_rewards;threshold bigint;issued integer:=0;pid uuid;rid uuid;cid uuid;code_value text;grant_version bigint;
 BEGIN
  IF d=0 AND why<>'reconcile_rewards'THEN RETURN;END IF;
  SELECT config,promotion_id INTO cfg,pid FROM saas.loyalty_program_versions WHERE store_id=s AND program_id=p AND version=v;IF NOT FOUND THEN RAISE EXCEPTION 'LOYALTY_VERSION_INVALID';END IF;
@@ -91,14 +97,19 @@ BEGIN
  INSERT INTO saas.loyalty_members(store_id,program_id,account_id,customer_id,last_activity_at)VALUES(s,p,a,c,n)ON CONFLICT DO NOTHING;
  SELECT * INTO m FROM saas.loyalty_members WHERE store_id=s AND program_id=p AND account_id=a FOR UPDATE;
  IF m.customer_id<>c THEN RAISE EXCEPTION 'LOYALTY_MEMBER_INVALID';END IF;
+ grant_version:=CASE WHEN why='paid_order'THEN v ELSE greatest(m.rule_version,(SELECT version FROM saas.loyalty_programs WHERE store_id=s AND id=p))END;
+ IF grant_version<>v THEN SELECT config,promotion_id INTO cfg,pid FROM saas.loyalty_program_versions WHERE store_id=s AND program_id=p AND version=grant_version;END IF;
  IF m.expires_at<=n AND m.balance>0 THEN
   INSERT INTO saas.loyalty_effects(store_id,program_id,program_version,account_id,operation_id,delta,reason,metadata,created_at)VALUES(s,p,v,a,gen_random_uuid(),-m.balance,'progress_expired','{}',n);m.balance:=0;
  END IF;
  m.balance:=m.balance+d;threshold:=(cfg->>'target')::bigint;
  IF abs(m.balance)>9007199254740991 THEN RAISE EXCEPTION 'LOYALTY_AMOUNT_OVERFLOW';END IF;
  IF m.balance<0 THEN
-  FOR r IN SELECT * FROM saas.loyalty_rewards WHERE store_id=s AND program_id=p AND account_id=a AND status='available' ORDER BY sequence DESC FOR UPDATE LOOP
+  FOR r IN SELECT * FROM saas.loyalty_rewards WHERE store_id=s AND program_id=p AND account_id=a AND status='available' ORDER BY sequence DESC LOOP
    EXIT WHEN m.balance>=0;
+   IF r.code_id IS NOT NULL THEN PERFORM 1 FROM saas.promotion_codes WHERE store_id=s AND id=r.code_id FOR UPDATE;END IF;
+   SELECT * INTO r FROM saas.loyalty_rewards WHERE id=r.id FOR UPDATE;
+   IF NOT FOUND OR r.status IS DISTINCT FROM 'available'THEN CONTINUE;END IF;
    IF saas.loyalty_reward_held_v1(s,r.code_id,n)THEN CONTINUE;END IF;
    UPDATE saas.loyalty_rewards SET status='revoked'WHERE id=r.id;
    IF r.code_id IS NOT NULL THEN UPDATE saas.promotion_codes SET status='revoked'WHERE store_id=s AND id=r.code_id;END IF;
@@ -111,11 +122,12 @@ BEGIN
   IF pid IS NOT NULL THEN cid:=gen_random_uuid();code_value:='L-'||upper(replace(rid::text,'-',''));INSERT INTO saas.promotion_codes(id,store_id,promotion_id,code,status,created_at)VALUES(cid,s,pid,code_value,'active',n);END IF;
   m.earned:=m.earned+1;
   INSERT INTO saas.loyalty_rewards(id,store_id,program_id,program_version,account_id,customer_id,sequence,target_cost,reward,code_id,code,status,earned_at,expires_at)
-  VALUES(rid,s,p,v,a,c,m.earned,threshold,cfg->'reward',cid,code_value,'available',n,CASE WHEN cfg->>'rewardExpiryDays'IS NOT NULL THEN n+make_interval(days=>(cfg->>'rewardExpiryDays')::integer)END);
+  VALUES(rid,s,p,grant_version,a,c,m.earned,threshold,cfg->'reward',cid,code_value,'available',n,CASE WHEN cfg->>'rewardExpiryDays'IS NOT NULL THEN n+make_interval(days=>(cfg->>'rewardExpiryDays')::integer)END);
   m.balance:=m.balance-threshold;
  END LOOP;
  IF d<>0 THEN INSERT INTO saas.loyalty_effects(store_id,program_id,program_version,account_id,operation_id,delta,reason,metadata,created_at)VALUES(s,p,v,a,op,d,why,meta,n);END IF;
- UPDATE saas.loyalty_members SET balance=m.balance,progress=greatest(m.balance,0),earned=m.earned,last_activity_at=CASE WHEN d<>0 THEN n ELSE m.last_activity_at END,expires_at=CASE WHEN d=0 THEN m.expires_at WHEN cfg->>'progressExpiryDays'IS NOT NULL THEN n+make_interval(days=>(cfg->>'progressExpiryDays')::integer)END,rule_version=v,pending_issuance=m.balance>=threshold AND((cfg->>'repeat')::boolean OR NOT EXISTS(SELECT 1 FROM saas.loyalty_rewards WHERE store_id=s AND program_id=p AND account_id=a AND status IN('available','reserved','used'))),reconciled_at=n WHERE store_id=s AND program_id=p AND account_id=a;
+ IF issued>0 AND pid IS NOT NULL THEN UPDATE saas.promotions SET status='active',updated_at=n WHERE store_id=s AND id=pid AND status='archived';END IF;
+ UPDATE saas.loyalty_members SET balance=m.balance,progress=greatest(m.balance,0),earned=m.earned,last_activity_at=CASE WHEN d<>0 THEN n ELSE m.last_activity_at END,expires_at=CASE WHEN d=0 THEN m.expires_at WHEN cfg->>'progressExpiryDays'IS NOT NULL THEN n+make_interval(days=>(cfg->>'progressExpiryDays')::integer)END,rule_version=grant_version,pending_issuance=m.balance>=threshold AND((cfg->>'repeat')::boolean OR NOT EXISTS(SELECT 1 FROM saas.loyalty_rewards WHERE store_id=s AND program_id=p AND account_id=a AND status IN('available','reserved','used'))),reconciled_at=n WHERE store_id=s AND program_id=p AND account_id=a;
 END $f$;
 
 CREATE OR REPLACE FUNCTION saas.loyalty_code_allowed_v1(s uuid,code_id uuid,ctx jsonb,n timestamptz)RETURNS boolean LANGUAGE plpgsql STABLE SET search_path=pg_catalog,saas AS $f$
@@ -129,12 +141,28 @@ DECLARE r saas.loyalty_rewards;BEGIN
  AND NOT EXISTS(SELECT 1 FROM saas.loyalty_members lm WHERE lm.store_id=s AND lm.program_id=r.program_id AND lm.account_id=r.account_id AND lm.balance<0);
 END $f$;
 
+CREATE OR REPLACE FUNCTION saas.loyalty_one_reward_selected_v1(s uuid,code_id uuid,ctx jsonb,n timestamptz)RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
+ WITH submitted AS(SELECT code,position FROM jsonb_array_elements_text(ctx->'submittedCodes')WITH ORDINALITY x(code,position)),eligible AS(
+ SELECT pc.id,su.position FROM submitted su JOIN saas.promotion_codes pc ON pc.store_id=s AND pc.code=su.code JOIN saas.loyalty_rewards r ON r.store_id=pc.store_id AND r.code_id=pc.id
+ WHERE r.customer_id::text=ctx->>'customerId'
+ )SELECT NOT EXISTS(SELECT 1 FROM saas.loyalty_rewards WHERE store_id=s AND loyalty_rewards.code_id=loyalty_one_reward_selected_v1.code_id)OR code_id=(SELECT id FROM eligible ORDER BY position LIMIT 1)
+ $f$;
+
+CREATE OR REPLACE FUNCTION saas.loyalty_reward_conditions_v1(s uuid,code_id uuid,ctx jsonb)RETURNS boolean LANGUAGE plpgsql STABLE SET search_path=pg_catalog,saas AS $f$
+DECLARE r saas.loyalty_rewards;cfg jsonb;subtotal numeric;gift_price bigint;BEGIN
+ SELECT * INTO r FROM saas.loyalty_rewards x WHERE x.store_id=s AND x.code_id=loyalty_reward_conditions_v1.code_id;IF NOT FOUND OR r.reward->>'kind'<>'gift'THEN RETURN true;END IF;
+ SELECT config INTO cfg FROM saas.loyalty_program_versions WHERE store_id=s AND program_id=r.program_id AND version=r.program_version;
+ IF(cfg->>'rewardMinimumBasketMinor')::bigint=0 THEN RETURN true;END IF;
+ SELECT coalesce(sum((x->>'unitPriceMinor')::numeric*(x->>'quantity')::integer),0),max((x->>'unitPriceMinor')::bigint)FILTER(WHERE x->>'variantId'=r.reward->>'variantId')INTO subtotal,gift_price FROM jsonb_array_elements(ctx->'cartLines')x;
+ RETURN gift_price IS NOT NULL AND subtotal-gift_price*(r.reward->>'quantity')::bigint>=(cfg->>'rewardMinimumBasketMinor')::bigint;
+END $f$;
+
 DO $patch$ DECLARE original text;updated text;signature text:='saas.promotion_evaluator_code_facts(uuid,jsonb,timestamp with time zone)';anchor text:='WHERE code.status=''active'' AND (';BEGIN
  IF EXISTS(SELECT 1 FROM saas.loyalty_migration_baseline WHERE identity=signature)THEN
   IF encode(sha256(convert_to(pg_get_functiondef(signature::regprocedure),'UTF8')),'hex')<>(SELECT patched_hash FROM saas.loyalty_migration_baseline WHERE identity=signature)THEN RAISE EXCEPTION 'LOYALTY_PREDECESSOR_DRIFT';END IF;
  ELSE
   original:=pg_get_functiondef(signature::regprocedure);IF length(original)-length(replace(original,anchor,''))<>length(anchor)THEN RAISE EXCEPTION 'LOYALTY_CODE_ANCHOR_INVALID';END IF;
-  updated:=replace(original,anchor,'WHERE code.status=''active'' AND saas.loyalty_code_allowed_v1(code.store_id,code.id,p_context,p_now) AND (');EXECUTE updated;
+  updated:=replace(original,anchor,'WHERE code.status=''active'' AND saas.loyalty_code_allowed_v1(code.store_id,code.id,p_context,p_now) AND saas.loyalty_one_reward_selected_v1(code.store_id,code.id,p_context,p_now) AND saas.loyalty_reward_conditions_v1(code.store_id,code.id,p_context) AND (');EXECUTE updated;
   INSERT INTO saas.loyalty_migration_baseline VALUES(signature,original,encode(sha256(convert_to(pg_get_functiondef(signature::regprocedure),'UTF8')),'hex'));
  END IF;END $patch$;
 
@@ -167,12 +195,13 @@ CREATE OR REPLACE FUNCTION saas.loyalty_paid_units_v1(s uuid,o uuid,l uuid,q int
  $f$;
 
 CREATE OR REPLACE FUNCTION saas.loyalty_paid_order_amount_v1(s uuid,o uuid)RETURNS bigint LANGUAGE plpgsql STABLE SET search_path=pg_catalog,saas AS $f$
-DECLARE ord saas.orders;r saas.accounting_receivables;paid bigint:=0;BEGIN
+DECLARE ord saas.orders;r saas.accounting_receivables;paid bigint:=0;shipping_paid bigint;BEGIN
  SELECT * INTO ord FROM saas.orders WHERE store_id=s AND id=o;IF NOT FOUND OR ord.source IN('marketplace','manual_import') OR ord.status IN('cancelled','refunded')THEN RETURN 0;END IF;
+ SELECT greatest(ord.shipping_cents-coalesce(sum((snapshot->>'shippingDiscountMinor')::bigint),0),0)INTO shipping_paid FROM saas.order_promotion_snapshots WHERE store_id=s AND order_id=o;
  SELECT * INTO r FROM saas.accounting_receivables WHERE store_id=s AND order_id=o;
  IF FOUND THEN
   IF r.collected_cents<=0 OR r.collected_cents<greatest(r.sale_cents-r.return_cents-r.discount_cents,0)THEN RETURN 0;END IF;
-  RETURN greatest(least(r.sale_cents-r.return_cents-r.discount_cents,r.collected_cents-r.refunded_cents)-ord.shipping_cents,0);
+  RETURN greatest(least(r.sale_cents-r.return_cents-r.discount_cents,r.collected_cents-r.refunded_cents)-shipping_paid,0);
  END IF;
  SELECT greatest(coalesce(max(amount),0),0) INTO paid FROM(
   SELECT a.expected_payment_amount amount FROM saas.checkout_payment_attempts a WHERE a.store_id=s AND a.settled_order_id=o AND a.status='succeeded'AND a.succeeded_at IS NOT NULL
@@ -180,12 +209,15 @@ DECLARE ord saas.orders;r saas.accounting_receivables;paid bigint:=0;BEGIN
   UNION ALL SELECT a.amount_minor FROM saas.quick_order_hosted_payment_bridges b JOIN saas.payment_attempts a ON a.store_id=b.store_id AND a.id=b.attempt_id WHERE b.store_id=s AND b.order_id=o AND b.status='captured'AND a.status='captured'
   UNION ALL SELECT ord.total_cents FROM saas.order_events e WHERE e.store_id=s AND e.order_id=o AND e.event_type='payment_transition'AND e.to_value='completed'
  )e;
- RETURN greatest(least(paid,ord.total_cents)-ord.shipping_cents,0);
+ RETURN greatest(least(paid,ord.total_cents)-shipping_paid,0);
 END $f$;
 
+CREATE OR REPLACE FUNCTION saas.loyalty_store_enabled_v1(s uuid,n timestamptz)RETURNS boolean LANGUAGE sql STABLE SET search_path=pg_catalog,saas AS $f$
+ SELECT EXISTS(SELECT 1 FROM saas.stores st JOIN saas.subscriptions sub ON sub.store_id=st.id JOIN saas.plans p ON p.id=sub.plan_id AND p.plan_code=sub.plan_code AND p.version=sub.plan_version JOIN saas.plan_features f ON f.plan_id=p.id AND f.feature_key='promotions'AND f.enabled WHERE st.id=s AND st.status='active'AND sub.status='active'AND sub.valid_from<=n AND(sub.valid_until IS NULL OR sub.valid_until>n)AND p.status='active'AND p.valid_from<=n AND(p.valid_until IS NULL OR p.valid_until>n))
+ $f$;
 CREATE OR REPLACE FUNCTION saas.loyalty_enqueue_order_v1(s uuid,o uuid,n timestamptz)RETURNS void LANGUAGE plpgsql SET search_path=pg_catalog,saas AS $f$
 DECLARE snapshot jsonb:='{}';BEGIN IF s IS NULL OR o IS NULL OR NOT EXISTS(SELECT 1 FROM saas.loyalty_programs WHERE store_id=s)THEN RETURN;END IF;
- IF saas.loyalty_paid_order_amount_v1(s,o)>0 THEN SELECT coalesce(jsonb_object_agg(id::text,version),'{}')INTO snapshot FROM saas.loyalty_programs WHERE store_id=s AND enabled;END IF;
+ IF saas.loyalty_store_enabled_v1(s,n)AND saas.loyalty_paid_order_amount_v1(s,o)>0 AND EXISTS(SELECT 1 FROM saas.loyalty_order_members WHERE store_id=s AND order_id=o)THEN SELECT coalesce(jsonb_object_agg(id::text,version),'{}')INTO snapshot FROM(SELECT id,version FROM saas.loyalty_programs WHERE store_id=s AND enabled AND((config->>'startsAt')IS NULL OR(config->>'startsAt')::timestamptz<=n)AND((config->>'endsAt')IS NULL OR(config->>'endsAt')::timestamptz>n)ORDER BY id FOR SHARE)eligible;END IF;
  INSERT INTO saas.loyalty_order_queue(store_id,order_id,queued_at,next_attempt_at,program_snapshot)VALUES(s,o,n,n,snapshot)ON CONFLICT(store_id,order_id)DO UPDATE SET revision=saas.loyalty_order_queue.revision+1,queued_at=excluded.queued_at,next_attempt_at=excluded.next_attempt_at,attempts=0,last_error=NULL,program_snapshot=excluded.program_snapshot||saas.loyalty_order_queue.program_snapshot;
 END $f$;
 CREATE OR REPLACE FUNCTION saas.loyalty_source_changed_v1()RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
@@ -198,7 +230,7 @@ DECLARE rowdata jsonb;sid uuid;oid uuid;BEGIN
  ELSE oid:=(rowdata->>'order_id')::uuid;END IF;
  PERFORM saas.loyalty_enqueue_order_v1(sid,oid,date_trunc('milliseconds',clock_timestamp()));RETURN NULL;
 END $f$;
-DO $tr$DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['orders','order_items','order_events','accounting_receivables','accounting_allocations','checkout_payment_attempts','payment_attempts','storefront_hosted_checkout_sessions','quick_order_hosted_payment_bridges']LOOP
+DO $tr$DECLARE t text;BEGIN FOREACH t IN ARRAY ARRAY['orders','order_items','order_events','order_promotion_snapshots','accounting_receivables','accounting_allocations','checkout_payment_attempts','payment_attempts','storefront_hosted_checkout_sessions','quick_order_hosted_payment_bridges','loyalty_order_members']LOOP
  EXECUTE format('DROP TRIGGER IF EXISTS loyalty_source_changed ON saas.%I',t);EXECUTE format('CREATE TRIGGER loyalty_source_changed AFTER INSERT OR UPDATE OR DELETE ON saas.%I FOR EACH ROW EXECUTE FUNCTION saas.loyalty_source_changed_v1()',t);END LOOP;END $tr$;
 
 CREATE OR REPLACE FUNCTION saas.loyalty_reconcile_order_v1(s uuid,oid uuid,n timestamptz)RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,saas AS $f$
@@ -207,7 +239,7 @@ BEGIN
  SELECT * INTO ord FROM saas.orders WHERE store_id=s AND id=oid;
  IF NOT FOUND THEN RETURN;END IF;
  SELECT * INTO acc FROM saas.storefront_accounts WHERE store_id=s AND id=(SELECT account_id FROM saas.loyalty_order_effects WHERE store_id=s AND order_id=oid LIMIT 1);
- IF NOT FOUND THEN SELECT * INTO acc FROM saas.storefront_accounts WHERE store_id=s AND customer_id=ord.customer_id AND status='active'AND phone_verified_at IS NOT NULL;END IF;
+ IF NOT FOUND THEN SELECT a.* INTO acc FROM saas.loyalty_order_members proof JOIN saas.storefront_accounts a ON a.store_id=proof.store_id AND a.id=proof.account_id WHERE proof.store_id=s AND proof.order_id=oid AND proof.customer_id=a.customer_id;END IF;
  IF NOT FOUND THEN RETURN;END IF;
  account_snapshot:=acc;
  channel:=CASE WHEN ord.source='in_store'THEN 'in_store'WHEN ord.source IN('manual','social')THEN 'manual'ELSE 'storefront'END;
@@ -223,7 +255,7 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('loyalty-member:'||s||':'||p.id||':'||acc.id,0));
   SELECT config INTO cfg FROM saas.loyalty_program_versions WHERE store_id=s AND program_id=p.id AND version=ver;
   amount:=0;
-  IF paid>0 AND acc.status='active'AND acc.phone_verified_at IS NOT NULL AND ord.created_at>=p.created_at AND cfg->'channels'?channel AND (old.order_id IS NOT NULL OR((p.enabled OR snapshot?p.id::text)AND((cfg->>'startsAt')IS NULL OR paid_time>=(cfg->>'startsAt')::timestamptz)AND((cfg->>'endsAt')IS NULL OR paid_time<(cfg->>'endsAt')::timestamptz)))THEN
+  IF paid>0 AND ord.created_at>=p.created_at AND cfg->'channels'?channel AND (old.order_id IS NOT NULL OR((p.enabled OR snapshot?p.id::text)AND((cfg->>'startsAt')IS NULL OR paid_time>=(cfg->>'startsAt')::timestamptz)AND((cfg->>'endsAt')IS NULL OR paid_time<(cfg->>'endsAt')::timestamptz)))THEN
    SELECT coalesce(sum(line_total_cents),0)INTO all_sum FROM saas.order_items WHERE store_id=s AND order_id=oid;
    SELECT coalesce(sum(line_total_cents),0),coalesce(sum(saas.loyalty_paid_units_v1(s,oid,i.id,i.quantity)),0)INTO eligible_sum,amount FROM saas.order_items i WHERE i.store_id=s AND i.order_id=oid AND i.line_total_cents>0 AND(jsonb_array_length(cfg->'eligibleProductIds')=0 OR cfg->'eligibleProductIds'?i.product_id::text);
    IF all_sum>0 THEN eligible_sum:=floor(eligible_sum::numeric*least(paid,all_sum)/all_sum)::bigint;ELSE eligible_sum:=0;END IF;
@@ -232,6 +264,7 @@ BEGIN
    ELSIF cfg->>'template'<>'product_gift'THEN amount:=1;END IF;
    IF (cfg->>'maxOncePerDay')::boolean AND cfg->>'template'<>'product_gift'AND cfg->>'template'<>'spend_discount'AND EXISTS(SELECT 1 FROM saas.loyalty_order_effects e WHERE e.store_id=s AND e.program_id=p.id AND e.account_id=acc.id AND e.order_id<>oid AND e.amount>0 AND(e.paid_at AT TIME ZONE(cfg->>'timezone'))::date=(paid_time AT TIME ZONE(cfg->>'timezone'))::date)THEN amount:=0;END IF;
    IF has_return AND(cfg->>'template'<>'spend_discount'OR jsonb_array_length(cfg->'eligibleProductIds')>0)THEN amount:=0;END IF;
+   IF(NOT saas.loyalty_store_enabled_v1(s,n)OR NOT p.enabled OR(p.config->>'startsAt')::timestamptz>n OR(p.config->>'endsAt')::timestamptz<=n)AND NOT coalesce(snapshot?p.id::text,false)THEN amount:=least(amount,coalesce(old.amount,0));END IF;
    IF chosen AND(NOT allow_more OR NOT(cfg->>'allowMultiplePrograms')::boolean)AND old.order_id IS NULL THEN amount:=0;END IF;
    IF amount>0 THEN chosen:=true;allow_more:=allow_more AND(cfg->>'allowMultiplePrograms')::boolean;END IF;
   END IF;
@@ -239,7 +272,7 @@ BEGIN
   IF delta<>0 THEN
    meta:=jsonb_build_object('orderId',oid,'before',coalesce(old.amount,0),'after',amount,'orderVersion',ord.version);
    op:=gen_random_uuid();
-   PERFORM saas.loyalty_apply_effect_v1(s,p.id,ver,acc.id,acc.customer_id,op,delta,n,CASE WHEN delta<0 THEN 'order_adjustment'ELSE 'paid_order'END,meta);
+   PERFORM saas.loyalty_apply_effect_v1(s,p.id,ver,acc.id,acc.customer_id,op,delta,n,CASE WHEN old.order_id IS NOT NULL THEN 'order_adjustment'ELSE 'paid_order'END,meta);
    INSERT INTO saas.loyalty_order_effects(store_id,order_id,program_id,program_version,account_id,customer_id,amount,paid_at,updated_at)VALUES(s,oid,p.id,ver,acc.id,acc.customer_id,amount,paid_time,n)ON CONFLICT(store_id,order_id,program_id)DO UPDATE SET amount=excluded.amount,updated_at=excluded.updated_at;
   END IF;
  END LOOP;
@@ -286,6 +319,8 @@ DECLARE err text;pr saas.loyalty_programs;cfg jsonb;result jsonb;existing saas.l
  IF err IS NOT NULL AND action NOT IN('approve-pos','prepare-pos-reward')THEN RETURN QUERY SELECT err,NULL::jsonb;RETURN;END IF;
  IF action IN('save','pause','duplicate')THEN
   PERFORM pg_advisory_xact_lock(hashtextextended('loyalty-program-store:'||s,0));
+  PERFORM pg_advisory_xact_lock(hashtextextended('promotion-published-cap:'||s,0));
+  IF payload->>'programId'IS NOT NULL THEN PERFORM 1 FROM saas.promotions prom WHERE prom.store_id=s AND prom.status IN('active','scheduled')AND EXISTS(SELECT 1 FROM saas.loyalty_program_versions lv WHERE lv.store_id=s AND lv.program_id=(payload->>'programId')::uuid AND lv.promotion_id=prom.id)ORDER BY prom.id FOR UPDATE;END IF;
   IF payload->>'programId'IS NOT NULL THEN SELECT * INTO pr FROM saas.loyalty_programs WHERE store_id=s AND id=(payload->>'programId')::uuid FOR UPDATE;IF NOT FOUND THEN RETURN QUERY SELECT 'not_found',NULL::jsonb;RETURN;END IF;IF pr.version<>(payload->>'expectedVersion')::bigint THEN RETURN QUERY SELECT 'version_conflict',NULL::jsonb;RETURN;END IF;END IF;
   IF action='pause'THEN
    UPDATE saas.loyalty_programs SET enabled=NOT enabled,version=version+1,updated_at=n WHERE store_id=s AND id=pr.id RETURNING * INTO pr;
@@ -296,12 +331,12 @@ DECLARE err text;pr saas.loyalty_programs;cfg jsonb;result jsonb;existing saas.l
    IF saas.loyalty_config_valid_v1(cfg)IS DISTINCT FROM true OR(action='save'AND(payload->>'name'IS NULL OR length(payload->>'name')NOT BETWEEN 1 AND 120 OR payload->>'name'<>btrim(payload->>'name')OR payload->>'name'~'[[:cntrl:]]'OR jsonb_typeof(payload->'enabled')<>'boolean'))THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
    IF jsonb_array_length(cfg->'eligibleProductIds')>0 AND EXISTS(SELECT 1 FROM jsonb_array_elements_text(cfg->'eligibleProductIds')e WHERE NOT EXISTS(SELECT 1 FROM saas.products WHERE store_id=s AND id=e::uuid))THEN RETURN QUERY SELECT 'invalid_reference',NULL::jsonb;RETURN;END IF;
    IF cfg->'reward'->>'kind'='gift'AND NOT EXISTS(SELECT 1 FROM saas.product_variants WHERE store_id=s AND id=(cfg->'reward'->>'variantId')::uuid)THEN RETURN QUERY SELECT 'invalid_reference',NULL::jsonb;RETURN;END IF;
-   IF(SELECT count(*)FROM saas.promotions WHERE store_id=s AND status IN('active','scheduled'))>=90 THEN RETURN QUERY SELECT 'limit_exceeded',NULL::jsonb;RETURN;END IF;
    IF action='duplicate'OR pr.id IS NULL THEN
     IF(SELECT count(*)FROM saas.loyalty_programs WHERE store_id=s)>=20 THEN RETURN QUERY SELECT 'limit_exceeded',NULL::jsonb;RETURN;END IF;
     INSERT INTO saas.loyalty_programs(store_id,name,enabled,version,config,created_at,updated_at)VALUES(s,CASE WHEN action='duplicate'THEN left(pr.name,110)||' kopyası'ELSE payload->>'name'END,CASE WHEN action='duplicate'THEN false ELSE(payload->>'enabled')::boolean END,1,cfg,n,n)RETURNING * INTO pr;
    ELSE UPDATE saas.loyalty_programs SET name=payload->>'name',enabled=(payload->>'enabled')::boolean,config=cfg,version=version+1,updated_at=n WHERE store_id=s AND id=pr.id RETURNING * INTO pr;END IF;
-   UPDATE saas.promotions prom SET status='archived',updated_at=n WHERE prom.store_id=s AND EXISTS(SELECT 1 FROM saas.loyalty_program_versions lv WHERE lv.store_id=s AND lv.program_id=pr.id AND lv.promotion_id=prom.id)AND NOT EXISTS(SELECT 1 FROM saas.loyalty_rewards lr JOIN saas.loyalty_program_versions lv ON lv.store_id=lr.store_id AND lv.program_id=lr.program_id AND lv.version=lr.program_version WHERE lv.promotion_id=prom.id AND lr.status IN('available','reserved')AND(lr.expires_at IS NULL OR lr.expires_at>n));
+   UPDATE saas.promotions prom SET status='archived',updated_at=n WHERE prom.store_id=s AND prom.status IN('active','scheduled')AND EXISTS(SELECT 1 FROM saas.loyalty_program_versions lv WHERE lv.store_id=s AND lv.program_id=pr.id AND lv.promotion_id=prom.id)AND NOT EXISTS(SELECT 1 FROM saas.loyalty_rewards lr JOIN saas.loyalty_program_versions lv ON lv.store_id=lr.store_id AND lv.program_id=lr.program_id AND lv.version=lr.program_version WHERE lv.promotion_id=prom.id AND lr.status IN('available','reserved')AND(lr.expires_at IS NULL OR lr.expires_at>n OR saas.loyalty_reward_held_v1(lr.store_id,lr.code_id,n)))AND NOT EXISTS(SELECT 1 FROM saas.loyalty_order_queue q JOIN saas.loyalty_program_versions lv ON lv.store_id=q.store_id AND lv.program_id=pr.id WHERE q.store_id=s AND lv.promotion_id=prom.id AND q.program_snapshot @> jsonb_build_object(lv.program_id::text,lv.version));
+   IF(SELECT count(*)FROM saas.promotions WHERE store_id=s AND status IN('active','scheduled'))>=90 THEN RAISE EXCEPTION USING ERRCODE='P0503',MESSAGE='limit_exceeded';END IF;
    pid:=gen_random_uuid();SELECT currency INTO cur FROM saas.stores WHERE id=s;rule:=saas.loyalty_rule_v1(cfg,cur);
    IF NOT saas.promotion_rule_document_valid(rule)THEN RAISE EXCEPTION 'LOYALTY_RULE_INVALID';END IF;
    INSERT INTO saas.promotions(id,store_id,name,status,version,rule_document,created_at,updated_at)VALUES(pid,s,pr.name||' · Sadakat','active',1,rule,n,n);
@@ -322,7 +357,7 @@ DECLARE err text;pr saas.loyalty_programs;cfg jsonb;result jsonb;existing saas.l
  ELSE RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
  INSERT INTO saas.loyalty_operations VALUES(s,p,op,action,payload,result,n);RETURN QUERY SELECT 'committed',result;
 EXCEPTION WHEN SQLSTATE 'P0503'THEN
- IF SQLERRM IN('approval_invalid','reward_unavailable','version_conflict','membership_denied','invalid_input','invalid_transition','conditions_not_met')THEN RETURN QUERY SELECT SQLERRM::text,NULL::jsonb;ELSE RAISE;END IF;
+ IF SQLERRM IN('approval_invalid','reward_unavailable','version_conflict','membership_denied','invalid_input','invalid_transition','conditions_not_met','limit_exceeded')THEN RETURN QUERY SELECT SQLERRM::text,NULL::jsonb;ELSE RAISE;END IF;
 WHEN invalid_text_representation OR numeric_value_out_of_range OR check_violation THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;
 END $f$;
 
@@ -333,7 +368,7 @@ DECLARE ctx record;result jsonb;existing saas.loyalty_operations;r saas.loyalty_
  IF NOT FOUND OR NOT EXISTS(SELECT 1 FROM saas.storefront_accounts WHERE store_id=ctx.store_id AND id=ctx.account_id AND customer_id=ctx.customer_id AND phone_verified_at IS NOT NULL AND status='active')THEN RETURN QUERY SELECT 'unauthenticated',NULL::jsonb;RETURN;END IF;
  IF action='list'THEN
   SELECT jsonb_build_object('programs',coalesce(jsonb_agg(jsonb_build_object('programId',pr.id,'name',pr.name,'template',pr.config->>'template','progress',coalesce(CASE WHEN lm.expires_at<=n THEN 0 ELSE greatest(lm.balance,0)END,0),'target',pr.config->'target','reward',pr.config->'reward')ORDER BY pr.created_at,pr.id),'[]'),'rewards','[]'::jsonb)INTO result FROM saas.loyalty_programs pr LEFT JOIN saas.loyalty_members lm ON lm.store_id=pr.store_id AND lm.program_id=pr.id AND lm.account_id=ctx.account_id WHERE pr.store_id=ctx.store_id AND(pr.enabled OR lm.account_id IS NOT NULL);
-  SELECT jsonb_set(result,'{rewards}',coalesce(jsonb_agg(saas.loyalty_reward_json_v1(rr,n)ORDER BY rr.earned_at DESC,rr.id),'[]'))INTO result FROM(SELECT * FROM saas.loyalty_rewards WHERE store_id=ctx.store_id AND account_id=ctx.account_id ORDER BY earned_at DESC,id LIMIT 100)rr;
+  result:=jsonb_set(result,'{rewards}',saas.loyalty_available_rewards_v1(ctx.store_id,ctx.account_id,n));
   RETURN QUERY SELECT 'found',result;RETURN;
  END IF;
  IF op IS NULL THEN RETURN QUERY SELECT 'invalid_input',NULL::jsonb;RETURN;END IF;
@@ -361,7 +396,12 @@ CREATE OR REPLACE FUNCTION saas.loyalty_managed_promotion_guard_v1()RETURNS trig
 BEGIN
  IF EXISTS(SELECT 1 FROM saas.loyalty_program_versions WHERE store_id=OLD.store_id AND promotion_id=OLD.id)THEN
   IF TG_OP='DELETE'THEN RAISE EXCEPTION 'LOYALTY_MANAGED_PROMOTION';END IF;
-  IF NEW.rule_document IS DISTINCT FROM OLD.rule_document OR NEW.version<>OLD.version OR NEW.name<>OLD.name OR(NEW.status<>OLD.status AND(NEW.status<>'archived'OR EXISTS(SELECT 1 FROM saas.loyalty_rewards r JOIN saas.loyalty_program_versions v ON v.store_id=r.store_id AND v.program_id=r.program_id AND v.version=r.program_version WHERE v.store_id=OLD.store_id AND v.promotion_id=OLD.id AND r.status IN('available','reserved')AND(r.expires_at IS NULL OR r.expires_at>NEW.updated_at OR saas.loyalty_reward_held_v1(r.store_id,r.code_id,NEW.updated_at)))))THEN RAISE EXCEPTION 'LOYALTY_MANAGED_PROMOTION';END IF;
+  IF NEW.rule_document IS DISTINCT FROM OLD.rule_document OR NEW.version<>OLD.version OR NEW.name<>OLD.name THEN RAISE EXCEPTION 'LOYALTY_MANAGED_PROMOTION';END IF;
+  IF NEW.status<>OLD.status THEN
+   IF NEW.status='archived'AND NOT EXISTS(SELECT 1 FROM saas.loyalty_rewards r JOIN saas.loyalty_program_versions v ON v.store_id=r.store_id AND v.program_id=r.program_id AND v.version=r.program_version WHERE v.store_id=OLD.store_id AND v.promotion_id=OLD.id AND r.status IN('available','reserved')AND(r.expires_at IS NULL OR r.expires_at>NEW.updated_at OR saas.loyalty_reward_held_v1(r.store_id,r.code_id,NEW.updated_at)))THEN RETURN NEW;END IF;
+   IF OLD.status='archived'AND NEW.status='active'AND EXISTS(SELECT 1 FROM saas.loyalty_rewards r JOIN saas.loyalty_program_versions v ON v.store_id=r.store_id AND v.program_id=r.program_id AND v.version=r.program_version WHERE v.store_id=OLD.store_id AND v.promotion_id=OLD.id AND r.status IN('available','reserved')AND r.reward=v.config->'reward'AND r.target_cost=(v.config->>'target')::bigint AND(r.expires_at IS NULL OR r.expires_at>NEW.updated_at OR saas.loyalty_reward_held_v1(r.store_id,r.code_id,NEW.updated_at)))THEN RETURN NEW;END IF;
+   RAISE EXCEPTION 'LOYALTY_MANAGED_PROMOTION';
+  END IF;
  END IF;RETURN NEW;
 END $f$;
 DROP TRIGGER IF EXISTS loyalty_managed_promotion_guard ON saas.promotions;

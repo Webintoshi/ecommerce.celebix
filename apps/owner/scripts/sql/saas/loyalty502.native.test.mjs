@@ -53,13 +53,27 @@ try {
   assert.equal(admin('pause',id(25),{programId:saved.result_payload.program.id,expectedVersion:1}).outcome,'version_conflict');
  });
  check('actual collected money qualifies a canonical order once; forgiving a debt does not',()=>{
-  const order=id(30),unpaid=id(31);
-  for(const oid of[order,unpaid])owned(`INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,created_at,updated_at,customer_id,paid_at)VALUES('${oid}','${store}','${oid}','storefront','Test Member','member@example.test','TRY',700,0,0,700,'confirmed','completed','{}','${at}','${at}','${customer}','${at}');INSERT INTO saas.order_items(id,store_id,order_id,position,product_name,unit_price_cents,quantity,discount_cents,line_total_cents,created_at)VALUES('${randomUUID()}','${store}','${oid}',0,'Paid units',100,7,0,700,'${at}');INSERT INTO saas.accounting_receivables(id,store_id,customer_id,customer_snapshot,order_id,channel,currency,sale_cents,collected_cents,discount_cents,occurred_at)VALUES('${randomUUID()}','${store}','${customer}','{}','${oid}','WEB','TRY',700,${oid===order?700:0},${oid===order?0:700},'${at}');`);
+  const order=id(30),unpaid=id(31),guest=id(32);
+  for(const oid of[order,unpaid,guest])owned(`INSERT INTO saas.orders(id,store_id,order_number,source,customer_name,customer_email,currency,subtotal_cents,shipping_cents,discount_cents,total_cents,status,payment_status,shipping_address,created_at,updated_at,customer_id,paid_at)VALUES('${oid}','${store}','${oid}','storefront','Test Member','member@example.test','TRY',700,0,0,700,'confirmed','completed','{}','${at}','${at}','${customer}','${at}');INSERT INTO saas.order_items(id,store_id,order_id,position,product_name,unit_price_cents,quantity,discount_cents,line_total_cents,created_at)VALUES('${randomUUID()}','${store}','${oid}',0,'Paid units',100,7,0,700,'${at}');INSERT INTO saas.accounting_receivables(id,store_id,customer_id,customer_snapshot,order_id,channel,currency,sale_cents,collected_cents,discount_cents,occurred_at)VALUES('${randomUUID()}','${store}','${customer}','{}','${oid}','WEB','TRY',700,${oid!==unpaid?700:0},${oid!==unpaid?0:700},'${at}');`);
+  for(const oid of[order,unpaid])owned(`INSERT INTO saas.loyalty_order_members VALUES('${store}','${oid}','${account}','${customer}','account_session','${oid}','${at}')`);
+  owned(`SELECT saas.loyalty_reconcile_order_v1('${store}','${guest}','${at}')`);
+  assert.equal(sql(`SELECT count(*)FROM saas.loyalty_order_effects WHERE store_id='${store}'AND order_id='${guest}'`),'0');
   assert.equal(sql(`SELECT saas.loyalty_paid_order_amount_v1('${store}','${unpaid}')`),'0');
   assert.equal(sql(`SELECT saas.loyalty_paid_order_amount_v1('${store}','${order}')`),'700');
   owned(`SELECT saas.loyalty_reconcile_order_v1('${store}','${order}','${at}');SELECT saas.loyalty_reconcile_order_v1('${store}','${unpaid}','${at}');SELECT saas.loyalty_reconcile_order_v1('${store}','${order}','${at}');`);
   assert.equal(sql(`SELECT amount FROM saas.loyalty_order_effects WHERE store_id='${store}'AND program_id='${program}'AND order_id='${order}'`),'7');
   assert.equal(sql(`SELECT count(*)FROM saas.loyalty_order_effects WHERE store_id='${store}'AND order_id='${unpaid}'`),'0');
+ });
+ check('a lapsed plan stops new earning but preserves compensating returns and reversals',()=>{
+  const order=id(30),unpaid=id(31);
+  assert.equal(sql(`SELECT saas.loyalty_store_enabled_v1('${store}','${at}')`),'t');
+  owned(`UPDATE saas.subscriptions SET valid_until='${at}'WHERE store_id='${store}';UPDATE saas.accounting_receivables SET collected_cents=700,discount_cents=0 WHERE store_id='${store}'AND order_id='${unpaid}';UPDATE saas.loyalty_order_queue SET program_snapshot='{}'WHERE store_id='${store}';SELECT saas.loyalty_reconcile_order_v1('${store}','${unpaid}','${at}');`);
+  assert.equal(sql(`SELECT count(*)FROM saas.loyalty_order_effects WHERE store_id='${store}'AND order_id='${unpaid}'`),'0');
+  owned(`UPDATE saas.accounting_receivables SET return_cents=700 WHERE store_id='${store}'AND order_id='${order}';SELECT saas.loyalty_reconcile_order_v1('${store}','${order}','${at}');`);
+  assert.equal(sql(`SELECT amount FROM saas.loyalty_order_effects WHERE store_id='${store}'AND order_id='${order}'AND program_id='${program}'`),'0');
+  owned(`UPDATE saas.subscriptions SET valid_until=NULL WHERE store_id='${store}';UPDATE saas.accounting_receivables SET return_cents=0 WHERE store_id='${store}'AND order_id='${order}';SELECT saas.loyalty_reconcile_order_v1('${store}','${order}','${at}');`);
+  assert.equal(sql(`SELECT amount FROM saas.loyalty_order_effects WHERE store_id='${store}'AND order_id='${order}'AND program_id='${program}'`),'7');
+  assert.equal(sql(`SELECT sum(delta)FROM saas.loyalty_effects WHERE store_id='${store}'AND metadata->>'orderId'='${order}'AND program_id='${program}'`),'7');
  });
  check('large valid earnings are issued in bounded chunks without losing excess progress',()=>{
   const p=id(40),cfg={...config,target:1},when=new Date(Date.parse(at)+1000).toISOString();
