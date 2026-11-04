@@ -93,6 +93,8 @@ import { createPublicGoogleMarketingRuntime, type PublicGoogleMarketingRuntime }
 import { protectCommerceRuntime, requireOnlineCheckout } from './commerce-policy.ts';
 import { PostgresProductPageReviewRepository } from "@celebix/saas-data";
 import { createProductPageReviewRuntime, type ProductPageReviewRuntime } from "./reviews/product-page-runtime.ts";
+import {PostgresLoyaltyCustomerRepository} from '@celebix/saas-data';
+import {createAccountLoyaltyRuntime,type AccountLoyaltyRuntime} from './account/loyalty-runtime.ts';
 
 const { Pool } = pg;
 const TIMEOUTS = Object.freeze({ poolCheckoutMs: 2_000, statementMs: 5_000, lockMs: 2_000, idleTransactionMs: 5_000 });
@@ -106,6 +108,7 @@ export type PublicStorefrontRuntime = Readonly<{
   restockAlerts?: PostgresPublicRestockRepository;
   reviewCollection?: PostgresReviewCollectionRepository;
   productPageReviews?: ProductPageReviewRuntime;
+  loyalty?: AccountLoyaltyRuntime;
   seo?: PublicSeoRepository;
   commerce: StorefrontCommerceRepository;
   cart: StorefrontCommerceRuntime;
@@ -353,6 +356,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
           contactAwareCheckout: true,
           repository: new PostgresStorefrontHostedCheckoutRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS, audit: () => undefined }),
           commerceKeyring,
+          ...(identityConfig?{accountKeyring:identityConfig.hmacKeyring}:{}),
           presentationKeyring: presentationInfrastructure.keyring,
           now: () => new Date(),
           randomUuid: randomUUID,
@@ -374,7 +378,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       const setting = await whatsappOrders.getForHost({ hostname, now: new Date() });
       return resolveStorefrontCommercePolicy(setting?.config ?? createDefaultWhatsAppOrderConfig(), setting?.version ?? 0);
     };
-    const cart = protectCommerceRuntime(createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, bindCartIdentity, contactAwareCheckout: true, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
+    const cart = protectCommerceRuntime(createStorefrontCommerceRuntime({ repository: commerce, keyring: commerceKeyring, ...(identityConfig?{accountKeyring:identityConfig.hmacKeyring}:{}), bindCartIdentity, contactAwareCheckout: true, now: () => new Date(), randomBytes: (size) => new Uint8Array(randomBytes(size)), randomUuid: randomUUID,
       hostedPaymentAvailable: async (method) => hostedCheckout !== null && activeHostedProviders.has(method.providerCode) }), commercePolicy);
     const quickOrderRepository = new PostgresPublicQuickOrderRepository({
       pool,
@@ -411,6 +415,7 @@ async function initialize(): Promise<PublicStorefrontRuntime | null> {
       restockAlerts: new PostgresPublicRestockRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       reviewCollection: new PostgresReviewCollectionRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       ...(identity && identityConfig ? { productPageReviews: createProductPageReviewRuntime({ repository: new PostgresProductPageReviewRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }), keyring: identityConfig.hmacKeyring, now: () => new Date() }) } : {}),
+      ...(identity&&identityConfig?{loyalty:createAccountLoyaltyRuntime({repository:new PostgresLoyaltyCustomerRepository({pool,role:'celebix_saas_host_resolver',timeouts:TIMEOUTS}),keyring:identityConfig.hmacKeyring,now:()=>new Date()})}:{}),
       contactWidgets: new PostgresPublicContactWidgetRepository({ pool, role: "celebix_saas_host_resolver", timeouts: TIMEOUTS }),
       whatsappOrders,
       commercePolicy,

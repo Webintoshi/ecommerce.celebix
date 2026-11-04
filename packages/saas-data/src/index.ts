@@ -218,3 +218,4 @@ export type {ProductTaxRepository,ProductTaxReadInput} from './product-tax/repos
 
 export * from "./product-page-reviews/index.ts";
 export * from './toshi-credits/index.ts';
+export * from './loyalty/index.ts';

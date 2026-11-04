@@ -1,6 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
+import {readAccountCookie,type StorefrontIdentityKeyring} from '../account/credential.ts';
+import {checkoutAccountCandidates} from '../account/checkout-candidates.ts';
 
 import { validateAkbankFormPost } from "./akbank-form-post.ts";
 import {
@@ -84,6 +86,7 @@ type Dependencies = Readonly<{
   checkoutContexts?: true;
   contactAwareCheckout?: true;
   commerceKeyring: StorefrontCommerceCredentialKeyring;
+  accountKeyring?:StorefrontIdentityKeyring;
   presentationKeyring: QuickLinkKeyring;
   resolveExecution(): Promise<StandardHostedCheckoutExecution | null>;
   now(): Date;
@@ -161,7 +164,9 @@ function promotionCodes(request: HostedCheckoutStartRequest): readonly string[] 
 function customerCandidates(
   cookieHeader:string|null,
   keyring:StorefrontCommerceCredentialKeyring,
+  accountKeyring?:StorefrontIdentityKeyring,
 ): readonly Readonly<{keyId:string;digest:string}>[] {
+  if(readAccountCookie(cookieHeader).kind!=='missing')return checkoutAccountCandidates(cookieHeader,accountKeyring);
   const selected=readStorefrontCredentialCookie("customer",cookieHeader);
   if (selected.kind==="missing") return Object.freeze([]);
   if (selected.kind!=="present") return invalid();
@@ -449,7 +454,7 @@ export function createStandardHostedCheckoutRuntime(dependencies: Dependencies):
       try {
         // The contact-aware native wrapper selects the operation's private
         // pricing proof. Legacy callers retain their existing identity contract.
-        const selectedCustomerCandidates = customerCandidates(input.cookieHeader, dependencies.commerceKeyring);
+        const selectedCustomerCandidates = customerCandidates(input.cookieHeader, dependencies.commerceKeyring,dependencies.accountKeyring);
         const prepareAuthority = dependencies.contactAwareCheckout ? dependencies.repository.authorityV4 : dependencies.repository.authorityV3;
         if (!prepareAuthority) return unavailable();
         const preparedOrderId = derivedV2Uuid("order", input.hostname, input.request.operationId);

@@ -15,6 +15,7 @@ import type { HostedCheckoutStartRequest } from "../cart/types.ts";
 import type { HostedPaymentPresentation, HostedPaymentRuntime } from "../payment-adapters/runtime.ts";
 import { fixtureAkbankForm } from "./akbank-form-post.fixture.ts";
 import { createStandardHostedCheckoutRuntime } from "./standard-hosted-payment.ts";
+import {createAccountSessionCredential,parseStorefrontIdentityKeyring,type StorefrontIdentityKeyring} from '../account/credential.ts';
 
 const HOST = "shop.example.test";
 const STORE = "10000000-0000-4000-8000-000000000001";
@@ -134,6 +135,7 @@ function fixture(
     resume?: NonNullable<StorefrontHostedCheckoutRepository["resume"]>;
     assertNewCheckoutAllowed?: (hostname: string) => Promise<void>;
     checkoutContexts?: true;
+    accountKeyring?:StorefrontIdentityKeyring;
   }> = {},
 ) {
   const providerCode = options.providerCode ?? "iyzico_iframe";
@@ -224,6 +226,7 @@ function fixture(
     checkoutContexts: options.checkoutContexts,
     assertNewCheckoutAllowed: options.assertNewCheckoutAllowed,
     commerceKeyring,
+    accountKeyring:options.accountKeyring,
     presentationKeyring,
     now: options.runtimeNow ?? (() => new Date(NOW)),
     randomUuid: (() => { let index = 0; return () => `${String(++index).padStart(8, "0")}-0000-4000-8000-000000000001`; })(),
@@ -664,6 +667,11 @@ function lineLimitPreparedAuthority(value: PreparedAuthority): PreparedAuthority
 
 const headers = new Headers({ host: HOST, "x-forwarded-for": "8.8.8.8" });
 const cookie = `__Host-celebix_cart=${cart.value}`;
+test('hosted authority and durable begin use the dedicated account proof while ignoring an unrelated legacy contact cookie',async()=>{
+ const accountKeyring=parseStorefrontIdentityKeyring('account_01',JSON.stringify([{keyId:'account_01',key:Buffer.alloc(32,29).toString('base64url')}])),account=createAccountSessionCredential(accountKeyring,size=>new Uint8Array(size).fill(8)),legacy=createStorefrontCredential('customer',commerceKeyring,size=>new Uint8Array(size).fill(4));
+ const selected=fixture({kind:'processing'},'created',{accountKeyring});await selected.runtime.start({hostname:HOST,cookieHeader:`${cookie}; __Host-celebix_account=${account.value}; __Host-celebix_customer=${legacy.value}`,headers,request});
+ assert.deepEqual(selected.getBegin()?.customerCandidates,[{keyId:account.keyId,digest:account.digest}]);
+});
 const v2Cookie = `${cookie}; __Host-celebix_customer=${authenticatedCustomer.value}`;
 
 test("new tab contexts do not adopt another pending payment and do not overwrite guest identity cookies", async () => {

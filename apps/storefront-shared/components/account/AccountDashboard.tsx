@@ -4,6 +4,7 @@ import type { StorefrontAccountOrder, StorefrontAccountSnapshot } from "@celebix
 import { formatTry } from "@/lib/format.ts";
 
 import { AccountLogoutButton } from "./AccountLogoutButton";
+import {AccountLoyalty} from './AccountLoyalty';
 
 const LINKS = Object.freeze([
   { href: "/account/orders", label: "Siparişler", detail: "Sipariş geçmişi ve durumları" },
@@ -17,6 +18,7 @@ export function AccountDashboard({ snapshot, recentOrders }: Readonly<{ snapshot
   return <div className="account-dashboard">
     <header><div><span>HESABIM</span><h1>Merhaba, {snapshot.profile.firstName}</h1></div><AccountLogoutButton /></header>
     <nav className="account-dashboard-links" aria-label="Hesap menüsü">{LINKS.map((item) => <Link href={item.href} key={item.href}><span><strong>{item.label}</strong><small>{item.detail}</small></span><b aria-hidden="true">→</b></Link>)}</nav>
+    <AccountLoyalty/>
     {recentOrders.length > 0 ? <section className="account-recent-orders" aria-labelledby="recent-orders-title">
       <header><h2 id="recent-orders-title">Son siparişler</h2><Link href="/account/orders">Tümü</Link></header>
       {recentOrders.map((order) => <Link href={`/account/orders/${order.orderReference}`} key={order.orderReference}>

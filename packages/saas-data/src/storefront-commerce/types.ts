@@ -139,6 +139,7 @@ export interface StorefrontCommerceRepository {
     hostname: string; now: Date; intentKind: "cart" | "buy_now";
     candidates: readonly StorefrontCredentialCandidate[]; operationId: string; cartVersion: number;
     delivery: StorefrontDelivery; normalizedCodes: readonly string[];
+    accountCandidates?: readonly StorefrontCredentialCandidate[];
   }>): ReturnType<StorefrontCommerceRepository["quoteV3"]>;
   completeV4?(input: Parameters<StorefrontCommerceRepository["completeV3"]>[0]): ReturnType<StorefrontCommerceRepository["completeV3"]>;
   complete(
@@ -151,7 +152,7 @@ export interface StorefrontCommerceRepository {
       operationId: string;
       cartVersion: number;
       delivery: StorefrontDelivery;
-      paymentKind: "bank_transfer" | "cash_on_delivery";
+      paymentKind: "bank_transfer" | "cash_on_delivery" | "reward";
       generated: Readonly<{
         orderId: string;
         customerId: string;
@@ -177,7 +178,7 @@ export interface StorefrontCommerceRepository {
       operationId: string;
       cartVersion: number;
       delivery: StorefrontDelivery;
-      paymentKind: "bank_transfer" | "cash_on_delivery";
+      paymentKind: "bank_transfer" | "cash_on_delivery" | "reward";
       generated: Readonly<{
         orderId: string;
         customerId: string;

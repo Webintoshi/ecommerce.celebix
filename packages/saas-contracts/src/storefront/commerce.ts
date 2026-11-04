@@ -96,7 +96,8 @@ export type PublicHostedCardPaymentMethod = Readonly<{
   requiredCustomerFields: readonly "identity_number"[];
 }>;
 
-export type PublicPaymentMethod = PublicOfflinePaymentMethod | PublicHostedCardPaymentMethod;
+export type PublicRewardPaymentMethod=Readonly<{kind:'reward';label:string;instructions:string}>;
+export type PublicPaymentMethod = PublicOfflinePaymentMethod | PublicHostedCardPaymentMethod | PublicRewardPaymentMethod;
 
 export type PublicCheckoutQuote = Readonly<{
   cart: PublicCart;
@@ -521,6 +522,7 @@ function paymentMethod(value: unknown): PublicPaymentMethod {
   );
   const label = text(parsed.label, 1, 120);
   const instructions = text(parsed.instructions, parsed.kind === "bank_transfer" || parsed.kind === "cash_on_delivery" ? 0 : 1, 2_000);
+  if(parsed.kind==='reward'){exact(value,['kind','label','instructions']);return Object.freeze({kind:'reward',label,instructions});}
   if (parsed.kind === "bank_transfer") {
     if (
       !Object.hasOwn(parsed, "bankName")
@@ -772,6 +774,7 @@ export function parsePublicCheckoutQuote(value: unknown): PublicCheckoutQuote {
   const parsed = exact(value, ["cart", "paymentMethods"], ["estimatedDays"]);
   const cart = parsePublicCart(parsed.cart);
   const methods = denseArray(parsed.paymentMethods, 0, 3).map(paymentMethod);
+  if(methods.some(method=>method.kind==='reward'))invalid();
   if (new Set(methods.map(({ kind }) => kind)).size !== methods.length) invalid();
   const hostedIds = methods.flatMap((method) => method.kind === "hosted_card" ? [method.id] : []);
   if (new Set(hostedIds).size !== hostedIds.length) invalid();
@@ -794,6 +797,7 @@ export function parsePublicCheckoutQuoteV2(value: unknown): PublicCheckoutQuoteV
   const hostedIds = methods.flatMap((method) => method.kind === "hosted_card" ? [method.id] : []);
   if (new Set(hostedIds).size !== hostedIds.length) invalid();
   const presentation = promotionPresentation(parsed, cart, gifts, merchandiseItems.length);
+  if(methods.some(method=>method.kind==='reward')&&(methods.length!==1||cart.totalCents!==0||!gifts.length||!presentation.appliedPromotions.some(p=>p.benefitKind==='gift'&&/^L-[A-F0-9]{32}$/u.test(p.normalizedCode??''))))invalid();
   return Object.freeze({
     cart,
     paymentMethods: Object.freeze(methods),
@@ -806,6 +810,7 @@ export function parsePublicCheckoutReceipt(value: unknown): PublicCheckoutReceip
   const parsed = exact(value, ["orderReference", "currency", "subtotalCents", "shippingCents", "totalCents", "paymentStatus", "paymentMethod", "delivery", "items", "createdAt"]);
   if (parsed.currency !== "TRY" || (parsed.paymentStatus !== "pending" && parsed.paymentStatus !== "completed")) invalid();
   const selectedPaymentMethod = paymentMethod(parsed.paymentMethod);
+  if(selectedPaymentMethod.kind==='reward')invalid();
   if (parsed.paymentStatus === "completed" && selectedPaymentMethod.kind !== "hosted_card") invalid();
   const items = cartLines(parsed.items, 1, 100);
   const subtotalCents = integer(parsed.subtotalCents, 0, MAX_MONEY_CENTS);
@@ -836,7 +841,7 @@ export function parsePublicCheckoutReceiptV2(value: unknown): PublicCheckoutRece
   ]);
   if (parsed.currency !== "TRY" || (parsed.paymentStatus !== "pending" && parsed.paymentStatus !== "completed")) invalid();
   const selectedPaymentMethod = paymentMethod(parsed.paymentMethod);
-  if (parsed.paymentStatus === "completed" && selectedPaymentMethod.kind !== "hosted_card") invalid();
+  if (parsed.paymentStatus === "completed" && selectedPaymentMethod.kind !== "hosted_card"&&selectedPaymentMethod.kind!=='reward') invalid();
   const gifts = promotionGifts(parsed.gifts);
   const items = cartLinesV2(parsed.items, 1, 100, false);
   const merchandiseItems = frozenMerchandiseLines(items, gifts);
@@ -853,6 +858,7 @@ export function parsePublicCheckoutReceiptV2(value: unknown): PublicCheckoutRece
     || shippingDiscountCents > shippingCents || discountCents !== lineDiscountCents + shippingDiscountCents
     || totalCents !== subtotalCents + shippingCents - discountCents) invalid();
   const appliedPromotions = denseArray(parsed.appliedPromotions, 0, 100).map(appliedPromotion);
+  if(selectedPaymentMethod.kind==='reward'&&(parsed.paymentStatus!=='completed'||totalCents!==0||!gifts.length||!appliedPromotions.some(p=>p.benefitKind==='gift'&&/^L-[A-F0-9]{32}$/u.test(p.normalizedCode??''))))invalid();
   if (appliedPromotions.reduce((total, promotion) => total + promotion.discountCents, 0) !== discountCents) invalid();
   const promotionStatus = promotionEvaluationStatus(parsed.promotionStatus);
   if ((promotionStatus.kind === "evaluated" && merchandiseItems.length > 20)

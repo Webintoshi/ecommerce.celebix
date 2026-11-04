@@ -42,6 +42,7 @@ export interface InStoreSaleTotals {
   readonly subtotalCents:number;readonly eligibleSubtotalCents:number;readonly discountCents:number;readonly totalCents:number;
 }
 export interface InStoreSale extends InStoreManualMetadata {
+  readonly loyalty?:Readonly<{rewardId:string;label:string;shippingDiscountCents:number}>;
   readonly paymentParts?:readonly InStoreSalePaymentPart[];readonly prepareOperationId?:string|null;readonly abortRequested?:boolean;
   readonly contractVersion?:InStoreContractVersion;readonly customerId?:string|null;readonly customer?:InStorePosCustomer|null;readonly initialCollectionCents?:number;readonly dueDate?:string|null;readonly finance?:InStoreFinance|null;
   readonly paymentMethod?:InStorePaymentMethod|null;
@@ -53,7 +54,7 @@ export interface InStoreSale extends InStoreManualMetadata {
   readonly completedAt:string|null;readonly orderId:string|null;readonly orderNumber:string|null;
 }
 export interface InStoreSaleResult { readonly sale:InStoreSale;readonly replayed:boolean;readonly priceChanged:boolean; }
-export interface InStorePermissions { readonly manualSalesV4Available?:boolean; readonly canSellOnCredit?:boolean;readonly canCollectReceivables?:boolean;readonly creditSalesAvailable?:boolean; readonly canEditPrice?:boolean; readonly canSell:boolean;readonly canDiscount:boolean;readonly discountLimitBps:number;readonly canResolve:boolean;readonly canManageStaff:boolean; }
+export interface InStorePermissions { readonly canManageLoyalty?:boolean;readonly manualSalesV4Available?:boolean; readonly canSellOnCredit?:boolean;readonly canCollectReceivables?:boolean;readonly creditSalesAvailable?:boolean; readonly canEditPrice?:boolean; readonly canSell:boolean;readonly canDiscount:boolean;readonly discountLimitBps:number;readonly canResolve:boolean;readonly canManageStaff:boolean; }
 export interface InStoreBootstrap {
   readonly scopeKey:string;
   readonly locations:readonly Readonly<{id:string;name:string;isDefault:boolean}>[];
@@ -63,6 +64,7 @@ export interface InStoreBootstrap {
 }
 export interface InStoreSalePage { readonly sales:readonly InStoreSale[];readonly nextCursor:string|null; }
 export interface InStoreStaffGrant {
+ readonly canManageLoyalty?:boolean;
   readonly commissionEnabled?:boolean;readonly commissionRateBps?:number;
   readonly canManageAccounting?:boolean;
  readonly canManageOrders?:boolean;

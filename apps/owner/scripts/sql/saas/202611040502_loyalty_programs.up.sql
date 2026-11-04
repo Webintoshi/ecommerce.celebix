@@ -242,8 +242,8 @@ BEGIN
  IF NOT FOUND THEN SELECT a.* INTO acc FROM saas.loyalty_order_members proof JOIN saas.storefront_accounts a ON a.store_id=proof.store_id AND a.id=proof.account_id WHERE proof.store_id=s AND proof.order_id=oid AND proof.customer_id=a.customer_id;END IF;
  IF NOT FOUND THEN RETURN;END IF;
  account_snapshot:=acc;
- channel:=CASE WHEN ord.source='in_store'THEN 'in_store'WHEN ord.source IN('manual','social')THEN 'manual'ELSE 'storefront'END;
- IF channel='in_store'AND NOT EXISTS(SELECT 1 FROM saas.loyalty_pos_approvals a JOIN saas.in_store_sales sale ON sale.store_id=a.store_id AND sale.id=a.sale_id WHERE a.store_id=s AND a.account_id=acc.id AND sale.order_id=oid AND a.consumed_at IS NOT NULL)THEN RETURN;END IF;
+ channel:=CASE WHEN ord.source='in_store'THEN CASE WHEN EXISTS(SELECT 1 FROM saas.in_store_sales sale WHERE sale.store_id=s AND sale.order_id=oid AND sale.sales_channel='social')THEN 'manual'ELSE 'in_store'END WHEN ord.source IN('manual','social')THEN 'manual'ELSE 'storefront'END;
+ IF ord.source='in_store'AND NOT EXISTS(SELECT 1 FROM saas.loyalty_pos_approvals a JOIN saas.in_store_sales sale ON sale.store_id=a.store_id AND sale.id=a.sale_id WHERE a.store_id=s AND a.account_id=acc.id AND sale.order_id=oid AND a.consumed_at IS NOT NULL)THEN RETURN;END IF;
  paid:=saas.loyalty_paid_order_amount_v1(s,oid);paid_time:=coalesce(ord.paid_at,ord.updated_at);
  SELECT program_snapshot INTO snapshot FROM saas.loyalty_order_queue WHERE store_id=s AND order_id=oid;
  SELECT EXISTS(SELECT 1 FROM saas.accounting_receivables WHERE store_id=s AND order_id=oid AND return_cents>0)INTO has_return;

@@ -9,6 +9,8 @@ import {registerServerEmailMarketingRepository,registerServerEmailMarketingWebho
 import {PostgresNativeMarketingRepository} from '@celebix/saas-data';
 import {nativeMarketingPublicConfiguration,registerServerNativeMarketingRepository} from '../server-native-marketing/runtime.ts';
 import "server-only";
+import {PostgresLoyaltyRepository} from '@celebix/saas-data';
+import {registerServerLoyaltyRepository} from '../server-loyalty/runtime.ts';
 import {PostgresStoreToolsRepository,PostgresCommercialPlanRepository} from '@celebix/saas-data';
 import {registerServerCommercialPlanRepository} from '../server-commercial-plan/runtime.ts';
 
@@ -1235,6 +1237,7 @@ export async function initializeApprovedStagingServerPanelAccessRuntime(
       duplicate: ["promotions"],
       archive: ["promotions"],
     }));
+    registerServerLoyaltyRepository(access,new PostgresLoyaltyRepository({pool,role:'celebix_saas_app',timeouts:TIMEOUTS}));
     const toshiCredits = new PostgresToshiCreditRepository({pool,role:"celebix_saas_app",timeouts:TIMEOUTS,audit:()=>undefined});
     registerServerToshiCreditsRuntime(access, toshiCredits);
     registerServerCentralToshiRepository(access, createPostgresCentralToshiRepository({pool,timeouts:TIMEOUTS}));

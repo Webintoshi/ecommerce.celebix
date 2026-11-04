@@ -189,7 +189,7 @@ export function createStorefrontCartClient(
       return cart(root.cart);
     },
     async add(input) {
-      const nextCart = await mutation("/api/cart/add", { operationId: uuid(), ...input });
+      const nextCart = await mutation("/api/cart/add", { ...input, operationId: input.operationId ?? uuid() });
       notifySuccessfulCartAdd(nextCart);
       return nextCart;
     },

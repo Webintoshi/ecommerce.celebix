@@ -45,10 +45,11 @@ export class InStoreRegisterController {
   private snapshot=initial();private listeners=new Set<()=>void>();private queue=createSerialQueue();private revision=0;
   private timer:ReturnType<typeof setTimeout>|undefined;private pendingRequest:(()=>Promise<InStoreSaleResult>)|null=null;
   private pendingRevision=0;private newSaleId:string|null=null;private storage:RecoveryStorage|undefined;private initialization:Promise<void>|null=null;
+  private loyaltyPending=false;
   constructor(private api:InStoreSalesUiClient,private storageProvider:()=>RecoveryStorage|undefined=()=>undefined){}
   getSnapshot=()=>this.snapshot;
   getContractVersion():1|2|3|4{if(this.api.contractVersion!==4)return this.api.contractVersion;if(this.snapshot.sale&&this.snapshot.sale.contractVersion!==4)return this.snapshot.sale.contractVersion??3;return this.snapshot.bootstrap?.permissions.manualSalesV4Available===true||this.snapshot.sale?.contractVersion===4?4:3;}
-  private total(){return previewTotals(this.snapshot.cart.map(x=>({unitPriceCents:x.unitPriceCents??0,quantity:x.quantity,discountEligible:x.discountEligible})),this.snapshot.discount).totalCents+this.snapshot.shippingCents;}
+  private total(){return this.snapshot.sale?.loyalty?this.snapshot.sale.totals.totalCents:previewTotals(this.snapshot.cart.map(x=>({unitPriceCents:x.unitPriceCents??0,quantity:x.quantity,discountEligible:x.discountEligible})),this.snapshot.discount).totalCents+this.snapshot.shippingCents;}
 
   subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
   private set(patch:Partial<RegisterSnapshot>){this.snapshot=Object.freeze({...this.snapshot,...patch});this.listeners.forEach(listener=>listener());}
@@ -108,6 +109,14 @@ export class InStoreRegisterController {
   });}
   private intent():InStoreSaleIntent{const version=this.getContractVersion();return {locationId:this.snapshot.locationId,items:this.snapshot.cart.map(({variantId,quantity,unitPriceOverrideCents})=>({variantId,quantity,...(version>=2?{unitPriceOverrideCents:unitPriceOverrideCents??null}:{})})),discount:this.snapshot.discount,customerName:this.snapshot.customerName||null,note:this.snapshot.note||null,...(version===4?{customerId:this.snapshot.customerId,dueDate:this.snapshot.dueDate,salesChannel:this.snapshot.salesChannel,socialPlatform:this.snapshot.socialPlatform,socialReference:this.snapshot.socialReference,fulfillmentMethod:this.snapshot.fulfillmentMethod,shippingAddress:this.snapshot.shippingAddress,billingAddress:this.snapshot.billingAddress,shippingCents:this.snapshot.shippingCents,paymentParts:this.snapshot.paymentParts.map(({partId,paymentMethod,amountCents})=>({partId,paymentMethod,amountCents}))}:version>=2?{paymentMethod:version===3&&this.snapshot.initialCollectionCents===0?null:this.snapshot.paymentMethod,...(version===3?{customerId:this.snapshot.customerId,initialCollectionCents:this.snapshot.initialCollectionCents,dueDate:this.snapshot.dueDate}:{})}:{})};}
   async flush(){clearTimeout(this.timer);return this.queue.run(()=>this.flushInternal());}
+  holdLoyaltyRecovery(){if(this.snapshot.sale&&!this.snapshot.recovery){this.loyaltyPending=true;this.set({busy:'recover',error:'Sadakat işleminin sonucunu kontrol edin.'});}}
+  async runLoyaltyCommand<T>(work:(sale:InStoreSale)=>Promise<T>):Promise<T>{return this.queue.run(async()=>{
+    if(!this.snapshot.bootstrap?.permissions.canManageLoyalty||this.snapshot.recovery||this.snapshot.conflict||(!this.isEditable()&&!this.loyaltyPending))throw new Error('Sadakat işlemi için açık ve düzenlenebilir bir satış gerekiyor.');
+    if(!this.loyaltyPending)await this.flushInternal();const sale=this.snapshot.sale;if(!sale)throw new Error('Önce satışa bir ürün ekleyin.');
+    this.set({busy:'recover',error:null});
+    try{const result=await work(sale);let current:InStoreSale;try{current=await this.api.getSale(sale.id);}catch{throw Object.assign(new Error('İşlem kaydedildi; güncel satış bilgisi henüz alınamadı. Aynı işlemi kontrol edin.'),{uncertain:true});}this.hydrate(current,false,true);this.loyaltyPending=false;this.set({busy:null,error:null});return result;}
+    catch(error){const uncertain=error!==null&&typeof error==='object'&&'uncertain'in error&&error.uncertain===true;this.loyaltyPending=uncertain;this.set({busy:uncertain?'recover':null,error:message(error)});throw error;}
+  });}
   private async flushInternal(){
     clearTimeout(this.timer);
     while(this.snapshot.dirty&&this.isEditable()){
@@ -137,7 +146,8 @@ export class InStoreRegisterController {
   async prepare(){return this.queue.run(async()=>{
     if(!this.isEditable())return;try{
       if(this.getContractVersion()===2&&!this.snapshot.paymentMethod)throw new Error("Ödemeye geçmek için Kart veya Nakit seç.");
-      const base=previewTotals(this.snapshot.cart.map(x=>({unitPriceCents:x.unitPriceCents??0,quantity:x.quantity,discountEligible:x.discountEligible})),this.snapshot.discount),totals={...base,totalCents:base.totalCents+this.snapshot.shippingCents};
+      if(this.snapshot.sale?.loyalty){const approvedTotal=this.snapshot.sale.totals.totalCents;await this.flushInternal();if(this.snapshot.sale?.totals.totalCents!==approvedTotal){this.set({priceChanged:true,notice:'Ödüllü sepetin tutarı güncellendi. Yeni toplamı kontrol edip yeniden ödemeye geç.'});return;}}
+      const base=previewTotals(this.snapshot.cart.map(x=>({unitPriceCents:x.unitPriceCents??0,quantity:x.quantity,discountEligible:x.discountEligible})),this.snapshot.discount),totals=this.snapshot.sale?.loyalty?this.snapshot.sale.totals:{...base,totalCents:base.totalCents+this.snapshot.shippingCents};
       // Persisted parts include receipt facts; validate only their payment-plan inputs.
       if(this.getContractVersion()===4){this.validateV4Terms(this.snapshot.paymentParts.map(({partId,paymentMethod,amountCents})=>({partId,paymentMethod,amountCents})),this.snapshot.customer);if(this.snapshot.fulfillmentMethod==="shipping"&&(!this.snapshot.customerId||!this.snapshot.customer?.name.trim()||!this.snapshot.customer.phone?.trim()||!this.snapshot.shippingAddress?.recipientName.trim()||!this.snapshot.shippingAddress.line1.trim()||!this.snapshot.shippingAddress.city.trim()))throw new Error("Kargo için adı ve telefonu kayıtlı müşteri ve teslimat adresi gerekli.");}
       if(this.getContractVersion()===3){const collection=this.snapshot.initialCollectionCents??totals.totalCents;
@@ -146,7 +156,7 @@ export class InStoreRegisterController {
         if(collection>0&&!this.snapshot.paymentMethod)throw new Error("Tahsilat için ödeme yöntemi seç.");
       }
       await this.flushInternal();const sale=this.snapshot.sale;if(!sale||!sale.items.length)return;
-      if(totals.totalCents<1)throw new Error("Ödenecek tutar sıfır olamaz.");this.set({busy:"prepare",error:null});
+      if(totals.totalCents<1&&!sale.loyalty)throw new Error("Ödenecek tutar sıfır olamaz.");this.set({busy:"prepare",error:null});
       const result=await this.mutate("prepare",sale.id,sale.version,totals.totalCents,()=>this.api.prepareSale(sale.id,{expectedVersion:sale.version,expectedTotalCents:totals.totalCents},this.snapshot.recovery!.operationId,this.getContractVersion()));
       this.hydrate(result.sale,false,true);this.set({busy:null,priceChanged:result.priceChanged,notice:result.priceChanged?"Fiyatlar güncellendi. Yeni toplamı kontrol edip yeniden ödemeye geç.":null});
     }catch(error){this.fail(error);}

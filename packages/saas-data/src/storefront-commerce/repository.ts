@@ -690,17 +690,19 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
 
   async prepareQuoteV4(input: Parameters<NonNullable<StorefrontCommerceRepository["prepareQuoteV4"]>>[0]) {
     try {
-      const parsed = exactCommerceInput(input, ["hostname", "now", "intentKind", "candidates", "operationId", "cartVersion", "delivery", "normalizedCodes"]);
+      const parsed = exactCommerceInput(input, ["hostname", "now", "intentKind", "candidates", "operationId", "cartVersion", "delivery", "normalizedCodes"], ["accountCandidates"]);
       if (parsed.intentKind !== "cart" && parsed.intentKind !== "buy_now") throw failure("invalid_input");
+      const hasAccountProof = Object.hasOwn(parsed, "accountCandidates");
+      const accountValues = hasAccountProof ? [JSON.stringify(commerceCandidates(parsed.accountCandidates, true))] : [];
       return await this.write(
-        "SELECT outcome,result_payload FROM saas.public_storefront_checkout_prepare_quote_v4($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb)",
+        `SELECT outcome,result_payload FROM saas.public_storefront_checkout_prepare_quote_v${hasAccountProof ? 5 : 4}($1::text,$2::timestamptz,$3::text,$4::jsonb,$5::bigint,$6::jsonb,$7::uuid,$8::jsonb,$9::jsonb${hasAccountProof ? ",$10::jsonb" : ""})`,
         [commerceHostname(parsed.hostname), commerceDate(parsed.now), parsed.intentKind,
           JSON.stringify(commerceCandidates(parsed.candidates)), commerceVersion(parsed.cartVersion),
           JSON.stringify(commerceDelivery(parsed.delivery)), commerceUuid(parsed.operationId),
           JSON.stringify(commercePromotionCodes(parsed.normalizedCodes)), JSON.stringify({
             firstTouch: { source: "unknown", medium: "unknown" }, lastTouch: { source: "unknown", medium: "unknown" },
             landingPathGroup: "/unknown", deviceGroup: "unknown",
-          })], ["quoted"], value => {
+          }), ...accountValues], ["quoted"], value => {
           const selected = exactResult(value, ["quote", "authorityDigest", "quoteDigest"]);
           return Object.freeze({ quote: parsePublicCheckoutQuoteV2(selected.quote),
             authorityDigest: commerceDigest(selected.authorityDigest), quoteDigest: commerceDigest(selected.quoteDigest) });
@@ -750,7 +752,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       operationId: string;
       cartVersion: number;
       delivery: ReturnType<typeof commerceDelivery>;
-      paymentKind: "bank_transfer" | "cash_on_delivery";
+      paymentKind: "bank_transfer" | "cash_on_delivery" | "reward";
       orderId: string;
       customerId: string;
       addressId: string;
@@ -924,7 +926,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
       operationId: string;
       cartVersion: number;
       delivery: ReturnType<typeof commerceDelivery>;
-      paymentKind: "bank_transfer" | "cash_on_delivery";
+      paymentKind: "bank_transfer" | "cash_on_delivery" | "reward";
       orderId: string;
       customerId: string;
       addressId: string;
@@ -953,7 +955,7 @@ export class PostgresStorefrontCommerceRepository implements StorefrontCommerceR
         throw failure("invalid_input");
       if (
         parsed.paymentKind !== "bank_transfer" &&
-        parsed.paymentKind !== "cash_on_delivery"
+        parsed.paymentKind !== "cash_on_delivery" && !(version===4&&parsed.paymentKind==='reward')
       )
         throw failure("invalid_input");
       const now = commerceDate(parsed.now);

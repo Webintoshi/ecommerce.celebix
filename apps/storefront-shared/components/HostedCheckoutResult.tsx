@@ -8,6 +8,7 @@ export function HostedCheckoutResult(props: Readonly<{
   resultPath: string;
 }>) {
   const { hostedStatus, paymentPath, resultPath } = props;
+  const paidException=hostedStatus?.status==='stock_conflict'&&['captured_stock_conflict','customer_authority_conflict'].includes(hostedStatus.safeCode??'');
   const terminalFailure = hostedStatus?.status === "failed"
     || hostedStatus?.status === "cancelled"
     || hostedStatus?.status === "expired"
@@ -25,6 +26,12 @@ export function HostedCheckoutResult(props: Readonly<{
         <h1>Siparişiniz alındı</h1>
         <p>Ödemeniz doğrulandı ve siparişiniz oluşturuldu. Ayrıntıları hesabınızdan görebilirsiniz.</p>
         <Link className="store-button" href="/account/orders">Siparişlerimi gör</Link>
+      </article> : paidException ? <article className="checkout-result-state" role="status">
+        <span className="checkout-result-mark" aria-hidden="true">✓</span>
+        <h1>Ödemeniz alındı</h1>
+        <p>Siparişinizin tamamlanması için mağazayla iletişime geçin. Tekrar ödeme yapmayın; mevcut ödemeniz kayıtlıdır.</p>
+        <Link className="store-button" href="/pages/iletisim">Mağazayla iletişime geç</Link>
+        <Link className="store-button store-button-secondary" href={resultPath}>Durumu yenile</Link>
       </article> : terminalFailure ? <article className="checkout-result-state">
         <span className="checkout-result-mark" aria-hidden="true">↩</span>
         <h1>Ödeme tamamlanamadı</h1>

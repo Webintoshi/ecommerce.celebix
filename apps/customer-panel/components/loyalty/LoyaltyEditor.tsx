@@ -17,7 +17,7 @@ import checkboxStyles from "../shared/selection-checkbox.module.css";
 
 const STEPS = ["Hedef ve ödül", "Kullanım koşulları", "Önizleme ve başlatma"];
 const PRODUCT_KINDS = ["product"] as const, VARIANT_KINDS = ["variant"] as const, SHIPPING_KINDS = ["shipping_method"] as const;
-const CHANNELS = [{ id: "storefront", label: "Online mağaza" }, { id: "in_store", label: "Fiziksel mağaza" }, { id: "manual", label: "Manuel satış" }] as const;
+const CHANNELS = [{ id: "storefront", label: "Online mağaza" }, { id: "in_store", label: "Fiziksel mağaza" }, { id: "manual", label: "Sosyal satış" }] as const;
 function references(kind: PromotionTarget["kind"], ids: readonly string[]): readonly PromotionTarget[] { return ids.map(id => ({ kind, id, label: "Seçili kayıt", status: "active" })); }
 
 export function LoyaltyProgramEditor({ programId, timezone, canManage, canPublish }: LoyaltyPermissions & Readonly<{ programId?: string; timezone: string }>) {

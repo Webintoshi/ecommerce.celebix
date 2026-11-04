@@ -1017,3 +1017,15 @@ test("contact-aware prepare writes a native quote without accepting browser cust
   assert.equal(call.values[4], 1);
   assert.equal(client.calls[0]?.text, "BEGIN ISOLATION LEVEL READ COMMITTED");
 });
+
+test('contact-aware quote uses v5 for explicit account-session proofs, including an anonymous empty list',async()=>{
+  for(const accountCandidates of[CANDIDATES,[]]){
+    const client=new Client(responder('quoted',{quote:QUOTE_V2,authorityDigest:AUTHORITY_DIGEST,quoteDigest:QUOTE_DIGEST}));
+    const source=completeV2Input();const result=await repository(new Pool([client])).prepareQuoteV4({hostname:HOST,now:NOW,intentKind:'cart',candidates:CANDIDATES,operationId:OPERATION,cartVersion:1,delivery:source.delivery,normalizedCodes:[],accountCandidates});
+    assert.equal(result.quoteDigest,QUOTE_DIGEST);const call=client.calls.find(call=>call.text.includes('saas.public_storefront_checkout_prepare_quote_v5'))!;assert.ok(call);assert.equal(call.values.length,10);assert.equal(call.values[9],JSON.stringify(accountCandidates));
+    assert.equal(client.calls.filter(call=>call.text.includes('saas.public_storefront_checkout_prepare_quote_v4')).length,0);
+  }
+});
+test('malformed account-session proofs are rejected before accessing the database',async()=>{
+ const source=completeV2Input();for(const accountCandidates of[[{keyId:'account',digest:'invalid'}],null,undefined])await assert.rejects(repository(new Pool([])).prepareQuoteV4({hostname:HOST,now:NOW,intentKind:'cart',candidates:CANDIDATES,operationId:OPERATION,cartVersion:1,delivery:source.delivery,normalizedCodes:[],accountCandidates}as never),error=>error instanceof StorefrontCommerceRepositoryError&&error.code==='invalid_input');
+});

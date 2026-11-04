@@ -7,6 +7,9 @@ import { createRoot } from "react-dom/client";
 import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
+import * as loyaltyContracts from '@celebix/saas-contracts';
+import * as loyaltyClient from '../../lib/in-store-sales-ui/pos-loyalty.ts';
+import * as loyaltyScanner from '../../lib/in-store-sales-ui/loyalty-scanner.ts';
 import * as model from "../../lib/in-store-sales-ui/model.ts";
 import { createInStoreSalesUiClient, InStoreSalesUiError, type InStoreSalesUiClient } from "../../lib/in-store-sales-ui/client.ts";
 import type { InStoreBootstrap, InStoreSale, InStoreSaleIntent } from "@celebix/saas-contracts";
@@ -29,7 +32,7 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
   const api=fixture(status);await customize?.(api);
   const browser=new Window({url:"https://panel.example.test/orders/quick-links"});
   const globals=new Map<string,PropertyDescriptor|undefined>();
-  for(const [key,value] of Object.entries({window:browser,document:browser.document,navigator:browser.navigator,HTMLElement:browser.HTMLElement,HTMLDialogElement:browser.HTMLDialogElement,Event:browser.Event,MouseEvent:browser.MouseEvent,FormData:browser.FormData,requestAnimationFrame:(fn:FrameRequestCallback)=>setTimeout(()=>fn(Date.now()),0),IS_REACT_ACT_ENVIRONMENT:true})){
+  for(const [key,value] of Object.entries({window:browser,document:browser.document,navigator:browser.navigator,sessionStorage:browser.sessionStorage,HTMLElement:browser.HTMLElement,HTMLDialogElement:browser.HTMLDialogElement,Event:browser.Event,MouseEvent:browser.MouseEvent,FormData:browser.FormData,requestAnimationFrame:(fn:FrameRequestCallback)=>setTimeout(()=>fn(Date.now()),0),IS_REACT_ACT_ENVIRONMENT:true})){
     globals.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});
   }
   const source=await readFile(new URL("./InStoreSalesConsole.tsx",import.meta.url),"utf8");
@@ -42,6 +45,14 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
     if(name.endsWith(".module.css"))return {__esModule:true,default:new Proxy({},{get:(_target,key)=>String(key)})};
     throw new Error(`unexpected_import:${name}`);
   },thumbnail,thumbnail.exports);
+  const loyaltySource=await readFile(new URL('./PosLoyalty.tsx',import.meta.url),'utf8');
+  const loyaltyOutput=ts.transpileModule(loyaltySource,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
+  const loyalty:{exports:Record<string,unknown>}={exports:{}};
+  Function('require','module','exports',loyaltyOutput)((name:string)=>{
+   if(name==='react')return React;if(name==='react/jsx-runtime')return jsxRuntime;if(name==='@celebix/saas-contracts')return loyaltyContracts;
+   if(name==='../../lib/in-store-sales-ui/pos-loyalty.ts')return loyaltyClient;if(name==='../../lib/in-store-sales-ui/loyalty-scanner.ts')return loyaltyScanner;
+   if(name.endsWith('.module.css'))return {__esModule:true,default:new Proxy({},{get:(_target,key)=>String(key)})};throw new Error(`unexpected_import:${name}`);
+  },loyalty,loyalty.exports);
   const output=ts.transpileModule(source,{compilerOptions:{jsx:ts.JsxEmit.ReactJSX,module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,esModuleInterop:true}}).outputText;
   const compiled:{exports:Record<string,unknown>}={exports:{}};
   Function("require","module","exports",output)((name:string)=>{
@@ -51,6 +62,7 @@ async function mounted(verify:(container:HTMLElement,browser:Window)=>Promise<vo
     if(name==="@/components/shared/ProductThumbnail")return thumbnail.exports;if(name==="@/components/accounting/CustomerCollectionForm")return{CustomerCollectionForm:({orderId}:{orderId:string})=>createElement("div",{"data-collection-order":orderId})};
     if(name==="@/lib/in-store-sales-ui/client")return {inStoreSalesUi:api,InStoreSalesUiError};
     if(name==="@/lib/in-store-sales-ui/model")return model;
+    if(name==='./PosLoyalty')return loyalty.exports;
     if(name==="./in-store-sales.module.css")return {__esModule:true,default:new Proxy({},{get:(_target,key)=>String(key)})};
     throw new Error(`unexpected_import:${name}`);
   },compiled,compiled.exports);
@@ -353,7 +365,7 @@ test("removing the selected customer returns collection to full while retaining 
 test("V3 customer creation keeps the form and original key when its result is uncertain",async()=>{const keys:string[]=[];await mounted(async(container,browser)=>{await act(async()=>button(container,"Müşteri / not ekle").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;assert.ok(button(dialog,"Yeni müşteri"));await act(async()=>button(dialog,"Yeni müşteri").click());await fillInput(dialog.querySelector<HTMLInputElement>('input[name="firstName"]')!,"Ayşe");await fillInput(dialog.querySelector<HTMLInputElement>('input[name="lastName"]')!,"Kaya");await fillInput(dialog.querySelector<HTMLInputElement>('input[name="phone"]')!,"05550001122");for(let n=0;n<2;n++)await act(async()=>dialog.querySelector("form")!.dispatchEvent(new browser.Event("submit",{bubbles:true,cancelable:true}) as unknown as Event));assert.equal(keys.length,2);assert.equal(keys[0],keys[1]);assert.equal(dialog.querySelector<HTMLInputElement>('input[name="phone"]')?.value,"05550001122");assert.equal(dialog.open,true);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;api.searchCustomers=async()=>[];api.createCustomer=async(_input,key)=>{keys.push(key);throw new InStoreSalesUiError("unavailable",503,true);};});});
 test("V3 staff credit and collection permissions are individually editable",async()=>{let saved:unknown;await mounted(async(container)=>{await act(async()=>container.querySelector<HTMLButtonElement>('button[aria-label="Satış yetkileri"]')!.click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;const credit=dialog.querySelector<HTMLInputElement>('input[name="canSellOnCredit"]'),collect=dialog.querySelector<HTMLInputElement>('input[name="canCollectReceivables"]');assert.ok(credit);assert.ok(collect);assert.equal(credit.checked,false);assert.equal(collect.checked,false);await act(async()=>credit.click());await act(async()=>button(dialog,"Yetkiyi kaydet").click());assert.equal((saved as{canSellOnCredit:boolean}).canSellOnCredit,true);assert.equal((saved as{canCollectReceivables:boolean}).canCollectReceivables,false);},"draft",async(api)=>{(api as{contractVersion:number}).contractVersion=3;const bootstrap=await api.bootstrap();api.bootstrap=async()=>({...bootstrap,permissions:{...bootstrap.permissions,canManageStaff:true}});const grant={membershipId:ID,label:"Çalışan",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:false,version:1};api.listStaff=async()=>[grant];api.setStaffGrant=async(_id,input)=>{saved=input;return{...grant,...input,version:2};};});});
 
-test("sales permission editor toggles the same accounting flag through staff V8 without changing the other rights",async()=>{
+test("sales permission editor toggles the same accounting flag through staff V9 without changing the other rights",async()=>{
   for(const initial of [undefined,false,true]){
     const calls:{version:string|null;body:Parameters<InStoreSalesUiClient["setStaffGrant"]>[1]}[]=[];
     await mounted(async(container)=>{
@@ -367,11 +379,11 @@ test("sales permission editor toggles the same accounting flag through staff V8 
       await act(async()=>accounting.click());
       await act(async()=>button(dialog,"Yetkiyi kaydet").click());
       assert.equal(calls.length,1);
-      assert.equal(calls[0]!.version,"8");
+      assert.equal(calls[0]!.version,"9");
       assert.deepEqual(calls[0]!.body,{
         expectedVersion:1,enabled:true,locationIds:[LOCATION],discountLimitBps:1000,
         canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,
-        canManageOrders:false,canViewOverview:false,canManageAccounting:initial!==true,commissionEnabled:true,commissionRateBps:3500,
+        canManageOrders:false,canViewOverview:false,canManageLoyalty:false,canManageAccounting:initial!==true,commissionEnabled:true,commissionRateBps:3500,
       });
       assert.equal(dialog.querySelector<HTMLInputElement>('input[name="canManageAccounting"]')?.checked,initial!==true);
     },"draft",async(api)=>{
@@ -380,7 +392,7 @@ test("sales permission editor toggles the same accounting flag through staff V8 
       api.bootstrap=async()=>({...base,permissions:{...base.permissions,canManageStaff:true}});
       const grant={membershipId:ID,label:"Kasiyer",role:"cashier",enabled:true,locationIds:[LOCATION],discountLimitBps:1000,canEditPrice:true,canSellOnCredit:true,canCollectReceivables:false,commissionEnabled:true,commissionRateBps:3500,version:1,...(initial===undefined?{}:{canManageAccounting:initial})};
       api.listStaff=async()=>[grant];
-      const transport=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:8,fetch:async(_url,init)=>{
+      const transport=createInStoreSalesUiClient({contractVersion:4,staffContractVersion:9,fetch:async(_url,init)=>{
         const body=JSON.parse(String(init?.body)) as Parameters<InStoreSalesUiClient["setStaffGrant"]>[1];
         calls.push({version:new Headers(init?.headers).get("x-celebix-in-store-version"),body});
         return new Response(JSON.stringify({data:{...grant,...body,version:2}}),{status:200,headers:{"content-type":"application/json"}});
@@ -572,6 +584,23 @@ async function v4Api(api:MutableClient){
   api.prepareSale=async(_id,_input,key)=>{sale={...sale,status:"payment_pending",version:sale.version+1,prepareOperationId:key};return{sale,replayed:false,priceChanged:false};};
   api.confirmPayment=async(_id,input)=>{sale={...sale,paymentParts:sale.paymentParts.map((p:any)=>p.partId===input.partId?{...p,receiptId:LOCATION,receivedAt:date,actorMembershipId:LOCATION}:p),version:sale.version+1};if(sale.paymentParts.every((p:any)=>p.receivedAt))sale={...sale,status:"payment_received"};return{sale,replayed:false,priceChanged:false};};
 }
+
+test('loyalty account controls are hidden until the manager grants loyalty permission',async()=>{
+ await mounted(async container=>{assert.equal(container.textContent?.includes('Sadakat ödülü'),false);},'draft',v4Api);
+});
+test('verified loyalty approval exposes earned rewards and a zero-total gift uses no cash collection form',async()=>{
+ const originalFetch=globalThis.fetch,calls:string[]=[];let current:InStoreSale;
+ try{globalThis.fetch=async(url,init)=>{const path=String(url),body=JSON.parse(String(init?.body));calls.push(path);if(path.endsWith('/approve-pos')){current={...current,version:2};return Response.json({operationId:body.operationId,customerId:LOCATION,approvalId:ID,expiresAt:'2027-11-04T12:05:00.000Z',availableRewards:[{id:ID,programId:LOCATION,programName:'Beş kahveye bir hediye',reward:{kind:'gift',variantId:LOCATION,quantity:1},status:'available',earnedAt:date,expiresAt:null}]});}
+  current={...current,version:3,initialCollectionCents:0,paymentParts:[],loyalty:{rewardId:ID,label:'Beş kahveye bir hediye',shippingDiscountCents:0},items:current.items.map(item=>({...item,priceOverrideActorMembershipId:null,allocatedDiscountCents:item.lineSubtotalCents,lineNetCents:0})),totals:{...current.totals,discountCents:200000,totalCents:0,shippingCents:0}};return Response.json({sale:current,replayed:false,priceChanged:false});};
+  await mounted(async(container,browser)=>{const input=container.querySelector<HTMLInputElement>('.content input')!;assert.ok(input);assert.ok(button(container,'QR kodunu kamerayla okut'));await fillInput(input,'a'.repeat(64));await act(async()=>input.closest('form')!.dispatchEvent(new browser.Event('submit',{bubbles:true,cancelable:true}) as unknown as Event));assert.ok(button(container,'Ödülü uygula'));await act(async()=>button(container,'Ödülü uygula').click());assert.equal(container.querySelector('.totalBlock strong')?.textContent,'₺0,00');assert.equal(button(container,'Ödemeye geç').disabled,false);assert.equal(button(container,'Ödeme parçaları'),undefined);assert.equal(button(container,'Nakit'),undefined);assert.deepEqual(calls,['/api/loyalty/approve-pos','/api/loyalty/prepare-pos-reward']);},'draft',async api=>{await v4Api(api);current=await api.getSale(ID);const base=await api.bootstrap();api.getSale=async()=>current;api.bootstrap=async()=>({...base,activeDraft:current,permissions:{...base.permissions,canManageLoyalty:true}});});
+ }finally{globalThis.fetch=originalFetch;}
+});
+test('a lost loyalty approval response freezes editing and recovers the original operation before reopening the register',async()=>{
+ const originalFetch=globalThis.fetch,bodies:any[]=[];
+ try{globalThis.fetch=async(url,init)=>{const body=JSON.parse(String(init?.body));bodies.push({path:String(url),body});if(bodies.length===1)throw new Error('connection lost');return Response.json({operationId:body.operationId,customerId:LOCATION,approvalId:ID,expiresAt:'2027-11-04T12:05:00.000Z',availableRewards:[]});};
+  await mounted(async(container,browser)=>{const input=container.querySelector<HTMLInputElement>('.content input')!;await fillInput(input,'a'.repeat(64));await act(async()=>input.closest('form')!.dispatchEvent(new browser.Event('submit',{bubbles:true,cancelable:true}) as unknown as Event));assert.ok(button(container,'İşlemi kontrol et'));assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="Ürün adedini artır"]')?.disabled,true);await act(async()=>button(container,'İşlemi kontrol et').click());assert.equal(bodies[1].path,'/api/loyalty/recover');assert.equal(bodies[1].body.operationId,bodies[0].body.operationId);assert.equal(bodies[1].body.payload.action,'approve-pos');assert.equal(button(container,'İşlemi kontrol et'),undefined);assert.equal(container.querySelector<HTMLButtonElement>('button[aria-label="Ürün adedini artır"]')?.disabled,false);},'draft',async api=>{await v4Api(api);const base=await api.bootstrap();api.bootstrap=async()=>({...base,permissions:{...base.permissions,canManageLoyalty:true}});});
+ }finally{globalThis.fetch=originalFetch;}
+});
 
 test("V4 social dialog cancels locally and applies one platform plus optional reference",async()=>{await mounted(async(container)=>{assert.ok(button(container,"Satış kanalı"));await act(async()=>button(container,"Satış kanalı").click());const dialog=container.querySelector<HTMLDialogElement>("dialog")!;await act(async()=>button(dialog,"Instagram").click());await fillInput(dialog.querySelector<HTMLInputElement>('input[name="socialReference"]')!,"@ayse");await act(async()=>button(dialog,"Vazgeç").click());assert.equal(button(container,"Satış kanalı").textContent,"Satış kanalı");await act(async()=>button(container,"Satış kanalı").click());await act(async()=>button(dialog,"Instagram").click());await fillInput(dialog.querySelector<HTMLInputElement>('input[name="socialReference"]')!,"@ayse");await act(async()=>button(dialog,"Uygula").click());assert.equal(button(container,"Satış kanalı").textContent,"Satış kanalı");await act(async()=>button(container,"Satış kanalı").click());assert.equal(button(dialog,"Instagram").getAttribute("aria-pressed"),"true");assert.equal(dialog.querySelector<HTMLInputElement>('input[name="socialReference"]')!.value,"@ayse");},"draft",v4Api);});
 

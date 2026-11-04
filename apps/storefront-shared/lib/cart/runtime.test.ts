@@ -609,7 +609,7 @@ test("contact preflight binds source, operation and submitted delivery while off
   const cookies = `__Host-celebix_cart=${cart.value}; __Host-celebix_customer=${guest.value}`;
   const { paymentKind: _, ...deliveryInput } = COMPLETE_REQUEST;
   const quote = await selected.prepareCheckout!(HOST, cookies, { ...deliveryInput, kind: "prepare", normalizedCodes: [] });
-  assert.deepEqual(prepared, { hostname: HOST, now: NOW, intentKind: "cart", candidates: [{ keyId: cart.keyId, digest: cart.digest }],
+  assert.deepEqual(prepared, { hostname: HOST, now: NOW, intentKind: "cart", candidates: [{ keyId: cart.keyId, digest: cart.digest }],accountCandidates:[],
     operationId: OPERATION, cartVersion: 1, normalizedCodes: [], delivery: {
       contact: { firstName: "Güzide", lastName: "Elif", email: "info@example.com", phone: "+905551112233" },
       shippingAddress: { line1: "Bağdat Caddesi 10", city: "İstanbul", district: "Kadıköy", country: "TR" },
@@ -617,4 +617,12 @@ test("contact preflight binds source, operation and submitted delivery while off
   assert.equal(Object.hasOwn(prepared as object, "customerCandidates"), false);
   await selected.complete(HOST, cookies, { ...COMPLETE_REQUEST, expectedQuoteDigest: quote.quoteDigest });
   assert.equal(completed, true);
+});
+test('logged-in quote, contact preflight and completion forward only account-keyring proofs, suppressing an unrelated legacy contact cookie',async()=>{
+ const accountKeyring=parseStorefrontIdentityKeyring('account_01',JSON.stringify([{keyId:'account_01',key:KEY_A}])),account=createAccountSessionCredential(accountKeyring,size=>new Uint8Array(size).fill(8));
+ const cart=createStorefrontCredential('cart',keyring,size=>new Uint8Array(size).fill(4)),legacy=createStorefrontCredential('customer',keyring,size=>new Uint8Array(size).fill(5));const seen:any[]=[];
+ const selected=createStorefrontCommerceRuntime({keyring,accountKeyring,contactAwareCheckout:true,now:()=>new Date(NOW),randomBytes:size=>new Uint8Array(size).fill(9),randomUuid:randomUUID,repository:fake({quoteV3:async input=>{seen.push(input.customerCandidates);return quoted(FEATURE_OFF_QUOTE_V2);},prepareQuoteV4:async input=>{seen.push(input.accountCandidates);return quoted(FEATURE_OFF_QUOTE_V2);},completeV4:async input=>{seen.push(input.customerCandidates);return {receipt:RECEIPT_V2,credentialPersistence:PERSISTED_CREATED};}})});
+ const cookies=`__Host-celebix_cart=${cart.value}; __Host-celebix_account=${account.value}; __Host-celebix_customer=${legacy.value}`;
+ await selected.quote(HOST,cookies,'cart');const {paymentKind:_,...delivery}=COMPLETE_REQUEST;await selected.prepareCheckout!(HOST,cookies,{...delivery,kind:'prepare',normalizedCodes:[]});await selected.complete(HOST,cookies,COMPLETE_REQUEST);
+ assert.deepEqual(seen,Array.from({length:3},()=>[{keyId:account.keyId,digest:account.digest}]));assert.equal(JSON.stringify(seen).includes(legacy.digest),false);
 });

@@ -11,6 +11,8 @@ import { normalizePromotionCode } from "@celebix/saas-contracts";
 import type { StorefrontCommerceRepository } from "@celebix/saas-data";
 import { StorefrontCommerceRepositoryError } from "@celebix/saas-data";
 import { readAccountCookie } from "../account/credential.ts";
+import type {StorefrontIdentityKeyring} from '../account/credential.ts';
+import {checkoutAccountCandidates} from '../account/checkout-candidates.ts';
 import type { BindStorefrontCartIdentity } from "../cart-identity/runtime.ts";
 
 import {
@@ -114,6 +116,7 @@ export type StorefrontCommerceRuntime = Readonly<{
 type Dependencies = Readonly<{
   repository: StorefrontCommerceRepository;
   keyring: StorefrontCommerceCredentialKeyring;
+  accountKeyring?:StorefrontIdentityKeyring;
   now(): Date;
   randomBytes(size: number): Uint8Array;
   randomUuid(): string;
@@ -544,11 +547,7 @@ export function createStorefrontCommerceRuntime(
           cookieHeader,
           dependencies.keyring,
         ),
-        customerCandidates: optionalCandidates(
-          "customer",
-          cookieHeader,
-          dependencies.keyring,
-        ),
+        customerCandidates: readAccountCookie(cookieHeader).kind==='missing'?optionalCandidates('customer',cookieHeader,dependencies.keyring):checkoutAccountCandidates(cookieHeader,dependencies.accountKeyring),
         normalizedCodes: selectedCodes,
         ...(attribution ? { attribution } : {}),
       });
@@ -594,6 +593,7 @@ export function createStorefrontCommerceRuntime(
       const result = await dependencies.repository.prepareQuoteV4({
         hostname, now: date(dependencies), intentKind: request.intentKind,
         candidates: candidates(purpose(request.intentKind), cookieHeader, dependencies.keyring),
+        accountCandidates:checkoutAccountCandidates(cookieHeader,dependencies.accountKeyring),
         operationId: request.operationId, cartVersion: request.cartVersion,
         delivery: delivery(request), normalizedCodes: promotionCodes(request.normalizedCodes ?? []),
       });
@@ -620,11 +620,7 @@ export function createStorefrontCommerceRuntime(
       const customer = operationGeneratedV2(
         dependencies, "customer", "customer-credential", hostname, request.operationId, now, 30 * 86_400_000,
       );
-      const customerCandidates = optionalCandidates(
-        "customer",
-        cookieHeader,
-        dependencies.keyring,
-      );
+      const customerCandidates=readAccountCookie(cookieHeader).kind==='missing'?optionalCandidates('customer',cookieHeader,dependencies.keyring):checkoutAccountCandidates(cookieHeader,dependencies.accountKeyring);
       const common = Object.freeze({
         hostname,
         now,

@@ -24,6 +24,7 @@
     "@celebix/saas-data": "0.1.0",
     "@celebix/saas-storefront-runtime": "0.1.0",
     "@celebix/storefront-design-ui": "0.1.0",
+    "@zxing/library": "0.21.3",
     "cross-env": "^10.1.0",
     "next": "16.2.1",
     "pg": "^8.22.0",

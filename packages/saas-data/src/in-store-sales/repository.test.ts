@@ -231,6 +231,13 @@ test('staff v6 rejects missing, unsafe or zero enabled rate and leaves old staff
  for(const patch of[{commissionRateBps:0},{commissionRateBps:10001},{commissionEnabled:'true'},{commissionRateBps:undefined},{staffContractVersion:5},{contractVersion:6}])await assert.rejects(()=>r.setStaffGrant({...input,...patch}as never),e=>inStoreSalesRepositoryErrorCode(e)==='invalid_input');assert.equal(pool.calls,0);
 });
 
+test('staff v9 loyalty grant uses a distinct command and rejects a substituted permission',async()=>{
+ const grant={membershipId:MEMBERSHIP,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:false,commissionRateBps:0,canManageOrders:false,canViewOverview:false,canManageLoyalty:true,version:1};
+ const input={...authority(),contractVersion:4,staffContractVersion:9,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:false,commissionRateBps:0,canManageOrders:false,canViewOverview:false,canManageLoyalty:true};
+ const first=new Client({outcome:'committed',result_payload:grant},true),recovery=new Client({outcome:'found',result_payload:grant});assert.equal((await repo(first,recovery).setStaffGrant(input as never)).canManageLoyalty,true);
+ const q=first.queries.find(q=>q.text.includes('in_store_sales_set_staff_v9'))!;assert.ok(q);assert.equal(q.values?.at(-1),true);assert.ok(recovery.queries.some(q=>q.text.includes('in_store_sales_recover_staff_v9')));
+ const wrong=new Client({outcome:'committed',result_payload:{...grant,canManageLoyalty:false}});await assert.rejects(()=>repo(wrong).setStaffGrant(input as never),e=>inStoreSalesRepositoryErrorCode(e)==='unavailable');assert.equal(wrong.queries.at(-1)?.text,'ROLLBACK');
+});
 test('staff v7 order grant is atomic and recovers only its exact versioned receipt',async()=>{
  const grant={membershipId:MEMBERSHIP,label:'Kasiyer',role:'cashier',enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:true,commissionRateBps:2500,canManageOrders:true,version:1};
  const input={...authority(),contractVersion:4,staffContractVersion:7,operationId:OP,membershipId:MEMBERSHIP,expectedVersion:0,enabled:true,locationIds:[LOCATION],discountLimitBps:0,canEditPrice:false,canSellOnCredit:false,canCollectReceivables:true,canManageAccounting:false,commissionEnabled:true,commissionRateBps:2500,canManageOrders:true};

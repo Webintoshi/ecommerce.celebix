@@ -129,6 +129,32 @@ test("two real scans save two units with monotonically advancing draft version",
   assert.deepEqual(f.calls.map(x=>x.kind),["create","update"]);assert.equal(f.calls[1].version,1);controller.dispose();
 });
 
+test('a verified loyalty command freezes the register and reloads the current authoritative sale',async()=>{
+ const f=fixture(),controller=f.controller(),bootstrap=f.api.bootstrap;
+ f.api.bootstrap=async()=>{const value=await bootstrap();return{...value,permissions:{...value.permissions,canManageLoyalty:true}};};
+ await controller.initialize();await controller.addProduct(f.p);
+ const original=f.getServer()!;f.api.getSale=async()=>({...original,version:original.version+1,loyalty:{rewardId:LOCATION,label:'Hediye',shippingDiscountCents:0}});
+ const result=await controller.runLoyaltyCommand(async sale=>{assert.equal(sale.id,original.id);assert.equal(controller.isEditable(),false);return 'approved';});
+ assert.equal(result,'approved');assert.equal(controller.getSnapshot().sale?.loyalty?.label,'Hediye');assert.equal(controller.getSnapshot().busy,null);
+});
+
+test('uncertain loyalty results keep the register frozen until that same operation is reconciled',async()=>{
+ const f=fixture(),controller=f.controller(),bootstrap=f.api.bootstrap;
+ f.api.bootstrap=async()=>{const value=await bootstrap();return{...value,permissions:{...value.permissions,canManageLoyalty:true}};};
+ await controller.initialize();await controller.addProduct(f.p);
+ await assert.rejects(controller.runLoyaltyCommand(async()=>{throw Object.assign(new Error('unknown'),{uncertain:true});}));
+ assert.equal(controller.isEditable(),false);assert.equal(controller.getSnapshot().busy,'recover');
+ await controller.runLoyaltyCommand(async()=>true);assert.equal(controller.getSnapshot().busy,null);assert.equal(controller.isEditable(),true);
+});
+test('a committed loyalty command with a failed sale refresh keeps the register frozen for recovery',async()=>{
+ const f=fixture(),controller=f.controller(),bootstrap=f.api.bootstrap;
+ f.api.bootstrap=async()=>{const value=await bootstrap();return{...value,permissions:{...value.permissions,canManageLoyalty:true}};};
+ await controller.initialize();await controller.addProduct(f.p);const original=f.api.getSale;
+ f.api.getSale=async()=>{throw new Error('offline');};
+ await assert.rejects(controller.runLoyaltyCommand(async()=>true),error=>error instanceof Error&&'uncertain'in error&&error.uncertain===true);
+ assert.equal(controller.isEditable(),false);f.api.getSale=original;await controller.runLoyaltyCommand(async()=>true);assert.equal(controller.isEditable(),true);
+});
+
 test("attestation is durable before finalization, double click cannot duplicate payment",async()=>{
   const f=fixture(),controller=f.controller();await controller.initialize();await controller.addProduct(f.p);await controller.prepare();
   await Promise.all([controller.finish(),controller.finish()]);

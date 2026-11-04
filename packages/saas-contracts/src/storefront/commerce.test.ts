@@ -90,6 +90,17 @@ const BANK_TRANSFER = Object.freeze({
   iban: "TR330006100519786457841326",
 });
 
+test('zero-total loyalty gift has an explicit reward method and never masquerades as collected cash',()=>{
+ const line={...CART_LINE,discountCents:CART_LINE.lineTotalCents,payableCents:0};
+ const promotions={promotionStatus:{kind:'evaluated'},appliedPromotions:[{name:'Kahve hediyesi',benefitKind:'gift',normalizedCode:'L-'+'A'.repeat(32),lineDiscountCents:CART_LINE.lineTotalCents,shippingDiscountCents:0,discountCents:CART_LINE.lineTotalCents}],gifts:[{variantId:VARIANT_ID,quantity:1,autoAdd:false}]};
+ const method={kind:'reward',label:'Ödül kullanımı',instructions:'Bu sipariş için ödeme alınmaz.'};
+ const receipt={...promotions,orderReference:'LOYALTY-1',currency:'TRY',subtotalCents:CART_LINE.lineTotalCents,shippingCents:0,lineDiscountCents:CART_LINE.lineTotalCents,shippingDiscountCents:0,discountCents:CART_LINE.lineTotalCents,totalCents:0,paymentStatus:'completed',paymentMethod:method,delivery:{recipientName:'Örnek Müşteri',addressLine1:'Örnek adres',city:'Ankara',country:'TR'},items:[line],createdAt:'2026-11-04T12:00:00.000Z'};
+ assert.deepEqual(parsePublicCheckoutReceiptV2(receipt),receipt);
+ assert.throws(()=>parsePublicCheckoutReceiptV2({...receipt,paymentStatus:'pending'}));
+ assert.throws(()=>parsePublicCheckoutReceiptV2({...receipt,totalCents:1}));
+ assert.throws(()=>parsePublicCheckoutReceiptV2({...receipt,gifts:[]}));
+});
+
 const HOSTED_CARD = Object.freeze({
   kind: "hosted_card" as const,
   id: "81000000-0000-4000-8000-000000000083",

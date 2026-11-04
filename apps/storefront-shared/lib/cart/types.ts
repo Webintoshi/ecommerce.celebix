@@ -82,7 +82,7 @@ export type CheckoutRequest =
       contact: CheckoutContact;
       shippingAddress: CheckoutShippingAddress;
       shippingMethod: "standard";
-      paymentKind: "bank_transfer" | "cash_on_delivery";
+      paymentKind: "bank_transfer" | "cash_on_delivery" | "reward";
       normalizedCodes?: readonly string[];
       expectedQuoteDigest?: string;
       note?: string;
@@ -117,6 +117,7 @@ export type StorefrontCartClient = Readonly<{
       variantId: string;
       quantity: number;
       expectedVersion?: number;
+      operationId?: string;
     }>,
   ): Promise<PublicCart>;
   setQuantity(

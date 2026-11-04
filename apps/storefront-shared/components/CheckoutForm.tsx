@@ -111,7 +111,7 @@ export function CheckoutForm({
     Object.freeze({ ...EMPTY, ...initialDraft }),
   );
   const [paymentKind, setPaymentKind] = useState<
-    "bank_transfer" | "cash_on_delivery" | "hosted_card" | ""
+    "bank_transfer" | "cash_on_delivery" | "hosted_card" | "reward" | ""
   >("");
   const [identityNumber, setIdentityNumber] = useState("");
   const [pending, setPending] = useState(false);

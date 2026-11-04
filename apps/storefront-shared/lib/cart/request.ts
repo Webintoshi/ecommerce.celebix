@@ -507,7 +507,7 @@ export async function readCheckoutRequest(
     (row.intentKind !== "cart" && row.intentKind !== "buy_now") ||
     row.shippingMethod !== "standard" ||
     (row.paymentKind !== "bank_transfer" &&
-      row.paymentKind !== "cash_on_delivery")
+      row.paymentKind !== "cash_on_delivery" && row.paymentKind !== "reward")
   )
     checkoutInvalid();
   return Object.freeze({
