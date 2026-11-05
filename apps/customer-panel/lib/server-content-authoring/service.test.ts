@@ -613,6 +613,7 @@ test('AUTO grounding diagnostics distinguish decoding from evidence rejection wi
  const value=JSON.stringify({descriptionMarkdown:'PRIVATE_SENTINEL **Altın** ürün.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
  const events:any[]=[],f=capturedAutomaticRun([value,value]);f.dependencies.diagnostic=(event:unknown)=>events.push(event);
  const result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.deepEqual(events.map(event=>event.stage),['contract_or_grounding','contract_or_grounding']);
+ assert.deepEqual(events.map(event=>event.grounding),[{reason:'critical_term',field:'description'},{reason:'critical_term',field:'description'}]);
  const serialized=JSON.stringify(events);for(const privateValue of ['PRIVATE_SENTINEL','Altın',capturedAutomaticPacket.title,'fixture-secret',id,'descriptionMarkdown','stack'])assert.ok(!serialized.includes(privateValue),privateValue);
  assert.equal(f.state().debits,0);
 });

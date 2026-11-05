@@ -97,6 +97,43 @@ test('unknown bold prose remains plain text and provides no evidence', () => {
   assert.equal(renderContentAuthoringDescription(draft.description!), '<p>Zarif günlük görünüm.</p>');
 });
 
+test('Markdown hard breaks become spaces without losing trusted bold facts', () => {
+  const { packet, writer } = protocol();
+  for (const descriptionMarkdown of ['**Burgu Bileklik** ile günlük görünüm.  \nSevdiğiniz kıyafetlerle tamamlayabilirsiniz.', '**Burgu  \nBileklik** ile günlük görünüm.\nSevdiğiniz kıyafetlerle tamamlayabilirsiniz.']) {
+    const draft = accepted(writer.decode({ descriptionMarkdown }), packet, ['description']);
+    assert.equal(renderContentAuthoringDescription(draft.description!), '<p><strong>Burgu Bileklik</strong> ile günlük görünüm. Sevdiğiniz kıyafetlerle tamamlayabilirsiniz.</p>');
+    assert.deepEqual(descriptionFacts(draft).map(node => node.factRef), ['format:bold:product:title:0']);
+  }
+});
+
+test('italic styling becomes plain text while nested trusted bold facts remain bold', () => {
+  const { packet, writer } = protocol();
+  for (const descriptionMarkdown of ['***Burgu Bileklik*** ile *günlük görünüm*.', '**Burgu *Bileklik*** ile _günlük görünüm_.']) {
+    const draft = accepted(writer.decode({ descriptionMarkdown }), packet, ['description']);
+    assert.equal(renderContentAuthoringDescription(draft.description!), '<p><strong>Burgu Bileklik</strong> ile günlük görünüm.</p>');
+    assert.deepEqual(descriptionFacts(draft).map(node => node.factRef), ['format:bold:product:title:0']);
+  }
+});
+
+test('normalized inline styling preserves exact source nodes once in source order', () => {
+  const source = attachAutomaticProductSource(base, { currentDraft: { title: base.title, description: '<p>Tolerans %5 olabilir.</p><p>Suya dayanıklı değildir.</p>' } } as any);
+  const { packet, writer } = protocol(source);
+  const [first, last] = writer.context.sourceSlots.map(slot => slot.marker);
+  const draft = accepted(writer.decode({ descriptionMarkdown: `*${first}*  \n**_${last}_**` }), packet, ['description']);
+  assert.deepEqual(descriptionFacts(draft).map(node => node.factRef), ['product:existing:0', 'product:existing:1']);
+  assert.deepEqual(descriptionFacts(draft).map(node => node.value), ['Tolerans %5 olabilir.', 'Suya dayanıklı değildir.']);
+  assert.equal(renderContentAuthoringDescription(draft.description!), '<p>Tolerans %5 olabilir. Suya dayanıklı değildir.</p>');
+  for (const descriptionMarkdown of [`*${last}*  \n${first}`, `*${first}*  \n${first}  \n${last}`]) assert.throws(() => writer.decode({ descriptionMarkdown }));
+});
+
+test('normalizing inline styling cannot authorize new facts or escape variant scope', () => {
+  const source = { ...base, facts: [...base.facts, fact('variant:small:title:3', 'title', 'Küçük', { scope: 'variant', variantId: 'small' }), fact('variant:small:weight:4', 'weight', '2.2', { unit: 'g', scope: 'variant', variantId: 'small' })] };
+  const { packet, writer } = protocol(source);
+  for (const descriptionMarkdown of ['*Altın* bileklik.', 'Ağırlık: *35 g*.', 'Ağırlık: **2.2  \ng**.', 'Net ağırlık *14.89 g*.']) assert.throws(() => accepted(writer.decode({ descriptionMarkdown }), packet, ['description']));
+  const draft = accepted(writer.decode({ descriptionMarkdown: '*Küçük* seçeneği ağırlığı: **2.2  \ng**.' }), packet, ['description']);
+  assert.ok(descriptionFacts(draft).some(node => node.factRef === 'format:bold:variant:small:weight:4'));
+});
+
 test('unit facts require a complete display before bold formatting is authorized', () => {
   const { packet, writer } = protocol();
   const bare = accepted(writer.decode({ descriptionMarkdown: 'Ağırlık: **14.89** g.' }), packet, ['description']);

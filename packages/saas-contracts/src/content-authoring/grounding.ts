@@ -55,9 +55,15 @@ const critical = new RegExp(String.raw`(?:^|[^\p{L}\p{N}])(?:` + [
   ...Object.values(units).flat().map(u => `${escape(normalize(u))}(?:dir|tir|lik)?`),
 ].join('|') + String.raw`)(?=$|[^\p{L}\p{N}])`, 'u');
 
-// Exempt only the observed hand/within-reach idiom in original Turkish.
-// Altından and noun/case variants remain protected: they can assert gold material.
-const spatialUnder = /(^|[^\p{L}\p{N}])((?:elinin|elinizin)\s+)(altında|altındaki)(?=$|[^\p{L}\p{N}])/gu;
+// Original Turkish, finite genitive apparel/furniture contexts and within-reach idioms only.
+// Never exempt altından or arbitrary noun/case forms: they can assert gold material.
+const spatialUnder = new RegExp(String.raw`(^|[^\p{L}\p{N}])((?:` + [
+  'elinin|elinizin',
+  'ceketin|ceketinizin|gömleğin|gömleğinizin|hırkanın|hırkanızın',
+  'kabanın|kabanınızın|montun|montunuzun',
+  'masanın|masanızın|koltuğun|koltuğunuzun|rafın|rafınızın',
+  'dolabın|dolabınızın|tezgâhın|tezgâhınızın',
+].join('|') + String.raw`)\s+)(altında|altındaki)(?=$|[^\p{L}\p{N}])`, 'gu');
 // Finite active advice grammar: infinitive, imperative, personal ability, active
 // adverbials, and possessive verbal nouns with ordinary case endings. Never match ayar/ayarlı,
 // ambiguous ayarlar, or passive/causative capability claims such as ayarlanabilir.

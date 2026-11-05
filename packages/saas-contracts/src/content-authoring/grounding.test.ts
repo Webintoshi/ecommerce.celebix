@@ -134,6 +134,32 @@ test('actual product prose may use elinin altında and elinizin altında without
  for(const text of ['mutfağınızda elinin altında bulunmasını isteyebileceğiniz','elinizin altında daha uzun süre erişte bulundurmayı'])assert.doesNotThrow(()=>validate(text,packet([], 'Erişte')));
 });
 
+for(const field of ['description','seoTitle','seoDescription'] as const)test(`bounded apparel and furniture spatial wording does not become gold evidence in ${field}`,()=>{
+ for(const noun of ['Ceketin','Ceketinizin','Gömleğin','Gömleğinizin','Hırkanın','Hırkanızın','Kabanın','Kabanınızın','Montun','Montunuzun','Masanın','Masanızın','Koltuğun','Koltuğunuzun','Rafın','Rafınızın','Dolabın','Dolabınızın','Tezgâhın','Tezgâhınızın']){
+  for(const ending of ['altında','altındaki'])assert.doesNotThrow(()=>validate(`${noun} ${ending} parçayı inceleyin.`,packet(),field),`${noun} ${ending}`);
+ }
+ assert.doesNotThrow(()=>validate('TRİKO BLUZ, CEKETİNİZİN ALTINDA FARKLI PARÇALARLA BİRLİKTE KULLANILABİLİR.',packet([], 'Triko Bluz'),field));
+ assert.doesNotThrow(()=>validate('Gömleğinizin altındaki parçayı inceleyin.'.normalize('NFD'),packet(),field));
+});
+
+test('apparel spatial wording preserves unsupported gold, other material and quantity claims',()=>{
+ for(const text of ['Ceketinizin altında altın detay bulunur.','Ceketinizin altındaki altından parça.','Masanın altında gold ürün bulunur.','Hırkanın altında pamuklu bluz.','Ceketin altında 24 ayar ürün.','Rafın altındaki ürün 250 g.','Montun altında sertifikalı ürün.'])assert.throws(()=>validate(text),text);
+ const source=packet([fact('Renk','Altın rengi')]);
+ assert.doesNotThrow(()=>validate('Ceketinizin altında altın rengi ürünü kullanabilirsiniz.',source));
+ assert.throws(()=>validate('Ceketinizin altında altın ürünü kullanabilirsiniz.',source));
+});
+
+test('spatial exemption remains finite and never accepts ablative gold forms',()=>{
+ for(const text of ['Ceketinizin altından olduğu belirtilir.','Gömleğin altından olan yapısı.','Rafın altından ürün.','Tezgâhın altından parça.','Ceketinizin altindaki parça.','Ceketinizin altındakiler.','Ürünün altında kalite.','Başlığın altındaki fark.','Süperceketinizin altında parça.'])assert.throws(()=>validate(text),text);
+});
+
+test('spatial advice cannot lend common or cross-variant evidence',()=>{
+ assert.throws(()=>validate('Ceketinizin altında Kırmızı ürün.',variants));
+ assert.throws(()=>validate('Ceketinizin altında 14,89 g ürün.',variants));
+ assert.doesNotThrow(()=>validate('Ceketinizin altında Kırmızı varyantı — 14,89 gram.',variants));
+ assert.throws(()=>validate('Ceketinizin altında Mavi varyantı — 14,89 gram.',variants));
+});
+
 test('spatial wording exempts only its own stem and cannot authorize real gold claims in the same paragraph',()=>{
  for(const text of ['Elinizin altında altın var.','Elinin altında altından bileklik bulunur.','Elinizin altında gold ürün var.','Masanın altında altınlı ürün bulunur.','Elinizin altında sertifikalı ürün bulunur.','Elinizin altında 24 ayar ürün bulunur.'])assert.throws(()=>validate(text),text);
 });

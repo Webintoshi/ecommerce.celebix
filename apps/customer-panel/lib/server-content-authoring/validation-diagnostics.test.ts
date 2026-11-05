@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {createProductValidationDiagnostic,reportProductValidationFailure}from'./validation-diagnostics.ts';
+import {validateProductDraftOutput}from'../../../../packages/saas-contracts/src/content-authoring/validation.ts';
 
 test('diagnostics contain only closed stages, attempt and bounded numeric counts',()=>{
  const diagnostic=createProductValidationDiagnostic({attempt:2,stage:'completeness',output:{text:'PRIVATE_OUTPUT'},parsed:{descriptionMarkdown:'PRIVATE_PRODUCT [[TOSHI_SOURCE_'+'a'.repeat(32)+'_0]]',seoTitle:'Şişe',seoDescription:'PRIVATE_META'},draft:{description:[{type:'heading',level:2,children:[{type:'text',text:'PRIVATE_HEADING'}]},{type:'paragraph',children:[{type:'text',text:'Bir ürün.'},{type:'fact',factRef:'PRIVATE_REF',value:'250',unit:'g'}]}]},sourceSlotsExpected:1});
@@ -40,4 +41,20 @@ test('diagnostics preserve genuine Turkish and CJK word and heading counts',()=>
   {type:'heading',level:2,children:[{type:'text',text:'商品紹介'}]},
  ]}});
  assert.ok(diagnostic);assert.equal(diagnostic.counts.bodyWords,5);assert.equal(diagnostic.counts.h2Count,2);
+});
+
+test('a genuine grounding failure records only its closed reason and field, never rejected text',()=>{
+ const packet={title:'Şişe',sourceFingerprint:'a'.repeat(64),facts:[]};let failure:unknown;
+ try{validateProductDraftOutput({seoTitle:'Organik PRIVATE_PRODUCT',suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint},packet,['seoTitle']);}catch(error){failure=error;}
+ assert.ok(failure);
+ const event=createProductValidationDiagnostic({attempt:1,stage:'writer_decode',output:{text:'PRIVATE_REPLY'},sourceSlotsExpected:0,failure}as never);
+ assert.ok(event);assert.deepEqual((event as any).grounding,{reason:'critical_term',field:'seoTitle'});
+ assert.ok(Object.isFrozen((event as any).grounding));
+ assert.ok(!JSON.stringify(event).includes('organik'));assert.ok(!JSON.stringify(event).includes('PRIVATE_'));
+});
+
+test('forged error details cannot enter the grounding diagnostic',()=>{
+ const failure=Object.assign(Error('PRIVATE_ERROR'),{reason:'critical_term',field:'seoTitle',tokens:['PRIVATE_TOKEN'],grounding:{reason:'critical_term',field:'seoTitle'}});
+ const event=createProductValidationDiagnostic({attempt:1,stage:'writer_decode',output:{text:''},sourceSlotsExpected:0,failure}as never);
+ assert.ok(event);assert.equal((event as any).grounding,undefined);assert.ok(!JSON.stringify(event).includes('PRIVATE_'));
 });

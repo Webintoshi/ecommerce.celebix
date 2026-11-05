@@ -1,11 +1,12 @@
 import 'server-only';
 import {types as nodeTypes}from'node:util';
+import {getProductDraftGroundingIssue,type ProductDraftGroundingIssue}from'../../../../packages/saas-contracts/src/content-authoring/grounding.ts';
 
 const STAGES=['output','json_syntax','writer_decode','contract_or_grounding','policy_limits','completeness','source_order','render']as const;
 export type ProductValidationDiagnosticStage=typeof STAGES[number];
-export type ProductValidationDiagnostic=Readonly<{event:'toshi_product_validation_failed';attempt:1|2;stage:ProductValidationDiagnosticStage;counts:Readonly<{outputBytes:number|null;markdownBytes:number|null;bodyWords:number|null;h2Count:number|null;seoTitleChars:number|null;seoDescriptionChars:number|null;sourceSlotsExpected:number|null;sourceMarkersFound:number|null}>}>;
+export type ProductValidationDiagnostic=Readonly<{event:'toshi_product_validation_failed';attempt:1|2;stage:ProductValidationDiagnosticStage;grounding?:Readonly<Pick<ProductDraftGroundingIssue,'reason'|'field'>>;counts:Readonly<{outputBytes:number|null;markdownBytes:number|null;bodyWords:number|null;h2Count:number|null;seoTitleChars:number|null;seoDescriptionChars:number|null;sourceSlotsExpected:number|null;sourceMarkersFound:number|null}>}>;
 export type ProductValidationDiagnosticSink=(event:ProductValidationDiagnostic)=>void|Promise<void>;
-type DiagnosticInput=Readonly<{attempt:1|2;stage:ProductValidationDiagnosticStage;output:unknown;parsed?:unknown;draft?:unknown;sourceSlotsExpected:number}>;
+type DiagnosticInput=Readonly<{attempt:1|2;stage:ProductValidationDiagnosticStage;output:unknown;parsed?:unknown;draft?:unknown;sourceSlotsExpected:number;failure?:unknown}>;
 const bounded=(value:number)=>Number.isSafeInteger(value)&&value>=0?Math.min(value,1_000_000):null;
 function own(value:unknown,key:string):unknown{
  if(typeof value!=='object'||value===null||nodeTypes.isProxy(value))return undefined;
@@ -37,7 +38,8 @@ export function createProductValidationDiagnostic(input:DiagnosticInput):Product
  try{
   const markdown=own(input.parsed,'descriptionMarkdown'),body=bodyCounts(input.draft);
   const counts=Object.freeze({outputBytes:bytes(own(input.output,'text')),markdownBytes:bytes(markdown),...body,seoTitleChars:characters(own(input.parsed,'seoTitle')),seoDescriptionChars:characters(own(input.parsed,'seoDescription')),sourceSlotsExpected:bounded(input.sourceSlotsExpected),sourceMarkersFound:typeof markdown==='string'?bounded((markdown.match(/\[\[TOSHI_SOURCE_[^\]\r\n]*\]\]/gu)??[]).length):null});
-  return Object.freeze({event:'toshi_product_validation_failed',attempt:input.attempt,stage:input.stage,counts});
+  const issue=getProductDraftGroundingIssue(input.failure);
+  return Object.freeze({event:'toshi_product_validation_failed',attempt:input.attempt,stage:input.stage,...(issue?{grounding:Object.freeze({reason:issue.reason,field:issue.field})}:{}),counts});
  }catch{return null;}
 }
 export function reportProductValidationFailure(input:DiagnosticInput,sink:ProductValidationDiagnosticSink=(event)=>console.warn('[toshi-product-validation]',event)):void{

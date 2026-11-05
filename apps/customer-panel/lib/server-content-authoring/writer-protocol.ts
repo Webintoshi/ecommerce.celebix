@@ -65,14 +65,15 @@ export function createProductWriterProtocol(input:Readonly<{packet:ProductFactPa
    for(const match of text.matchAll(matcher)){const marker=match[0],slot=sourceMap.get(marker);if(!slot)fail();const before=text.slice(offset,match.index);if(before.includes('[[TOSHI_SOURCE_'))fail();add(output,{type:'text',text:before});seen.push(marker);add(output,factNode(slot.fact));claim('description',slot.fact);offset=match.index!+marker.length;}
    const tail=text.slice(offset);if(tail.includes('[[TOSHI_SOURCE_'))fail();add(output,{type:'text',text:tail});
   }
-  function inline(tokens:Token[]):ContentAuthoringTextNode[]{
-   const output:ContentAuthoringTextNode[]=[];const visible=tokens.map(token=>token.type==='text'?token.content:token.type==='softbreak'?' ':'').join('');
+  function inline(rawTokens:Token[]):ContentAuthoringTextNode[]{
+   const tokens=rawTokens.filter(token=>token.type!=='em_open'&&token.type!=='em_close');
+   const output:ContentAuthoringTextNode[]=[];const visible=tokens.map(token=>token.type==='text'?token.content:token.type==='softbreak'||token.type==='hardbreak'?' ':'').join('');
    for(let i=0;i<tokens.length;i++){
     const token=tokens[i]!;
     if(token.type==='text')textNodes(token.content,output);
-    else if(token.type==='softbreak')add(output,{type:'text',text:' '});
+    else if(token.type==='softbreak'||token.type==='hardbreak')add(output,{type:'text',text:' '});
     else if(token.type==='strong_open'){
-     let content='';let closed=false;while(++i<tokens.length){const part=tokens[i]!;if(part.type==='strong_close'){closed=true;break;}if(part.type!=='text'&&part.type!=='softbreak')fail();content+=part.type==='softbreak'?' ':part.content;}if(!closed||!content)fail();
+     let content='';let closed=false;while(++i<tokens.length){const part=tokens[i]!;if(part.type==='strong_close'){closed=true;break;}if(part.type!=='text'&&part.type!=='softbreak'&&part.type!=='hardbreak')fail();content+=part.type==='softbreak'||part.type==='hardbreak'?' ':part.content;}if(!closed||!content)fail();
      if(sourceMap.has(content)){textNodes(content,output);continue;}
      const fact=packet.facts.find(fact=>fact.ref.startsWith(PRODUCT_BOLD_FACT_PREFIX)&&scopeNamed(visible,fact,packet)&&(fold(display(fact))===fold(content)||(fact.unit&&fold(fact.value+fact.unit)===fold(content))));
      if(fact){add(output,factNode(fact));claim('description',fact);}else textNodes(content,output);
