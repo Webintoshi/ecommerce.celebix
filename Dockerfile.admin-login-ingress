@@ -5,5 +5,6 @@ WORKDIR /app
 COPY --chown=node:node scripts/admin-login-ingress-signer.mjs ./admin-login-ingress-signer.mjs
 USER node
 ENV NODE_ENV=production
+ENV ADMIN_INGRESS_TRAEFIK_HOSTNAME=coolify-proxy
 # Private coolify network only. Do not publish a host port or public router.
 CMD ["node", "--disable-proto=throw", "admin-login-ingress-signer.mjs"]

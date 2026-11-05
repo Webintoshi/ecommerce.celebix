@@ -44,3 +44,61 @@ test('new routes reject noncanonical hosts, aliases and queries and cannot bypas
  }
  for(const path of ['/api/merchant-login/verify','/api/merchant-signup/verify','/api/account/auth/resend','/api/account/auth/verify','/api/self-serve/register'])assert.equal(signer()(routed('shop.example.com',path)).statusCode,403);
 });
+
+async function withDynamicServer(options,run){
+ const server=createIngressSignerServer({keyHex,traefikIpv4:peer,traefikHostname:'coolify-proxy',clock:()=>now,...options});
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+ const send=(extra=[])=>new Promise((resolve,reject)=>{
+  const req=request({host:'127.0.0.1',port:server.address().port,path:'/authenticate',method:'GET',headers:[...make().rawHeaders,'Host','private-signer',...extra]},response=>{
+   response.resume();response.on('end',()=>resolve({status:response.statusCode,headers:response.headers}));
+  });req.on('error',reject);req.end();
+ });
+ try{await run(send);}finally{await new Promise(resolve=>server.close(resolve));}
+}
+
+test('Docker DNS peer changes are applied on each request and the former peer is rejected',async()=>{
+ let address='127.0.0.1';const lookups=[];
+ await withDynamicServer({resolveTrustedPeer:async hostname=>{lookups.push(hostname);return[address];}},async send=>{
+  const first=await send();assert.equal(first.status,204);assert.ok(first.headers['x-celebix-admin-ip-signature']);
+  address='127.0.0.2';const moved=await send();assert.equal(moved.status,403);assert.equal(moved.headers['x-celebix-admin-ip-signature'],undefined);
+  address='127.0.0.1';assert.equal((await send()).status,204);
+ });
+ assert.deepEqual(lookups,['coolify-proxy','coolify-proxy','coolify-proxy']);
+});
+
+test('dynamic DNS errors and invalid answers never fall back to a previously allowed static peer',async()=>{
+ for(const resolveTrustedPeer of [async()=>{throw Error('DNS unavailable');},async()=>[],async()=>['127.0.0.1','127.0.0.2'],async()=>['127.0.0.1','invalid'],async()=>['::1'],async()=>['0.0.0.0'],async()=>Array(17).fill('127.0.0.1')]){
+  await withDynamicServer({traefikIpv4:'127.0.0.1',resolveTrustedPeer},async send=>{
+   const result=await send();assert.equal(result.status,403);assert.equal(result.headers['x-celebix-admin-ip-signature'],undefined);
+  });
+ }
+});
+
+test('a bounded DNS timeout denies promptly without static fallback and a later request can recover',async()=>{
+ let stalled=true;
+ await withDynamicServer({traefikIpv4:'127.0.0.1',peerResolveTimeoutMs:25,resolveTrustedPeer:()=>stalled?new Promise(()=>{}):Promise.resolve(['127.0.0.1'])},async send=>{
+  const began=Date.now(),first=await send();assert.equal(first.status,403);assert.ok(Date.now()-began<1000);assert.equal(first.headers['x-celebix-admin-ip-signature'],undefined);
+  stalled=false;assert.equal((await send()).status,204);
+ });
+});
+
+test('forwarded caller headers cannot replace the DNS-resolved socket peer',async()=>{
+ await withDynamicServer({traefikIpv4:'127.0.0.1',resolveTrustedPeer:async()=>['127.0.0.2']},async send=>{
+  const result=await send(['X-Forwarded-For','127.0.0.2','Forwarded','for=127.0.0.2;host=coolify-proxy']);
+  assert.equal(result.status,403);assert.equal(result.headers['x-celebix-admin-ip-signature'],undefined);
+ });
+});
+
+test('dynamic mode requires the exact private Docker alias and a bounded resolver configuration',()=>{
+ for(const patch of [{traefikHostname:'evil.example'},{traefikHostname:'coolify-proxy.'},{traefikHostname:''},{resolveTrustedPeer:null},{peerResolveTimeoutMs:0},{peerResolveTimeoutMs:1001}]){
+  assert.throws(()=>createIngressSignerServer({keyHex,traefikIpv4:peer,traefikHostname:'coolify-proxy',...patch}),/ingress_configuration_invalid/);
+ }
+});
+
+test('one unique DNS IPv4 is sufficient without a static address and retains exact HMAC and body guards',async()=>{
+ await withDynamicServer({traefikIpv4:undefined,resolveTrustedPeer:async()=>['127.0.0.1','127.0.0.1']},async send=>{
+  const result=await send();assert.equal(result.status,204);
+  assert.equal(result.headers['x-celebix-admin-ip-signature'],signer()(make()).headers['x-celebix-admin-ip-signature']);
+  const denied=await send(['Cookie','private=value']);assert.equal(denied.status,403);assert.equal(denied.headers['x-celebix-admin-ip-signature'],undefined);
+ });
+});

@@ -1,5 +1,6 @@
 import {createHmac} from 'node:crypto';
 import {createServer} from 'node:http';
+import {lookup} from 'node:dns/promises';
 import {isIP} from 'node:net';
 import {pathToFileURL} from 'node:url';
 
@@ -53,9 +54,26 @@ export function createIngressSigner({keyHex,traefikIpv4,clock=()=>new Date()}){
 
 // No upstream fetch, request-body read, cookie access, public router or logging.
 export function createIngressSignerServer(options){
- const authorize=createIngressSigner(options);
- const server=createServer({maxHeaderSize:4096,headersTimeout:3000,requestTimeout:5000,keepAliveTimeout:1000},(request,response)=>{
-  const result=authorize({method:request.method,url:request.url,remoteAddress:request.socket.remoteAddress,rawHeaders:request.rawHeaders});
+ let authorize;
+ if(options.traefikHostname===undefined)authorize=createIngressSigner(options);
+ else{
+  const {keyHex,traefikHostname,clock=()=>new Date(),peerResolveTimeoutMs=1000}=options;
+  const resolveTrustedPeer=options.resolveTrustedPeer??(async hostname=>(await lookup(hostname,{family:4,all:true})).map(record=>record.address));
+  if(traefikHostname!=='coolify-proxy'||typeof keyHex!=='string'||!/^[a-f0-9]{64}$/.test(keyHex)||typeof clock!=='function'||options.resolveTrustedPeer===null||typeof resolveTrustedPeer!=='function'||!Number.isSafeInteger(peerResolveTimeoutMs)||peerResolveTimeoutMs<1||peerResolveTimeoutMs>1000)throw Error('ingress_configuration_invalid');
+  authorize=async input=>{
+   if(input?.method!=='GET'||input.url!=='/authenticate')return denied();
+   let timer;
+   try{
+    const addresses=await Promise.race([Promise.resolve().then(()=>resolveTrustedPeer(traefikHostname)),new Promise(resolve=>{timer=setTimeout(()=>resolve(null),peerResolveTimeoutMs);})]);
+    if(!Array.isArray(addresses)||addresses.length<1||addresses.length>16||addresses.some(address=>isIP(address)!==4||address==='0.0.0.0'))return denied();
+    const unique=[...new Set(addresses)];if(unique.length!==1)return denied();
+    return createIngressSigner({keyHex,traefikIpv4:unique[0],clock})(input);
+   }catch{return denied();}finally{clearTimeout(timer);}
+  };
+ }
+ const server=createServer({maxHeaderSize:4096,headersTimeout:3000,requestTimeout:5000,keepAliveTimeout:1000},async(request,response)=>{
+  const result=await authorize({method:request.method,url:request.url,remoteAddress:request.socket.remoteAddress,rawHeaders:request.rawHeaders});
+  if(response.destroyed||response.writableEnded)return;
   response.sendDate=false;response.writeHead(result.statusCode,result.headers);response.end();
  });
  server.maxHeadersCount=24;server.maxRequestsPerSocket=16;server.setTimeout(5000,socket=>socket.destroy());
@@ -65,7 +83,7 @@ export function createIngressSignerServer(options){
 
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){
  try{
-  const server=createIngressSignerServer({keyHex:process.env.ADMIN_INGRESS_KEY_HEX,traefikIpv4:process.env.ADMIN_INGRESS_TRAEFIK_IPV4});
+  const server=createIngressSignerServer({keyHex:process.env.ADMIN_INGRESS_KEY_HEX,traefikIpv4:process.env.ADMIN_INGRESS_TRAEFIK_IPV4,traefikHostname:process.env.ADMIN_INGRESS_TRAEFIK_HOSTNAME});
   server.on('error',()=>{process.exitCode=1;server.close();});
   server.listen(8080,'0.0.0.0');
   for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>{server.close();server.closeAllConnections();});
