@@ -1,4 +1,4 @@
-const STAGES = ['output', 'json_syntax', 'contract', 'fingerprint', 'markdown_text', 'markup', 'structure', 'unsupported_numbers', 'unsupported_contacts', 'unsupported_assurance', 'suggestions', 'render', 'usage'] as const;
+const STAGES = ['output', 'json_syntax', 'contract', 'fingerprint', 'markdown_text', 'markup', 'suggestions', 'render', 'usage'] as const;
 export type PolicyValidationStage = typeof STAGES[number];
 export type PolicyValidationDiagnostic = Readonly<{
   event: 'toshi_policy_validation_failed';

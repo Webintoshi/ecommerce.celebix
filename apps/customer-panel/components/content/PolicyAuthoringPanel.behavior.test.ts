@@ -1,32 +1,37 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { type TestContext } from 'node:test';
 import { act, createElement, useState } from 'react';
 import { compile, mounted, click } from '../../lib/mira-final-test-support.ts';
 import { PolicyAuthoringApiError } from '../../lib/policy-authoring-ui/client.ts';
 import type { PolicyAuthoringContext } from '../../lib/policy-authoring-ui/controller.ts';
 import type { PolicyAuthoringRequest } from '../../lib/policy-authoring/types.ts';
-import { readPolicyAuthoringCompletedPreview, readPolicyAuthoringRecovery } from '../../lib/policy-authoring-ui/recovery.ts';
+import { readPolicyAuthoringCompletedPreview, readPolicyAuthoringRecovery, writePolicyAuthoringRecovery } from '../../lib/policy-authoring-ui/recovery.ts';
 
 const context: PolicyAuthoringContext = { recoveryScope: 'panel-recovery-scope', policyKey: 'returns_exchanges', policyVersion: 4, body: '<p>Var olan koşullar.</p>', status: 'draft', revision: 'mount-a:1' };
 const result = (request: PolicyAuthoringRequest, operationId: string) => ({ kind: 'policy', operationId, draftId: request.draftId, policyKey: request.policyKey, policyVersion: request.policyVersion, requestFingerprint: 'a'.repeat(64), body: '<p>İncelenecek koşullar.</p>', suggestions: [], chargedCredits: 7, wallet: { balance: 23, reserved: 0, available: 23 } });
-function moduleFor(generate: (request: PolicyAuthoringRequest, operationId: string) => Promise<unknown>, available = 30) {
+function moduleFor(generate: (request: PolicyAuthoringRequest, operationId: string) => Promise<unknown>, available = 30, readBalance = async () => available) {
   return compile('components/content/PolicyAuthoringPanel.tsx', {
     '@/lib/policy-authoring-ui/client': { PolicyAuthoringApiError, policyAuthoringClient: { generate } },
-    '@/lib/content-authoring-ui/credits-client': { readToshiCredits: async () => ({ wallet: { balance: available, reserved: 0, available } }) },
+    '@/lib/content-authoring-ui/credits-client': { readToshiCredits: async () => { const balance = await readBalance(); return { wallet: { balance, reserved: 0, available: balance } }; } },
     '@/components/catalog/ProductDescriptionPreview': { ProductDescriptionPreview: ({ source }: any) => createElement('div', null, source) },
   });
 }
 
-test('lost responses recover only by explicit action with the same request and operation ID', async () => {
+async function advanceRetry(t: TestContext, milliseconds: number) {
+  await act(async () => { t.mock.timers.tick(milliseconds); });
+}
+
+test('a lost response automatically restores the paid preview using the same request and operation ID', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
   const calls: { request: PolicyAuthoringRequest; id: string }[] = [];
   const { PolicyAuthoringPanel } = moduleFor(async (request, id) => { calls.push({ request, id }); if (calls.length === 1) throw new Error('lost response'); return result(request, id); });
   let applied = 0;
   await mounted(PolicyAuthoringPanel, { context, onApply: () => { applied++; return true; }, onClose: () => {} }, async (host) => {
     await click(host, 'Metni hazırla');
     assert.equal(calls.length, 1);
-    assert.ok(host.textContent.includes('aynı işlemin sonucunu kontrol edin'));
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Hazırlanıyor…' && button.disabled));
     assert.equal([...host.querySelectorAll('button')].some(button => button.textContent === 'Metni hazırla'), false);
-    await click(host, 'İşlemin sonucunu kontrol et');
+    await advanceRetry(t, 1_000);
     assert.equal(calls.length, 2);
     assert.equal(calls[0].id, calls[1].id);
     assert.deepEqual(calls[0].request, calls[1].request);
@@ -36,7 +41,7 @@ test('lost responses recover only by explicit action with the same request and o
   });
 });
 
-test('closing during dispatch preserves recovery and never automatically repeats the request', async () => {
+test('closing during dispatch preserves recovery and reopening automatically resumes the same operation', async () => {
   let finish: (value: unknown) => void = () => {};
   const calls: { request: PolicyAuthoringRequest; id: string }[] = [];
   const { PolicyAuthoringPanel } = moduleFor((request, id) => { calls.push({ request, id }); return calls.length === 1 ? new Promise(resolve => { finish = resolve; }) : Promise.resolve(result(request, id)); });
@@ -49,11 +54,115 @@ test('closing during dispatch preserves recovery and never automatically repeats
     await click(host, 'Toshi panelini kapat');
     await act(async () => finish(result(calls[0].request, calls[0].id)));
     await click(host, 'Toshi aç');
-    assert.equal(calls.length, 1);
-    await click(host, 'İşlemin sonucunu kontrol et');
     assert.equal(calls.length, 2);
     assert.deepEqual(calls[0], calls[1]);
     assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metne uygula'));
+  });
+});
+
+test('pending and ambiguous completion responses reconcile automatically without a new operation', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const calls: { request: PolicyAuthoringRequest; id: string }[] = [];
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => {
+    calls.push({ request, id });
+    if (calls.length < 4) throw new PolicyAuthoringApiError(['commit_unknown', 'operation_busy', 'provider_unavailable'][calls.length - 1]);
+    return result(request, id);
+  });
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => { assert.fail('recovery must not apply automatically'); }, onClose: () => {} }, async host => {
+    await click(host, 'Metni hazırla');
+    for (const delay of [1_000, 2_500, 5_000]) await advanceRetry(t, delay);
+    assert.equal(calls.length, 4);
+    assert.ok(calls.every(call => call.id === calls[0].id));
+    assert.ok(calls.every(call => JSON.stringify(call.request) === JSON.stringify(calls[0].request)));
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metne uygula'));
+    assert.equal(host.querySelector('[role="alert"]'), null);
+  });
+});
+
+test('persistent network failures stop automatically and plain retry preserves the original operation', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const calls: { request: PolicyAuthoringRequest; id: string }[] = [];
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => {
+    calls.push({ request, id });
+    if (calls.length <= 7) throw new TypeError('offline');
+    return result(request, id);
+  });
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => true, onClose: () => {} }, async (host, window) => {
+    await click(host, 'Metni hazırla');
+    for (const delay of [1_000, 2_500, 5_000, 8_000, 12_000, 20_000, 60_000]) await advanceRetry(t, delay);
+    assert.equal(calls.length, 7, 'automatic recovery must be bounded');
+    assert.ok(readPolicyAuthoringRecovery(window.sessionStorage, context.recoveryScope, context.policyKey));
+    assert.doesNotMatch(host.textContent, /İşlemin sonucunu kontrol et|aynı işlemin sonucunu kontrol edin/);
+    await click(host, 'Yeniden dene');
+    assert.equal(calls.length, 8);
+    assert.deepEqual(calls[7], calls[0]);
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metne uygula'));
+  });
+});
+
+test('reopening automatically waits for an original forty-second generation without changing its request or operation', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 0 });
+  const savedOperationId = '11111111-1111-4111-8111-111111111111';
+  const savedRequest: PolicyAuthoringRequest = { kind: 'policy', draftId: '22222222-2222-4222-8222-222222222222', policyKey: context.policyKey, policyVersion: context.policyVersion, currentBody: context.body, locale: 'tr' };
+  const calls: { request: PolicyAuthoringRequest; id: string; at: number }[] = [];
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => {
+    calls.push({ request, id, at: Date.now() });
+    if (Date.now() < 40_000) throw new PolicyAuthoringApiError('operation_busy');
+    return result(request, id);
+  }, 23);
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => { assert.fail('automatic reconciliation must only restore the preview'); }, onClose: () => {} }, async (host, window) => {
+    for (const delay of [1_000, 2_500, 5_000, 8_000, 12_000, 20_000]) await advanceRetry(t, delay);
+    assert.deepEqual(calls.map(call => call.at), [0, 1_000, 3_500, 8_500, 16_500, 28_500, 48_500]);
+    assert.ok(calls.every(call => call.id === savedOperationId));
+    assert.ok(calls.every(call => JSON.stringify(call.request) === JSON.stringify(savedRequest)));
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metne uygula' && !button.disabled));
+    assert.equal(readPolicyAuthoringRecovery(window.sessionStorage, context.recoveryScope, context.policyKey), null);
+    assert.match(host.textContent, /23 kredi/);
+    assert.equal(host.querySelector('[role="alert"]'), null);
+    await advanceRetry(t, 60_000);
+    assert.equal(calls.length, 7, 'completed recovery must stop polling');
+  }, window => writePolicyAuthoringRecovery(window.sessionStorage, { operationId: savedOperationId, request: savedRequest, context: { ...context, revision: 'previous-mount:1' } }));
+});
+
+test('closing during a recovery delay cancels further requests until the saved operation is reopened', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const calls: { request: PolicyAuthoringRequest; id: string }[] = [];
+  const { PolicyAuthoringPanel } = moduleFor(async (request, id) => {
+    calls.push({ request, id });
+    if (calls.length === 1) throw new TypeError('lost reply');
+    return result(request, id);
+  });
+  const Wrapper = () => {
+    const [open, setOpen] = useState(true);
+    return createElement('div', null, createElement('button', { onClick: () => setOpen(true) }, 'Toshi aç'), open ? createElement(PolicyAuthoringPanel, { context, onApply: () => true, onClose: () => setOpen(false) }) : null);
+  };
+  await mounted(Wrapper, {}, async host => {
+    await click(host, 'Metni hazırla');
+    await click(host, 'Toshi panelini kapat');
+    await advanceRetry(t, 60_000);
+    assert.equal(calls.length, 1);
+    await click(host, 'Toshi aç');
+    assert.equal(calls.length, 2);
+    assert.deepEqual(calls[1], calls[0]);
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metne uygula'));
+  });
+});
+
+test('a confirmed failure during automatic reconciliation clears recovery and refreshes available credits', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let calls = 0, walletReads = 0;
+  const { PolicyAuthoringPanel } = moduleFor(async () => {
+    calls++;
+    throw new PolicyAuthoringApiError(calls === 1 ? 'provider_timeout' : 'operation_failed');
+  }, 30, async () => ++walletReads === 1 ? 23 : 30);
+  await mounted(PolicyAuthoringPanel, { context, onApply: () => { assert.fail('failed content must not apply'); }, onClose: () => {} }, async (host, window) => {
+    await click(host, 'Metni hazırla');
+    await advanceRetry(t, 1_000);
+    assert.equal(calls, 2);
+    assert.equal(readPolicyAuthoringRecovery(window.sessionStorage, context.recoveryScope, context.policyKey), null);
+    assert.ok([...host.querySelectorAll('button')].some(button => button.textContent === 'Metni hazırla' && !button.disabled));
+    assert.match(host.textContent, /30 kredi/);
+    assert.doesNotMatch(host.textContent, /İşlemin sonucunu kontrol et/);
   });
 });
 

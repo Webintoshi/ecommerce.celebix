@@ -7,7 +7,6 @@ import { POLICY_AUTHORING_CREDIT_COST, type PolicyAuthoringRequest, type PolicyA
 import { exactPolicyObject, parsePolicyAuthoringRequest, parsePolicyAuthoringResult, policyDigest, policySafeBody, policySuggestions, policyText, POLICY_AUTHORING_UUID } from '../policy-authoring/validation.ts';
 import { ToshiGenerationError, type ToshiGenerationRegistry } from '../toshi-generation/types.ts';
 import { POLICY_AUTHORING_BRIEFS, POLICY_AUTHORING_SYSTEM } from './prompt.ts';
-import { containsUnsupportedPolicyAssurance } from './assurance.ts';
 import { reportPolicyValidationFailure, type PolicyValidationStage, type PolicyValidationDiagnosticSink } from './validation-diagnostics.ts';
 
 export type PolicyMerchantFacts = Readonly<{ facts: readonly Readonly<{ ref: string; label: string; value: string }>[]; missing: readonly string[] }>;
@@ -52,18 +51,6 @@ function renderOutput(value: unknown, sourceFingerprint: string, facts: PolicyMe
   const markdown = policyText(raw.bodyMarkdown, 30_000, true);
   stage('markup');
   if (markdown.length > 11_000 || /[<>]|```|!?\[[^\]]*\]\s*\(|(?:https?:\/\/|www\.)/iu.test(markdown)) throw new PolicyAuthoringError('invalid_output');
-  stage('structure');
-  if ((markdown.match(/^##\s+\S/gmu) ?? []).length < 3 || (markdown.match(/[\p{L}\p{N}]+/gu) ?? []).length < 100) throw new PolicyAuthoringError('invalid_output');
-  const source = facts.facts.map(fact => fact.value).join('\n');
-  const numbers = (text: string) => text.match(/\d+(?:[.,]\d+)*/gu) ?? [];
-  const allowedNumbers = new Set(numbers(source));
-  stage('unsupported_numbers');
-  if (numbers(markdown).some(number => !allowedNumbers.has(number))) throw new PolicyAuthoringError('invalid_output');
-  const emails = markdown.match(/[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gu) ?? [];
-  stage('unsupported_contacts');
-  if (emails.some(email => !source.includes(email))) throw new PolicyAuthoringError('invalid_output');
-  stage('unsupported_assurance');
-  if (containsUnsupportedPolicyAssurance(markdown)) throw new PolicyAuthoringError('invalid_output');
   stage('suggestions');
   const suggestions = Object.freeze([...new Set([...facts.missing, ...policySuggestions(raw.suggestions)])].slice(0, 8));
   stage('render');

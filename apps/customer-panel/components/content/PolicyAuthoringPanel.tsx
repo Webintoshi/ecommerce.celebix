@@ -20,6 +20,16 @@ type Props = Readonly<{
   onClose(): void;
 }>;
 const terminal = new Set(['operation_failed', 'version_conflict', 'invalid_output', 'source_too_large', 'insufficient_credits', 'invalid_input', 'unauthenticated', 'membership_denied', 'feature_not_enabled', 'feature_unavailable', 'store_inactive', 'origin_denied']);
+const uncertain = new Set(['provider_timeout', 'provider_unavailable', 'commit_unknown', 'unavailable', 'invalid_response', 'operation_busy', 'operation_unknown', 'cancelled']);
+const reconciliationDelays = [1_000, 2_500, 5_000, 8_000, 12_000, 20_000];
+function waitForReconciliation(milliseconds: number, signal: AbortSignal): Promise<void> {
+  return new Promise(resolve => {
+    if (signal.aborted) { resolve(); return; }
+    const finish = () => { clearTimeout(timer); signal.removeEventListener('abort', finish); resolve(); };
+    const timer = setTimeout(finish, milliseconds);
+    signal.addEventListener('abort', finish, { once: true });
+  });
+}
 function errorMessage(error: unknown): string {
   const code = error instanceof PolicyAuthoringApiError ? error.code : '';
   if (code === 'insufficient_credits' || code === 'budget_exceeded' || code === 'quota_exceeded') return 'Yeterli Toshi krediniz yok.';
@@ -27,7 +37,7 @@ function errorMessage(error: unknown): string {
   if (code === 'source_too_large') return 'Bu metin Toshi ile tek seferde düzenlenemeyecek kadar uzun. Metniniz korundu.';
   if (code === 'operation_failed' || code === 'invalid_output') return 'Metin hazırlanamadı. Mevcut metniniz korundu.';
   if (terminal.has(code)) return 'İşlem başlatılamadı. Mevcut metniniz korundu.';
-  return 'İşlem sonucu doğrulanamadı. Metniniz korundu; aynı işlemin sonucunu kontrol edin.';
+  return 'Bağlantı kurulamadı. Metniniz korundu. Yeniden deneyebilirsiniz.';
 }
 
 export function PolicyAuthoringPanel({ context, disabled = false, canApply = true, applyUnavailableReason = 'Düzenleyici henüz hazır değil.', onApply, onClose }: Props) {
@@ -49,18 +59,23 @@ export function PolicyAuthoringPanel({ context, disabled = false, canApply = tru
   const [preview, setPreview] = useState<PolicyAuthoringCompletedPreview | null>(initial.preview);
   const [storageBlocked, setStorageBlocked] = useState(Boolean(initial.error));
   const current = useRef(context), active = useRef(true), locked = useRef(false), firstAction = useRef<HTMLButtonElement>(null);
+  const pendingDispatch = useRef<AbortController | null>(null), walletRead = useRef(0);
   current.current = context;
   useEffect(() => {
     active.current = true;
     const controller = new AbortController();
-    void readToshiCredits(controller.signal).then(overview => { if (active.current) setWallet(overview.wallet); }).catch(() => undefined);
+    const walletRevision = ++walletRead.current;
+    void readToshiCredits(controller.signal).then(overview => { if (active.current && !controller.signal.aborted && walletRead.current === walletRevision) setWallet(overview.wallet); }).catch(() => undefined);
+    queueMicrotask(() => { if (!controller.signal.aborted && initial.receipt && !initial.error) void dispatch(initial.receipt, true); });
     firstAction.current?.focus();
-    return () => { active.current = false; controller.abort(); };
+    return () => { active.current = false; controller.abort(); pendingDispatch.current?.abort(); };
   }, []);
 
   async function dispatch(savedOperation: PolicyAuthoringReceipt, recovering = false) {
     if (locked.current || disabled) return;
     locked.current = true; setBusy(true); setError('');
+    const controller = new AbortController();
+    pendingDispatch.current = controller;
     let operation = savedOperation;
     try {
       if (recovering) {
@@ -71,9 +86,21 @@ export function PolicyAuthoringPanel({ context, disabled = false, canApply = tru
           setReceipt(operation);
         }
       }
-      const result = parsePolicyAuthoringResult(await policyAuthoringClient.generate(operation.request, operation.operationId), { request: operation.request, operationId: operation.operationId });
-      if (!active.current) return;
+      let result: PolicyAuthoringResult | undefined;
+      for (let attempt = 0; ; attempt++) {
+        try {
+          result = parsePolicyAuthoringResult(await policyAuthoringClient.generate(operation.request, operation.operationId), { request: operation.request, operationId: operation.operationId });
+          break;
+        } catch (caught) {
+          if (!active.current || controller.signal.aborted) return;
+          if ((caught instanceof PolicyAuthoringApiError && !uncertain.has(caught.code)) || attempt === reconciliationDelays.length) throw caught;
+          await waitForReconciliation(reconciliationDelays[attempt], controller.signal);
+          if (!active.current || controller.signal.aborted) return;
+        }
+      }
+      if (!active.current || controller.signal.aborted) return;
       const completed = { receipt: operation, result };
+      walletRead.current++;
       setWallet(result.wallet); setPreview(completed);
       try {
         writePolicyAuthoringCompletedPreview(window.sessionStorage, completed);
@@ -81,17 +108,19 @@ export function PolicyAuthoringPanel({ context, disabled = false, canApply = tru
         setReceipt(null); setStorageBlocked(false);
       } catch {
         setStorageBlocked(true);
-        setError('Metin hazır; önizleme kaydı saklanamadı. Sonucu kaybetmemek için aynı işlemin sonucunu kontrol edin.');
+        setError('Metin hazır; önizleme kaydı saklanamadı. Metni uygulayabilir veya yeniden deneyebilirsiniz.');
       }
     } catch (caught) {
       if (!active.current) return;
       if (caught instanceof PolicyAuthoringApiError && terminal.has(caught.code)) {
         try { clearPolicyAuthoringRecovery(window.sessionStorage, operation); setReceipt(null); }
         catch { setError('İşlem kaydı temizlenemedi. Yeni üretim başlatılamaz.'); return; }
+        const walletRevision = ++walletRead.current;
+        void readToshiCredits(controller.signal).then(overview => { if (active.current && !controller.signal.aborted && walletRead.current === walletRevision) setWallet(overview.wallet); }).catch(() => undefined);
       }
       if (caught instanceof PolicyAuthoringApiError && caught.code === 'source_too_large') setOversizedBody(operation.request.currentBody);
       setError(errorMessage(caught));
-    } finally { locked.current = false; if (active.current) setBusy(false); }
+    } finally { locked.current = false; if (pendingDispatch.current === controller) pendingDispatch.current = null; if (active.current) setBusy(false); }
   }
   function generate() {
     if (locked.current || receipt || disabled || storageBlocked || oversizedBody === current.current.body) return;
@@ -129,8 +158,7 @@ export function PolicyAuthoringPanel({ context, disabled = false, canApply = tru
   return <section className={styles.panel} aria-label="Toshi ile politika" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onClose(); } }}>
     <div className={styles.heading}><div className={styles.identity}><Sparkles aria-hidden="true" /><strong>Toshi</strong></div><span className={styles.wallet}>{wallet ? <><strong>{wallet.available.toLocaleString('tr-TR')}</strong> kredi</> : 'Kredi bakiyesi'}</span><button type="button" className={styles.closeButton} onClick={onClose} aria-label="Toshi panelini kapat"><X aria-hidden="true" /></button></div>
     <p>Hazırlanan metni inceleyip Metne uygula düğmesiyle düzenleyiciye aktarın. Ardından Kaydet düğmesini kullanın.</p>
-    <div className={styles.prepareRow}>{receipt ? <button ref={preview ? undefined : firstAction} type="button" disabled={busy || disabled} onClick={() => void dispatch(receipt, true)}>{busy ? 'Hazırlanıyor…' : 'İşlemin sonucunu kontrol et'}</button> : <button ref={preview ? undefined : firstAction} type="button" className={preview ? undefined : styles.prepareButton} disabled={busy || disabled || storageBlocked || insufficient || oversizedBody === context.body} onClick={generate}>{busy ? 'Hazırlanıyor…' : preview ? 'Yeniden hazırla' : 'Metni hazırla'}</button>}<small>{POLICY_AUTHORING_CREDIT_COST} kredi</small></div>
-    {receipt && !busy ? <p role="status">Yeni üretim başlatmadan önce aynı işlemin sonucunu kontrol edin.</p> : null}
+    <div className={styles.prepareRow}>{receipt ? <button ref={preview ? undefined : firstAction} type="button" disabled={busy || disabled} onClick={() => void dispatch(receipt, true)}>{busy ? 'Hazırlanıyor…' : 'Yeniden dene'}</button> : <button ref={preview ? undefined : firstAction} type="button" className={preview ? undefined : styles.prepareButton} disabled={busy || disabled || storageBlocked || insufficient || oversizedBody === context.body} onClick={generate}>{busy ? 'Hazırlanıyor…' : preview ? 'Yeniden hazırla' : 'Metni hazırla'}</button>}<small>{POLICY_AUTHORING_CREDIT_COST} kredi</small></div>
     {insufficient && !receipt && !preview ? <p role="alert">Yeterli Toshi krediniz yok. <a href="/settings/artificial-intelligence">Kredi yükle</a></p> : null}
     {error ? <p role="alert">{error}</p> : null}
     {preview ? <div className={styles.previews}><div className={styles.previewHeading}><h3>Önizleme</h3><div className={styles.previewActions}><button type="button" disabled={busy} onClick={discardPreview}>Önizlemeyi kaldır</button><button ref={firstAction} type="button" className={styles.applyButton} disabled={stale || disabled || busy || !canApply} onClick={applyPreview}>Metne uygula</button></div></div><p role="status">Metin hazır. Kaydetmek için önce Metne uygula düğmesini kullanın.</p>{stale ? <p role="status">Metin veya görünürlük değişti. Güncel bilgilerle yeniden hazırlayın.</p> : null}{!canApply ? <p role="status">{applyUnavailableReason}</p> : null}<div className={styles.preview}><ProductDescriptionPreview source={preview.result.body} /></div>{preview.result.suggestions.length ? <details><summary>İnceleme notları</summary><ul>{preview.result.suggestions.map((suggestion, index) => <li key={index}>{suggestion}</li>)}</ul></details> : null}</div> : null}

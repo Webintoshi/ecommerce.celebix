@@ -578,8 +578,7 @@ test("a late response after switching away is recovered with its original key an
     assert.equal(host.querySelector('[aria-label="Toshi ile politika"]'), null);
     await select(host, "privacy_security");
     await click(host, "Toshi ile geliştir");
-    assert.equal(calls.length, 1, "reopening must never poll or automatically repeat a paid operation");
-    await click(host, "İşlemin sonucunu kontrol et");
+    assert.equal(calls.length, 2, "reopening automatically reconciles the saved operation without a new key");
     assert.deepEqual(calls[0], calls[1]);
     const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula")!;
     assert.equal(apply.disabled, true, "switching away and back invalidates the original editing revision");
@@ -642,8 +641,7 @@ test("a full console remount recovers the same paid operation and applies only w
   await mounted(PolicyConsole, props, async host => {
     assert.equal(textField(host).value, initial[2].body);
     await click(host, "Toshi ile geliştir");
-    assert.equal(calls.length, 1, "a reload never polls or starts another generation");
-    await click(host, "İşlemin sonucunu kontrol et");
+    assert.equal(calls.length, 2, "a reload automatically reconciles the saved operation without a new key");
     assert.deepEqual(calls[0], calls[1], "recovery must retain the original request and operation key");
     const apply = [...host.querySelectorAll("button")].find(button => button.textContent === "Metne uygula")!;
     assert.equal(apply.disabled, false, "an unchanged policy after full remount must accept its recovered paid result");

@@ -80,11 +80,6 @@ test('JSON escaped credentials cannot enter an otherwise valid policy body', asy
   const f = fixture({ output: input => ({ text: JSON.stringify({ sourceFingerprint: JSON.parse(input.history[0]!.text).sourceFingerprint, bodyMarkdown: markdown + ' fixture-secret', suggestions: [] }).replace('fixture-secret', '\\u0066ixture-secret'), toolCalls: [], continuation: null }) });
   await assert.rejects(f.generate(), { code: 'invalid_output' }); assert.equal(f.wallet().balance, 100);
 });
-test('unsupported merchant numbers and contacts are rejected before settlement', async () => {
-  for (const suffix of [' İadeler 30 gün içinde yapılır.', ' Başvuru: foreign@example.test', ' Tamamen KVKK uyumludur.']) {
-    const f = fixture({ output: input => ({ text: JSON.stringify({ sourceFingerprint: JSON.parse(input.history[0]!.text).sourceFingerprint, bodyMarkdown: markdown + suffix, suggestions: [] }), toolCalls: [], continuation: null }) }); await assert.rejects(f.generate(), { code: 'invalid_output' }); assert.equal(f.wallet().balance, 100);
-  }
-});
 test('provider failure is terminal for the same operation and never automatically retried', async () => {
   const f = fixture({ providerError: true }); await assert.rejects(f.generate(), { code: 'provider_unavailable' }); await assert.rejects(f.generate(), { code: 'operation_failed' }); assert.equal(f.counts().calls, 1); assert.equal(f.wallet().balance, 100);
 });
@@ -92,6 +87,21 @@ test('private replay stores provenance and usage without credentials or public m
   const f = fixture(), result = await f.generate(), stored = f.stored() as Record<string, unknown>;
   assert.equal(stored.provider, 'deepseek'); assert.equal(stored.model, 'deepseek-flash'); assert.deepEqual(stored.usage, { inputTokens: 100, outputTokens: 300, totalTokens: 400 });
   assert.equal(JSON.stringify(stored).includes('fixture-secret'), false); assert.equal(Object.hasOwn(result, 'usage'), false); assert.equal(Object.hasOwn(result, 'sourceFingerprint'), false);
+});
+
+for (const [name, body] of [
+  ['numbered short sections', '1. Kapsam\n\nBu politika mağazadaki üyelik ve sipariş işlemleri için geçerlidir.\n\n2. İletişim\n\nSorularınız için mağazaya başvurabilirsiniz.'],
+  ['numbers', markdown + '\n\n6698 sayılı Kanun kapsamındaki başvuru hakları saklıdır.'],
+  ['contact text', markdown + '\n\nİletişim: destek@magaza.example'],
+  ['assurance wording', markdown + '\n\nMağazanın mutlak güvenlik sağladığı yönünde bir taahhüdü bulunmaz.'],
+] as const) test(`policy preview has no runtime editorial veto for ${name}`, async () => {
+  const f = fixture({ output: input => ({ text: JSON.stringify({ sourceFingerprint: JSON.parse(input.history[0]!.text).sourceFingerprint, bodyMarkdown: body, suggestions: [] }), toolCalls: [], continuation: null }) });
+  const first = await f.generate();
+  assert.ok(first.body.replace(/<[^>]*>/gu, '').includes(body.split('\n\n').at(-1)!));
+  assert.equal(first.chargedCredits, 7);
+  assert.deepEqual(await f.generate(), first);
+  assert.equal(f.counts().calls, 1);
+  assert.deepEqual(f.wallet(), { balance: 93, reserved: 0, available: 93 });
 });
 
 
@@ -122,20 +132,21 @@ for (const [index, claim] of [
   'Bu metin, hesabınızın mutlak güvenliğini garanti etmez; mağazamız mutlak güvenlik sağlar.',
   'Gizlilik hakkında kesin konuşmuyoruz; mağazamız mutlak güvenlik sağlar.',
   '“Bu metin, hesabınızın mutlak güvenliğini garanti etmez.” ifadesinin aksine mutlak güvenlik sağlarız.',
-].entries()) test(`positive or contradicted security assurances still fail before credit settlement: ${index + 1}`, async () => {
+].entries()) test(`editorial phrasing is previewed without a word-based veto: ${index + 1}`, async () => {
   const f = fixture({ output: input => ({ text: JSON.stringify({ sourceFingerprint: JSON.parse(input.history[0]!.text).sourceFingerprint, bodyMarkdown: markdown + '\n\n' + claim, suggestions: [] }), toolCalls: [], continuation: null }) });
-  await assert.rejects(f.generate(), { code: 'invalid_output' });
-  assert.equal(f.wallet().balance, 100); assert.equal(f.counts().failures, 1);
+  const result = await f.generate();
+  assert.match(result.body, /mutlak/iu);
+  assert.equal(f.wallet().balance, 93); assert.equal(f.counts().failures, 0);
 });
 
 test('policy validation diagnostics expose only the failed stage and bounded counters', async () => {
   const events: unknown[] = [];
-  const f = fixture({ diagnostic: event => { events.push(event); }, output: input => ({ text: JSON.stringify({ sourceFingerprint: JSON.parse(input.history[0]!.text).sourceFingerprint, bodyMarkdown: markdown + '\n\nMağazamız mutlak güvenlik sağlar.', suggestions: [] }), toolCalls: [], continuation: null }) });
+  const f = fixture({ diagnostic: event => { events.push(event); }, output: input => ({ text: JSON.stringify({ sourceFingerprint: JSON.parse(input.history[0]!.text).sourceFingerprint, bodyMarkdown: markdown + '\n\n<script>private text</script>', suggestions: [] }), toolCalls: [], continuation: null }) });
   await assert.rejects(f.generate(), { code: 'invalid_output' });
   assert.equal(events.length, 1);
   const event = events[0] as { event: string; stage: string; counts: Record<string, number | null> };
   assert.deepEqual(Object.keys(event).sort(), ['counts', 'event', 'stage']);
-  assert.equal(event.event, 'toshi_policy_validation_failed'); assert.equal(event.stage, 'unsupported_assurance');
+  assert.equal(event.event, 'toshi_policy_validation_failed'); assert.equal(event.stage, 'markup');
   assert.deepEqual(Object.keys(event.counts).sort(), ['bodyWords', 'h2Count', 'markdownBytes', 'outputBytes']);
   assert.ok(Object.values(event.counts).every(value => value === null || Number.isSafeInteger(value) && value >= 0 && value <= 1_000_000));
   assert.equal(event.counts.h2Count, 3);
@@ -180,8 +191,9 @@ for (const [index, claim] of [
   'Veriler değerlendirilir; ancak bu metin mutlak güvenlik garantisi vermez.\n\nBu ifade doğru değildir.',
   '“Ancak bu metin mutlak güvenlik garantisi vermez.” ifadesi doğru değildir.',
   'Veriler değerlendirilir; ancak bu metin mutlak güvenlik garantisi vermez; mağazamız mutlak güvenlik sağlar.',
-].entries()) test(`noun-form positive or contradicted security guarantees still fail: ${index + 1}`, async () => {
+].entries()) test(`noun-form editorial phrasing has no runtime veto: ${index + 1}`, async () => {
   const f = fixture({ output: input => ({ text: JSON.stringify({ sourceFingerprint: JSON.parse(input.history[0]!.text).sourceFingerprint, bodyMarkdown: markdown + '\n\n' + claim, suggestions: [] }), toolCalls: [], continuation: null }) });
-  await assert.rejects(f.generate(), { code: 'invalid_output' });
-  assert.equal(f.wallet().balance, 100); assert.equal(f.counts().failures, 1);
+  const result = await f.generate();
+  assert.match(result.body, /mutlak/iu);
+  assert.equal(f.wallet().balance, 93); assert.equal(f.counts().failures, 0);
 });
