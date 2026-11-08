@@ -1,5 +1,5 @@
 import type { ToshiProviderFetch } from "../toshi-provider-adapters/types.ts";
-import { adapter, array, call, fail, jsonArguments, record, request, text, usage } from "./policy.ts";
+import { adapter, array, call, fail, jsonArguments, outputText, record, request, usage } from "./policy.ts";
 
 export function createDeepSeekGenerationAdapter(fetcher: ToshiProviderFetch) {
   return adapter("deepseek", async (input, continuation, results) => {
@@ -31,7 +31,7 @@ export function createDeepSeekGenerationAdapter(fetcher: ToshiProviderFetch) {
     });
     if ((choice.finish_reason === "tool_calls") !== (toolCalls.length > 0)) fail();
     const measured = response.usage == null ? undefined : record(response.usage);
-    const content = message.content == null ? "" : text(message.content, input.authoringProfile === "content_resource" ? 131_072 : 12_000);
+    const content = message.content == null ? "" : outputText(input, message.content);
     // Quality has no tools or continuation; retain only final assistant content.
     const assistant = quality ? { role: "assistant", content } : message;
     return { text: content, toolCalls, messages: [...messages, assistant], usage: measured ? usage(measured.prompt_tokens, measured.completion_tokens) : undefined };

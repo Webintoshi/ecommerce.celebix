@@ -15,6 +15,9 @@ const MAX_REQUEST_BYTES = 163_840;
 const RESOURCE_MAX_RESPONSE_BYTES = 786_432;
 const RESOURCE_MAX_REQUEST_BYTES = 393_216;
 const RESOURCE_MAX_TEXT_BYTES = 131_072;
+const PRODUCT_QUALITY_MAX_TEXT_BYTES = 32_768;
+// A correction may carry 32 KiB of facts, 32 KiB of prior output and 16 KiB of feedback.
+const PRODUCT_QUALITY_MAX_HISTORY_BYTES = 81_920;
 const NAME = /^[a-zA-Z0-9_-]{1,64}$/u;
 type Code = "invalid_input" | "provider_unavailable";
 export function fail(code: Code = "provider_unavailable", outcome?: "empty" | "truncated"): never { throw new ToshiGenerationError(code, outcome); }
@@ -36,6 +39,12 @@ export function array(value: unknown, maximum = 32, code: Code = "provider_unava
 export function text(value: unknown, maximum = 12_000, code: Code = "provider_unavailable"): string {
   if (typeof value !== "string" || value.length > maximum || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)) fail(code);
   return value;
+}
+export function outputText(input: ToshiGenerationInput, value: unknown): string {
+  const quality = input.authoringProfile === "product_quality";
+  const content = text(value, input.authoringProfile === "content_resource" ? RESOURCE_MAX_TEXT_BYTES : quality ? PRODUCT_QUALITY_MAX_TEXT_BYTES : 12_000);
+  if (quality && ENCODER.encode(content).byteLength > PRODUCT_QUALITY_MAX_TEXT_BYTES) fail();
+  return content;
 }
 
 /** Clone data without invoking accessors, toJSON, sparse-array or custom-prototype code. */
@@ -107,11 +116,12 @@ function validateInput(provider: ToshiProvider, input: ToshiGenerationInput): vo
     const message = record(raw, "invalid_input");
     if (!["user", "assistant"].includes(message.role as string) || Object.keys(message).some((key) => !["role", "text"].includes(key))) fail("invalid_input");
     const value = text(message.text, resource ? 131_072 : contentMode ? 32_768 : 12_000, "invalid_input");
-    // Content authoring sends one serialized fact packet; its contract is a UTF-8 byte budget.
-    // Chat retains the existing per-message and aggregate character budgets.
-    historyLength += contentMode ? ENCODER.encode(value).byteLength : value.length;
+    // Content authoring counts UTF-8 bytes; chat retains its character budgets.
+    const length = contentMode ? ENCODER.encode(value).byteLength : value.length;
+    if (quality && length > PRODUCT_QUALITY_MAX_TEXT_BYTES) fail("invalid_input");
+    historyLength += length;
   }
-  if (!input.history.length || historyLength > (resource ? 131_072 : contentMode ? 32_768 : 24_000)) fail("invalid_input");
+  if (!input.history.length || historyLength > (resource ? 131_072 : quality ? PRODUCT_QUALITY_MAX_HISTORY_BYTES : contentMode ? 32_768 : 24_000)) fail("invalid_input");
   if (resource && ENCODER.encode(input.system).byteLength + historyLength > RESOURCE_MAX_TEXT_BYTES) fail("invalid_input");
   const names = new Set<string>();
   for (const raw of array(input.tools, 20, "invalid_input")) {
@@ -230,7 +240,7 @@ export function adapter(provider: ToshiProvider, protocol: Protocol): ToshiGener
       let output: ProtocolResult;
       try { output = await protocol(input, state?.messages ?? [], results); }
       catch (error) { if (error instanceof ToshiGenerationError) throw error; throw new ToshiGenerationError(input.signal.aborted ? "provider_timeout" : "provider_unavailable"); }
-      const content = text(output.text, input.authoringProfile === "content_resource" ? RESOURCE_MAX_TEXT_BYTES : 12_000).trim();
+      const content = outputText(input, output.text).trim();
       if (input.authoringProfile === "content_resource" && ENCODER.encode(content).byteLength > RESOURCE_MAX_TEXT_BYTES) fail();
       const toolCalls = array(output.toolCalls, 6).map((raw) => { const selected = record(raw); return call(input, selected.callId, selected.name, selected.arguments); });
       if (!content && toolCalls.length === 0) fail("provider_unavailable", input.outputFormat ? "empty" : undefined);

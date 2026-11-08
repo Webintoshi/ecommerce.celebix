@@ -3,7 +3,7 @@ import { types as nodeTypes } from 'node:util';
 import { isMerchantActionAllowed, type TenantContext } from '@celebix/saas-contracts';
 import { openMerchantProviderCredential, type MerchantProviderCredentialKeyring, type ToshiProviderRepository } from '@celebix/saas-data';
 import type { ContentAuthoringRepository, ContentGeneration, ContentGenerationDispatchClaim, ContentGenerationUsage } from '../../../../packages/saas-data/src/content-authoring/types.ts';
-import type { ContentAuthoringRequest, ProductFactPacket } from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
+import type { ContentAuthoringRequest, ContentAuthoringDraft, ProductFactPacket } from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
 import { parseContentAuthoringRequest, validateProductDraftOutput } from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
 import { attachProductSourcePreservation } from './source-spans.ts';
 import { ToshiGenerationError } from '../toshi-generation/types.ts';
@@ -11,7 +11,7 @@ import type { ToshiGenerationRegistry } from '../toshi-generation/types.ts';
 import { fingerprintContentAuthoringRequest } from './facts.ts';
 import { renderContentAuthoringDescription } from './render.ts';
 import { attachAutomaticProductSource,assertAutomaticSourcePreserved } from './automatic-source.ts';
-import { assertToshiGeneratedLimits,assertProductWriterCompleteness,automaticFieldActions } from './toshi-policy.ts';
+import { assertToshiGeneratedLimits,assertProductWriterCompleteness,automaticFieldActions,normalizeToshiGeneratedSeo } from './toshi-policy.ts';
 import { TOSHI_PRODUCT_EDITORIAL_PROMPT,toshiProductCorrectionFeedback,type ToshiProductValidationStage } from './editorial-prompt.ts';
 import {withProductFormattingFacts,createProductWriterProtocol}from'./writer-protocol.ts';
 import {reportProductValidationFailure,type ProductValidationDiagnosticSink,type ProductValidationDiagnosticStage}from'./validation-diagnostics.ts';
@@ -111,14 +111,18 @@ export function createContentAuthoringService(deps:Dependencies){
    const validate=()=>{
     diagnosticParsed=undefined;diagnosticDraft=undefined;validationFailure=undefined;
     checked('contract_or_grounding',()=>{if(output.toolCalls.length||!output.text.trim()||Buffer.byteLength(output.text,'utf8')>32768||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');},'output');
-    let draft;try{
+    let draft:ContentAuthoringDraft;try{
      const parsed=checked('json_syntax',()=>JSON.parse(output.text));
      diagnosticParsed=parsed;
      if(request.action==='auto'&&parsed&&typeof parsed==='object'&&!Array.isArray(parsed))for(const field of ['seoTitle','seoDescription'])if(typeof parsed[field]==='string')parsed[field]=parsed[field].normalize('NFC');
      const decoded=writer?checked('contract_or_grounding',()=>writer.decode(parsed),'writer_decode'):parsed;diagnosticDraft=decoded;
      draft=checked('contract_or_grounding',()=>validateProductDraftOutput(decoded,packet,request.fields));
-    }catch(error){validationFailure=error;draft=preservedSeoOnlyDraft(packet,request.fields);if(!draft)throw new ContentAuthoringError('invalid_output');}
-    if(request.action==='auto'){checked('policy_limits',()=>assertToshiGeneratedLimits(draft));checked('policy_limits',()=>assertProductWriterCompleteness(draft),'completeness');checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));}
+    }catch(error){validationFailure=error;const preserved=preservedSeoOnlyDraft(packet,request.fields);if(!preserved)throw new ContentAuthoringError('invalid_output');draft=preserved;}
+    if(request.action==='auto'){
+     const compact=checked('policy_limits',()=>normalizeToshiGeneratedSeo(draft,packet));
+     if(compact!==draft)draft=checked('contract_or_grounding',()=>validateProductDraftOutput(compact,packet,request.fields));
+     checked('policy_limits',()=>assertToshiGeneratedLimits(draft));checked('policy_limits',()=>assertProductWriterCompleteness(draft),'completeness');checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));
+    }
     if(draft.description)checked('render',()=>renderContentAuthoringDescription(draft.description!));return draft;
    };
    let draft;try{draft=validate();}catch(error){

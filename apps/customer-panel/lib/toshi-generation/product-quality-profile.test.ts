@@ -12,7 +12,11 @@ const FINAL='{"description":[{"type":"paragraph","children":[{"type":"text","tex
 const base=(changes:Partial<ToshiGenerationInput>={}):ToshiGenerationInput=>({
  authoringProfile:'product_quality',outputFormat:'json_object',model:'deepseek-flash',secret:new TextEncoder().encode(SECRET),system:'Return the final product JSON object only.',history:[{role:'user',text:'Prepare the requested product fields.'}],tools:[],signal:new AbortController().signal,...changes,
 });
-const reply=()=>Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content:FINAL,reasoning_content:REASONING}}],usage:{prompt_tokens:250,completion_tokens:1400,completion_tokens_details:{reasoning_tokens:1200}}});
+const reply=(content=FINAL)=>Response.json({choices:[{finish_reason:'stop',message:{role:'assistant',content,reasoning_content:REASONING}}],usage:{prompt_tokens:250,completion_tokens:1400,completion_tokens_details:{reasoning_tokens:1200}}});
+function unicodeJson(bytes:number):string{
+ const overhead=Buffer.byteLength(JSON.stringify({descriptionMarkdown:''}),'utf8'),remaining=bytes-overhead;
+ return JSON.stringify({descriptionMarkdown:'ğ'.repeat(Math.floor(remaining/2))+'a'.repeat(remaining%2)});
+}
 
 test('product quality enables thinking with low reasoning effort with a 12288-token default and only returns final JSON with full completion usage',async()=>{
  const requests:{url:string;init:RequestInit;body:Record<string,any>}[]=[];
@@ -29,6 +33,50 @@ test('quality permits bounded explicit output tokens and correction histories wi
  await adapter.generate(base({maxOutputTokens:8192,history:[{role:'user',text:'Initial facts'},{role:'assistant',text:'{"invalid":true}'},{role:'user',text:'Return corrected JSON only.'}]}));
  await adapter.generate(base({maxOutputTokens:12288}));
  assert.deepEqual(bodies.map(body=>body.max_tokens),[8192,12288]);assert.deepEqual(bodies[0]!.messages.slice(1),[{role:'user',content:'Initial facts'},{role:'assistant',content:'{"invalid":true}'},{role:'user',content:'Return corrected JSON only.'}]);assert.doesNotMatch(JSON.stringify(bodies[0]),/reasoning_content/);
+});
+
+test('quality returns final JSON larger than 12000 characters through the exact 32768-byte UTF-8 boundary',async()=>{
+ const content=unicodeJson(32768);assert.equal(Buffer.byteLength(content,'utf8'),32768);assert.ok(content.length>12000);
+ let calls=0;const adapter=createToshiGenerationRegistry({deepseek:async()=>{calls++;return reply(content);}}).get('deepseek');
+ const result=await adapter.generate(base());
+ assert.equal(result.text,content);assert.equal(calls,1);assert.deepEqual(result.usage,{inputTokens:250,outputTokens:1400});assert.doesNotMatch(JSON.stringify(result),new RegExp(REASONING));
+});
+
+test('quality rejects final JSON above the UTF-8 byte cap without retrying or widening legacy output',async()=>{
+ for(const {changes,bytes}of [{changes:{},bytes:32769},{changes:{authoringProfile:undefined},bytes:24001}]as {changes:Partial<ToshiGenerationInput>;bytes:number}[]){
+  const content=unicodeJson(bytes);
+  let calls=0;const adapter=createToshiGenerationRegistry({deepseek:async()=>{calls++;return reply(content);}}).get('deepseek');
+  await assert.rejects(adapter.generate(base(changes)),{code:'provider_unavailable'});assert.equal(calls,1);
+ }
+});
+
+test('common quality adapter enforces the same final UTF-8 budget as provider parsing',async()=>{
+ const accepted=unicodeJson(32768),result=await generationPolicy.adapter('deepseek',async()=>({text:accepted,toolCalls:[],messages:[]})).generate(base());
+ assert.equal(result.text,accepted);
+ const rejected=unicodeJson(32769);
+ await assert.rejects(generationPolicy.adapter('deepseek',async()=>({text:rejected,toolCalls:[],messages:[]})).generate(base()),{code:'provider_unavailable'});
+});
+
+test('quality can correct a full fact packet and previous output within an 81920-byte history',async()=>{
+ const history:ToshiGenerationInput['history']=[{role:'user',text:unicodeJson(32768)},{role:'assistant',text:unicodeJson(32768)},{role:'user',text:'ğ'.repeat(8192)}];
+ assert.equal(history.reduce((sum,item)=>sum+Buffer.byteLength(item.text,'utf8'),0),81920);
+ const bodies:Record<string,any>[]=[];const adapter=createToshiGenerationRegistry({deepseek:async(_url,init)=>{bodies.push(JSON.parse(String(init.body)));return reply();}}).get('deepseek');
+ const result=await adapter.generate(base({history}));
+ assert.equal(result.text,FINAL);assert.equal(bodies.length,1);assert.deepEqual(bodies[0]!.messages.slice(1),history.map(({role,text:content})=>({role,content})));assert.ok(Buffer.byteLength(JSON.stringify(bodies[0]),'utf8')<163840);
+});
+
+test('quality correction history retains individual byte caps and its aggregate bound before dispatch',async()=>{
+ const history:ToshiGenerationInput['history']=[{role:'user',text:unicodeJson(32768)},{role:'assistant',text:unicodeJson(32768)},{role:'user',text:'a'.repeat(16385)}];
+ let calls=0;const adapter=createToshiGenerationRegistry({deepseek:async()=>{calls++;return reply();}}).get('deepseek');
+ await assert.rejects(adapter.generate(base({history})),{code:'invalid_input'});
+ for(const role of ['user','assistant']as const)await assert.rejects(adapter.generate(base({history:[{role,text:unicodeJson(32769)}]})),{code:'invalid_input'});
+ assert.equal(calls,0);
+});
+
+test('quality correction history still obeys the serialized request ceiling after JSON escaping',async()=>{
+ const history:ToshiGenerationInput['history']=[{role:'user',text:'\t'.repeat(32768)},{role:'assistant',text:'\t'.repeat(32768)},{role:'user',text:'\t'.repeat(16384)}];
+ let calls=0;const adapter=createToshiGenerationRegistry({deepseek:async()=>{calls++;return reply();}}).get('deepseek');
+ await assert.rejects(adapter.generate(base({history})),{code:'invalid_input'});assert.equal(calls,0);
 });
 
 test('quality rejects unsupported providers and models before any dispatch',async()=>{

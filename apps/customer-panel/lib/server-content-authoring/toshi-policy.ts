@@ -1,4 +1,4 @@
-import type {ContentAuthoringDraft,ContentAuthoringField,ContentAuthoringRequest} from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
+import type {ContentAuthoringDraft,ContentAuthoringField,ContentAuthoringRequest,ProductFactPacket} from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
 import {TOSHI_CREDIT_PRICES} from '../../../../packages/saas-contracts/src/toshi/credits.ts';
 
 const visible=(value:string|null|undefined)=>Boolean((value??'').replace(/<[^>]*>/g,' ').replace(/&(?:nbsp|#160|#x0*a0);/gi,' ').replace(/[\p{White_Space}\p{Default_Ignorable_Code_Point}]/gu,'').trim());
@@ -8,6 +8,38 @@ export function automaticFieldActions(request:ContentAuthoringRequest):Partial<R
 export function selectedContentCreditCost(fields:readonly ContentAuthoringField[]):number{
  if(!fields.length||new Set(fields).size!==fields.length||fields.some(f=>!['description','seoTitle','seoDescription'].includes(f)))throw TypeError('invalid_input');
  return fields.reduce((total,field)=>total+TOSHI_CREDIT_PRICES[field],0);
+}
+
+/** Only shorten fact-validated SEO; the caller validates the shortened draft again. */
+export function normalizeToshiGeneratedSeo(draft:ContentAuthoringDraft,packet:ProductFactPacket):ContentAuthoringDraft{
+ const comparable=(text:string)=>text.normalize('NFKC').toLocaleLowerCase('tr-TR').normalize('NFD')
+  .replace(/\p{M}|\p{Cf}/gu,'').replace(/ı/g,'i').replace(/(?<=\d),(?=\d)/g,'.')
+  .replace(/[−➖]/g,'-').replace(/[➕﬩]/g,'+').replace(/([+\-±∓])\s+(?=\p{N})/gu,'$1').replace(/\s+/gu,' ').trim();
+ let result=draft;
+ for(const[field,limit]of [['seoTitle',60],['seoDescription',160]]as const){
+  const value=draft[field];if(value===undefined)continue;
+  const normalized=value.normalize('NFC'),characters=[...normalized];if(characters.length<=limit)continue;
+  const prefix=characters.slice(0,limit).join('');
+  const folded=comparable(normalized);
+  const sources=[packet.title,...packet.facts.map(fact=>fact.value+(fact.unit?' '+fact.unit:''))].map(comparable).filter(Boolean);
+  let shortened:string|undefined;
+  // Word truncation can remove a qualifier such as "değildir". Retain only
+  // complete sentences without cutting through any supplied fact fragment.
+  if(field==='seoDescription')for(const sentence of [...prefix.matchAll(/[.!?…](?=\s|$)/gu)].reverse()){
+   const end=sentence.index!+sentence[0].length;
+   const comparedEnd=comparable(normalized.slice(0,end)).length;
+   const cutsFact=sources.some(source=>{
+    let start=folded.indexOf(source);
+    while(start>=0){if(start<comparedEnd&&start+source.length>comparedEnd)return true;start=folded.indexOf(source,start+1);}
+    return false;
+   });
+   if(!cutsFact){shortened=prefix.slice(0,end);break;}
+  }
+  if(!shortened)shortened=packet.title.normalize('NFC');
+  if(!shortened.trim()||[...shortened].length>limit||/[<>\r\n]/u.test(shortened))throw TypeError('invalid_output');
+  result={...result,[field]:shortened};
+ }
+ return result;
 }
 export function assertToshiGeneratedLimits(draft:ContentAuthoringDraft):void{
  for(const[field,limit]of [['seoTitle',60],['seoDescription',160]]as const){const value=draft[field];if(value!==undefined&&([...value.normalize('NFC')].length>limit||/[\r\n<>]/.test(value)))throw TypeError('invalid_output');}

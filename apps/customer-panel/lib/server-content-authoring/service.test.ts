@@ -471,15 +471,15 @@ test('neutral merchant prose completes only when every original clause is retain
 });
 
 
-test('automatic field actions reach provider; long SEO is corrected once within same durable generation',async()=>{
+test('automatic field actions reach provider; long SEO is bounded without another paid answer',async()=>{
  const s=setup();s.dependencies.deadlineMs=30000;let calls=0;
  s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);assert.deepEqual(sent.fieldActions,{seoTitle:'create',seoDescription:'create'});assert.match(args.system,/seoTitle en fazla60/);assert.equal(args.authoringProfile,'product_quality');assert.equal(args.maxOutputTokens,12288);return {text:JSON.stringify({seoTitle:'Fresh draft',seoDescription:calls===1?'ş'.repeat(161):'Fresh draft ürün bilgilerini inceleyin.',suggestions:[],claims:[],sourceFingerprint:withProductFormattingFacts(packet).sourceFingerprint}),toolCalls:[],usage:{inputTokens:10,outputTokens:20}};}})};
  const r=await createContentAuthoringService(s.dependencies).generateContent({...input,request:{...request,action:'auto',fields:['seoTitle','seoDescription'],note:''}} as any);
- assert.equal(r.status,'completed');assert.equal(calls,2);assert.equal(r.draft?.description,undefined);assert.ok((r.draft?.seoDescription?.length??999)<=160);assert.deepEqual(r.usage,{inputTokens:20,outputTokens:40,totalTokens:60});
+ assert.equal(r.status,'completed');assert.equal(calls,1);assert.equal(r.draft?.description,undefined);assert.ok((r.draft?.seoDescription?.length??999)<=160);assert.deepEqual(r.usage,{inputTokens:10,outputTokens:20,totalTokens:30});
 });
 test('automatic noncompliant output after bounded correction never completes',async()=>{
  const s=setup();s.dependencies.deadlineMs=30000;let calls=0;
- s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);return {text:JSON.stringify({seoTitle:'ş'.repeat(61),suggestions:[],claims:[],sourceFingerprint:withProductFormattingFacts(packet).sourceFingerprint}),toolCalls:[]};}})};
+ s.dependencies.generations={get:()=>({generate:async(args:any)=>{calls++;const sent=JSON.parse(args.history[0].text);return {text:JSON.stringify({seoTitle:'Organik Fresh draft',suggestions:[],claims:[],sourceFingerprint:withProductFormattingFacts(packet).sourceFingerprint}),toolCalls:[]};}})};
  const r=await createContentAuthoringService(s.dependencies).generateContent({...input,request:{...request,action:'auto',fields:['seoTitle'],note:''}} as any);assert.equal(r.status,'failed');assert.equal(calls,2);assert.equal(s.counts().completed,0);
 });
 
@@ -602,6 +602,35 @@ test('AUTO validation reports closed attempt stages and counts without changing 
  assert.ok(!JSON.stringify(result).includes('toshi_product_validation_failed'));
 });
 
+test('a grounded 162-character SEO description cannot discard the usable article or request another paid answer',async()=>{
+ const meta='Ürün '.repeat(31)+'özellik';assert.equal([...meta].length,162);
+ const f=capturedAutomaticRun([JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:meta})]);
+ const result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'completed');assert.equal(result.draft!.seoDescription,capturedAutomaticPacket.title);
+ assert.deepEqual(result.draft!.description,expandedFoodDraft.description);
+ assert.deepEqual(f.state(),{providerCalls:1,begins:1,completions:1,debits:1,balance:90,held:0});
+ assert.deepEqual(await f.service.generateContent(f.input),result);assert.equal(f.state().providerCalls,1);assert.equal(f.state().debits,1);
+});
+
+test('one grounding correction with long SEO still completes once and releases its entire hold',async()=>{
+ const meta='Ürün '.repeat(31)+'özellik';
+ const corrected=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:meta});
+ const unsupported=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown+'\n\nOrganik üründür.',seoTitle:capturedAutomaticPacket.title,seoDescription:meta});
+ const f=capturedAutomaticRun([unsupported,corrected]);
+ const result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'completed');assert.ok([...result.draft!.seoDescription!].length<=160);
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
+ assert.deepEqual(result.usage,{inputTokens:200,outputTokens:100,totalTokens:300});
+});
+
+test('shortening cannot hide an unsupported claim beyond the SEO boundary',async()=>{
+ const meta='Ürün '.repeat(31)+'organik üründür.';
+ const f=capturedAutomaticRun([JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:meta})]);
+ const result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');
+ assert.equal(f.state().debits,0);assert.equal(f.state().held,0);
+});
+
 test('AUTO reports each rejected answer while diagnostics failures cannot alter zero-charge finalization',async()=>{
  const thin=JSON.stringify({descriptionMarkdown:'Kısa açıklama.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
  const events:any[]=[],f=capturedAutomaticRun([thin,thin]);f.dependencies.diagnostic=(event:unknown)=>{events.push(event);throw Error('private logger failure');};
@@ -668,7 +697,7 @@ test('SEO grounding raised inside writer decoding keeps the actual SEO target fo
 
 for(const stage of ['policy_limits','source_order','render']as const)test(`AUTO correction identifies closed ${stage} feedback without weakening validation`,async()=>{
  const first:any=structuredClone(capturedCorrectedList),second:any=structuredClone(capturedCorrectedList),source:any=structuredClone(capturedAutomaticPacket);
- if(stage==='policy_limits')first.seoTitle='ş'.repeat(61);
+ if(stage==='policy_limits')first.description.push({type:'paragraph',children:[{type:'text',text:Array(1001).fill('ürün').join(' ')}]});
  if(stage==='source_order'){
   const fact={ref:'product:existing:0',field:'merchantDescription',value:'Özgün ürün açıklaması.',source:'current_draft',scope:'product'};source.facts.push(fact);
   second.description.push({type:'paragraph',children:[{type:'fact',factRef:fact.ref,value:fact.value}]});second.claims.push({field:'description',factRef:fact.ref,value:fact.value});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { assertToshiGeneratedLimits, assertProductWriterCompleteness, automaticFieldActions, selectedContentCreditCost } from './toshi-policy.ts';
+import { assertToshiGeneratedLimits, assertProductWriterCompleteness, automaticFieldActions, selectedContentCreditCost, normalizeToshiGeneratedSeo } from './toshi-policy.ts';
 import type {ProductFactPacket}from'../../../../packages/saas-contracts/src/content-authoring/types.ts';
 import {validateProductDraftOutput}from'../../../../packages/saas-contracts/src/content-authoring/validation.ts';
 import {createProductWriterProtocol}from'./writer-protocol.ts';
@@ -19,6 +19,32 @@ test('generated limits count Unicode characters and accept exact boundaries',()=
  assert.doesNotThrow(()=>assertToshiGeneratedLimits({seoTitle:'İ'.repeat(60),seoDescription:'ş'.repeat(160)} as any));
  assert.throws(()=>assertToshiGeneratedLimits({seoTitle:'İ'.repeat(61)} as any));
  assert.throws(()=>assertToshiGeneratedLimits({seoDescription:'ş'.repeat(161)} as any));
+});
+test('SEO shortening cannot remove a final factual negation',()=>{
+ const value='Seramik Kupa, içeceklerinizi sunmak için hazırlanan bir üründür; kullanım sonrasında elde temizlenmesi önerilir ve ürün bulaşık makinesinde yıkanabilir değildir.';
+ assert.equal([...value].length,161);
+ const packet:ProductFactPacket={title:'Seramik Kupa',sourceFingerprint:'a'.repeat(64),facts:[{ref:'care',field:'Bakım',value:'bulaşık makinesinde yıkanabilir değildir',scope:'product',source:'current_draft'}]};
+ const original=validateProductDraftOutput({seoDescription:value,suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint},packet,['seoDescription']);
+ const shortened=normalizeToshiGeneratedSeo(original,packet);
+ assert.equal(shortened.seoDescription,packet.title);assert.equal(original.seoDescription,value);
+ assert.doesNotThrow(()=>validateProductDraftOutput(shortened,packet,['seoDescription']));
+});
+test('a complete sentence boundary cannot split a supplied fact containing punctuation',()=>{
+ const fact='Yıkanabilir. Ancak yalnızca soğuk suyla temizlenmesi gerekir.';
+ const packet:ProductFactPacket={title:'Seramik Kupa',sourceFingerprint:'a'.repeat(64),facts:[{ref:'care',field:'Bakım',value:fact,scope:'product',source:'current_draft'}]};
+ const original={seoDescription:'Seramik Kupa '+ 'ürün '.repeat(24)+fact,suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint};
+ const shortened=normalizeToshiGeneratedSeo(original,packet);
+ assert.equal(shortened.seoDescription,packet.title);
+});
+test('spacing and Unicode presentation cannot detach a factual condition from a shortened SEO sentence',()=>{
+ const fact='Yıkanabilir. Ancak yalnızca soğuk suyla temizlenmesi gerekir.';
+ const packet:ProductFactPacket={title:'Seramik Kupa',sourceFingerprint:'a'.repeat(64),facts:[{ref:'care',field:'Bakım',value:fact,scope:'product',source:'current_draft'}]};
+ for(const separator of ['  ','\u00a0 ','\n\t','\u200b ']){
+  const changed=fact.replace('. ','.'+separator);
+  const original={seoDescription:'Seramik Kupa, sıcak veya soğuk içeceklerinizi günlük sunumlarda kullanmanız için sade bir seçenek olarak düşünülebilir; bu ürün '+changed,suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint};
+  const shortened=normalizeToshiGeneratedSeo(original,packet);
+  assert.equal(shortened.seoDescription,packet.title,JSON.stringify(separator));
+ }
 });
 test('description maximum is checked across structured blocks',()=>{
  assert.throws(()=>assertToshiGeneratedLimits({description:[{type:'paragraph',children:[{type:'text',text:Array(1001).fill('ürün').join(' ')}]}]} as any));
