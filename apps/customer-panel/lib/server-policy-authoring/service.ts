@@ -7,6 +7,8 @@ import { POLICY_AUTHORING_CREDIT_COST, type PolicyAuthoringRequest, type PolicyA
 import { exactPolicyObject, parsePolicyAuthoringRequest, parsePolicyAuthoringResult, policyDigest, policySafeBody, policySuggestions, policyText, POLICY_AUTHORING_UUID } from '../policy-authoring/validation.ts';
 import { ToshiGenerationError, type ToshiGenerationRegistry } from '../toshi-generation/types.ts';
 import { POLICY_AUTHORING_BRIEFS, POLICY_AUTHORING_SYSTEM } from './prompt.ts';
+import { containsUnsupportedPolicyAssurance } from './assurance.ts';
+import { reportPolicyValidationFailure, type PolicyValidationStage, type PolicyValidationDiagnosticSink } from './validation-diagnostics.ts';
 
 export type PolicyMerchantFacts = Readonly<{ facts: readonly Readonly<{ ref: string; label: string; value: string }>[]; missing: readonly string[] }>;
 const CODES = new Set(['invalid_input', 'source_too_large', 'unauthenticated', 'membership_denied', 'store_inactive', 'origin_denied', 'feature_not_enabled', 'credential_invalid', 'insufficient_credits', 'operation_busy', 'operation_mismatch', 'operation_failed', 'operation_not_found', 'commit_unknown', 'connection_missing', 'connection_revoked', 'model_unavailable', 'provider_unavailable', 'provider_timeout', 'quota_exceeded', 'invalid_output', 'rate_limited', 'cancelled', 'unavailable', 'version_conflict']);
@@ -22,7 +24,7 @@ type Dependencies = Readonly<{
   credits: ToshiCreditRepository; policies: Pick<StorePolicyAdminRepository, 'list'>;
   loadFacts(input: Readonly<{ tenantContext: TenantContext; now: Date; policyKey: StorefrontPolicyKey }>): Promise<PolicyMerchantFacts>;
   providers: Pick<ToshiProviderRepository, 'getAuthority'>; keyring(): MerchantProviderCredentialKeyring; generations: ToshiGenerationRegistry;
-  now(): Date; timeoutMs?: number;
+  now(): Date; timeoutMs?: number; diagnostic?: PolicyValidationDiagnosticSink;
 }>;
 export function policyAuthoringFingerprint(storeId: string, request: PolicyAuthoringRequest): string {
   return createHash('sha256').update(JSON.stringify({ kind: 'toshi_policy_authoring_v1', storeId, request: parsePolicyAuthoringRequest(request) })).digest('hex');
@@ -41,19 +43,31 @@ function parseUsage(value: unknown) {
   const totalTokens = (raw.inputTokens as number) + (raw.outputTokens as number); if (totalTokens > 2147483647) throw new PolicyAuthoringError('invalid_output');
   return Object.freeze({ inputTokens: raw.inputTokens as number, outputTokens: raw.outputTokens as number, totalTokens });
 }
-function renderOutput(value: unknown, sourceFingerprint: string, facts: PolicyMerchantFacts): Readonly<{ body: string; suggestions: readonly string[] }> {
+function renderOutput(value: unknown, sourceFingerprint: string, facts: PolicyMerchantFacts, stage: (value: PolicyValidationStage) => void): Readonly<{ body: string; suggestions: readonly string[] }> {
+  stage('contract');
   const raw = exactPolicyObject(value, ['sourceFingerprint', 'bodyMarkdown', 'suggestions']);
+  stage('fingerprint');
   if (raw.sourceFingerprint !== sourceFingerprint) throw new PolicyAuthoringError('invalid_output');
+  stage('markdown_text');
   const markdown = policyText(raw.bodyMarkdown, 30_000, true);
+  stage('markup');
   if (markdown.length > 11_000 || /[<>]|```|!?\[[^\]]*\]\s*\(|(?:https?:\/\/|www\.)/iu.test(markdown)) throw new PolicyAuthoringError('invalid_output');
+  stage('structure');
   if ((markdown.match(/^##\s+\S/gmu) ?? []).length < 3 || (markdown.match(/[\p{L}\p{N}]+/gu) ?? []).length < 100) throw new PolicyAuthoringError('invalid_output');
   const source = facts.facts.map(fact => fact.value).join('\n');
   const numbers = (text: string) => text.match(/\d+(?:[.,]\d+)*/gu) ?? [];
   const allowedNumbers = new Set(numbers(source));
+  stage('unsupported_numbers');
   if (numbers(markdown).some(number => !allowedNumbers.has(number))) throw new PolicyAuthoringError('invalid_output');
   const emails = markdown.match(/[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/gu) ?? [];
-  if (emails.some(email => !source.includes(email)) || /(?:tamamen|tam|yüzde yüz|%\s*100)\s+(?:KVKK(?:'ya)?\s+)?uyumlu|hukuken\s+onayl[ıi]|mutlak\s+güvenli/iu.test(markdown)) throw new PolicyAuthoringError('invalid_output');
-  return Object.freeze({ body: policySafeBody(normalizeProductDescriptionHtml(markdown)), suggestions: Object.freeze([...new Set([...facts.missing, ...policySuggestions(raw.suggestions)])].slice(0, 8)) });
+  stage('unsupported_contacts');
+  if (emails.some(email => !source.includes(email))) throw new PolicyAuthoringError('invalid_output');
+  stage('unsupported_assurance');
+  if (containsUnsupportedPolicyAssurance(markdown)) throw new PolicyAuthoringError('invalid_output');
+  stage('suggestions');
+  const suggestions = Object.freeze([...new Set([...facts.missing, ...policySuggestions(raw.suggestions)])].slice(0, 8));
+  stage('render');
+  return Object.freeze({ body: policySafeBody(normalizeProductDescriptionHtml(markdown)), suggestions });
 }
 const STORED_KEYS = ['schemaVersion', 'kind', 'operationId', 'draftId', 'policyKey', 'policyVersion', 'requestFingerprint', 'sourceFingerprint', 'body', 'suggestions', 'chargedCredits', 'provider', 'model', 'promptVersion', 'usage'] as const;
 function replay(value: unknown, input: PolicyAuthoringGenerateInput, requestFingerprint: string, wallet: PolicyAuthoringResult['wallet']): PolicyAuthoringResult {
@@ -119,12 +133,22 @@ export function createPolicyAuthoringService(deps: Dependencies) {
       active(); dispatched = true;
       const output = await run(() => deps.generations.get('deepseek').generate({ authoringProfile: 'product_quality', outputFormat: 'json_object', maxOutputTokens: 12288, model: authority.selectedModel, secret: secret!, system: POLICY_AUTHORING_SYSTEM, history: [{ role: 'user', text: data }], tools: [], signal }));
       let rendered: ReturnType<typeof renderOutput>, usage: ReturnType<typeof parseUsage>;
+      let validationStage: PolicyValidationStage = 'output', validationText: unknown, validationMarkdown: unknown;
       try {
-        if (output.toolCalls.length || !output.text.trim() || output.text.length > 12_000 || Buffer.byteLength(output.text, 'utf8') > 32_768 || output.text.includes(new TextDecoder().decode(secret))) throw Error();
-        const parsed = JSON.parse(output.text);
+        const text = output.text;
+        validationText = text;
+        if (output.toolCalls.length || !text.trim() || text.length > 12_000 || Buffer.byteLength(text, 'utf8') > 32_768 || text.includes(new TextDecoder().decode(secret))) throw Error();
+        validationStage = 'json_syntax';
+        const parsed = JSON.parse(text);
+        validationMarkdown = parsed && typeof parsed === 'object' ? parsed.bodyMarkdown : undefined;
         if (JSON.stringify(parsed).includes(new TextDecoder().decode(secret))) throw Error();
-        rendered = renderOutput(parsed, sourceFingerprint, facts); usage = parseUsage(output.usage);
-      } catch { throw new PolicyAuthoringError('invalid_output'); }
+        rendered = renderOutput(parsed, sourceFingerprint, facts, stage => { validationStage = stage; });
+        validationStage = 'usage';
+        usage = parseUsage(output.usage);
+      } catch {
+        reportPolicyValidationFailure(validationStage, validationText, validationMarkdown, deps.diagnostic);
+        throw new PolicyAuthoringError('invalid_output');
+      }
       await recheck(); active();
       const durable = Object.freeze({ schemaVersion: 1, kind: 'policy', operationId: input.operationId, draftId: request.draftId, policyKey: request.policyKey, policyVersion: request.policyVersion, requestFingerprint: fingerprint, sourceFingerprint, ...rendered, chargedCredits: POLICY_AUTHORING_CREDIT_COST, provider: 'deepseek', model: 'deepseek-flash', promptVersion: 'policy-authoring-v1', usage });
       completing = true;
