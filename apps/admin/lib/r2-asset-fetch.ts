@@ -1,5 +1,6 @@
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { BUCKET_NAME, PUBLIC_URL, r2Client } from "@/lib/r2";
+import { LEGACY_MEDIA_MAX_BYTES } from "@/lib/legacy-media-policy";
 
 type AssetPayload = {
   body: Buffer;
@@ -58,15 +59,15 @@ async function bodyToBuffer(body: unknown) {
     return null;
   }
 
-  if ("transformToByteArray" in body && typeof body.transformToByteArray === "function") {
-    return Buffer.from(await body.transformToByteArray());
+  if (!(Symbol.asyncIterator in body)) return null;
+  const parts: Buffer[] = [];
+  let length = 0;
+  for await (const part of body as AsyncIterable<Uint8Array>) {
+    length += part.byteLength;
+    if (length > LEGACY_MEDIA_MAX_BYTES) return null;
+    parts.push(Buffer.from(part));
   }
-
-  if ("arrayBuffer" in body && typeof body.arrayBuffer === "function") {
-    return Buffer.from(await body.arrayBuffer());
-  }
-
-  return null;
+  return Buffer.concat(parts, length);
 }
 
 export async function fetchCurrentStoreR2Asset(source: string): Promise<AssetPayload | null> {
@@ -80,7 +81,8 @@ export async function fetchCurrentStoreR2Asset(source: string): Promise<AssetPay
       new GetObjectCommand({
         Bucket: BUCKET_NAME,
         Key: key,
-      })
+      }),
+      { abortSignal: AbortSignal.timeout(8000) },
     );
 
     const body = await bodyToBuffer(response.Body);

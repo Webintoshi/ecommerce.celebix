@@ -2,19 +2,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { getAllProducts } from "@/lib/products";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 
-// Secret key to protect the route
-const SEED_SECRET = "celebix_secret_seed";
+export async function POST(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "settings");
+    if (denied) return denied;
 
-export async function GET(req: NextRequest) {
-    const { searchParams } = new URL(req.url);
-    const key = searchParams.get("key");
-
-    // 1. Security Check
-    if (key !== SEED_SECRET) {
+    const body = await request.json().catch(() => null);
+    if (body?.confirmation !== true) {
         return NextResponse.json(
-            { success: false, message: "Unauthorized: Invalid seed key" },
-            { status: 401 }
+            { success: false, message: "Ürün verilerini sıfırlamak için açık onay gerekli." },
+            { status: 400 },
         );
     }
 

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { EmailConfig } from "@/types/notification";
 import { getNotificationSettings } from "@/lib/db/settings";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
+import { restoreEmailSettings } from "@/lib/legacy-settings-secrets";
 import { formatResendFromAddress, sendResendEmail } from "@/lib/resend";
 
 function normalizeEmailConfig(input: EmailConfig) {
@@ -15,10 +17,15 @@ function normalizeEmailConfig(input: EmailConfig) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireLegacyAdminApi(request, "settings");
+  if (denied) return denied;
+
   try {
     const body = await request.json().catch(() => ({}));
     const notificationSettings = await getNotificationSettings();
-    const config = normalizeEmailConfig(body.config || notificationSettings.email);
+    const config = normalizeEmailConfig(body.config
+      ? restoreEmailSettings(body.config, notificationSettings.email)
+      : notificationSettings.email);
     const testEmail = String(body.testEmail || config.senderEmail || "").trim();
 
     if (config.provider !== "resend") {
@@ -61,7 +68,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "Resend test gonderimi basarisiz.",
+        error: "Resend test gönderimi başarısız.",
       },
       { status: 500 },
     );

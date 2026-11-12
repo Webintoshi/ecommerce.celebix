@@ -1,80 +1,83 @@
+import { validateSameOriginRequest } from "@celebix/platform-config/src/http-security";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { NextResponse } from "next/server";
+import { createSessionServerClient } from "@/lib/supabase-server";
 
-export async function POST(request: Request) {
-  try {
-    const { email, first_name, last_name, phone, user_id } = await request.json();
+function profileValue(value: unknown) {
+    return typeof value === "string" ? value.trim().slice(0, 120) : "";
+}
 
-    const supabase = createServerClient();
+function customerResponse(customer: { id: string }, result: "exists" | "updated" | "created") {
+    return NextResponse.json({ customer: { id: customer.id }, [result]: true }, {
+        status: result === "created" ? 201 : 200,
+        headers: { "Cache-Control": "private, no-store" },
+    });
+}
 
-    // Check if customer already exists with this email
-    const { data: existingByEmail } = await supabase
-      .from("customers")
-      .select("*")
-      .eq("email", email)
-      .single();
+function bindingConflict() {
+    return NextResponse.json({ error: "Müşteri hesabı eşleştirilemedi." }, { status: 409 });
+}
 
-    if (existingByEmail) {
-      // If user_id is provided and customer doesn't have one, update it
-      if (user_id && !existingByEmail.user_id) {
-        const { data: updated, error: updateError } = await supabase
-          .from("customers")
-          .update({ 
-            user_id,
-            first_name: first_name || existingByEmail.first_name,
-            last_name: last_name || existingByEmail.last_name,
-            phone: phone || existingByEmail.phone,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingByEmail.id)
-          .select()
-          .single();
+export async function POST(request: NextRequest) {
+    if (!validateSameOriginRequest(request).allowed) {
+        return NextResponse.json({ error: "İstek kaynağı doğrulanamadı." }, { status: 403 });
+    }
 
-        if (updateError) {
-          return NextResponse.json({ error: updateError.message }, { status: 400 });
+    try {
+        const supabase = await createSessionServerClient();
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user?.email || !user.email_confirmed_at) {
+            return NextResponse.json({ error: "Doğrulanmış oturum gerekiyor." }, { status: 401 });
         }
 
-        return NextResponse.json({ customer: updated, updated: true }, { status: 200 });
-      }
+        const body = await request.json().catch(() => null);
+        const profile = {
+            first_name: profileValue(body?.first_name ?? user.user_metadata.first_name),
+            last_name: profileValue(body?.last_name ?? user.user_metadata.last_name),
+            phone: profileValue(body?.phone ?? user.user_metadata.phone),
+        };
+        const db = createServerClient();
+        const findLinked = () => db.from("customers").select("id").eq("user_id", user.id).maybeSingle();
+        const linked = await findLinked();
+        if (linked.error) throw linked.error;
+        if (linked.data) return customerResponse(linked.data, "exists");
 
-      return NextResponse.json({ customer: existingByEmail, exists: true }, { status: 200 });
+        const existing = await db.from("customers")
+            .select("id, user_id, first_name, last_name, phone").eq("email", user.email).maybeSingle();
+        if (existing.error) throw existing.error;
+
+        if (existing.data) {
+            if (existing.data.user_id === user.id) return customerResponse(existing.data, "exists");
+            if (existing.data.user_id) return bindingConflict();
+
+            const { data, error } = await db.from("customers").update({
+                user_id: user.id,
+                first_name: profile.first_name || existing.data.first_name,
+                last_name: profile.last_name || existing.data.last_name,
+                phone: profile.phone || existing.data.phone,
+                updated_at: new Date().toISOString(),
+            }).eq("id", existing.data.id).is("user_id", null).select("id").maybeSingle();
+
+            if (error && error.code !== "23505") throw error;
+            if (data) return customerResponse(data, "updated");
+        } else {
+            const { data, error } = await db.from("customers").insert({
+                ...profile,
+                email: user.email,
+                user_id: user.id,
+                status: "active",
+                total_orders: 0,
+                total_spent: 0,
+            }).select("id").single();
+
+            if (error && error.code !== "23505") throw error;
+            if (data) return customerResponse(data, "created");
+        }
+
+        const concurrent = await findLinked();
+        if (concurrent.error) throw concurrent.error;
+        return concurrent.data ? customerResponse(concurrent.data, "exists") : bindingConflict();
+    } catch {
+        return NextResponse.json({ error: "Müşteri hesabı eşleştirilemedi." }, { status: 500 });
     }
-
-    // Check if customer exists with this user_id
-    if (user_id) {
-      const { data: existingByUserId } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("user_id", user_id)
-        .single();
-
-      if (existingByUserId) {
-        return NextResponse.json({ customer: existingByUserId, exists: true }, { status: 200 });
-      }
-    }
-
-    // Create new customer
-    const { data: customer, error } = await supabase
-      .from("customers")
-      .insert({
-        email,
-        first_name: first_name || "",
-        last_name: last_name || "",
-        phone: phone || "",
-        user_id: user_id || null,
-        status: "active",
-        total_orders: 0,
-        total_spent: 0,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ customer, created: true }, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
 }

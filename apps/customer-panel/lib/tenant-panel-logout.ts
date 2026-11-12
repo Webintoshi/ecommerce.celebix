@@ -181,6 +181,6 @@ export function createTenantPanelLogoutCallbackHandler(dependencies: Readonly<{
         "referrer-policy": "no-referrer",
         "x-content-type-options": "nosniff",
       } });
-    } catch { return json("panel_logout_callback_invalid", 400, deletionHeader()); }
+    } catch { return json("panel_logout_callback_invalid", 400); }
   };
 }

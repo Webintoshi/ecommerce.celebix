@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import {
     getImageFormatLabel,
     isSvgImageMimeType,
@@ -35,7 +36,7 @@ const THUMBNAIL_SIZES = {
 function getFolderConfig(folder: string): string {
     if (folder === 'promo-banners') return 'promo-banners';
     if (folder === 'banners') return 'banners';
-    if (folder in MAX_DIMENSIONS) return folder;
+    if (Object.hasOwn(MAX_DIMENSIONS, folder)) return folder;
     return 'default';
 }
 
@@ -50,7 +51,7 @@ interface ProcessedImage {
 }
 
 function shouldKeepOriginalUpload(mimeType: string): boolean {
-    return mimeType === "image/svg+xml" || mimeType === "image/avif" || mimeType === "image/webp" || mimeType === "image/gif";
+    return mimeType === "image/avif" || mimeType === "image/webp" || mimeType === "image/gif";
 }
 
 async function optimizeImage(
@@ -139,6 +140,8 @@ function getFileName(name: string, format: string): string {
 }
 
 export async function POST(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "media");
+    if (denied) return denied;
     try {
         const formData = await request.formData();
         const file = formData.get("file") as File | null;
@@ -197,7 +200,7 @@ export async function POST(request: NextRequest) {
             };
         } else {
             try {
-                const processed = await optimizeImage(inputBuffer, folder, targetFormat, quality);
+                const processed = await optimizeImage(inputBuffer, folder, isSvg ? "webp" : targetFormat, quality);
                 uploadBuffer = processed.buffer;
                 uploadContentType = `image/${processed.format}`;
                 uploadFileName = getFileName(file.name, processed.format);
@@ -213,6 +216,9 @@ export async function POST(request: NextRequest) {
                     optimized: true,
                 };
             } catch (optimizationError) {
+                if (isSvg) {
+                    return NextResponse.json({ success: false, error: "SVG görseli işlenemedi." }, { status: 422 });
+                }
                 console.error("Image optimization failed, uploading original file instead:", optimizationError);
                 response = {
                     ...response,

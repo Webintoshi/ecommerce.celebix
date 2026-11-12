@@ -1,3 +1,4 @@
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import {
   DEFAULT_LUCKY_WHEEL_CONFIG_ID,
@@ -12,6 +13,9 @@ import {
 const DEPRECATION_MESSAGE = "Bu endpoint deprecate edildi. /api/admin/discounts/lucky-wheel/* endpointlerini kullanın.";
 
 export async function GET(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
   try {
     const action = request.nextUrl.searchParams.get("action");
     const configId = request.nextUrl.searchParams.get("id") || DEFAULT_LUCKY_WHEEL_CONFIG_ID;
@@ -49,6 +53,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
   try {
     const body = await request.json();
     const action = String(body?.action || "");

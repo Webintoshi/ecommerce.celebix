@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import type { User } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/permissions";
 import { createServiceSupabaseClient, createSessionServerClient } from "@/lib/supabase-server";
+import { legacyAdminRoleAllowed } from "@/lib/legacy-admin-api-policy";
 
 export interface AdminProfile {
   id: string;
@@ -41,7 +42,7 @@ export async function getAdminAuthContext(): Promise<AdminAuthContext | null> {
       task_definition: string | null;
     }>();
 
-  if (profileError || !profile) {
+  if (profileError || !profile || !legacyAdminRoleAllowed(profile.role)) {
     return null;
   }
 

@@ -1,6 +1,8 @@
 import { STORE_ADMIN_SESSION_MAX_AGE_MS } from "@celebix/saas-contracts";
 import {
+  adminOriginEnvironmentFromPanelOrigin,
   normalizeAdminRequestHostname,
+  parseCanonicalAdminHostname,
   parseCanonicalAdminOriginFromPanelOrigin,
   parseExactAdminHttpsOrigin,
 } from "@celebix/saas-data";
@@ -57,6 +59,20 @@ function canonicalRequest(request: Request): { hostname: string; origin: string;
   const hostname = normalizeAdminRequestHostname(request.headers.get("host"));
   parseExactAdminHttpsOrigin(`https://${hostname}`);
   return { hostname, origin: `https://${hostname}`, purchaseHint: merchantPurchaseHintFromSearch(url.search) };
+}
+
+function sourceAdminHostname(requestOrigin: string, panelOrigin: unknown): string {
+  const source = parseExactAdminHttpsOrigin(requestOrigin);
+  if (source.origin !== requestOrigin) throw new Error("invalid");
+  if (!source.hostname.startsWith("admin.")) {
+    const environment = adminOriginEnvironmentFromPanelOrigin(panelOrigin);
+    try { parseCanonicalAdminHostname(source.hostname, environment); }
+    catch (error) {
+      if (environment === "production") throw error;
+      parseCanonicalAdminHostname(source.hostname, environment === "staging" ? "staging_net" : "staging");
+    }
+  }
+  return source.hostname;
 }
 
 async function boundedBody(request: Request, maximumBytes: number): Promise<string> {
@@ -134,7 +150,12 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
       if (!authority.hostname.startsWith("admin.")) parseCanonicalAdminOriginFromPanelOrigin(authority.origin, runtime.access?.panelOrigin);
       const requestOrigin = request.headers.get("origin");
       if (authority.purchaseHint && requestOrigin !== runtime.access?.panelOrigin) return json('admin_handoff_request_invalid', 400);
-      if (requestOrigin !== null && requestOrigin !== "null" && requestOrigin !== runtime.access?.panelOrigin && requestOrigin !== runtime.ownerOrigin && requestOrigin !== authority.origin) throw new Error("invalid");
+      if (requestOrigin === null || requestOrigin === "null") throw new Error("invalid");
+      if (requestOrigin !== runtime.access?.panelOrigin && requestOrigin !== runtime.ownerOrigin && requestOrigin !== authority.origin) {
+        const hostname = sourceAdminHostname(requestOrigin, runtime.access?.panelOrigin);
+        const source = await runtime.adminDomains?.resolvePublicBrand({ hostname, now: trustedNow });
+        if (source?.kind !== "resolved") throw new Error("invalid");
+      }
       const brand = await runtime.adminDomains?.resolvePublicBrand({ hostname: authority.hostname, now: trustedNow });
       if (!brand || brand.kind !== "resolved") throw new Error("invalid");
     } catch { return json("admin_handoff_unavailable", 503); }

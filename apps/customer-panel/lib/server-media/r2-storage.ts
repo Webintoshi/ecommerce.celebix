@@ -1,4 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
+import { STOREFRONT_ASSET_KINDS } from "@celebix/saas-contracts";
 import type { PublicImageMediaType } from "../../../../packages/saas-contracts/src/storefront/index.ts";
 import type { StagingProductMediaConfig } from "./config.ts";
 
@@ -14,14 +15,17 @@ export interface ProductMediaStorage {
   delete(objectKey: string): Promise<void>;
 }
 export type TenantMediaStorage = ProductMediaStorage;
-export type ProductMediaStorageErrorCode = "write_unknown" | "write_rejected" | "unavailable" | "invalid";
+export type StorefrontAssetStorage = ProductMediaStorage & Readonly<{
+  putIfAbsent(input: Parameters<ProductMediaStorage["put"]>[0]): Promise<boolean>;
+}>;
+export type ProductMediaStorageErrorCode = "write_unknown" | "write_rejected" | "object_mismatch" | "unavailable" | "invalid";
 export class ProductMediaStorageError extends Error {
   readonly code: ProductMediaStorageErrorCode;
   constructor(code: ProductMediaStorageErrorCode) { super(`product_media_storage_${code}`); this.name = "ProductMediaStorageError"; this.code = code; }
 }
 type Fetch = (input: string | URL, init?: RequestInit) => Promise<Response>;
 const UUID_SEGMENT = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
-const OBJECT_KEY = new RegExp(`^stores/${UUID_SEGMENT}/(?:products/${UUID_SEGMENT}/${UUID_SEGMENT}|storefront/(?:logo|hero|category|social|favicon)/${UUID_SEGMENT}|design/${UUID_SEGMENT})[.](?:jpg|png|webp)$`);
+const OBJECT_KEY = new RegExp(`^stores/${UUID_SEGMENT}/(?:products/${UUID_SEGMENT}/${UUID_SEGMENT}|storefront/(?:${STOREFRONT_ASSET_KINDS.join("|")})/${UUID_SEGMENT}|design/${UUID_SEGMENT})[.](?:jpg|png|webp)$`);
 const REQUEST_TIMEOUT_MS = 10_000;
 function sha256(value: Uint8Array | string): string { return createHash("sha256").update(value).digest("hex"); }
 function hmac(key: Uint8Array | string, value: string): Buffer { return createHmac("sha256", key).update(value).digest(); }
@@ -30,16 +34,17 @@ function encodedPath(value: string): string { return value.split("/").map(encode
 function timestamp(now: Date): { short: string; long: string } { const long = now.toISOString().replace(/[:-]|\.\d{3}/g, ""); return { short: long.slice(0, 8), long }; }
 function storageError(code: ProductMediaStorageErrorCode): ProductMediaStorageError { return new ProductMediaStorageError(code); }
 
-export function createR2ProductMediaStorage(config: StagingProductMediaConfig, options: Readonly<{ fetch: Fetch; now(): Date }> = { fetch: globalThis.fetch, now: () => new Date() }): ProductMediaStorage {
+export function createR2ProductMediaStorage(config: StagingProductMediaConfig, options: Readonly<{ fetch: Fetch; now(): Date }> = { fetch: globalThis.fetch, now: () => new Date() }): StorefrontAssetStorage {
   if (!config || typeof options.fetch !== "function" || typeof options.now !== "function") throw new Error("product_media_storage_invalid");
   const host = `${config.accountId}.r2.cloudflarestorage.com`;
-  async function request(method: "PUT" | "HEAD" | "DELETE", objectKey: string, mediaType?: PublicImageMediaType, bytes: Uint8Array = new Uint8Array(), payloadSha256?: string, publication?: "pending" | "active", copy = false, writeMayBeUnknown = false): Promise<Response> {
+  async function request(method: "PUT" | "HEAD" | "DELETE", objectKey: string, mediaType?: PublicImageMediaType, bytes: Uint8Array = new Uint8Array(), payloadSha256?: string, publication?: "pending" | "active", copy = false, writeMayBeUnknown = false, ifAbsent = false): Promise<Response> {
     const selectedKey = key(objectKey), payloadHash = sha256(bytes), now = options.now(); if (!(now instanceof Date) || !Number.isFinite(now.getTime())) throw new Error("product_media_storage_unavailable");
     const time = timestamp(now), canonicalUri = `/${encodeURIComponent(config.bucket)}/${encodedPath(selectedKey)}`;
     const headers: Record<string, string> = { host, "x-amz-content-sha256": payloadHash, "x-amz-date": time.long };
     if (mediaType) headers["content-type"] = mediaType;
     if (payloadSha256) headers["x-amz-meta-celebix-sha256"] = payloadSha256;
     if (publication) headers["x-amz-meta-celebix-publication"] = publication;
+    if (ifAbsent) headers["if-none-match"] = "*";
     if (copy) {
       headers["x-amz-copy-source"] = `/${config.bucket}/${encodedPath(selectedKey)}`;
       headers["x-amz-metadata-directive"] = "REPLACE";
@@ -82,12 +87,24 @@ export function createR2ProductMediaStorage(config: StagingProductMediaConfig, o
     }
     if (!exactObject(await storage.head(objectKey), input, publication)) throw storageError("unavailable");
   }
-  const storage: ProductMediaStorage = {
+  async function putPending(input: Parameters<ProductMediaStorage["put"]>[0], ifAbsent: boolean) {
+    if (!/^[a-f0-9]{64}$/.test(input.payloadSha256) || sha256(input.bytes) !== input.payloadSha256) throw storageError("invalid");
+    return request("PUT", input.objectKey, input.mediaType, input.bytes, input.payloadSha256, "pending", false, true, ifAbsent);
+  }
+  const storage: StorefrontAssetStorage = {
     publicUrl(objectKey: string) { return `${config.publicOrigin}/${key(objectKey)}`; },
     async put(input) {
-      if (!/^[a-f0-9]{64}$/.test(input.payloadSha256) || sha256(input.bytes) !== input.payloadSha256) throw storageError("invalid");
-      const response = await request("PUT", input.objectKey, input.mediaType, input.bytes, input.payloadSha256, "pending", false, true);
+      const response = await putPending(input, false);
       if (![200, 201, 204].includes(response.status)) throw storageError(response.status >= 500 ? "write_unknown" : "write_rejected");
+    },
+    async putIfAbsent(input) {
+      const response = await putPending(input, true);
+      if ([200, 201, 204].includes(response.status)) return true;
+      if (response.status !== 412) throw storageError(response.status >= 500 ? "write_unknown" : "write_rejected");
+      const existing = await storage.head(input.objectKey);
+      if (existing.kind !== "found") throw storageError("write_unknown");
+      if (!exactObject(existing, { ...input, byteSize: input.bytes.byteLength }, existing.publication)) throw storageError("object_mismatch");
+      return false;
     },
     async publish(input) {
       if (!Number.isSafeInteger(input.byteSize) || input.byteSize < 1 || input.byteSize > 5_242_880 || !/^[a-f0-9]{64}$/.test(input.payloadSha256)) throw storageError("invalid");

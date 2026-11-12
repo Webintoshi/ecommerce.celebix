@@ -1,3 +1,4 @@
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import {
     createOrder,
@@ -12,6 +13,9 @@ import {
 
 // GET /api/orders - Get orders or order stats
 export async function GET(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");
@@ -54,6 +58,9 @@ export async function GET(request: NextRequest) {
 
 // POST /api/orders - Create a new order
 export async function POST(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
     try {
         const body = await request.json();
 
@@ -83,6 +90,9 @@ export async function POST(request: NextRequest) {
 
 // PATCH /api/orders - Update order status
 export async function PATCH(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
     try {
         const body = await request.json();
         const { id, status, paymentStatus } = body;
@@ -114,6 +124,9 @@ export async function PATCH(request: NextRequest) {
 
 // DELETE /api/orders - Delete an order
 export async function DELETE(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");

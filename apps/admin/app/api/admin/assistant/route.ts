@@ -2,10 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { callAIWithFunctions } from "@/lib/ai";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 
-const BASE_URL =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    process.env.NEXT_PUBLIC_ADMIN_URL ||
-    "http://localhost:3200";
+import { getAdminAuthContext } from "@/lib/admin-auth";
+import { legacyAdminApiScope, legacyAdminRoleAllowed } from "@/lib/legacy-admin-api-policy";
+import type { UserRole } from "@/lib/permissions";
+import { GET as readOrders } from "../../orders/route";
+import { GET as readProducts } from "../../products/route";
+import { GET as readCustomers } from "../../customers/route";
+import { GET as readCategories } from "../../categories/route";
+import { GET as readAbandonedCarts } from "../../abandoned-carts/route";
+import { GET as readAnalytics } from "../../analytics/dashboard/route";
+
 const MAX_FUNCTION_CALLS = 3;
 
 // ─── System Prompt ───────────────────────────────────────────────────────────
@@ -141,15 +147,35 @@ const FUNCTION_DECLARATIONS = [
 ];
 
 // ─── Internal API Callers ────────────────────────────────────────────────────
+const assistantReads = new Map<string, (request: NextRequest) => Promise<Response>>([
+    ["/api/orders", readOrders],
+    ["/api/products", readProducts],
+    ["/api/customers", readCustomers],
+    ["/api/categories", readCategories],
+    ["/api/abandoned-carts", readAbandonedCarts],
+    ["/api/analytics/dashboard", readAnalytics],
+]);
+
+async function readAssistantData(path: string, request: NextRequest, role: UserRole) {
+    const url = new URL(path, request.nextUrl.origin);
+    const read = assistantReads.get(url.pathname);
+    const scope = legacyAdminApiScope(url.pathname, "GET");
+    if (url.origin !== request.nextUrl.origin || !read || (scope && !legacyAdminRoleAllowed(role, scope))) {
+        return NextResponse.json({ success: false, error: "İşlem için yetkiniz yok." }, { status: 403 });
+    }
+    return read(new NextRequest(url));
+}
+
 async function executeFunction(
     name: string,
-    args: Record<string, string>
+    args: Record<string, string>,
+    readApi: (path: string) => Promise<Response>,
 ): Promise<string> {
     try {
         switch (name) {
             // ── Sipariş İstatistikleri ──
             case "get_order_stats": {
-                const res = await fetch(`${BASE_URL}/api/orders?stats=true`);
+                const res = await readApi("/api/orders?stats=true");
                 const data = await res.json();
                 if (!data.success) return "Sipariş istatistikleri alınamadı.";
                 const s = data.stats;
@@ -168,8 +194,8 @@ async function executeFunction(
                 const status = args.status ? `&status=${args.status}` : "";
                 const limit = args.limit ? parseInt(args.limit) : 5;
                 const safeLimit = Math.min(Math.max(limit, 1), 10);
-                const res = await fetch(
-                    `${BASE_URL}/api/orders?limit=${safeLimit}${status}`
+                const res = await readApi(
+                    `/api/orders?limit=${safeLimit}${status}`
                 );
                 const data = await res.json();
                 if (!data.success || !data.orders?.length)
@@ -199,7 +225,7 @@ async function executeFunction(
 
             // ── Tüm Ürünleri Listele (İSİMLERİYLE) ──
             case "list_all_products": {
-                const res = await fetch(`${BASE_URL}/api/products?limit=100`);
+                const res = await readApi("/api/products?limit=100");
                 const data = await res.json();
                 if (!data.success || !data.products?.length)
                     return "Hiç ürün bulunamadı.";
@@ -239,7 +265,7 @@ async function executeFunction(
 
             // ── Ürün İstatistikleri ──
             case "get_product_stats": {
-                const res = await fetch(`${BASE_URL}/api/products?limit=100`);
+                const res = await readApi("/api/products?limit=100");
                 const data = await res.json();
                 if (!data.success) return "Ürün bilgileri alınamadı.";
                 const products = data.products || [];
@@ -294,8 +320,8 @@ async function executeFunction(
             // ── Ürün Arama ──
             case "search_products": {
                 const query = args.query || "";
-                const res = await fetch(
-                    `${BASE_URL}/api/products?search=${encodeURIComponent(query)}`
+                const res = await readApi(
+                    `/api/products?search=${encodeURIComponent(query)}`
                 );
                 const data = await res.json();
                 if (!data.success || !data.products?.length)
@@ -329,7 +355,7 @@ async function executeFunction(
 
             // ── Müşteri İstatistikleri ──
             case "get_customer_stats": {
-                const res = await fetch(`${BASE_URL}/api/customers?stats=true`);
+                const res = await readApi("/api/customers?stats=true");
                 const data = await res.json();
                 if (!data.success) return "Müşteri istatistikleri alınamadı.";
                 const s = data.stats;
@@ -342,13 +368,13 @@ async function executeFunction(
             // ── Dashboard Özeti (Hepsi Bir Arada) ──
             case "get_dashboard_summary": {
                 const [ordersRes, productsRes, customersRes] = await Promise.all([
-                    fetch(`${BASE_URL}/api/orders?stats=true`)
+                    readApi("/api/orders?stats=true")
                         .then((r) => r.json())
                         .catch(() => null),
-                    fetch(`${BASE_URL}/api/products?limit=100`)
+                    readApi("/api/products?limit=100")
                         .then((r) => r.json())
                         .catch(() => null),
-                    fetch(`${BASE_URL}/api/customers?stats=true`)
+                    readApi("/api/customers?stats=true")
                         .then((r) => r.json())
                         .catch(() => null),
                 ]);
@@ -405,11 +431,11 @@ ${productNames}
 
             // ── Kategoriler ──
             case "get_categories": {
-                const res = await fetch(`${BASE_URL}/api/categories`);
+                const res = await readApi("/api/categories");
                 const data = await res.json();
                 if (!data.success && !data.categories) {
                     // Fallback: extract from products
-                    const pRes = await fetch(`${BASE_URL}/api/products?limit=100`);
+                    const pRes = await readApi("/api/products?limit=100");
                     const pData = await pRes.json();
                     const products = pData?.products || [];
                     const catMap = new Map<string, number>();
@@ -441,7 +467,7 @@ ${productNames}
 
             // ── Terk Edilen Sepetler ──
             case "get_abandoned_carts": {
-                const res = await fetch(`${BASE_URL}/api/abandoned-carts?limit=20`);
+                const res = await readApi("/api/abandoned-carts?limit=20");
                 const data = await res.json();
 
                 if (!data.success || !data.carts?.length)
@@ -493,8 +519,8 @@ ${lines.join("\n")}`;
             // ── Analitik Veriler ──
             case "get_analytics": {
                 const timeRange = args.timeRange || "week";
-                const res = await fetch(
-                    `${BASE_URL}/api/analytics/dashboard?timeRange=${timeRange}`
+                const res = await readApi(
+                    `/api/analytics/dashboard?timeRange=${timeRange}`
                 );
                 const data = await res.json();
                 if (data.error) return "Analitik verileri alınamadı.";
@@ -542,16 +568,16 @@ ${lines.join("\n")}`;
             case "get_order_details": {
                 const orderNum = args.orderNumber || "";
                 // Try by order number first
-                let res = await fetch(
-                    `${BASE_URL}/api/orders?orderNumber=${encodeURIComponent(orderNum)}`
+                let res = await readApi(
+                    `/api/orders?orderNumber=${encodeURIComponent(orderNum)}`
                 );
                 let data = await res.json();
                 let order = data.order;
 
                 // If not found, try by ID
                 if (!order) {
-                    res = await fetch(
-                        `${BASE_URL}/api/orders?id=${encodeURIComponent(orderNum)}`
+                    res = await readApi(
+                        `/api/orders?id=${encodeURIComponent(orderNum)}`
                     );
                     data = await res.json();
                     order = data.order;
@@ -604,6 +630,11 @@ ${order.notes ? `Not: ${order.notes}` : ""}`;
 
 // ─── POST Handler (Multi-function loop via shared AI utility) ────────────────
 export async function POST(req: NextRequest) {
+    const auth = await getAdminAuthContext();
+    if (!auth) {
+        return NextResponse.json({ error: "Yetkisiz erişim." }, { status: 401 });
+    }
+
     try {
         const body = await req.json();
         const { messages, context } = body as {
@@ -631,7 +662,11 @@ export async function POST(req: NextRequest) {
             messages: trimmedMessages,
             functionDeclarations: FUNCTION_DECLARATIONS,
             systemPrompt: systemWithContext,
-            executeFunction,
+            executeFunction: (name, args) => executeFunction(
+                name,
+                args,
+                (path) => readAssistantData(path, req, auth.profile.role),
+            ),
             maxFunctionCalls: MAX_FUNCTION_CALLS,
             temperature: 0.7,
             maxTokens: 4096,

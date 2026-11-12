@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getActivePaymentGatewayById } from "@/lib/db/payment-gateways";
 import { createOrder, updateOrderStatus, updatePaymentStatus } from "@/lib/db/orders";
 import { initializePayment } from "@/lib/payment-runtime";
+import { loadCheckoutPricingData, resolveCheckoutCustomer } from "./checkout-data";
+import { CheckoutInputError, checkoutPaymentItems, parseCheckoutInput, priceCheckout } from "./checkout-pricing";
 
 function getBaseUrl(request: NextRequest) {
     const forwardedProto = request.headers.get("x-forwarded-proto");
@@ -30,28 +32,24 @@ function getRequestIp(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
-
-        if (!body?.paymentMethod) {
-            return NextResponse.json({ success: false, error: "Ödeme yöntemi seçilmelidir." }, { status: 422 });
-        }
-
-        const gateway = await getActivePaymentGatewayById(body.paymentMethod);
+        const input = parseCheckoutInput(await request.json().catch(() => null));
+        const gateway = await getActivePaymentGatewayById(input.paymentMethod);
         if (!gateway) {
             return NextResponse.json({ success: false, error: "Seçilen ödeme yöntemi aktif değil." }, { status: 404 });
         }
 
+        const pricing = priceCheckout(input, await loadCheckoutPricingData(input));
+        const customer = await resolveCheckoutCustomer(input.contactEmail);
         const order = await createOrder({
-            customerId: body.customerId,
-            items: body.items,
-            shippingAddress: body.shippingAddress,
-            billingAddress: body.billingAddress,
-            paymentMethod: body.paymentMethod,
-            shippingCost: body.shippingCost,
-            discount: body.discount,
-            notes: body.notes,
-            contactEmail: body.contactEmail,
-            abandonedCartSessionId: body.abandonedCartSessionId,
+            ...customer,
+            ...pricing,
+            shippingAddress: input.shippingAddress,
+            billingAddress: input.billingAddress,
+            paymentMethod: gateway.id,
+            couponCode: input.couponCode,
+            notes: input.notes,
+            contactEmail: input.contactEmail,
+            abandonedCartSessionId: input.abandonedCartSessionId,
         });
 
         if (gateway.gateway === "cod") {
@@ -90,11 +88,11 @@ export async function POST(request: NextRequest) {
                     total: Number(order.total),
                     currency: gateway.currency,
                 },
-                items: body.items,
-                customerEmail: body.contactEmail,
+                items: checkoutPaymentItems(gateway.gateway, pricing),
+                customerEmail: input.contactEmail,
                 customerIp: getRequestIp(request),
-                shippingAddress: body.shippingAddress,
-                billingAddress: body.billingAddress || body.shippingAddress,
+                shippingAddress: input.shippingAddress,
+                billingAddress: input.billingAddress,
                 siteUrl: getBaseUrl(request),
             });
 
@@ -117,9 +115,12 @@ export async function POST(request: NextRequest) {
             );
         }
     } catch (error) {
+        if (error instanceof CheckoutInputError) {
+            return NextResponse.json({ success: false, error: error.message }, { status: 422 });
+        }
         console.error("Payment checkout error:", error);
         return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : "Checkout başlatılamadı." },
+            { success: false, error: "Ödeme işlemi başlatılamadı." },
             { status: 500 },
         );
     }

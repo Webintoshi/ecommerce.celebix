@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { testAIConnection } from "@/lib/ai";
 import {
+    getShippingProviderDefinition,
     SHIPPING_PROVIDER_REGISTRY,
     normalizeShippingIntegrationSettings,
 } from "@/lib/shipping-integrations";
 import {
     deleteSetting,
     getAIProviderSettings,
-    getAllSettings,
     getAnnouncementBarSettings,
     getMarqueeSettings,
     getNotificationSettings,
@@ -30,9 +30,66 @@ import {
     setShippingOptions,
     setStoreInfo,
     setTranslationSettings,
+    type AIProviderSettings,
 } from "@/lib/db/settings";
-import { extractAdminStoredAssetUrl, resolveAdminAssetUrl } from "@/lib/asset-url";
+import { extractAdminStoredAssetUrl, resolveAdminAssetUrl, resolveAdminDirectAssetUrl } from "@/lib/asset-url";
 import { normalizeFloatingContactSettings } from "@celebix/platform-config/src/floating-contact";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
+import {
+    redactNotificationSettings,
+    redactSecretFields,
+    redactStoredSecret,
+    restoreNotificationSettings,
+    restoreSecretFields,
+    restoreStoredSecret,
+    STORED_SECRET,
+} from "@/lib/legacy-settings-secrets";
+import type { ShippingIntegrationSettings } from "@/types/shipping-integration";
+
+const editableContentKeys = ["hero_banners", "promo_banners"];
+const readableContentTypes = ["store", "seo", "announcement", "marquee"];
+const editableContentTypes = ["seo", "announcement", "marquee"];
+const privateSettingsHeaders = { "Cache-Control": "private, no-store" };
+
+function shippingSecretKeys(integration: ShippingIntegrationSettings["integrations"][number]) {
+    return getShippingProviderDefinition(integration.provider).credentialFields
+        .filter((field) => field.secret)
+        .map((field) => field.key);
+}
+
+function redactShippingIntegrations(settings: ShippingIntegrationSettings): ShippingIntegrationSettings {
+    return {
+        ...settings,
+        integrations: settings.integrations.map((integration) => ({
+            ...integration,
+            credentials: redactSecretFields(integration.credentials, shippingSecretKeys(integration)),
+        })),
+    };
+}
+
+function restoreShippingIntegrations(settings: ShippingIntegrationSettings, current: ShippingIntegrationSettings) {
+    return {
+        ...settings,
+        integrations: settings.integrations.map((integration) => ({
+            ...integration,
+            credentials: restoreSecretFields(
+                integration.credentials,
+                current.integrations.find(({ provider }) => provider === integration.provider)?.credentials,
+                shippingSecretKeys(integration),
+            ),
+        })),
+    };
+}
+
+async function restoreAISettings(settings: AIProviderSettings) {
+    if (settings.apiKey !== STORED_SECRET) return settings;
+
+    const stored = await getAIProviderSettings();
+    return {
+        ...settings,
+        apiKey: restoreStoredSecret(settings.apiKey, stored?.provider === settings.provider ? stored.apiKey : "") ?? "",
+    };
+}
 
 const shippingProviderIds = SHIPPING_PROVIDER_REGISTRY.map((provider) => provider.id);
 
@@ -96,8 +153,8 @@ function normalizeHeroBannersForAdmin(value: unknown) {
                 video: video
                     ? {
                         ...video,
-                        desktop: resolveAdminAssetUrl(typeof video.desktop === "string" ? video.desktop : null) || "",
-                        mobile: resolveAdminAssetUrl(typeof video.mobile === "string" ? video.mobile : null) || "",
+                        desktop: resolveAdminDirectAssetUrl(extractAdminStoredAssetUrl(typeof video.desktop === "string" ? video.desktop : null)),
+                        mobile: resolveAdminDirectAssetUrl(extractAdminStoredAssetUrl(typeof video.mobile === "string" ? video.mobile : null)),
                         poster: resolveAdminAssetUrl(typeof video.poster === "string" ? video.poster : null) || "",
                     }
                     : slideRecord.video,
@@ -150,10 +207,22 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const key = searchParams.get("key");
         const type = searchParams.get("type");
+        const contentRead = type ? readableContentTypes.includes(type) : editableContentKeys.includes(key ?? "");
+        const denied = await requireLegacyAdminApi(request, contentRead ? "admin" : "settings");
+        if (denied) return denied;
 
         if (type === "payment") {
             const methods = await getPaymentMethods();
-            return NextResponse.json({ success: true, paymentMethods: methods });
+            return NextResponse.json({
+                success: true,
+                paymentMethods: methods.map(({ id, name, type: methodType, enabled, instructions }) => ({
+                    id,
+                    name,
+                    type: methodType,
+                    enabled,
+                    instructions,
+                })),
+            }, { headers: privateSettingsHeaders });
         }
 
         if (type === "shipping") {
@@ -163,7 +232,10 @@ export async function GET(request: NextRequest) {
 
         if (type === "shipping-integrations") {
             const integrations = await getShippingIntegrations();
-            return NextResponse.json({ success: true, shippingIntegrations: integrations });
+            return NextResponse.json(
+                { success: true, shippingIntegrations: redactShippingIntegrations(integrations) },
+                { headers: privateSettingsHeaders },
+            );
         }
 
         if (type === "store") {
@@ -210,31 +282,31 @@ export async function GET(request: NextRequest) {
                 success: true,
                 aiSettings: aiSettings ? {
                     provider: aiSettings.provider,
-                    apiKey: aiSettings.apiKey,
+                    apiKey: redactStoredSecret(aiSettings.apiKey),
                     model: aiSettings.model,
                 } : null,
                 hasEnvKey,
-            });
+            }, { headers: privateSettingsHeaders });
         }
 
         if (type === "translation") {
             const translationSettings = await getTranslationSettings();
             return NextResponse.json({
                 success: true,
-                translationSettings,
+                translationSettings: { ...translationSettings, apiKey: redactStoredSecret(translationSettings.apiKey) },
                 hasEnvKey: Boolean(process.env.DEEPL_API_KEY),
-            });
+            }, { headers: privateSettingsHeaders });
         }
 
         if (type === "notification") {
             const notificationSettings = await getNotificationSettings();
             return NextResponse.json({
                 success: true,
-                notificationSettings,
-            });
+                notificationSettings: redactNotificationSettings(notificationSettings),
+            }, { headers: privateSettingsHeaders });
         }
 
-        if (key) {
+        if (!type && key && editableContentKeys.includes(key)) {
             const value = await getSetting(key);
             return NextResponse.json({
                 success: true,
@@ -245,12 +317,11 @@ export async function GET(request: NextRequest) {
             });
         }
 
-        const settings = await getAllSettings();
-        return NextResponse.json({ success: true, settings });
+        return NextResponse.json({ success: false, error: "Ayar bulunamadı." }, { status: 404 });
     } catch (error) {
         console.error("Error fetching settings:", error);
         return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : "Failed to fetch settings" },
+            { success: false, error: "Ayarlar alınamadı." },
             { status: 500 },
         );
     }
@@ -258,7 +329,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json();
+        const body = await request.json().catch(() => null);
+        if (!body || typeof body !== "object") {
+            return NextResponse.json({ success: false, error: "Geçersiz ayar." }, { status: 400 });
+        }
+
         const {
             type,
             key,
@@ -273,6 +348,9 @@ export async function POST(request: NextRequest) {
             aiSettings,
             translationSettings,
         } = body;
+        const contentWrite = type ? editableContentTypes.includes(type) : editableContentKeys.includes(key ?? "");
+        const denied = await requireLegacyAdminApi(request, contentWrite ? "admin" : "settings");
+        if (denied) return denied;
 
         if (type === "payment" && paymentMethods !== undefined) {
             await setPaymentMethods(paymentMethods);
@@ -303,12 +381,13 @@ export async function POST(request: NextRequest) {
             }
 
             const normalized = normalizeShippingIntegrationSettings(parsed.data);
-            await setShippingIntegrations(normalized);
+            const resolved = restoreShippingIntegrations(normalized, await getShippingIntegrations());
+            await setShippingIntegrations(resolved);
             return NextResponse.json({
                 success: true,
                 message: "Shipping integrations updated",
-                shippingIntegrations: normalized,
-            });
+                shippingIntegrations: redactShippingIntegrations(resolved),
+            }, { headers: privateSettingsHeaders });
         }
 
         if (type === "store" && storeInfo !== undefined) {
@@ -340,26 +419,40 @@ export async function POST(request: NextRequest) {
         }
 
         if (type === "ai" && aiSettings !== undefined) {
-            await setAIProviderSettings(aiSettings);
+            await setAIProviderSettings(await restoreAISettings(aiSettings));
             return NextResponse.json({ success: true, message: "AI provider settings updated" });
         }
 
         if (type === "ai-test" && aiSettings !== undefined) {
-            const testResult = await testAIConnection(aiSettings);
-            return NextResponse.json({ success: true, testResult });
+            const resolved = await restoreAISettings(aiSettings);
+            const testResult = await testAIConnection(resolved);
+            return NextResponse.json({
+                success: true,
+                testResult: {
+                    success: testResult.success,
+                    message: testResult.success ? "Bağlantı doğrulandı." : "Bağlantı doğrulanamadı.",
+                },
+            }, { headers: privateSettingsHeaders });
         }
 
         if (type === "translation" && translationSettings !== undefined) {
-            await setTranslationSettings(translationSettings);
+            const current = await getTranslationSettings();
+            await setTranslationSettings({
+                ...translationSettings,
+                apiKey: restoreStoredSecret(translationSettings.apiKey, current.apiKey),
+            });
             return NextResponse.json({ success: true, message: "Translation settings updated" });
         }
 
         if (type === "notification" && body.notificationSettings !== undefined) {
-            await setNotificationSettings(body.notificationSettings);
+            await setNotificationSettings(restoreNotificationSettings(
+                body.notificationSettings,
+                await getNotificationSettings(),
+            ));
             return NextResponse.json({ success: true, message: "Notification settings updated" });
         }
 
-        if (key && value !== undefined) {
+        if (!type && editableContentKeys.includes(key) && value !== undefined) {
             const normalizedValue = key === "hero_banners" ? extractHeroBannersForStorage(value) : value;
             const setting = await setSetting(key, normalizedValue);
             return NextResponse.json({ success: true, setting });
@@ -372,7 +465,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
         console.error("Error updating settings:", error);
         return NextResponse.json(
-            { success: false, error: error instanceof Error ? error.message : "Failed to update settings" },
+            { success: false, error: "Ayarlar güncellenemedi." },
             { status: 500 },
         );
     }
@@ -380,10 +473,13 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     try {
+        const denied = await requireLegacyAdminApi(request, "settings");
+        if (denied) return denied;
+
         const { searchParams } = new URL(request.url);
         const key = searchParams.get("key");
 
-        if (!key) {
+        if (!key || !editableContentKeys.includes(key)) {
             return NextResponse.json(
                 { success: false, error: "Setting key is required" },
                 { status: 400 },

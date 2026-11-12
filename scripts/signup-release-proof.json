@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "1f884ce8ca7f8a52dc752f1297ce71b2766b9d5ab5307530f355ef60d247383b",
+  "inputDigest": "7c259d30784ad7f065ed17f3962a73a1433a9512d912e04bedb876b83b383da7",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -101,7 +101,7 @@
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/handler.ts",
-      "sha256": "6c1b34c0a6295deb553334bec7c22853a9c8a1ba3063fc5f253ff73a18f75bc2"
+      "sha256": "c0a6588c2b7c2bacbd70ed91261053bc985e3b38e8844af26f280528aa1a627b"
     },
     {
       "path": "apps/customer-panel/lib/admin-login-security/runtime.ts",
@@ -113,7 +113,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-auto-post.ts",
-      "sha256": "4f354d43b9f6f1f43b4107f6391e004bfa91e19572ebd4eb765721f325eea90c"
+      "sha256": "c90dc6d679da4532e041f77a162db7d1fd305c09819a38d54360e842d9e43cce"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-default.ts",
@@ -121,7 +121,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-http.ts",
-      "sha256": "e1b3b0fc319f43f93a2c197321b1fc0bb5f4235d940b511069a17fad8f670a5d"
+      "sha256": "617b0522ac051e422a6bcf27928472d050eb444892ae934778488c8aa1821033"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-session-handoff/postgres-repository.ts",
@@ -129,7 +129,7 @@
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/handler.ts",
-      "sha256": "3f7f4fdd57599ef793acde3600d7c3bea4e63edc0fbeace0a3feca649007142c"
+      "sha256": "53b1c3453e33db457c0c44bfe92d8c276aea96ace84e56b05ee2074d87bcfa2c"
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/purchase-hint.ts",
@@ -2950,6 +2950,10 @@
     {
       "path": "apps/owner/scripts/sql/saas/202611040504_loyalty_bank_settlement.up.sql",
       "sha256": "d872b5233e8302111aa26be209f6f508cb99094a09a65e9c9fff8c1ce2d3002f"
+    },
+    {
+      "path": "apps/owner/scripts/sql/saas/202611130505_support_loyalty_and_tools_journal.up.sql",
+      "sha256": "aab9a3a003db7d91e424d17a747641eee20e80f9547a3bdae94d0deb14943f9b"
     },
     {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",

@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
+import { redactEmailSettings, restoreEmailSettings } from "@/lib/legacy-settings-secrets";
 import {
   getEmailMarketingSettings,
   getNotificationSettings,
@@ -6,7 +8,10 @@ import {
   setNotificationSettings,
 } from "@/lib/db/settings";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const denied = await requireLegacyAdminApi(request, "settings");
+  if (denied) return denied;
+
   try {
     const [notificationSettings, marketingSettings] = await Promise.all([
       getNotificationSettings(),
@@ -15,15 +20,15 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      emailSettings: notificationSettings.email,
+      emailSettings: redactEmailSettings(notificationSettings.email),
       marketingSettings,
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Error loading email marketing settings:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "E-posta ayarlari yuklenemedi.",
+        error: "E-posta ayarları alınamadı.",
       },
       { status: 500 },
     );
@@ -31,6 +36,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireLegacyAdminApi(request, "settings");
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const [currentNotificationSettings] = await Promise.all([
@@ -40,10 +48,10 @@ export async function POST(request: NextRequest) {
     if (body.emailSettings) {
       await setNotificationSettings({
         ...currentNotificationSettings,
-        email: {
+        email: restoreEmailSettings({
           ...currentNotificationSettings.email,
           ...body.emailSettings,
-        },
+        }, currentNotificationSettings.email),
       });
     }
 
@@ -58,15 +66,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      emailSettings: notificationSettings.email,
+      emailSettings: redactEmailSettings(notificationSettings.email),
       marketingSettings,
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("Error saving email marketing settings:", error);
     return NextResponse.json(
       {
         success: false,
-        error: error instanceof Error ? error.message : "E-posta ayarlari kaydedilemedi.",
+        error: "E-posta ayarları kaydedilemedi.",
       },
       { status: 500 },
     );

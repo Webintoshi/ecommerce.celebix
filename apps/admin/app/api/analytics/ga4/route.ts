@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
+import { NextRequest, NextResponse } from "next/server";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
 
 const GA4_PROPERTY_ID = process.env.GA4_PROPERTY_ID || "11244612690";
@@ -46,7 +47,10 @@ function createAnalyticsClient(): BetaAnalyticsDataClient {
   return new BetaAnalyticsDataClient({ credentials });
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "admin");
+    if (denied) return denied;
+
   try {
     // Create a fresh client on each request (avoids stale/broken cached clients)
     const client = createAnalyticsClient();

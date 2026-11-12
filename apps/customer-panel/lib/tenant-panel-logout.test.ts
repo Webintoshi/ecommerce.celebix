@@ -162,6 +162,13 @@ test("logout callback validates state on the fixed central host and returns to t
   }));
   assert.equal(tampered.status, 400);
   assert.equal(tampered.headers.get("location"), null);
+  assert.equal(tampered.headers.get("set-cookie"), null);
+
+  const wrongHost = await callback(new Request(`${SOURCE}/auth/logout/callback?state=${encodeURIComponent(state)}`, {
+    headers: { host: SOURCE_HOST },
+  }));
+  assert.equal(wrongHost.status, 400);
+  assert.equal(wrongHost.headers.get("set-cookie"), null);
 });
 
 test("logout fails closed on cross-site requests or durable revocation failure", async () => {

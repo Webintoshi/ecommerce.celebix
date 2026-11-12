@@ -45,6 +45,7 @@ test('hinted central login keeps one prepared handoff and installs a session bef
  const state=await run('state',centralRequest('/api/merchant-login/state')),cookie=state.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
  const first=await run('complete',centralRequest('/auth/merchant-phone/complete?purchase=toshi-test-1',cookie));
  assert.equal(first.status,200);
+ assert.equal(first.headers.get('referrer-policy'),'strict-origin');
  const html=await first.text();
  assert.match(html,/action="https:\/\/admin.shop.example.test\/auth\/handoff\?purchase=toshi-test-1"/);
  assert.equal(html.includes(CREDENTIAL),false);
@@ -69,6 +70,7 @@ test('same-host login continues to one fixed purchase path only after private co
  const state=await run('state',request('/api/merchant-login/state')),cookie=state.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
  const response=await run('complete',request('/auth/merchant-phone/complete?purchase=toshi-test-1',{headers:{cookie}}));
  assert.equal(response.status,303);assert.equal(response.headers.get('location'),'/settings/artificial-intelligence?purchase=toshi-test-1');
+ assert.equal(response.headers.get('referrer-policy'),'no-referrer');
  assert.ok(response.headers.getSetCookie().some(value=>value.startsWith('__Host-celebix_panel=')));
  const before=calls;assert.equal((await run('complete',request('/auth/merchant-phone/complete?purchase=toshi-test-1&returnTo=https://evil.example',{headers:{cookie}}))).status,403);assert.equal(calls,before);
  valid=false;const denied=await run('complete',request('/auth/merchant-phone/complete?purchase=toshi-test-1',{headers:{cookie}}));

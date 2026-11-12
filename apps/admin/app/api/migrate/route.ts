@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 
 // Static product data for migration
 const PRODUCTS_TO_MIGRATE = [
@@ -168,6 +169,9 @@ const CATEGORIES_TO_MIGRATE = [
 ];
 
 export async function POST(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "settings");
+    if (denied) return denied;
+
     try {
         const serverClient = createServerClient();
 

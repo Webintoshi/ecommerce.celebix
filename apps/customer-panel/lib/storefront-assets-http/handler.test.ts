@@ -15,20 +15,26 @@ function multipart(configure?: (form: FormData) => void) {
   configure?.(form);
   return new Request(`${ORIGIN}/api/storefront-assets`, { method: "POST", headers: { origin: ORIGIN, cookie: `__Host-celebix_panel=${CREDENTIAL}`, "idempotency-key": OP }, body: form });
 }
-function handlers(overrides: Record<string, unknown> = {}, storageOverrides: Record<string, unknown> = {}) {
+function handlers(overrides: Record<string, unknown> = {}, storageOverrides: Record<string, unknown> = {}, role: "store_owner" | "analyst" = "store_owner") {
   const calls: string[] = [];
   const assets = { async createAsset(input: unknown) { calls.push("create"); assert.equal((input as { tenantContext: typeof tenantContext }).tenantContext.store.id, STORE); return { asset, replayed: false }; }, async listAssets() { calls.push("list"); return [asset]; }, async archiveAsset() { calls.push("archive"); return { asset: { ...asset, status: "archived", archivedAt: NOW.toISOString(), version: 2 }, replayed: false }; }, async recoverOperation() { calls.push("recover"); return { kind: "absent" }; }, ...overrides };
   const storage = {
     publicUrl(key: string) { return `https://media.example.test/${key}`; },
-    async put(input: { objectKey: string; payloadSha256: string }) { assert.match(input.payloadSha256, /^[a-f0-9]{64}$/); calls.push(`put:${input.objectKey}`); },
+    async putIfAbsent(input: { objectKey: string; payloadSha256: string }) { assert.match(input.payloadSha256, /^[a-f0-9]{64}$/); calls.push(`put:${input.objectKey}`); return true; },
     async publish(input: { objectKey: string; payloadSha256: string }) { assert.match(input.payloadSha256, /^[a-f0-9]{64}$/); calls.push(`publish:${input.objectKey}`); },
     async unpublish(key: string) { calls.push(`unpublish:${key}`); return Object.freeze({ kind: "found" as const, byteSize: 67, mediaType: "image/png" as const, payloadSha256: "a".repeat(64), publication: "pending" as const }); },
     async head() { return Object.freeze({ kind: "not_found" as const }); },
     async delete(key: string) { calls.push(`delete:${key}`); },
     ...storageOverrides,
   };
-  const access = { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", tenantContext }; } };
-  const value = createStorefrontAssetHttpHandlers({ async resolveRuntime() { return { access, assets, storage } as never; }, now: () => NOW, requestId: () => REQUEST });
+  const access = { readiness: { mode: "approved_staging" }, panelOrigin: ORIGIN, async resolveCredential() { return { kind: "authenticated", tenantContext: { ...tenantContext, membership: { ...tenantContext.membership, role } } }; } };
+  const value = createStorefrontAssetHttpHandlers({ async resolveRuntime() {
+    return { access, assets, storage, async withAssetLock(storeId: string, assetId: string, run: () => Promise<unknown>) {
+      assert.equal(storeId, STORE);
+      assert.equal(assetId, ASSET);
+      return run();
+    } } as never;
+  }, now: () => NOW, requestId: () => REQUEST });
   return { calls, value };
 }
 
@@ -64,6 +70,15 @@ test("known persistence failure cleans the object while commit unknown performs 
   assert.equal((await unknown.value.upload(multipart())).status, 201); assert.equal(recoveries, 2); assert.equal(unknown.calls.some((entry) => entry.startsWith("delete:")), false);
 });
 
+test("a failed retry leaves a previously stored object intact", async () => {
+  const selected = handlers(
+    { async createAsset() { throw new StorefrontAssetRepositoryError("asset_limit_reached"); } },
+    { async putIfAbsent() { return false; } },
+  );
+  assert.equal((await selected.value.upload(multipart())).status, 409);
+  assert.equal(selected.calls.some((entry) => entry.startsWith("delete:")), false);
+});
+
 test("unresolved commit retry reuses one operation-derived R2 object identity", async () => {
   const selected = handlers({
     async createAsset() { throw new StorefrontAssetRepositoryError("commit_unknown"); },
@@ -87,6 +102,15 @@ test("an exact operation replay returns durable truth before a second object upl
   assert.equal(selected.calls.includes(`publish:${asset.objectKey}`), true);
 });
 
+test("recovery respects the current status of an archived storefront asset", async () => {
+  const selected = handlers({
+    async recoverOperation() { return { kind: "found", result: { asset, replayed: true } }; },
+    async listAssets() { return []; },
+  });
+  assert.equal((await selected.value.upload(multipart())).status, 409);
+  assert.deepEqual(selected.calls, []);
+});
+
 test("a publication failure never reports a durable asset as browser-ready", async () => {
   const selected = handlers({}, { async publish() { throw new Error("unavailable"); } });
   assert.equal((await selected.value.upload(multipart())).status, 503);
@@ -97,6 +121,38 @@ test("multipart upload rejects duplicate authority fields before object storage"
   const response = await selected.value.upload(multipart((form) => form.append("kind", "social")));
   assert.equal(response.status, 400);
   assert.equal(selected.calls.some((entry) => entry.startsWith("put:")), false);
+});
+
+test("members without storefront asset management rights are denied before reading the upload", async () => {
+  const selected = handlers({}, {}, "analyst");
+  const request = multipart();
+  const result = await selected.value.upload(request);
+  assert.equal(result.status, 403);
+  assert.equal((await result.json()).code, "membership_denied");
+  assert.equal(request.bodyUsed, false);
+  assert.deepEqual(selected.calls, []);
+});
+
+test("the upload cancels a body stream at the actual request-size limit", async () => {
+  const selected = handlers();
+  const boundary = "storefront-test";
+  let cancelled = false;
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode(`--${boundary}\r\nContent-Disposition: form-data; name="altText"\r\n\r\n`));
+      controller.enqueue(new Uint8Array(5_300_000).fill(65));
+    },
+    cancel() { cancelled = true; },
+  });
+  const init: RequestInit & { duplex: "half" } = {
+    method: "POST",
+    headers: { origin: ORIGIN, cookie: `__Host-celebix_panel=${CREDENTIAL}`, "idempotency-key": OP, "content-type": `multipart/form-data; boundary=${boundary}` },
+    body,
+    duplex: "half",
+  };
+  assert.equal((await selected.value.upload(new Request(`${ORIGIN}/api/storefront-assets`, init))).status, 400);
+  assert.equal(cancelled, true);
+  assert.deepEqual(selected.calls, []);
 });
 
 test("storefront asset list and archive remain session-derived and bounded", async () => {

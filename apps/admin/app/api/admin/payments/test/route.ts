@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import Craftgate from "@craftgate/craftgate";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getAdminAuthContext } from "@/lib/admin-auth";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import { getPaymentGatewayById } from "@/lib/db/payment-gateways";
 import { resolveIyzicoBaseUrl } from "@/lib/payment-providers";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
@@ -204,12 +204,10 @@ function getBaseUrl(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    try {
-        const auth = await getAdminAuthContext();
-        if (!auth) {
-            return NextResponse.json({ success: false, error: "Yetkisiz erişim." }, { status: 401 });
-        }
+    const denied = await requireLegacyAdminApi(request, "settings");
+    if (denied) return denied;
 
+    try {
         const body = await request.json();
         const gatewayId = typeof body.gatewayId === "string" ? body.gatewayId : "";
 

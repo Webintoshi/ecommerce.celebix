@@ -73,7 +73,9 @@ function publicRequestOrigin(request:Request,centralOrigin:string,security:boole
  return expected;
 }
 function secure(response:Response):Response {
- response.headers.set("cache-control","no-store");response.headers.set("referrer-policy","no-referrer");response.headers.set("x-content-type-options","nosniff");return response;
+ response.headers.set("cache-control","no-store");
+ if(!response.headers.has("referrer-policy"))response.headers.set("referrer-policy","no-referrer");
+ response.headers.set("x-content-type-options","nosniff");return response;
 }
 function failure(code:string,status=400):Response {return secure(Response.json({code},{status}));}
 function exact(value:unknown,keys:readonly string[],optional:readonly string[]=[]):Record<string,unknown>{

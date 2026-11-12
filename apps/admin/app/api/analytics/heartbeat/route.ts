@@ -1,3 +1,4 @@
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { deleteCachedValue, getOrSetCachedValue } from "@/lib/cache/memory-cache";
@@ -102,7 +103,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "admin");
+    if (denied) return denied;
+
   try {
     const visitors = await getOrSetCachedValue("analytics:heartbeat:visitors", 3_000, async () => {
       const presenceSnapshot = await getActivePresenceSnapshot();

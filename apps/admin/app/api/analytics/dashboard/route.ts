@@ -1,3 +1,4 @@
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { getOrSetCachedValue } from "@/lib/cache/memory-cache";
@@ -189,6 +190,9 @@ async function getAbandonedCartStats(
 }
 
 export async function GET(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "admin");
+    if (denied) return denied;
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const timeRange = searchParams.get("timeRange") || "week";

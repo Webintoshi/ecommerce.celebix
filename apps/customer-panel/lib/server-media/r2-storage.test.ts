@@ -17,6 +17,7 @@ test("R2 storage signs an exact tenant object without exposing credentials in it
   assert.equal(request?.init?.redirect, "manual");
   assert.equal(request?.init?.signal instanceof AbortSignal, true);
   const headers = new Headers(request?.init?.headers);
+  assert.equal(headers.has("if-none-match"), false);
   assert.match(headers.get("authorization") ?? "", /^AWS4-HMAC-SHA256 Credential=access-key-id\//);
   assert.equal(headers.get("x-amz-meta-celebix-sha256"), payloadSha256);
   assert.equal(headers.get("x-amz-meta-celebix-publication"), "pending");
@@ -29,7 +30,7 @@ test("R2 storage accepts only exact tenant media namespaces", () => {
     const objectKey = `stores/${STORE}/design/${MEDIA}.${extension}`;
     assert.equal(storage.publicUrl(objectKey), `https://media.saas-staging.celebix.site/${objectKey}`);
   }
-  for (const kind of ["logo", "hero", "category", "social", "favicon"]) {
+  for (const kind of ["logo", "hero", "category", "social", "favicon", "collection"]) {
     const objectKey = `stores/${STORE}/storefront/${kind}/${MEDIA}.jpg`;
     assert.equal(storage.publicUrl(objectKey), `https://media.saas-staging.celebix.site/${objectKey}`);
   }
@@ -40,6 +41,39 @@ test("R2 storage accepts only exact tenant media namespaces", () => {
     `stores/${STORE}/design/not-a-uuid.png`,
     `stores/${STORE}/design/${MEDIA}.png/extra`,
   ]) assert.throws(() => storage.publicUrl(objectKey), /product_media_storage_invalid/);
+});
+
+test("conditional storefront uploads write once and accept only a matching stored image on retry", async () => {
+  const objectKey = `stores/${STORE}/storefront/collection/${MEDIA}.webp`;
+  const bytes = new Uint8Array([1, 2]);
+  const payloadSha256 = createHash("sha256").update(bytes).digest("hex");
+  const methods: string[] = [];
+  let existingDigest: string | undefined;
+  const storage = createR2ProductMediaStorage(config, {
+    async fetch(_input, init) {
+      methods.push(init?.method ?? "");
+      if (init?.method === "PUT") {
+        const headers = new Headers(init.headers);
+        assert.equal(headers.get("if-none-match"), "*");
+        assert.match(headers.get("authorization") ?? "", /SignedHeaders=[^,]*\bif-none-match\b/);
+        if (existingDigest) return new Response(null, { status: 412 });
+        existingDigest = payloadSha256;
+        return new Response(null, { status: 200 });
+      }
+      return new Response(null, { status: 200, headers: {
+        "content-length": String(bytes.byteLength),
+        "content-type": "image/webp",
+        "x-amz-meta-celebix-sha256": existingDigest!,
+        "x-amz-meta-celebix-publication": "pending",
+      } });
+    },
+    now: () => new Date("2026-07-18T10:00:00.000Z"),
+  });
+  assert.equal(await storage.putIfAbsent({ objectKey, mediaType: "image/webp", bytes, payloadSha256 }), true);
+  assert.equal(await storage.putIfAbsent({ objectKey, mediaType: "image/webp", bytes, payloadSha256 }), false);
+  existingDigest = "b".repeat(64);
+  await assert.rejects(storage.putIfAbsent({ objectKey, mediaType: "image/webp", bytes, payloadSha256 }), /product_media_storage_object_mismatch/);
+  assert.deepEqual(methods, ["PUT", "PUT", "HEAD", "PUT", "HEAD"]);
 });
 
 test("R2 HEAD verifies exact length media type and payload digest", async () => {

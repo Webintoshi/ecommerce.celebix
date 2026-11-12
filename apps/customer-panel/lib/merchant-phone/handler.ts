@@ -7,7 +7,11 @@ const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]
 class Unauthorized extends Error{}
 export class MerchantActorUnavailable extends Error{}
 function invalid():never{throw Error('merchant_request_invalid');}
-function secure(response:Response){response.headers.set('cache-control','no-store');response.headers.set('referrer-policy','no-referrer');response.headers.set('x-content-type-options','nosniff');return response;}
+function secure(response:Response){
+ response.headers.set('cache-control','no-store');
+ if(!response.headers.has('referrer-policy'))response.headers.set('referrer-policy','no-referrer');
+ response.headers.set('x-content-type-options','nosniff');return response;
+}
 function error(code:string,status=403){return secure(Response.json({code},{status}));}
 function cookie(request:Request,name:string){const h=request.headers.get('cookie');if(!h)return undefined;if(h.length>24576||/[\u0000-\u001f\u007f]/u.test(h))invalid();const found=h.split(';').map(v=>v.trim()).filter(v=>v.startsWith(name+'='));if(found.length>1)invalid();const v=found[0]?.slice(name.length+1);if(v!==undefined&&(!v||v.length>8192||!/^[A-Za-z0-9_.-]+$/u.test(v)))invalid();return v;}
 function setCookie(name:string,value:string,seconds:number){if(!/^[A-Za-z0-9_.-]+$/u.test(value)||!Number.isSafeInteger(seconds)||seconds<1||seconds>28800)invalid();return `${name}=${value}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${seconds}`;}

@@ -8,10 +8,10 @@ import {
 } from "@celebix/platform-config/src/http-security";
 import { getSupabaseAnonKey, getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-shared";
 import { checkRateLimit, getRequestIp } from "@/lib/api-rate-limit";
+import { legacyAdminApiScope, legacyAdminPageScope, legacyAdminRoleAllowed } from "@/lib/legacy-admin-api-policy";
 
 const ADMIN_LOGIN_PATH = "/admin/login";
 const ADMIN_LOGIN_API_PATH = "/api/auth/login";
-const ADMIN_ROLES = new Set(["super_admin", "product_manager", "content_creator", "order_manager"]);
 const LOGIN_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 const LOGIN_RATE_LIMIT_MAX = 8;
 
@@ -19,47 +19,10 @@ function isProtectedAdminPage(pathname: string) {
   return pathname.startsWith("/admin") && pathname !== ADMIN_LOGIN_PATH;
 }
 
-function isProtectedApi(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  if (pathname.startsWith("/api/admin")) {
-    return true;
-  }
-
-  if (pathname.startsWith("/api/settings")) {
-    return true;
-  }
-
-  if (pathname.startsWith("/api/upload")) {
-    return true;
-  }
-
-  if (pathname.startsWith("/api/pages")) {
-    return true;
-  }
-
-  if (pathname.startsWith("/api/seo")) {
-    return true;
-  }
-
-  if (pathname.startsWith("/api/revalidate")) {
-    return true;
-  }
-
-  if (pathname.startsWith("/api/customers")) {
-    return pathname !== "/api/customers/create-from-auth";
-  }
-
-  if (pathname === "/api/products" || pathname === "/api/categories") {
-    return request.method !== "GET";
-  }
-
-  return false;
-}
-
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const requiresAuth = isProtectedAdminPage(pathname) || isProtectedApi(request);
+  const apiScope = legacyAdminApiScope(pathname, request.method);
+  const requiresAuth = isProtectedAdminPage(pathname) || apiScope !== null;
 
   if (pathname === ADMIN_LOGIN_API_PATH && request.method === "POST") {
     const originCheck = validateSameOriginRequest(request);
@@ -91,7 +54,8 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!requiresAuth) {
-    return applySecurityHeaders(request, NextResponse.next(), "admin");
+    return applySecurityHeaders(request, NextResponse.next(), "admin",
+      pathname.replace(/\/+$/, "") === "/api/assets" ? { contentSecurityPolicy: "route-owned" } : undefined);
   }
 
   if (pathname.startsWith("/api/") && isMutationMethod(request.method)) {
@@ -105,11 +69,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
+  let response = NextResponse.next({ request });
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
@@ -119,6 +79,13 @@ export async function middleware(request: NextRequest) {
       setAll(cookiesToSet) {
         for (const cookie of cookiesToSet) {
           request.cookies.set(cookie.name, cookie.value);
+        }
+        const existingCookies = response.cookies.getAll();
+        response = NextResponse.next({ request });
+        for (const cookie of existingCookies) {
+          response.cookies.set(cookie);
+        }
+        for (const cookie of cookiesToSet) {
           response.cookies.set(cookie.name, cookie.value, cookie.options);
         }
       },
@@ -152,7 +119,7 @@ export async function middleware(request: NextRequest) {
 
   const { data: profile } = await serviceClient.from("profiles").select("role").eq("id", user.id).maybeSingle<{ role: string }>();
 
-  if (!profile || !ADMIN_ROLES.has(profile.role)) {
+  if (!profile || !legacyAdminRoleAllowed(profile.role)) {
     await supabase.auth.signOut();
 
     if (pathname.startsWith("/api/")) {
@@ -168,8 +135,15 @@ export async function middleware(request: NextRequest) {
     return applySecurityHeaders(request, NextResponse.redirect(loginUrl), "admin");
   }
 
-  if (pathname === ADMIN_LOGIN_PATH) {
-    return applySecurityHeaders(request, NextResponse.redirect(new URL("/admin", request.url)), "admin");
+  const scope = apiScope ?? legacyAdminPageScope(pathname);
+  if (!legacyAdminRoleAllowed(profile.role, scope)) {
+    return applySecurityHeaders(
+      request,
+      apiScope
+        ? NextResponse.json({ success: false, error: "İşlem için yetkiniz yok." }, { status: 403 })
+        : NextResponse.redirect(new URL("/admin", request.url)),
+      "admin",
+    );
   }
 
   return applySecurityHeaders(request, response, "admin");

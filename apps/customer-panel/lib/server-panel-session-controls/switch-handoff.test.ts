@@ -85,6 +85,7 @@ test("store switch issues a destination-bound handoff and returns only a top-lev
   assert.equal(response.status, 200);
   assert.equal(response.headers.get("set-cookie"), null);
   assert.equal(response.headers.get("location"), null);
+  assert.equal(response.headers.get("referrer-policy"), "strict-origin");
   assert.match(response.headers.get("content-security-policy") ?? "", new RegExp(`form-action ${DESTINATION_ORIGIN.replaceAll(".", "\\.")}`));
   assert.match(html, new RegExp(`action="${DESTINATION_ORIGIN.replaceAll(".", "\\.")}\/auth\/handoff"`));
   assert.match(html, new RegExp(`name="handoff" value="${HANDOFF.replaceAll(".", "\\.")}"`));

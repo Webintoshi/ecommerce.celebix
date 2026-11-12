@@ -1,3 +1,4 @@
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { deriveCategoryHierarchyFromProduct, ensureProductCategoryHierarchy } from "@/lib/category-records";
 import { deleteProduct } from "@/lib/db/products";
@@ -697,6 +698,9 @@ async function findMatchingProductIdsForSearch(supabase: any, rawSearch: string)
 
 // GET /api/products - Get all products or filter by query params
 export async function GET(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "admin");
+    if (denied) return denied;
+
     try {
         const { searchParams } = new URL(request.url);
         const id = searchParams.get("id");

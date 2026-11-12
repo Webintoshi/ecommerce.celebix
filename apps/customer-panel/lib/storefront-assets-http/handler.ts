@@ -1,11 +1,13 @@
 import "server-only";
 import { createHash } from "node:crypto";
-import { STOREFRONT_ASSET_KINDS, type StorefrontAssetKind } from "@celebix/saas-contracts";
-import { storefrontAssetFingerprint, StorefrontAssetRepositoryError } from "@celebix/saas-data";
+import { isMerchantActionAllowed, STOREFRONT_ASSET_KINDS, type StorefrontAssetKind } from "@celebix/saas-contracts";
+import { storefrontAssetFingerprint, StorefrontAssetRepositoryError, type StorefrontAssetMutationResult } from "@celebix/saas-data";
 import { readPersistentPanelSessionCookie } from "../server-panel-session-controls/request-input.ts";
 import type { ServerPanelAccessResult } from "../server-panel-access/access.ts";
 import { validateProductImage } from "../server-media/image-validation.ts";
+import { ProductMediaStorageError } from "../server-media/r2-storage.ts";
 import type { ServerStorefrontAssetRuntime } from "../server-storefront-assets/runtime.ts";
+import { approvedPanelMutationOriginForStore, hasApprovedPanelMutationOriginShape } from "../panel-origin-authority.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -35,13 +37,47 @@ async function authorize(dependencies: Dependencies, request: Request, method: "
   let access: ServerPanelAccessResult; try { access = await runtime.access.resolveCredential({ hostname: request.headers.get("host"), credential: cookie.credential, requestId, now: new Date(now) }); } catch { return response("unavailable", 503); }
   if (access.kind === "unauthenticated") return response("unauthenticated", 401); if (access.kind === "unauthorized") return response("membership_denied", 403); if (access.kind !== "authenticated") return response("unavailable", 503);
   if(method!=="GET"&&!approvedPanelMutationOriginForStore(request,runtime.access.panelOrigin,access.tenantContext.store.slug))return response("origin_denied",403);
+  if (method !== "GET") {
+    const { membership, entitlements } = access.tenantContext;
+    if (membership.status !== "active" || !isMerchantActionAllowed(membership.role, "catalog_admin.manage")) return response("membership_denied", 403);
+    if (!entitlements.features.includes("media")) return response("feature_not_enabled", 403);
+  }
   return Object.freeze({ runtime, tenantContext: access.tenantContext, now: new Date(now) });
 }
 
+function boundedBody(request: Request, contentType: string, maxBytes: number): Response | null {
+  const length = request.headers.get("content-length");
+  if (!request.body || request.headers.has("transfer-encoding") || (length !== null && (!/^\d+$/.test(length) || Number(length) > maxBytes))) return null;
+  let size = 0;
+  const body = request.body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      size += chunk.byteLength;
+      if (size > maxBytes) throw new RangeError("storefront_asset_body_limit");
+      controller.enqueue(chunk);
+    },
+  }));
+  return new Response(body, { headers: { "content-type": contentType } });
+}
+
 async function jsonBody(request: Request): Promise<Record<string, unknown> | null> {
-  if (request.headers.get("content-type") !== "application/json" || request.headers.has("transfer-encoding")) return null;
-  const rawLength = request.headers.get("content-length"); if (rawLength !== null && (!/^\d+$/.test(rawLength) || Number(rawLength) > 16_384)) return null;
-  try { const value = await request.json(); return typeof value === "object" && value !== null && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype ? value as Record<string, unknown> : null; } catch { return null; }
+  if (request.headers.get("content-type") !== "application/json") return null;
+  try { const value = await boundedBody(request, "application/json", 16_384)?.json(); return typeof value === "object" && value !== null && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype ? value as Record<string, unknown> : null; } catch { return null; }
+}
+
+async function publishAsset(
+  { runtime, tenantContext, now }: Authorized,
+  result: StorefrontAssetMutationResult,
+  contentDigest: string,
+) {
+  const { asset, replayed } = result;
+  if (replayed) {
+    const current = await runtime.assets.listAssets({ tenantContext, now, kind: asset.kind });
+    if (!current.some((candidate) => candidate.status === "active" && candidate.id === asset.id && candidate.version === asset.version && candidate.objectKey === asset.objectKey)) {
+      return response("operation_mismatch", 409);
+    }
+  }
+  await runtime.storage.publish({ objectKey: asset.objectKey, mediaType: asset.mediaType, byteSize: asset.byteSize, payloadSha256: contentDigest });
+  return response("created", 201, result);
 }
 
 export function createStorefrontAssetHttpHandlers(dependencies: Dependencies) {
@@ -53,59 +89,65 @@ export function createStorefrontAssetHttpHandlers(dependencies: Dependencies) {
     },
     async upload(request: Request) {
       const authorized = await authorize(dependencies, request, "POST"); if (isResponse(authorized)) return authorized;
-      const operation = operationId(request), contentType = request.headers.get("content-type") ?? "", rawLength = request.headers.get("content-length");
-      if (!operation || !contentType.startsWith("multipart/form-data; boundary=") || request.headers.has("transfer-encoding") || (rawLength !== null && (!/^\d+$/.test(rawLength) || Number(rawLength) > MAX_REQUEST_BYTES))) return response("invalid_input", 400);
-      let form: FormData; try { form = await request.formData(); } catch { return response("invalid_input", 400); }
+      const operation = operationId(request), contentType = request.headers.get("content-type") ?? "";
+      if (!operation || !contentType.startsWith("multipart/form-data; boundary=")) return response("invalid_input", 400);
+      let form: FormData; try {
+        const body = boundedBody(request, contentType, MAX_REQUEST_BYTES);
+        if (!body) return response("invalid_input", 400);
+        form = await body.formData();
+      } catch { return response("invalid_input", 400); }
       const keys = [...form.keys()]; if (keys.length !== 3 || ["file", "kind", "altText"].some((required) => keys.filter((key) => key === required).length !== 1) || keys.some((key) => !["file", "kind", "altText"].includes(key))) return response("invalid_input", 400);
       const file = form.get("file"), kind = safeKind(form.get("kind")), altText = form.get("altText");
       if (!(file instanceof File) || file.size > MAX_REQUEST_BYTES || !kind || !validText(altText, 500)) return response("invalid_input", 400);
       let bytes: Uint8Array, image; try { bytes = new Uint8Array(await file.arrayBuffer()); image = validateProductImage({ bytes, mediaType: file.type, fileName: file.name }); } catch { return response("invalid_input", 400); }
       const contentDigest = createHash("sha256").update(bytes).digest("hex");
       const fingerprint = storefrontAssetFingerprint("create_asset", { kind, mediaType: image.mediaType, altText, width: image.width, height: image.height, byteSize: image.byteSize, contentDigest });
+      const { runtime, tenantContext, now } = authorized;
+      const storeId = tenantContext.store.id, assetId = operation;
+      const recoveryInput = { tenantContext, now, operationId: operation, operationKind: "create_asset", fingerprint } as const;
       try {
-        const recovered = await authorized.runtime.assets.recoverOperation({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, operationKind: "create_asset", fingerprint });
-        if (recovered.kind === "found") {
-          await authorized.runtime.storage.publish({ objectKey: recovered.result.asset.objectKey, mediaType: recovered.result.asset.mediaType, byteSize: recovered.result.asset.byteSize, payloadSha256: contentDigest });
-          return response("created", 201, recovered.result);
-        }
-      } catch (error) { return repositoryFailure(error); }
-      const assetId = operation;
-      const storeId = authorized.tenantContext.store.id, objectKey = `stores/${storeId}/storefront/${kind}/${assetId}.${image.extension}`, publicUrl = authorized.runtime.storage.publicUrl(objectKey);
-      const createInput = { tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, assetId, kind, objectKey, publicUrl, mediaType: image.mediaType, altText, width: image.width, height: image.height, byteSize: image.byteSize, contentDigest } as const;
-      try { await authorized.runtime.storage.put({ objectKey, mediaType: image.mediaType, bytes, payloadSha256: contentDigest }); } catch { return response("unavailable", 503); }
-      try {
-        const result = await authorized.runtime.assets.createAsset(createInput);
-        if (result.replayed && result.asset.objectKey !== objectKey) {
-          try { await authorized.runtime.storage.delete(objectKey); } catch { return response("unavailable", 503); }
-        }
-        try { await authorized.runtime.storage.publish({ objectKey: result.asset.objectKey, mediaType: result.asset.mediaType, byteSize: result.asset.byteSize, payloadSha256: contentDigest }); } catch { return response("unavailable", 503); }
-        return response("created", 201, result);
-      }
-      catch (error) {
-        if (error instanceof StorefrontAssetRepositoryError && error.code === "commit_unknown") {
+        return await runtime.withAssetLock(storeId, assetId, async () => {
+          const recovered = await runtime.assets.recoverOperation(recoveryInput);
+          if (recovered.kind === "found") return publishAsset(authorized, recovered.result, contentDigest);
+
+          const objectKey = `stores/${storeId}/storefront/${kind}/${assetId}.${image.extension}`;
+          const publicUrl = runtime.storage.publicUrl(objectKey);
+          const written = await runtime.storage.putIfAbsent({ objectKey, mediaType: image.mediaType, bytes, payloadSha256: contentDigest });
+          let result: StorefrontAssetMutationResult;
           try {
-            const recovered = await authorized.runtime.assets.recoverOperation({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, operationKind: "create_asset", fingerprint });
-            if (recovered.kind === "found") {
-              await authorized.runtime.storage.publish({ objectKey: recovered.result.asset.objectKey, mediaType: recovered.result.asset.mediaType, byteSize: recovered.result.asset.byteSize, payloadSha256: contentDigest });
-              return response("created", 201, recovered.result);
+            result = await runtime.assets.createAsset({ tenantContext, now, operationId: operation, assetId, kind, objectKey, publicUrl, mediaType: image.mediaType, altText, width: image.width, height: image.height, byteSize: image.byteSize, contentDigest });
+          } catch (error) {
+            if (error instanceof StorefrontAssetRepositoryError && error.code === "commit_unknown") {
+              const recovery = await runtime.assets.recoverOperation(recoveryInput);
+              if (recovery.kind === "found") return publishAsset(authorized, recovery.result, contentDigest);
+            } else if (written && error instanceof StorefrontAssetRepositoryError && error.code !== "unavailable") {
+              await runtime.storage.delete(objectKey).catch(() => undefined);
             }
-          } catch { /* fail closed */ }
-          return response("unavailable", 503);
-        }
-        await authorized.runtime.storage.delete(objectKey).catch(() => undefined);
+            throw error;
+          }
+          if (written && result.replayed && result.asset.objectKey !== objectKey) await runtime.storage.delete(objectKey);
+          return publishAsset(authorized, result, contentDigest);
+        });
+      } catch (error) {
+        if (error instanceof ProductMediaStorageError && error.code === "object_mismatch") return response("operation_mismatch", 409);
         return repositoryFailure(error);
       }
     },
     async archive(request: Request) {
       const authorized = await authorize(dependencies, request, "DELETE"); if (isResponse(authorized)) return authorized;
-      const operation = operationId(request), body = await jsonBody(request);
-      if (!operation || !body || Object.keys(body).sort().join(",") !== "assetId,expectedVersion" || typeof body.assetId !== "string" || !UUID.test(body.assetId) || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400);
+      const operation = operationId(request);
+      if (!operation) return response("invalid_input", 400);
+      const body = await jsonBody(request);
+      if (!body || Object.keys(body).sort().join(",") !== "assetId,expectedVersion" || typeof body.assetId !== "string" || !UUID.test(body.assetId) || !Number.isSafeInteger(body.expectedVersion) || (body.expectedVersion as number) < 1) return response("invalid_input", 400);
+      const { runtime, tenantContext, now } = authorized;
+      const assetId = body.assetId, expectedVersion = body.expectedVersion as number;
       try {
-        const result = await authorized.runtime.assets.archiveAsset({ tenantContext: authorized.tenantContext, now: authorized.now, operationId: operation, assetId: body.assetId, expectedVersion: body.expectedVersion as number });
-        await authorized.runtime.storage.unpublish(result.asset.objectKey);
-        return response("archived", 200, result);
+        return await runtime.withAssetLock(tenantContext.store.id, assetId, async () => {
+          const result = await runtime.assets.archiveAsset({ tenantContext, now, operationId: operation, assetId, expectedVersion });
+          await runtime.storage.unpublish(result.asset.objectKey);
+          return response("archived", 200, result);
+        });
       } catch (error) { return repositoryFailure(error); }
     },
   });
 }
-import {approvedPanelMutationOriginForStore,hasApprovedPanelMutationOriginShape} from "../panel-origin-authority.ts";

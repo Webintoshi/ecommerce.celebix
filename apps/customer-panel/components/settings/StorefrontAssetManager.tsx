@@ -56,6 +56,7 @@ export function StorefrontAssetManager({
   const [fileError, setFileError] = useState("");
   const uploadRef = useRef<HTMLButtonElement | null>(null);
   const pendingUploadOperation = useRef<string | null>(null);
+  const pendingArchiveOperations = useRef(new Map<string, { version: number; operationId: string }>());
   const fileSelection = useRef(0);
   const visibleKindChoices = ASSET_KIND_CHOICES.filter((choice) => allowedKinds.includes(choice.value));
   const visibleAssets = assets.filter((asset) => allowedKinds.includes(asset.kind));
@@ -128,10 +129,16 @@ export function StorefrontAssetManager({
   }
 
   async function archive(asset: StorefrontAsset) {
-    if (!canManage || busy) return; setBusy(true); setError(""); setMessage("");
+    if (!canManage || busy) return;
+    const pending = pendingArchiveOperations.current.get(asset.id);
+    const operationId = pending?.version === asset.version ? pending.operationId : id();
+    pendingArchiveOperations.current.set(asset.id, { version: asset.version, operationId });
+    setBusy(true); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/storefront-assets", { method: "DELETE", credentials: "same-origin", headers: { "content-type": "application/json", "idempotency-key": id() }, body: JSON.stringify({ assetId: asset.id, expectedVersion: asset.version }) });
-      if (!response.ok) throw new Error(); await load(); onAssetsChange?.(); setMessage("Görsel arşivlendi.");
+      const response = await fetch("/api/storefront-assets", { method: "DELETE", credentials: "same-origin", headers: { "content-type": "application/json", "idempotency-key": operationId }, body: JSON.stringify({ assetId: asset.id, expectedVersion: asset.version }) });
+      if (!response.ok) throw new Error();
+      pendingArchiveOperations.current.delete(asset.id);
+      await load(); onAssetsChange?.(); setMessage("Görsel arşivlendi.");
     } catch { setError(errorMessage()); } finally { setBusy(false); uploadRef.current?.focus(); }
   }
 

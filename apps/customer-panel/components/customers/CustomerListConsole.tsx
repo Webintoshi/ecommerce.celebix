@@ -40,6 +40,10 @@ function date(v: string) {
 function message(e: unknown) {
   return e instanceof CustomerApiError ? e.message : "Müşteriler yüklenemedi.";
 }
+function csvCell(value: string) {
+  const text = /^(?:[\u0000-\u0020\u007f]|[\s\u0000-\u001f\u007f]*[=+\-@])/u.test(value) ? `'${value}` : value;
+  return `"${text.replaceAll('"', '""')}"`;
+}
 export function CustomerListConsole({ canManage, embedded = false }: { canManage: boolean; embedded?: boolean }) {
   const [state, setState] = useState<"loading" | "loaded" | "error">("loading"),
     [items, setItems] = useState<readonly CustomerListItem[]>([]),
@@ -134,7 +138,7 @@ export function CustomerListConsole({ canManage, embedded = false }: { canManage
               String(c.orderCount),
               String(c.totalSpentCents),
             ]
-              .map((v) => `"${v.replaceAll('"', '""')}"`)
+              .map(csvCell)
               .join(","),
           )
           .join("\n"),

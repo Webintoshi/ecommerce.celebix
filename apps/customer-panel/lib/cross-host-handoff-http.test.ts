@@ -26,17 +26,23 @@ function session() {
   });
 }
 
-function fixture(options: { redemption?: object; recovery?: object; brandKind?: string; brandOrigin?: string; panelOrigin?: string; ownerOrigin?: string; omitOwnerOrigin?: boolean } = {}) {
+function fixture(options: { redemption?: object; recovery?: object; brandKind?: string; brandOrigin?: string; sourceOrigin?: string; panelOrigin?: string; ownerOrigin?: string; omitOwnerOrigin?: boolean } = {}) {
   let redeemCalls = 0;
   let recoveryCalls = 0;
   let redemptionInput: unknown;
+  const brandLookups: string[] = [];
+  const destination = options.brandOrigin ?? ORIGIN;
   const handler = createCrossHostHandoffHttpHandler({
     async resolveRuntime() {
       return {
         access: { panelOrigin: options.panelOrigin ?? CENTRAL },
         ...(options.omitOwnerOrigin ? {} : { ownerOrigin: options.ownerOrigin ?? OWNER }),
         adminDomains: {
-          async resolvePublicBrand() {
+          async resolvePublicBrand({ hostname }: { hostname: string }) {
+            brandLookups.push(hostname);
+            if (`https://${hostname}` !== destination && `https://${hostname}` !== options.sourceOrigin) {
+              return { kind: "admin_host_unknown" };
+            }
             return options.brandKind
               ? { kind: options.brandKind }
               : { kind: "resolved", brand: {
@@ -44,7 +50,7 @@ function fixture(options: { redemption?: object; recovery?: object; brandKind?: 
                   displayName: "Güzide Kuyumcu",
                   logoUrl: null,
                   accentColor: "#ff6500",
-                  canonicalAdminOrigin: options.brandOrigin ?? ORIGIN,
+                  canonicalAdminOrigin: destination,
                 } };
           },
         },
@@ -64,7 +70,7 @@ function fixture(options: { redemption?: object; recovery?: object; brandKind?: 
     clock: () => new Date(NOW),
     maximumBodyBytes: 1_024,
   });
-  return { handler, get redeemCalls() { return redeemCalls; }, get recoveryCalls() { return recoveryCalls; }, get redemptionInput() { return redemptionInput; } };
+  return { handler, brandLookups, get redeemCalls() { return redeemCalls; }, get recoveryCalls() { return recoveryCalls; }, get redemptionInput() { return redemptionInput; } };
 }
 
 function request(overrides: { url?: string; host?: string; origin?: string | null; body?: string; contentType?: string; method?: string } = {}) {
@@ -224,7 +230,7 @@ test("the actual owner signup completion HTML redeems with its source Origin and
   });
   assert.equal(response.status, 200);
   assert.equal(response.headers.has("set-cookie"), false);
-  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  assert.equal(response.headers.get("referrer-policy"), "strict-origin");
   const html = await response.text();
   const action = /<form[^>]+action="([^"]+)"/u.exec(html)?.[1];
   const handoff = /name="handoff" value="([^"]+)"/u.exec(html)?.[1];
@@ -259,20 +265,38 @@ test("redeems the same destination-bound handoff on an active custom admin hostn
   assert.equal(current.redeemCalls, 1);
 });
 
-test("accepts a privacy client that omits Origin while retaining destination-bound handoff authority", async () => {
-  const current = fixture();
-  const response = await current.handler(request({ origin: null }));
-  assert.equal(response.status, 303);
-  assert.equal(response.headers.get("location"), `${ORIGIN}/`);
-  assert.equal(current.redeemCalls, 1);
+test("redeems store switches from exact active platform and custom admin origins", async () => {
+  for (const hostname of ["source.admin.saas-staging.celebix.site", "source.admin.saas-staging.celebix.net", "admin.source.example"]) {
+    const sourceOrigin = `https://${hostname}`;
+    const current = fixture({ sourceOrigin });
+    const response = await current.handler(request({ origin: sourceOrigin }));
+    assert.equal(response.status, 303);
+    assert.equal(response.headers.get("location"), `${ORIGIN}/`);
+    assert.equal(response.headers.getSetCookie().length, 1);
+    assert.deepEqual(new Set(current.brandLookups), new Set([hostname, HOSTNAME]));
+    assert.equal(current.redeemCalls, 1);
+  }
 });
 
-test("accepts an opaque privacy client Origin while retaining destination-bound handoff authority", async () => {
-  const current = fixture();
-  const response = await current.handler(request({ origin: "null" }));
-  assert.equal(response.status, 303);
-  assert.equal(response.headers.get("location"), `${ORIGIN}/`);
-  assert.equal(current.redeemCalls, 1);
+test("rejects absent, opaque, and unresolved store-switch origins before redemption", async () => {
+  for (const origin of [null, "null", "https://unknown.admin.saas-staging.celebix.site", "https://admin.unverified.example"]) {
+    const current = fixture();
+    const response = await current.handler(request({ origin }));
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get("location"), null);
+    assert.equal(response.headers.get("set-cookie"), null);
+    assert.equal(current.redeemCalls, 0);
+  }
+});
+
+test("staging handoff refuses a production source even if it resolves", async () => {
+  const sourceOrigin = "https://source.admin.celebix.site";
+  const current = fixture({ sourceOrigin });
+  const response = await current.handler(request({ origin: sourceOrigin }));
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.has("set-cookie"), false);
+  assert.deepEqual(current.brandLookups, []);
+  assert.equal(current.redeemCalls, 0);
 });
 
 test("staging handoff refuses a production canonical admin host", async () => {

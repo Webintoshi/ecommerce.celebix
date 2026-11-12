@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadToR2 } from "@/lib/r2";
 import { resolveAdminAssetUrl } from "@/lib/asset-url";
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
+import { parseLegacyAssetSource } from "@/lib/legacy-media-policy";
+import { fetchLegacyRemoteImage } from "@/lib/legacy-remote-image";
+import { fetchCurrentStoreR2Asset } from "@/lib/r2-asset-fetch";
 
 export const dynamic = 'force-dynamic';
 
@@ -20,12 +24,12 @@ const MAX_DIMENSIONS = {
 function getFolderConfig(folder: string): string {
     if (folder === 'promo-banners') return 'promo-banners';
     if (folder === 'banners') return 'banners';
-    if (folder in MAX_DIMENSIONS) return folder;
+    if (Object.hasOwn(MAX_DIMENSIONS, folder)) return folder;
     return 'default';
 }
 
 async function optimizeImageFromUrl(
-    imageUrl: string,
+    imageUrl: URL,
     folder: string,
     targetFormat: 'avif' | 'webp' = 'avif',
     quality: number = 80
@@ -34,13 +38,8 @@ async function optimizeImageFromUrl(
     const configKey = getFolderConfig(folder);
     const dimensions = MAX_DIMENSIONS[configKey as keyof typeof MAX_DIMENSIONS] || MAX_DIMENSIONS.default;
 
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-
-    const arrayBuffer = await response.arrayBuffer();
-    const inputBuffer = Buffer.from(arrayBuffer);
+    const asset = await fetchCurrentStoreR2Asset(imageUrl.href) ?? await fetchLegacyRemoteImage(imageUrl);
+    const inputBuffer = asset.body;
     const originalSize = inputBuffer.length;
 
     const metadata = await sharp(inputBuffer).metadata();
@@ -82,18 +81,22 @@ async function optimizeImageFromUrl(
 }
 
 export async function POST(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "media");
+    if (denied) return denied;
     try {
         const body = await request.json();
         const { imageUrl, folder = 'promo-banners', format = 'avif', quality = 80 } = body;
 
-        if (!imageUrl) {
+        const source = parseLegacyAssetSource(imageUrl);
+        if (!source) {
             return NextResponse.json(
-                { success: false, error: "Image URL is required" },
+                { success: false, error: "Desteklenen bir görsel adresi gerekli." },
                 { status: 400 }
             );
         }
 
-        const processed = await optimizeImageFromUrl(imageUrl, folder, format, quality);
+        const assetFolder = getFolderConfig(typeof folder === "string" ? folder : "default");
+        const processed = await optimizeImageFromUrl(source, assetFolder, format === "webp" ? "webp" : "avif", Number.isFinite(quality) ? Math.min(95, Math.max(1, quality)) : 80);
 
         const timestamp = Date.now();
         const fileName = `optimized_${timestamp}.${processed.format}`;
@@ -102,7 +105,7 @@ export async function POST(request: NextRequest) {
             processed.buffer,
             fileName,
             `image/${processed.format}`,
-            folder
+            assetFolder
         );
 
         if (!result.success) {

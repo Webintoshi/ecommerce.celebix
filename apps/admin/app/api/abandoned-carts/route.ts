@@ -1,3 +1,4 @@
+import { requireLegacyAdminApi } from "@/lib/legacy-admin-api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import {
@@ -49,6 +50,9 @@ function applyFilters(
 }
 
 export async function GET(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);
@@ -101,6 +105,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
   try {
     const supabase = getDb();
     const body = await request.json();
@@ -133,6 +140,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
   try {
     const supabase = getDb();
     const body = await request.json();
@@ -234,6 +244,9 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+    const denied = await requireLegacyAdminApi(request, "orders");
+    if (denied) return denied;
+
   try {
     const supabase = getDb();
     const { searchParams } = new URL(request.url);

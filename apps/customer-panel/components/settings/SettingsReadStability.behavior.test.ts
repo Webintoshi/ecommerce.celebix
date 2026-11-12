@@ -42,16 +42,28 @@ test("shipping refresh retains the known workspace in place, locks changes and r
 
 test("asset archive reconciliation keeps existing image cards visible until its fresh list arrives", async () => {
   const refresh = deferred<Response>(); let reads = 0;
+  const archiveOperations: (string | null)[] = [];
   const asset = { id: "71000000-0000-4000-8000-000000000001", storeId: "71000000-0000-4000-8000-000000000002", kind: "hero", objectKey: "stores/71000000-0000-4000-8000-000000000002/storefront/hero/71000000-0000-4000-8000-000000000001.png", publicUrl: "https://media.example.test/stores/71000000-0000-4000-8000-000000000002/storefront/hero/71000000-0000-4000-8000-000000000001.png", mediaType: "image/png", altText: "Test banner", width: 1600, height: 900, byteSize: 1024, status: "active", createdAt: "2026-10-15T00:00:00.000Z", updatedAt: "2026-10-15T00:00:00.000Z", version: 1 };
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = (async (_input: unknown, init?: RequestInit) => init?.method === "DELETE" ? Response.json({}) : ++reads === 1 ? Response.json({ assets: [asset] }) : refresh.promise) as typeof fetch;
+  globalThis.fetch = (async (_input: unknown, init?: RequestInit) => {
+    if (init?.method !== "DELETE") return ++reads === 1 ? Response.json({ assets: [asset] }) : refresh.promise;
+    archiveOperations.push(new Headers(init.headers).get("idempotency-key"));
+    return archiveOperations.length === 1 ? Response.json({ code: "unavailable" }, { status: 503 }) : Response.json({});
+  }) as typeof fetch;
   try {
     const { StorefrontAssetManager } = compile("components/settings/StorefrontAssetManager.tsx", {
       "@/lib/merchant-admin-ui/client": { merchantAdminApi: {} },
     });
     await mounted(StorefrontAssetManager, { canManage: true }, async host => {
       const card = host.querySelector("li"); assert.ok(card);
-      await act(async () => [...host.querySelectorAll("button")].find(button => button.textContent.trim() === "Arşivle")!.click());
+      const archiveButton = [...host.querySelectorAll("button")].find(button => button.textContent.trim() === "Arşivle");
+      assert.ok(archiveButton);
+      await act(async () => archiveButton.click());
+      assert.match(host.textContent, /Vitrin görselleri şu anda güncellenemiyor/);
+      await act(async () => archiveButton.click());
+      assert.equal(archiveOperations.length, 2);
+      assert.match(archiveOperations[0] ?? "", /^[0-9a-f-]{36}$/);
+      assert.equal(archiveOperations[0], archiveOperations[1]);
       assert.ok(host.querySelector("li") === card, "same-scope reconciliation must not blank image cards");
       assert.equal(card.querySelector("button").disabled, true);
       await act(async () => refresh.resolve(Response.json({ assets: [] })));

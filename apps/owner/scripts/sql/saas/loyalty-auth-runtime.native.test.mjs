@@ -19,6 +19,19 @@ async function check(label,run){try{await run();passed++;console.log(`PASS ${lab
 try{
  applyBaseline(sql,dir);
  for(const f of readdirSync(dir).filter(f=>/^\d{12}/.test(f)&&Number(f.slice(8,12))>227&&Number(f.slice(8,12))<=504&&/(?:\.up|\.seed|\.freeze|_grants)\.sql$/.test(f)).sort((a,b)=>Number(a.slice(8,12))-Number(b.slice(8,12))||a.localeCompare(b))){const source=readFileSync(Number(f.slice(8,12))===503&&process.env.CELEBIX_LOYALTY503_TEST_SOURCE?process.env.CELEBIX_LOYALTY503_TEST_SOURCE:path.join(dir,f),'utf8');if(Number(f.slice(8,12))>=502)sources[f]=createHash('sha256').update(source).digest('hex');sql(source);}
+ const journalMigration = '202611130505_support_loyalty_and_tools_journal';
+ const journalUp = readFileSync(path.join(dir,`${journalMigration}.up.sql`),'utf8');
+ const journalDown = readFileSync(path.join(dir,`${journalMigration}.down.sql`),'utf8');
+ sources[`${journalMigration}.up.sql`] = createHash('sha256').update(journalUp).digest('hex');
+ await check('support journal rollback restores both routine definitions and allows a fresh install',()=>{
+  const definitions = () => sql("SELECT pg_get_functiondef(oid) FROM pg_proc WHERE pronamespace='saas'::regnamespace AND proname IN ('loyalty_admin_command_v1','store_tool_purchase_request') ORDER BY proname");
+  const before = definitions();
+  sql(journalUp);
+  assert.notEqual(definitions(),before);
+  sql(journalDown);
+  assert.equal(definitions(),before);
+ });
+ sql(journalUp);
  assert.equal(sql("SELECT to_regprocedure('saas.public_storefront_checkout_prepare_quote_v5(text,timestamptz,text,jsonb,bigint,jsonb,uuid,jsonb,jsonb,jsonb)')IS NOT NULL"),'t');
 
  const id=n=>`50310000-0000-4000-8000-${String(n).padStart(12,'0')}`,lit=x=>`'${String(x).replaceAll("'","''")}'`,json=x=>`${lit(JSON.stringify(x))}::jsonb`,at=new Date(Date.now()+86400000).toISOString(),owned=q=>sql('SET ROLE celebix_saas_owner;'+q),read=q=>JSON.parse(sql(q)),rpc=(name,args)=>read(`SET ROLE celebix_saas_owner;SELECT jsonb_build_object('outcome',outcome,'result',result_payload)FROM saas.${name}(${args})`);
@@ -43,6 +56,31 @@ try{
  });
  owned('UPDATE saas.loyalty_release_state SET ready=true,completed_at=clock_timestamp()WHERE singleton');
  const saved=rpc('loyalty_admin_command_v1',`${authority},'save','${id(12)}',${json({name:'Five coffees',enabled:true,config})}`);assert.equal(saved.outcome,'committed',JSON.stringify(saved));const program=saved.result.program.id;
+ await check('ordinary merchant saves stay unjournaled while support loyalty and tool writes are attributed once',()=>{
+  const operator=id(400), operatorPrincipal=id(401), supportHost='journal.admin.example.test';
+  const operatorEmail='sdkahmetcelebi@icloud.com';
+  assert.equal(sql(`SELECT count(*) FROM saas.platform_support_write_journal WHERE store_id='${store}'`),'0');
+  owned(`INSERT INTO saas.principals(id,issuer,subject,email,email_verified,created_at,updated_at) VALUES('${operatorPrincipal}','https://operator.example.test','support-journal',${lit(operatorEmail)},true,clock_timestamp(),clock_timestamp());
+    INSERT INTO saas.platform_operators(id,issuer,subject,principal_id,email,active) VALUES('${operator}','https://operator.example.test','support-journal','${operatorPrincipal}',${lit(operatorEmail)},true);
+    INSERT INTO saas.admin_domains(id,store_id,hostname,kind,status,canonical,verified_at,created_at,updated_at,management) VALUES(gen_random_uuid(),'${store}','${supportHost}','platform_subdomain','active',true,clock_timestamp(),clock_timestamp(),clock_timestamp(),'platform');`);
+  const support = JSON.parse(owned(`SELECT saas.platform_support_issue('${operator}','${store}','${supportHost}','Verify support journal',1,'support-journal505','${'a'.repeat(64)}')`));
+  owned(`SELECT saas.platform_support_redeem(${lit(support.handoff)},'${supportHost}','${'b'.repeat(64)}')`);
+  const supportMember = sql(`SELECT id FROM saas.memberships WHERE support_session_id=${lit(support.id)}`);
+  const supportAuthority=`'${store}','${operatorPrincipal}','${supportMember}','${plan.id}','${plan.plan_code}',${plan.version},'${at}'`;
+  const save = () => rpc('loyalty_admin_command_v1',`${supportAuthority},'save','${id(402)}',${json({name:'Support fixture',enabled:false,config})}`);
+  const quote = sql("SELECT quote_fingerprint FROM saas.store_tool_offers WHERE id='restock'");
+  const request = () => rpc('store_tool_purchase_request',`${supportAuthority},'${id(403)}','restock',${lit(quote)}`);
+  assert.equal(save().outcome,'committed');
+  assert.equal(request().outcome,'ok');
+  assert.equal(save().outcome,'operation_replayed');
+  assert.equal(request().outcome,'replayed');
+  const journal = (table,operation) => sql(`SELECT count(*) FROM saas.platform_support_write_journal WHERE session_id=${lit(support.id)} AND operator_id='${operator}' AND store_id='${store}' AND table_name=${lit(table)} AND operation=${lit(operation)}`);
+  assert.equal(journal('loyalty_programs','INSERT'),'1');
+  assert.equal(journal('loyalty_program_versions','INSERT'),'1');
+  assert.equal(journal('loyalty_operations','INSERT'),'1');
+  assert.equal(journal('store_tool_purchases','INSERT'),'1');
+  assert.equal(sql(`SELECT count(*) FROM saas.platform_audit WHERE operator_id='${operator}' AND store_id='${store}' AND action='support.write' AND payload->>'sessionId'=${lit(support.id)}`),'2');
+ });
  owned(`SELECT saas.loyalty_apply_effect_v1('${store}','${program}',1,'${account}','${customer}','${id(13)}',10,'${at}','fixture','{}')`);
  const rewards=read(`SELECT jsonb_agg(id ORDER BY sequence)FROM saas.loyalty_rewards WHERE store_id='${store}'`);assert.equal(rewards.length,2);
 

@@ -28,6 +28,16 @@ test("state get retains pending browser cookie and rejects leaked secret state",
 test("completion transfers server-only completion and removes pending only after success",async()=>{
  const completion={sessionCredential:session,sessionIssuedAt:"2026-10-12T12:00:00.000Z",sessionExpiresAt:"2026-10-12T20:00:00.000Z",destinationStoreId:key,destinationOrigin:"https://store.test"};
  const{handlers,writes}=setup({schemaVersion:1,code:"ok",completion});const response=await handlers.complete(new Request(`${origin}/auth/admin-login/complete`,{headers:{Cookie:cookie}}));assert.equal(response.status,303);assert.equal(writes[0].action,"complete");assert.match(response.headers.get("set-cookie")!,/__Host-celebix_admin_pending=;.*Max-Age=0/);assert.match(response.headers.get("set-cookie")!,/__Host-celebix_panel_pre_auth=;/);assert.ok(!(await response.text()).includes(session));
+ assert.equal(response.headers.get("referrer-policy"),"no-referrer");
+
+ const transfer=createAdminLoginSecurityHandlers({
+  centralOrigin:origin,authorityOrigin:"https://id.test",
+  transport:{execute:async()=>({schemaVersion:1,code:"ok",completion})},
+  completeSession:async()=>new Response("Transfer",{headers:{"referrer-policy":"strict-origin"}}),
+ });
+ const handoff=await transfer.complete(new Request(`${origin}/auth/admin-login/complete`,{headers:{Cookie:cookie}}));
+ assert.equal(handoff.status,200);
+ assert.equal(handoff.headers.get("referrer-policy"),"strict-origin");
 });
 test("security actions use session authority and never pending scope",async()=>{
  const security={maskedPhone:null,backupCodesRemaining:0,enabled:false,trustedDevices:[]};const{handlers,writes}=setup({schemaVersion:1,code:"ok",security});

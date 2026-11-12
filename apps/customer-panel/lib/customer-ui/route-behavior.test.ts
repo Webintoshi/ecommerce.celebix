@@ -273,6 +273,40 @@ function request(path: string, init?: RequestInit) {
   return new Request(`${ORIGIN}${path}`, { ...init, headers });
 }
 
+test("customer CSV exports spreadsheet-safe phones and preserves Turkish text and quotes", async (t) => {
+  const item = { ...listItem(customer()), firstName: 'İpek "Işık"', lastName: "Öz" };
+  const api = createCustomerApi(async (input) => {
+    if (input === "/api/customers/summary") return Response.json({ active: 1, archived: 0, consentedEmail: 1, totalSpentCents: 12500, currency: "TRY", asOf: NOW });
+    if (input === "/api/customers?pageSize=25") return Response.json({ items: [item] });
+    if (input === "/api/customers/export") return Response.json({ items: [item], exportedAt: NOW });
+    throw new Error(`Unexpected customer request ${String(input)}`);
+  }, () => OPERATION_ID);
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, "document");
+  t.after(() => {
+    if (originalDocument) Object.defineProperty(globalThis, "document", originalDocument);
+    else Reflect.deleteProperty(globalThis, "document");
+  });
+  Object.defineProperty(globalThis, "document", {
+    configurable: true,
+    value: { createElement: () => ({ click() {} }) },
+  });
+  let exportedBlob: Blob | undefined;
+  t.mock.method(URL, "createObjectURL", (blob: Blob) => {
+    exportedBlob = blob;
+    return "blob:customer-export";
+  });
+  t.mock.method(URL, "revokeObjectURL", () => {});
+  const hooks = createHookRuntime();
+  const ListConsole = await compileComponent("../../components/customers/CustomerListConsole.tsx", "CustomerListConsole", hooks.runtime, api, () => {});
+  const render = () => ListConsole({ canManage: true });
+  const view = await hooks.flush(render);
+  const button = findElement(view, (element) => element.type === "button" && textOf(element).includes("CSV Dışa Aktar"));
+  (button.props.onClick as () => void)();
+  await hooks.flush(render);
+  assert.ok(exportedBlob instanceof Blob);
+  assert.equal(await exportedBlob.text(), `Ad,Soyad,E-posta,Telefon,Durum,Sipariş,Toplam\n"İpek ""Işık""","Öz","ada@example.com","'+905551112233","active","2","12500"`);
+});
+
 test("customer route matrix invokes actual list detail edit and new pages through real clients and handlers", async () => {
   let stored = customer();
   let failure: Failure = "none";
