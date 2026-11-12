@@ -150,7 +150,8 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
       if (!authority.hostname.startsWith("admin.")) parseCanonicalAdminOriginFromPanelOrigin(authority.origin, runtime.access?.panelOrigin);
       const requestOrigin = request.headers.get("origin");
       if (authority.purchaseHint && requestOrigin !== runtime.access?.panelOrigin) return json('admin_handoff_request_invalid', 400);
-      if (requestOrigin !== null && requestOrigin !== "null" && requestOrigin !== runtime.access?.panelOrigin && requestOrigin !== runtime.ownerOrigin && requestOrigin !== authority.origin) {
+      if (requestOrigin === null || requestOrigin === "null") throw new Error("invalid");
+      if (requestOrigin !== runtime.access?.panelOrigin && requestOrigin !== runtime.ownerOrigin && requestOrigin !== authority.origin) {
         const hostname = sourceAdminHostname(requestOrigin, runtime.access?.panelOrigin);
         const source = await runtime.adminDomains?.resolvePublicBrand({ hostname, now: trustedNow });
         if (source?.kind !== "resolved") throw new Error("invalid");

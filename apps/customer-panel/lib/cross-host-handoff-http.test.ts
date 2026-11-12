@@ -278,16 +278,8 @@ test("redeems store switches from exact active platform and custom admin origins
   }
 });
 
-test("accepts existing sender navigation during rollout", async () => {
-  for (const origin of [null, "null"]) {
-    const current = fixture();
-    assert.equal((await current.handler(request({ origin }))).status, 303);
-    assert.equal(current.redeemCalls, 1);
-  }
-});
-
-test("rejects unresolved store-switch origins before redemption", async () => {
-  for (const origin of ["https://unknown.admin.saas-staging.celebix.site", "https://admin.unverified.example"]) {
+test("rejects absent, opaque, and unresolved store-switch origins before redemption", async () => {
+  for (const origin of [null, "null", "https://unknown.admin.saas-staging.celebix.site", "https://admin.unverified.example"]) {
     const current = fixture();
     const response = await current.handler(request({ origin }));
     assert.equal(response.status, 503);
