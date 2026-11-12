@@ -45,7 +45,7 @@ test('hinted central login keeps one prepared handoff and installs a session bef
  const state=await run('state',centralRequest('/api/merchant-login/state')),cookie=state.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');
  const first=await run('complete',centralRequest('/auth/merchant-phone/complete?purchase=toshi-test-1',cookie));
  assert.equal(first.status,200);
- assert.equal(first.headers.get('referrer-policy'),'no-referrer');
+ assert.equal(first.headers.get('referrer-policy'),'strict-origin');
  const html=await first.text();
  assert.match(html,/action="https:\/\/admin.shop.example.test\/auth\/handoff\?purchase=toshi-test-1"/);
  assert.equal(html.includes(CREDENTIAL),false);

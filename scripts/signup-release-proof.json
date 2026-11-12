@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "d5edba0ed2ed78b5c83b8d56b009bdca4cea0dcd80d5e92c0b978422918f1991",
+  "inputDigest": "433724f808075923fe8a14dc9a6de35604f27151b0f09fc3e7e39fc5396177c3",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -113,7 +113,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-auto-post.ts",
-      "sha256": "4f354d43b9f6f1f43b4107f6391e004bfa91e19572ebd4eb765721f325eea90c"
+      "sha256": "c90dc6d679da4532e041f77a162db7d1fd305c09819a38d54360e842d9e43cce"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-default.ts",

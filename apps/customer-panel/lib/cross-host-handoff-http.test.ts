@@ -230,7 +230,7 @@ test("the actual owner signup completion HTML redeems with its source Origin and
   });
   assert.equal(response.status, 200);
   assert.equal(response.headers.has("set-cookie"), false);
-  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  assert.equal(response.headers.get("referrer-policy"), "strict-origin");
   const html = await response.text();
   const action = /<form[^>]+action="([^"]+)"/u.exec(html)?.[1];
   const handoff = /name="handoff" value="([^"]+)"/u.exec(html)?.[1];
