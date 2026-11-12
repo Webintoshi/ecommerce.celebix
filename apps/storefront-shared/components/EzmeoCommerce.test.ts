@@ -37,6 +37,45 @@ test("Ezmeo sorting/filtering applies immediately and search submits on the same
   });
 });
 
+test("Ezmeo keeps the entered query and explains a catalog search that exceeds the UTF-8 limit", async () => {
+  const pushes: unknown[] = [];
+  const load = componentLoader({
+    "next/navigation": { useRouter: () => ({ push: (...args: unknown[]) => pushes.push(args) }) },
+    "../../components/CatalogProductList": { CatalogProductList: () => null },
+    "../../components/CommercePolicyProvider": { useCommercePolicy: () => ({ hidePrices: false }) },
+  });
+  const { EzmeoProductExplorer: Explorer } = load<{ EzmeoProductExplorer: Component }>(new URL("../themes/ezmeo/EzmeoProductExplorer.tsx", import.meta.url));
+  await withProductBrowser(async ({ container, render }) => {
+    await render(React.createElement(Explorer, { selection, products: [], locale: "tr", total: 0, nextOffset: null, path: "/urunler", cardStyle: "editorial", imageRatio: "square" }));
+    const input = container.querySelector<HTMLInputElement>('input[type="search"]')!;
+    const type = async (value: string) => React.act(async () => {
+      input.value = value;
+      input.dispatchEvent(new window.Event("input", { bubbles: true }));
+    });
+    const submit = async () => {
+      const previousFormData = globalThis.FormData;
+      try {
+        globalThis.FormData = window.FormData;
+        await React.act(async () => { input.form!.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true })); });
+      } finally { globalThis.FormData = previousFormData; }
+    };
+    const longQuery = "ş".repeat(51);
+    await type(longQuery);
+    assert.equal(input.getAttribute("aria-invalid"), "false");
+    await submit();
+    assert.equal(input.value, longQuery);
+    assert.equal(input.getAttribute("aria-invalid"), "true");
+    assert.match(document.getElementById(input.getAttribute("aria-describedby")!)?.textContent ?? "", /kısalt/iu);
+    assert.equal(document.activeElement, input);
+    assert.deepEqual(pushes, []);
+    const validQuery = longQuery.slice(1);
+    await type(validQuery);
+    assert.equal(input.getAttribute("aria-invalid"), "false");
+    await submit();
+    assert.deepEqual(pushes, [[`/urunler?q=${encodeURIComponent(validQuery)}`, { scroll: false }]]);
+  });
+});
+
 test("Ezmeo compact choices hide stock counts and duplicate prices while keeping price, availability and cart selection authoritative", async () => {
   const calls: unknown[] = [];
   const load = componentLoader({
@@ -107,7 +146,7 @@ test("Ezmeo quick view honors quantity settings and hands the selected variant t
     container = browser.container;
     await browser.render(React.createElement(QuickView, { product }));
     await browser.click('.product-card-cart');
-    assert.ok(container.querySelector('[data-ezmeo-quick-view]'));
+    assert.ok(container.querySelector('dialog[open] [data-ezmeo-quick-view]'));
     assert.equal(container.querySelector('.purchase-quantity'), null);
     assert.equal(container.querySelector('legend')?.textContent, "Gramaj");
     await browser.click('input[value="500"]');

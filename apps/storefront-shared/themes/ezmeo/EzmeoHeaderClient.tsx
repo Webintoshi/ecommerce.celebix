@@ -169,7 +169,7 @@ export function EzmeoHeaderClient({ displayName, locale, logo, navigation, layou
     </dialog>
     {showBottomNav ? <nav className="ez-bottom-nav" data-ezmeo-header aria-label="Alt gezinme" hidden={panel !== null || drawerOpen}>
       <Link href="/" aria-current={pathname === "/" ? "page" : undefined}><HeaderIcon name="home" /><span>Ana sayfa</span></Link>
-      <button type="button" aria-label="Kategorileri aç" aria-controls={dialogId} aria-haspopup="dialog" aria-expanded={panel === "menu"} aria-current={catalogRoute ? "page" : undefined} onClick={event => open("menu", event.currentTarget)}><HeaderIcon name="grid" /><span>Keşfet</span></button>
+      <button type="button" aria-controls={dialogId} aria-haspopup="dialog" aria-expanded={panel === "menu"} aria-current={catalogRoute ? "page" : undefined} onClick={event => open("menu", event.currentTarget)}><HeaderIcon name="grid" /><span>Keşfet</span></button>
       <Link href="/favorites" prefetch={false} aria-current={pathname === "/favorites" ? "page" : undefined}><StoreIcon name="heart" /><span>Favoriler</span></Link>
       <button type="button" aria-label={count > 0 ? `Sepet, ${count} ürün` : "Sepet"} aria-haspopup="dialog" aria-expanded={drawerOpen} onClick={event => openDrawer(event.currentTarget)}><HeaderIcon name="bag" /><span>Sepet</span>{count > 0 ? <small aria-hidden="true">{count > 99 ? "99+" : count}</small> : null}</button>
     </nav> : null}

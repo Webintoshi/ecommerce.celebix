@@ -14,6 +14,19 @@ const CHECKOUT_CONTEXT_ID = "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  images: {
+    remotePatterns: [{
+      protocol: "https",
+      hostname: "media.saas-staging.celebix.site",
+      port: "",
+      pathname: "/stores/7892a771-67a9-42d7-9b36-f4c3e8562e95/products/**",
+      search: "",
+    }],
+    imageSizes: [16, 32, 48, 64, 96, 128, 160, 192, 256, 320, 384, 512],
+    maximumRedirects: 0,
+    maximumResponseBody: 10_000_000,
+    maximumDiskCacheSize: 64_000_000,
+  },
   async headers() {
     return [
       {

@@ -16,6 +16,7 @@ import { mutateSideCartLine } from "./side-cart-mutation";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 import { SioraSideCartDrawer } from "../themes/siora/SioraSideCartDrawer";
 import { OrderBumpOffers } from "./OrderBumpOffers";
+import { StorefrontModal } from "./StorefrontModal";
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -28,6 +29,7 @@ export function SideCartDrawer({ presentation, locale, visualTheme, style }: Rea
 function DefaultSideCartDrawer({ presentation, locale, visualTheme, style }: Readonly<{ style?: CSSProperties; presentation?: PublicStarterThemePresentationV2["cart"]; locale: string; visualTheme?: StorefrontVisualTheme }>) {
   const policy = useCommercePolicy();
   const { cart, loading, unavailable, drawerOpen, closeDrawer, replaceCart, refresh } = useCartStatus();
+  const nativeModal = visualTheme === "ezmeo-deniz";
   const pricesHidden = policy.hidePrices || cart?.pricesHidden === true;
   const checkoutAllowed = policy.checkoutAllowed && cart?.checkoutBlocker !== "whatsapp_only";
   const closeRef = useRef<HTMLButtonElement | null>(null);
@@ -37,12 +39,12 @@ function DefaultSideCartDrawer({ presentation, locale, visualTheme, style }: Rea
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    if (!drawerOpen) return;
+    if (!drawerOpen || nativeModal) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const frame = window.requestAnimationFrame(() => closeRef.current?.focus());
     return () => { window.cancelAnimationFrame(frame); document.body.style.overflow = previousOverflow; };
-  }, [drawerOpen]);
+  }, [drawerOpen, nativeModal]);
 
   if (!drawerOpen) return null;
 
@@ -68,8 +70,8 @@ function DefaultSideCartDrawer({ presentation, locale, visualTheme, style }: Rea
   const checkoutBlockedByStock = cart?.checkoutBlocker === "stock_unavailable" || cart?.checkoutBlocker === "empty_cart";
   const configurationBlocked = cart?.checkoutBlocker === "shipping_unavailable" || cart?.checkoutBlocker === "payment_unavailable";
   const campaignPresentation = sideCartPresentation(presentation);
-  return <div className="side-cart-backdrop" style={style} data-state="open" data-campaign-cart="true" data-storefront-theme={visualTheme} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
-    <section className="side-cart-dialog campaign-side-cart" role="dialog" aria-modal="true" aria-labelledby="side-cart-title" onKeyDown={trapKeyboard}>
+  const drawer = <div className="side-cart-backdrop" style={style} data-state="open" data-campaign-cart="true" data-storefront-theme={visualTheme} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }}>
+    <section className="side-cart-dialog campaign-side-cart" role={nativeModal ? undefined : "dialog"} aria-modal={nativeModal ? undefined : true} aria-labelledby={nativeModal ? undefined : "side-cart-title"} onKeyDown={nativeModal ? undefined : trapKeyboard}>
       <header className="side-cart-header"><div><h2 id="side-cart-title">Sepetim</h2>{cart ? <span className="side-cart-header-count">{cart.itemCount} ürün</span> : null}</div><button ref={closeRef} type="button" aria-label="Sepeti kapat" onClick={closeDrawer}>×</button></header>
       {!cart && unavailable ? <div className="side-cart-empty is-unavailable" role="status"><span aria-hidden="true">!</span><h3>Sepet şu anda kullanılamıyor</h3><p>Güncel sepet doğrulanamadı. Lütfen yeniden deneyin.</p><button className="store-button" type="button" disabled={loading} onClick={() => void refresh()}>{loading ? "Yükleniyor…" : "Tekrar dene"}</button></div> : !cart ? <div className="side-cart-empty" aria-busy="true" role="status"><span aria-hidden="true">◇</span><h3>Sepet yükleniyor</h3><p>Güncel ürünleriniz hazırlanıyor.</p></div> : cart.items.length === 0 ? <div className="side-cart-empty"><span aria-hidden="true">◇</span><h3>Sepetiniz boş</h3><p>Beğendiğiniz ürünleri sepetinize ekleyin.</p><Link className="store-button" href={productIndexPath(locale)} onClick={closeDrawer}>Ürünleri keşfet</Link></div> : <>
         <div className="side-cart-lines" aria-label="Sepetteki ürünler">{cart.items.map((line) => {
@@ -91,4 +93,5 @@ function DefaultSideCartDrawer({ presentation, locale, visualTheme, style }: Rea
       <p className="sr-only" aria-live="polite">{status}</p>
     </section>
   </div>;
+  return nativeModal ? <StorefrontModal labelledBy="side-cart-title" onDismiss={closeDrawer}>{drawer}</StorefrontModal> : drawer;
 }

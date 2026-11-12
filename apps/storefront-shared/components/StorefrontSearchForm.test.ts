@@ -123,3 +123,35 @@ test("Güzide client search preserves modified-click behavior and other tenant d
     assert.deepEqual(pushes, []);
   });
 });
+
+test("search options stay out of the tab sequence and Escape dismisses only the active list", async () => {
+  await withSuggestionLinks(true, async ({ container, pushes }) => {
+    const input = container.querySelector<HTMLInputElement>('input[name="q"]')!;
+    const option = container.querySelector<HTMLAnchorElement>('[role="option"]')!;
+    assert.equal(input.form?.getAttribute("action"), "/search");
+    assert.equal(input.form?.getAttribute("method"), "get");
+    assert.equal(option.tagName, "A");
+    assert.equal(option.tabIndex, -1);
+    assert.equal(option.closest('[role="listbox"]')?.id, input.getAttribute("aria-controls"));
+    assert.equal(container.querySelector<HTMLAnchorElement>(".store-search-all")?.tabIndex, 0);
+    const key = async (value: string, options: KeyboardEventInit = {}) => {
+      const event = new window.KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true, ...options });
+      await React.act(async () => { input.dispatchEvent(event); });
+      return event;
+    };
+    await key("ArrowDown");
+    assert.equal(document.activeElement, input);
+    assert.equal(input.getAttribute("aria-activedescendant"), option.id);
+    assert.equal(option.getAttribute("aria-selected"), "true");
+    await key("Enter", { isComposing: true });
+    await key("Enter", { keyCode: 229 });
+    assert.deepEqual(pushes, []);
+    assert.equal(input.getAttribute("aria-expanded"), "true");
+    assert.equal((await key("Escape")).defaultPrevented, true);
+    assert.equal(input.getAttribute("aria-expanded"), "false");
+    assert.equal(input.getAttribute("aria-activedescendant"), null);
+    assert.equal(input.getAttribute("aria-controls"), null);
+    assert.equal(input.value, "altın kolye");
+    assert.equal((await key("Escape")).defaultPrevented, false);
+  });
+});

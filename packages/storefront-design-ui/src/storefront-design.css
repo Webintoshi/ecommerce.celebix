@@ -105,6 +105,8 @@
 .celebix-store-hero-media { color: inherit; text-decoration: none; }
 .celebix-store-hero img { display: block; width: 100%; height: auto; object-fit: contain; }
 .celebix-store-hero-arrow { position: absolute; z-index: 2; top: 50%; display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid color-mix(in srgb, var(--store-text) 14%, transparent); border-radius: 50%; background: color-mix(in srgb, var(--store-background) 88%, transparent); color: var(--store-text); font: inherit; font-size: 28px; line-height: 1; transform: translateY(-50%); cursor: pointer; backdrop-filter: blur(10px); }
+.celebix-store-hero-rotation { position: absolute; z-index: 2; inset-block-start: 12px; inset-inline-end: 12px; display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid color-mix(in srgb, var(--store-text, #171717) 14%, transparent); border-radius: 50%; padding: 0; background: var(--store-background, #fff); color: var(--store-text, #171717); cursor: pointer; }
+.celebix-store-hero-rotation:focus-visible { outline: 2px solid currentColor; outline-offset: -5px; }
 .celebix-store-hero-prev { left: 18px; }
 .celebix-store-hero-next { right: 18px; }
 .celebix-store-hero-dots { position: absolute; z-index: 2; bottom: 18px; left: 50%; display: flex; gap: 8px; transform: translateX(-50%); }
@@ -126,7 +128,7 @@
 .celebix-store-edit-shell:hover > .celebix-store-edit-control, .celebix-store-edit-control:focus-visible, .celebix-store-edit-control[aria-pressed="true"] { border-color: #ff5a00; box-shadow: inset 0 0 0 2px #fff; }
 .celebix-store-edit-shell:hover > .celebix-store-edit-control span, .celebix-store-edit-control:focus-visible span, .celebix-store-edit-control[aria-pressed="true"] span { opacity: 1; transform: translateY(0); }
 .celebix-store-edit-control:focus-visible { outline: 3px solid rgb(255 90 0 / 28%); outline-offset: 3px; }
-.celebix-store-edit-shell .celebix-store-hero-arrow, .celebix-store-edit-shell .celebix-store-hero-dots { z-index: 11; }
+.celebix-store-edit-shell :is(.celebix-store-hero-arrow, .celebix-store-hero-dots, .celebix-store-hero-rotation) { z-index: 11; }
 @keyframes celebix-store-marquee { to { transform: translateX(-10%); } }
 @media (max-width: 720px) {
   .celebix-store-header { min-height: 64px; grid-template-columns: 1fr auto; padding-inline: 16px; }

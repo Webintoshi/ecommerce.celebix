@@ -22,7 +22,7 @@ export function GuzideSearchPanel({ navigation, locale, onClose, onNavigate }: R
     if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
     if (event.key !== "Tab") return;
     const controls = [...(panel.current?.querySelectorAll<HTMLElement>('a[href],button:not([disabled]),input:not([disabled])') ?? [])]
-      .filter(control => !control.closest("[hidden], [inert]"));
+      .filter(control => control.tabIndex >= 0 && !control.closest("[hidden], [inert]"));
     const first = controls[0], last = controls.at(-1);
     if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }

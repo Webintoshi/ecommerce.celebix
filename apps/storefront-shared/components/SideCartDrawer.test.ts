@@ -32,7 +32,10 @@ test("an unavailable refresh is never presented as an empty or recovered cart", 
 });
 
 test("side-cart is modal keyboard-safe and restores the opening control", () => {
-  for (const proof of ['role="dialog"', 'aria-modal="true"', "Escape", "Tab", "document.body.style.overflow", "focus()", "aria-labelledby"]) assert.match(drawer, new RegExp(proof, "u"));
+  assert.match(drawer, /role=\{nativeModal \? undefined : "dialog"\}/u);
+  assert.match(drawer, /aria-modal=\{nativeModal \? undefined : true\}/u);
+  for (const proof of ["Escape", "Tab", "document.body.style.overflow", "aria-labelledby"]) assert.match(drawer, new RegExp(proof, "u"));
+  assert.match(provider, /if \(trigger\?\.isConnected\) trigger\.focus\(\)/u);
   assert.match(utilities, /aria-haspopup="dialog"/u);
   assert.match(utilities, /aria-expanded=\{drawerOpen\}/u);
   assert.match(utilities, /<button/u);

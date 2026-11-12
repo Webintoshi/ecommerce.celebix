@@ -85,7 +85,7 @@ test("empty and single image products do not show fake gallery navigation", asyn
   });
 });
 
-test("zoom closes with Escape, restores the exact body scroll value and returns focus to its trigger", async () => {
+test("zoom opens natively and responds to a browser close request without mutating document scroll styles", async () => {
   const { Provider, Gallery } = setup();
   await withProductBrowser(async ({ container, render, click }) => {
     await render(React.createElement(Provider, { product }, React.createElement(Gallery, { product })));
@@ -93,12 +93,13 @@ test("zoom closes with Escape, restores the exact body scroll value and returns 
     document.body.style.overflow = "scroll";
     trigger.focus();
     await click('[data-ezmeo-slide][aria-current="true"]');
-    assert.ok(container.querySelector('[role="dialog"]'));
-    assert.equal(document.body.style.overflow, "hidden");
-    await React.act(async () => { document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await new Promise(resolve => window.requestAnimationFrame(resolve)); });
-    assert.equal(container.querySelector('[role="dialog"]'), null);
+    const dialog = container.querySelector<HTMLDialogElement>('dialog[open]')!;
+    assert.ok(dialog);
     assert.equal(document.body.style.overflow, "scroll");
-    assert.equal(document.activeElement === trigger, true, "focus returns to the zoom trigger");
+    await React.act(async () => dialog.dispatchEvent(new window.Event("cancel", { cancelable: true })));
+    assert.equal(container.querySelector("dialog"), null);
+    assert.equal(dialog.open, false);
+    assert.equal(document.body.style.overflow, "scroll");
   });
 });
 
@@ -113,21 +114,21 @@ test("keyboard navigation moves focus to the current slide so Enter zooms the ph
     const current = container.querySelector<HTMLButtonElement>('[data-ezmeo-slide][aria-current="true"]')!;
     assert.equal(document.activeElement === current, true, "keyboard focus follows the visible slide");
     await React.act(async () => (document.activeElement as HTMLButtonElement).click());
-    assert.equal(container.querySelector('[role="dialog"] img')?.getAttribute("src"), "https://media.example/front.webp");
+    assert.equal(container.querySelector('dialog[open] img')?.getAttribute("src"), "https://media.example/front.webp");
   });
 });
 
-test("removing all media while zoom is open restores scrolling and does not reopen zoom when media returns", async () => {
+test("removing all media closes zoom and does not reopen it when media returns", async () => {
   const { Gallery } = setup();
   await withProductBrowser(async ({ container, render, click }) => {
     document.body.style.overflow = "auto";
     await render(React.createElement(Gallery, { product }));
     await click('[data-ezmeo-slide][aria-current="true"]');
-    assert.equal(document.body.style.overflow, "hidden");
+    assert.ok(container.querySelector("dialog[open]"));
     await render(React.createElement(Gallery, { product: { ...product, variants: [], media: [] } }));
     assert.equal(document.body.style.overflow, "auto");
     await render(React.createElement(Gallery, { product }));
-    assert.equal(container.querySelector('[role="dialog"]'), null);
+    assert.equal(container.querySelector("dialog"), null);
   });
 });
 
@@ -146,7 +147,7 @@ test("opening zoom interrupts an unfinished arrow movement and keeps the photo t
     await click('[aria-label="Sonraki görsel"]');
     await click('[data-ezmeo-slide]:first-child');
     await React.act(async () => { if (pending !== null) { viewport.scrollLeft = pending; viewport.dispatchEvent(new window.Event("scroll", { bubbles: true })); } });
-    assert.equal(container.querySelector('[role="dialog"] img')?.getAttribute("src"), "https://media.example/back.webp");
+    assert.equal(container.querySelector('dialog[open] img')?.getAttribute("src"), "https://media.example/back.webp");
   });
 });
 
@@ -181,8 +182,9 @@ test("native scrolling carries slide focus with the photo without stealing focus
     await React.act(async () => { viewport.scrollLeft = 320; viewport.dispatchEvent(new window.Event("scroll", { bubbles: true })); await new Promise(resolve => window.requestAnimationFrame(resolve)); });
     assert.equal(document.activeElement === container.querySelector('[data-ezmeo-slide][aria-current="true"]'), true, "native scroll focus follows the photo");
     await React.act(async () => (document.activeElement as HTMLButtonElement).click());
-    assert.equal(container.querySelector('[role="dialog"] img')?.getAttribute("src"), "https://media.example/front.webp");
-    await React.act(async () => { document.dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true })); await new Promise(resolve => window.requestAnimationFrame(resolve)); });
+    const dialog = container.querySelector<HTMLDialogElement>('dialog[open]')!;
+    assert.equal(dialog.querySelector("img")?.getAttribute("src"), "https://media.example/front.webp");
+    await React.act(async () => dialog.dispatchEvent(new window.Event("cancel", { cancelable: true })));
     const thumbnail = container.querySelector<HTMLButtonElement>("[data-ezmeo-thumbnail]")!;
     thumbnail.focus();
     await React.act(async () => { viewport.scrollLeft = 0; viewport.dispatchEvent(new window.Event("scroll", { bubbles: true })); await new Promise(resolve => window.requestAnimationFrame(resolve)); });

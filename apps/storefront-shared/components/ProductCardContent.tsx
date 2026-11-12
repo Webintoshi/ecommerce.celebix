@@ -3,6 +3,8 @@
 import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saas-contracts";
 import Link from "next/link";
 
+import { EzmeoProductImage } from "../themes/ezmeo/EzmeoProductImage";
+
 import { formatTry } from "../lib/format.ts";
 import { productPath } from "../lib/storefront-routes.ts";
 import { useCommercePolicy } from "./CommercePolicyProvider";
@@ -13,6 +15,8 @@ export type ProductCardContentProduct = Pick<PublicProduct, "id" | "slug" | "tit
   brand?: Readonly<{ name: string }>;
   media: readonly Readonly<{ url: string; altText: string; width?: number; height?: number }>[];
 }>;
+
+const ezmeoCardImageSizes = "(max-width: 760px) calc((100vw - 38px) / 2), min(25vw, 360px)";
 
 export function ProductCardContent({ product, locale, cardStyle, imageRatio, prefetch }: Readonly<{
   product: ProductCardContentProduct;
@@ -29,9 +33,8 @@ export function ProductCardContent({ product, locale, cardStyle, imageRatio, pre
   return <Link className="product-card-link" href={productPath(locale, product.slug)} prefetch={prefetch} data-product-card-content="true">
     <div className="product-image-shell">
       {primary ? <>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img className="product-image-primary" src={primary.url} alt={primary.altText || product.title} loading="lazy" width={primary.width} height={primary.height} />
-        {secondary ? <img className="product-image-secondary" src={secondary.url} alt="" loading="lazy" width={secondary.width} height={secondary.height} /> : null}
+        <EzmeoProductImage media={primary} alt={primary.altText || product.title} className="product-image-primary" sizes={ezmeoCardImageSizes} />
+        {secondary ? <EzmeoProductImage media={secondary} alt="" className="product-image-secondary" sizes={ezmeoCardImageSizes} fetchPriority="low" /> : null}
       </> : <span>Görsel yakında</span>}
       {badge ? <em className={`product-card-badge is-${badge}`}>{badge === "sale" ? "İndirim" : "Tükendi"}</em> : null}
     </div>

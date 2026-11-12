@@ -18,7 +18,7 @@ const emptyCart: PublicCart = { ...cart, version: 9, itemCount: 0, subtotalCents
 const recommendation = (id: string): Recommendation => ({ id, slug: `urun-${id}`, title: `Öneri ${id}`, priceCents: 2500, media: { url: `https://media.example/${id}.webp`, altText: `Öneri fotoğrafı ${id}`, width: 400, height: 600 } });
 const text = (element: Element | null) => element?.textContent?.replace(/\s+/gu, " ").trim() ?? "";
 
-async function withDrawer(run: (browser: DrawerBrowser) => Promise<void>, options: Readonly<{ state?: Partial<DrawerState>; quantity?: boolean; trustMessage?: string; suggestions?: readonly Recommendation[]; recommendationFailure?: boolean; recommendationStatus?: number; removeFailure?: boolean; removalResult?: PublicCart; bumpOffers?: unknown; defaultDrawer?: boolean; add?: (input: unknown) => Promise<PublicCart> }> = {}) {
+async function withDrawer(run: (browser: DrawerBrowser) => Promise<void>, options: Readonly<{ state?: Partial<DrawerState>; quantity?: boolean; trustMessage?: string; suggestions?: readonly Recommendation[]; recommendationFailure?: boolean; recommendationStatus?: number; removeFailure?: boolean; removalResult?: PublicCart; bumpOffers?: unknown; defaultDrawer?: boolean; visualTheme?: "ezmeo-deniz"; add?: (input: unknown) => Promise<PublicCart> }> = {}) {
   const fetches: DrawerBrowser["fetches"] = [], removals: unknown[] = [], quantities: unknown[] = [], replaced: PublicCart[] = [];
   let closeCount = 0, refreshCount = 0;
   let updateState: ((value: Partial<DrawerState>) => void) | undefined;
@@ -56,7 +56,7 @@ async function withDrawer(run: (browser: DrawerBrowser) => Promise<void>, option
     Object.assign(globalThis, { HTMLElement: window.HTMLElement, HTMLAnchorElement: window.HTMLAnchorElement, Node: window.Node, fetch: async (input: RequestInfo | URL, init?: RequestInit) => { fetches.push({ input: String(input), init }); if (options.recommendationFailure) throw new Error("recommendations unavailable"); return new Response(JSON.stringify({ suggestions: options.suggestions ?? [recommendation("new-one"), recommendation("new-two"), recommendation("new-three")] }), { status: options.recommendationStatus ?? 200, headers: { "content-type": "application/json" } }); } });
     const flushFocus = async () => React.act(async () => { await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())); });
     try {
-      await browser.render(React.createElement(CartFixture, null, React.createElement(Drawer, { locale: "tr", presentation: { showCheckoutReadiness: true, showShippingProgress: false, showQuantitySelector: options.quantity ?? false, trustMessage: options.trustMessage } })));
+      await browser.render(React.createElement(CartFixture, null, React.createElement(Drawer, { locale: "tr", visualTheme: options.visualTheme, presentation: { showCheckoutReadiness: true, showShippingProgress: false, showQuantitySelector: options.quantity ?? false, trustMessage: options.trustMessage } })));
       await flushFocus();
       await run({ ...browser, fetches, removals, quantities, replaced, nativeDialogs, refreshes: () => refreshCount, closes: () => closeCount, update: async (value) => { assert.ok(updateState); await React.act(async () => updateState?.(value)); }, flushFocus });
     } finally {
@@ -96,6 +96,26 @@ test("drawer shows canonical cart lines, a truthful title, only the canonical su
     assert.equal(closes(), 1);
     assert.equal(container.querySelector("dialog"), null);
   });
+});
+
+test("Ezmeo uses a native cart modal and handles close requests through the cart controller", async () => {
+  await withDrawer(async ({ container, closes, nativeDialogs, update }) => {
+    const dialog = container.querySelector<HTMLDialogElement>("dialog[open]")!;
+    assert.equal(dialog, nativeDialogs.shown[0]);
+    assert.equal(dialog.getAttribute("aria-labelledby"), "side-cart-title");
+    assert.ok(dialog.querySelector('a[href="/checkout"]'));
+    assert.equal(dialog.querySelector('[role="dialog"]'), null);
+    await React.act(async () => dialog.dispatchEvent(new window.Event("cancel", { cancelable: true })));
+    assert.equal(closes(), 1);
+    assert.equal(container.querySelector("dialog"), null);
+    assert.equal(nativeDialogs.closed[0], dialog);
+
+    await update({ drawerOpen: true });
+    const backdrop = container.querySelector(".side-cart-backdrop")!;
+    await React.act(async () => backdrop.dispatchEvent(new window.MouseEvent("mousedown", { bubbles: true })));
+    assert.equal(closes(), 2);
+    assert.equal(container.querySelector("dialog"), null);
+  }, { defaultDrawer: true, visualTheme: "ezmeo-deniz" });
 });
 
 test("configured cart offers replace Siora discovery cards while a disabled tool preserves them", async () => {

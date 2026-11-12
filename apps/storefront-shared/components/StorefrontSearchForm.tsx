@@ -12,6 +12,11 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
   const [query, setQuery] = useState(defaultValue), [items, setItems] = useState<readonly SearchSuggestion[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [open, setOpen] = useState(false), [active, setActive] = useState(-1);
+  const expanded = open && state !== "idle";
+  const activeOptionId = expanded && items[active] ? `${id}-item-${active}` : undefined;
+  useEffect(() => {
+    if (activeOptionId) document.getElementById(activeOptionId)?.scrollIntoView({ block: "nearest" });
+  }, [activeOptionId]);
   useEffect(() => {
     requestRef.current?.abort();
     const controller = new AbortController(); requestRef.current = controller;
@@ -30,11 +35,12 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
     }, 250);
     return () => { clearTimeout(timer); controller.abort(); };
   }, [query, open]);
-  const close = () => { setOpen(false); requestRef.current?.abort(); };
+  const close = () => { setOpen(false); setActive(-1); requestRef.current?.abort(); };
   const navigate = (href: string) => { if (onNavigate) onNavigate(href); else router.push(href); };
   const follow = (event: MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     close();
-    if ((!clientNavigation && !onNavigate) || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (!clientNavigation && !onNavigate) return;
     event.preventDefault();
     navigate(href);
   };
@@ -47,22 +53,53 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
     close(); navigate(`/search?q=${encodeURIComponent(value)}`);
   };
   const input = <input id={`${id}-input`} ref={inputRef} name="q" type="search" defaultValue={defaultValue} placeholder={variant === "header" ? "Ara" : variant === "panel" ? "Ürün veya kategori ara" : "Ne aramıştınız?"} autoFocus={variant === "panel"} autoComplete="off" enterKeyHint="search" required maxLength={100}
-    role="combobox" aria-autocomplete="list" aria-controls={`${id}-results`} aria-expanded={open && state !== "idle"} aria-activedescendant={active >= 0 ? `${id}-item-${active}` : undefined}
-    onInput={event => { event.currentTarget.setCustomValidity(""); requestRef.current?.abort(); setQuery(event.currentTarget.value); setOpen(true); }} onFocus={() => setOpen(true)}
+    role="combobox" aria-autocomplete="list" aria-controls={expanded ? `${id}-results` : undefined} aria-expanded={expanded} aria-activedescendant={activeOptionId}
+    onInput={event => {
+      event.currentTarget.setCustomValidity("");
+      requestRef.current?.abort();
+      setActive(-1);
+      setQuery(event.currentTarget.value);
+      setOpen(true);
+    }}
+    onFocus={() => setOpen(true)}
+    onBlur={() => setActive(-1)}
     onKeyDown={event => {
       if (event.nativeEvent.isComposing) return;
-      if (event.key === "Escape") close();
-      if (items.length && (event.key === "ArrowDown" || event.key === "ArrowUp")) { event.preventDefault(); setOpen(true); setActive(index => event.key === "ArrowDown" ? (index + 1) % items.length : (index <= 0 ? items.length - 1 : index - 1)); }
-      if (open && active >= 0 && event.key === "Enter") { event.preventDefault(); close(); navigate(items[active].href); }
+      if (event.key === "Escape" && expanded) {
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+        return;
+      }
+      const unmodified = !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+      if (expanded && items.length && unmodified && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+        event.preventDefault();
+        setActive(index => {
+          if (event.key === "ArrowDown") return Math.min(index + 1, items.length - 1);
+          return index < 0 ? items.length - 1 : Math.max(0, index - 1);
+        });
+      }
+      if (event.key === "Enter" && event.nativeEvent.keyCode === 229) {
+        event.preventDefault();
+        return;
+      }
+      const option = expanded ? items[active] : undefined;
+      if (event.key === "Enter" && option) {
+        event.preventDefault();
+        close();
+        navigate(option.href);
+      }
     }} />;
   return <form className={variant === "header" ? "siora-header-search store-live-search" : variant === "panel" ? "guzide-panel-search store-live-search" : "store-search-form store-live-search"} action="/search" method="get" role="search" onSubmit={submit}
     onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) close(); }}>
     {variant === "header" || variant === "panel" ? <><button type="submit" aria-label="Ürün ara">{icon ?? "Ara"}</button><label className="sr-only" htmlFor={`${id}-input`}>Ürün adı veya anahtar kelime</label>{input}</> : <><label htmlFor={`${id}-input`}>Ürün adı, ürün kodu, barkod, marka veya kategori</label><div>{input}<button className="store-button" type="submit">Ara</button></div></>}
-    {open && state !== "idle" ? <aside className="store-search-suggestions" aria-label="Arama önerileri">
+    {expanded ? <aside className="store-search-suggestions" aria-label="Arama önerileri">
       <p className="store-search-status" role="status">{state === "loading" ? "Ürünler aranıyor…" : state === "error" ? "Öneriler alınamadı. Ara düğmesiyle tekrar deneyebilirsiniz." : items.length ? "Eşleşen ürünler" : "Eşleşen ürün bulunamadı."}</p>
-      <ul id={`${id}-results`} role="listbox" aria-label="Ürünler">{items.map((item, index) => <li id={`${id}-item-${index}`} key={item.id} role="option" aria-selected={active === index}>
-        <a href={item.href} onClick={event => follow(event, item.href)}>
-          {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAlt} width={48} height={48} loading="lazy" /> : <span className="store-search-image-placeholder" aria-hidden="true">◇</span>}
+      <ul id={`${id}-results`} role="listbox" aria-label="Ürünler">{items.map((item, index) => <li key={item.id} role="presentation">
+        <a id={`${id}-item-${index}`} href={item.href} role="option" aria-selected={active === index} tabIndex={-1}
+          onMouseDown={event => { if (event.button === 0) event.preventDefault(); }}
+          onClick={event => follow(event, item.href)}>
+          {item.imageUrl ? <img src={item.imageUrl} alt="" width={48} height={48} loading="lazy" /> : <span className="store-search-image-placeholder" aria-hidden="true">◇</span>}
           <span>{item.title}{!item.available ? <small>Tükendi</small> : null}</span>
           {!policy.hidePrices && item.priceCents !== null ? <strong>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: item.currency }).format(item.priceCents / 100)}</strong> : null}
         </a>

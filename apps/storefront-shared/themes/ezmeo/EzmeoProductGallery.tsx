@@ -1,10 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import type { PublicProduct } from "@celebix/saas-contracts";
 import { useProductVariantMedia } from "../../components/ProductVariantMedia";
-import { galleryEscapeRequested, lockGalleryDocument, scheduleGalleryFocus } from "../../components/product-gallery-model";
+import { StorefrontModal } from "../../components/StorefrontModal";
+import { EzmeoProductImage } from "./EzmeoProductImage";
 import styles from "./ezmeo-product-gallery.module.css";
+
+const galleryImageSizes = "(max-width: 640px) calc(100vw - 28px), (max-width: 1024px) min(calc(100vw - 40px), 640px), min(50vw, 680px)";
+const thumbnailImageSizes = "(max-width: 640px) 54px, 64px";
 
 function GalleryArrow({ next = false }: { next?: boolean }) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={next ? "m9 5 7 7-7 7" : "m15 5-7 7 7 7"} /></svg>;
@@ -31,13 +35,9 @@ export function EzmeoProductGallery({ product }: Readonly<{ product: PublicProdu
   const syncedImages = useRef<typeof images | null>(null);
   const syncedWidth = useRef(0);
   const scrollTarget = useRef<number | null>(null);
-  const zoomTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const closeRef = useRef<HTMLButtonElement>(null);
+  const zoomTitleId = useId();
   const [zoomed, setZoomed] = useState(false);
-  const closeZoom = useCallback(() => {
-    setZoomed(false);
-    scheduleGalleryFocus(zoomTriggerRef.current, callback => window.requestAnimationFrame(callback));
-  }, []);
+  const closeZoom = () => setZoomed(false);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -63,14 +63,8 @@ export function EzmeoProductGallery({ product }: Readonly<{ product: PublicProdu
   }, [images, selected]);
 
   useEffect(() => {
-    if (!zoomed) return;
-    if (!hasImage) { closeZoom(); return; }
-    const restore = lockGalleryDocument(document.body);
-    const frame = window.requestAnimationFrame(() => closeRef.current?.focus());
-    const escape = (event: globalThis.KeyboardEvent) => { if (galleryEscapeRequested(event.key)) closeZoom(); };
-    document.addEventListener("keydown", escape);
-    return () => { window.cancelAnimationFrame(frame); document.removeEventListener("keydown", escape); restore(); };
-  }, [closeZoom, hasImage, zoomed]);
+    if (!hasImage && zoomed) setZoomed(false);
+  }, [hasImage, zoomed]);
 
   const choose = (index: number, instant = false) => {
     const image = images[index];
@@ -104,21 +98,17 @@ export function EzmeoProductGallery({ product }: Readonly<{ product: PublicProdu
     focusSlide(index);
   };
   const openZoom = (index: number, event: MouseEvent<HTMLButtonElement>) => {
-    zoomTriggerRef.current = event.currentTarget;
+    event.currentTarget.focus({ preventScroll: true });
     scrollTarget.current = null;
     trackRef.current?.scrollTo({ left: index * trackRef.current.clientWidth, behavior: "auto" });
     selectMedia(images[index].id);
     setZoomed(true);
   };
-  const trapFocus = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Tab") { event.preventDefault(); closeRef.current?.focus(); }
-  };
-
   if (!active) return <div className={styles.empty} data-ezmeo-gallery-empty>Görsel yakında</div>;
   return <div className={styles.root} data-ezmeo-gallery>
     <div className={styles.viewport} ref={trackRef} data-ezmeo-gallery-track role="group" aria-label="Ürün görsel galerisi" aria-roledescription="karusel" onScroll={onScroll} onPointerDown={interruptScroll} onWheel={interruptScroll} onKeyDown={keyboard}>
       {images.map((image, index) => <button className={styles.slide} data-ezmeo-slide key={image.id} type="button" aria-label={`${product.title}, ${index + 1}. görseli büyüt`} aria-current={index === selected ? "true" : undefined} aria-hidden={index !== selected || undefined} tabIndex={index === selected ? 0 : -1} onClick={event => openZoom(index, event)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}<img src={image.url} alt={image.altText || product.title} width={image.width} height={image.height} loading={index === 0 ? "eager" : "lazy"} decoding="async" />
+        <EzmeoProductImage media={image} alt={image.altText || product.title} sizes={galleryImageSizes} decoding="async" loading={index === 0 ? "eager" : "lazy"} fetchPriority={index === 0 ? "high" : "low"} />
         <span className={styles.zoomMark} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="10" cy="10" r="6" /><path d="m15 15 5 5M7 10h6m-3-3v6" /></svg></span>
       </button>)}
     </div>
@@ -131,14 +121,18 @@ export function EzmeoProductGallery({ product }: Readonly<{ product: PublicProdu
       </div>
       <div className={styles.thumbnails} ref={thumbnailRef} role="group" aria-label="Ürün görselleri">
         {images.map((image, index) => <button data-ezmeo-thumbnail key={image.id} type="button" onClick={() => choose(index)} aria-label={`${index + 1}. görseli göster`} aria-current={index === selected ? "true" : undefined}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}<img src={image.url} alt="" width={image.width} height={image.height} loading="lazy" decoding="async" />
+          <EzmeoProductImage media={image} alt="" sizes={thumbnailImageSizes} decoding="async" />
         </button>)}
       </div>
     </> : null}
-    {zoomed ? <div className="gallery-zoom-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) closeZoom(); }}><div className="gallery-zoom-dialog" role="dialog" aria-modal="true" aria-labelledby="ezmeo-zoom-title" onKeyDown={trapFocus}>
-      <h2 className="sr-only" id="ezmeo-zoom-title">{product.title} ürün görseli</h2>
-      <button ref={closeRef} className="gallery-zoom-close" type="button" aria-label="Büyütülmüş görseli kapat" onClick={closeZoom}>×</button>
-      {/* eslint-disable-next-line @next/next/no-img-element */}<img src={active.url} alt={active.altText || product.title} width={active.width} height={active.height} />
-    </div></div> : null}
+    {zoomed ? <StorefrontModal labelledBy={zoomTitleId} onDismiss={closeZoom}>
+      <div className="gallery-zoom-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) closeZoom(); }}>
+        <div className="gallery-zoom-dialog">
+          <h2 className="sr-only" id={zoomTitleId}>{product.title} ürün görseli</h2>
+          <button className="gallery-zoom-close" type="button" aria-label="Büyütülmüş görseli kapat" onClick={closeZoom}>×</button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}<img src={active.url} alt={active.altText || product.title} width={active.width} height={active.height} />
+        </div>
+      </div>
+    </StorefrontModal> : null}
   </div>;
 }

@@ -100,7 +100,10 @@ test("Ezmeo mobile navigation uses real destinations and the shared menu/cart wi
     assert.ok(nav);
     assert.equal(nav.querySelector('a[href="/"]')?.getAttribute("aria-current"), "page");
     assert.ok(nav.querySelector('a[href="/favorites"]'));
-    await click('.ez-bottom-nav button[aria-label="Kategorileri aç"]');
+    const discover = nav.querySelector("button[aria-controls]");
+    assert.equal(discover?.textContent, "Keşfet");
+    assert.equal(discover?.hasAttribute("aria-label"), false);
+    await click(".ez-bottom-nav button[aria-controls]");
     assert.ok(container.querySelector<HTMLDialogElement>("dialog")?.open);
     assert.equal(container.querySelector<HTMLElement>(".ez-bottom-nav")?.hidden, true);
     await click('[data-ezmeo-panel-close]');

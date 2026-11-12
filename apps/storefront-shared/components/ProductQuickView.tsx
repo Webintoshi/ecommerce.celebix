@@ -9,6 +9,7 @@ import { formatTry } from "@/lib/format.ts";
 import { ProductPurchasePanel } from "./ProductPurchasePanel";
 import { ProductVariantMediaProvider, useProductVariantMedia, useProductVariantSelection } from "./ProductVariantMedia";
 import { useCartStatus } from "./CartStatusProvider";
+import { StorefrontModal } from "./StorefrontModal";
 import styles from "./product-quick-view.module.css";
 import { EZMEO_STOREFRONT_ID } from "../themes/ezmeo/theme.ts";
 import { ezmeoVariantHeading } from "../themes/ezmeo/variant-labels.ts";
@@ -79,12 +80,12 @@ function CoordinatedProductQuickView({ product, ezmeo = false }: Readonly<{ prod
     else show();
   };
   useEffect(() => {
-    if (!open) return;
+    if (!open || ezmeo) return;
     const original = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const frame = window.requestAnimationFrame(() => (dialogRef.current?.querySelector(focusable) as HTMLElement | null)?.focus());
     return () => { window.cancelAnimationFrame(frame); document.body.style.overflow = original; };
-  }, [open]);
+  }, [ezmeo, open]);
   function keyboard(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") { event.preventDefault(); close(); return; }
     if (event.key !== "Tab") return;
@@ -103,7 +104,30 @@ function CoordinatedProductQuickView({ product, ezmeo = false }: Readonly<{ prod
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
     return { proceed: sameRoute && sessionRef.current === renderedSession && `${window.location.pathname}${window.location.search}` === sourceRoute && Boolean(triggerRef.current?.isConnected), drawerTrigger: triggerRef.current };
   };
-  return <><button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={launch}>{ezmeo && ezmeoVariantHeading(product.variants.map(variant => variant.title)) === "Gramaj" ? "Gramaj seç" : "Seçenekleri seç"}</button>{open ? <ProductVariantMediaProvider key={product.id} product={product}><div className={styles.backdrop} onMouseDown={backdrop}><section className={styles.dialog} data-alpler-quick-view={!ezmeo || undefined} data-ezmeo-quick-view={ezmeo || undefined} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={keyboard}><button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button><QuickViewMedia product={product} alpler={!ezmeo} ezmeo={ezmeo} /><div className={styles.content} data-alpler-quick-content={!ezmeo || undefined} data-ezmeo-quick-content={ezmeo || undefined}><p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p><h2 id={titleId}>{product.title}</h2><QuickViewPrice product={product} /><ProductPurchasePanel product={product} available={product.available} showStockQuantity={false} showQuantitySelector={showQuantitySelector} beforePurchaseTransition={beforePurchaseTransition} /></div></section></div></ProductVariantMediaProvider> : null}</>;
+  const panel = open ? (
+    <div className={styles.backdrop} onMouseDown={backdrop}>
+      <section className={styles.dialog} data-alpler-quick-view={!ezmeo || undefined} data-ezmeo-quick-view={ezmeo || undefined}
+        ref={dialogRef} role={ezmeo ? undefined : "dialog"} aria-modal={ezmeo ? undefined : true}
+        aria-labelledby={ezmeo ? undefined : titleId} onKeyDown={ezmeo ? undefined : keyboard}>
+        <button className={styles.close} type="button" aria-label="Hızlı görünümü kapat" onClick={close}><X aria-hidden="true" /></button>
+        <QuickViewMedia product={product} alpler={!ezmeo} ezmeo={ezmeo} />
+        <div className={styles.content} data-alpler-quick-content={!ezmeo || undefined} data-ezmeo-quick-content={ezmeo || undefined}>
+          <p className={styles.eyebrow}>HIZLI GÖRÜNÜM</p>
+          <h2 id={titleId}>{product.title}</h2>
+          <QuickViewPrice product={product} />
+          <ProductPurchasePanel product={product} available={product.available} showStockQuantity={false} showQuantitySelector={showQuantitySelector} beforePurchaseTransition={beforePurchaseTransition} />
+        </div>
+      </section>
+    </div>
+  ) : null;
+  return <>
+    <button className="product-card-cart is-options" ref={triggerRef} type="button" onClick={launch}>
+      {ezmeo && ezmeoVariantHeading(product.variants.map(variant => variant.title)) === "Gramaj" ? "Gramaj seç" : "Seçenekleri seç"}
+    </button>
+    {panel ? <ProductVariantMediaProvider key={product.id} product={product}>
+      {ezmeo ? <StorefrontModal labelledBy={titleId} onDismiss={close}>{panel}</StorefrontModal> : panel}
+    </ProductVariantMediaProvider> : null}
+  </>;
 }
 
 export function ProductQuickView({ product }: Readonly<{ product: PublicProduct }>) {

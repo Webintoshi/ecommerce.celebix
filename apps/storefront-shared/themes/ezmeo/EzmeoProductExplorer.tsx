@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { ProductExplorerProps } from "../../components/ProductExplorer";
 import { CatalogProductList } from "../../components/CatalogProductList";
@@ -16,21 +16,52 @@ export function EzmeoProductExplorer({ selection: initial, ...props }: ProductEx
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState(selection.query);
   const [order, setOrder] = useState(selection.order);
-  useEffect(() => { setQuery(selection.query); setOrder(selection.order); }, [selection.query, selection.order, selection.filter, selection.offset, props.path]);
+  const [queryInvalid, setQueryInvalid] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const searchErrorId = useId();
+  useEffect(() => {
+    setQuery(selection.query);
+    setOrder(selection.order);
+    setQueryInvalid(false);
+  }, [selection.query, selection.order, selection.filter, selection.offset, props.path]);
   const navigate = (next: ProductCatalogSelection) => {
-    if (pending || !isValidProductCatalogSearch(next.query)) return;
+    if (pending) return false;
+    if (!isValidProductCatalogSearch(next.query)) {
+      setQueryInvalid(true);
+      searchRef.current?.focus();
+      return false;
+    }
+    setQueryInvalid(false);
     startTransition(() => router.push(catalogHref(props.path, { ...next, query: next.query.trim() }, 0), { scroll: false }));
+    return true;
   };
   return <div className="product-explorer ez-catalog" aria-busy={pending}>
     {props.catalog ? <h1 className="ez-catalog-title">{props.catalog.title}</h1> : null}
-    <div className="ez-catalog-toolbar">
-      <form className="ez-catalog-search" role="search" onSubmit={event => { event.preventDefault(); const input = event.currentTarget.elements.namedItem("q") as HTMLInputElement; navigate({ ...selection, query: input.value, order }); }}>
-        <button type="submit" aria-label="Ürünleri ara" disabled={pending}><StoreIcon name="search" /></button>
-        <input name="q" aria-label="Ürün ara" type="search" value={query} disabled={pending} placeholder="Ürün ara" maxLength={100} onChange={event => { if (isValidProductCatalogSearch(event.currentTarget.value)) setQuery(event.currentTarget.value); }} />
-      </form>
-      <label className="ez-catalog-order"><span>Sırala</span><select value={order} disabled={pending} onChange={event => { const next = event.currentTarget.value as typeof order; setOrder(next); navigate({ ...selection, query, order: next }); }}>
-        <option value="featured">Öne çıkanlar</option><option value="title-asc">Ürün adı</option>{!policy.hidePrices ? <><option value="price-asc">Fiyat: artan</option><option value="price-desc">Fiyat: azalan</option></> : null}
-      </select></label>
+    <div>
+      <div className="ez-catalog-toolbar">
+        <form className="ez-catalog-search" role="search" onSubmit={event => {
+          event.preventDefault();
+          navigate({ ...selection, query: searchRef.current?.value ?? query, order });
+        }}>
+          <button type="submit" aria-label="Ürünleri ara" disabled={pending}><StoreIcon name="search" /></button>
+          <input ref={searchRef} name="q" aria-label="Ürün ara" type="search" enterKeyHint="search" value={query} disabled={pending}
+            placeholder="Ürün ara" maxLength={100} aria-invalid={queryInvalid} aria-describedby={queryInvalid ? searchErrorId : undefined}
+            onInput={event => {
+              const value = event.currentTarget.value;
+              setQuery(value);
+              if (queryInvalid && isValidProductCatalogSearch(value)) setQueryInvalid(false);
+            }} />
+        </form>
+        <label className="ez-catalog-order"><span>Sırala</span><select value={order} disabled={pending} onChange={event => {
+          const next = event.currentTarget.value as typeof order;
+          if (navigate({ ...selection, query, order: next })) setOrder(next);
+        }}>
+          <option value="featured">Öne çıkanlar</option><option value="title-asc">Ürün adı</option>{!policy.hidePrices ? <><option value="price-asc">Fiyat: artan</option><option value="price-desc">Fiyat: azalan</option></> : null}
+        </select></label>
+      </div>
+      <p id={searchErrorId} className="ez-catalog-search-error" aria-live="polite">
+        {queryInvalid ? "Arama metnini kısaltıp yeniden deneyin." : ""}
+      </p>
     </div>
     <div className="ez-catalog-meta">
       <div className="explorer-filters" role="group" aria-label="Ürün filtresi">{([["all", "Tümü"], ["available", "Stokta"], ["discounted", "İndirimli"]] as const).filter(([value]) => !policy.hidePrices || value !== "discounted").map(([value, label]) => <button type="button" key={value} data-filter={value} disabled={pending} aria-pressed={selection.filter === value} onClick={() => navigate({ ...selection, query, order, filter: value })}>{label}</button>)}</div>

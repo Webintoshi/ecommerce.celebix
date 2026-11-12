@@ -18,12 +18,15 @@ async function bannerRenderer() {
 
 const image = (name: string) => ({ url: `https://media.celebix.site/${name}.webp`, altText: name, mediaType: "image/webp" as const, width: 1600, height: 900 });
 const section = (layout: "single" | "slider" | "stacked") => ({ kind: "banner" as const, sectionId: "home_banner_test" as const, layout, autoplay: true, presentation: "image_only" as const,
-  slides: [{ slideId: "slide_first", enabled: true, headline: "Bir", body: "A", desktopImage: image("desktop-a"), mobileImage: image("mobile-a"), destination: "/products/a" },
+  slides: [{ slideId: "slide_first", enabled: true, headline: "Bir", body: "A", desktopImage: image("desktop-a"), mobileImage: { ...image("mobile-a"), width: 900, height: 1600 }, destination: "/products/a" },
     { slideId: "slide_hidden", enabled: false, headline: "Gizli", body: "", desktopImage: image("hidden"), mobileImage: null, destination: null },
     { slideId: "slide_second", enabled: true, headline: "İki", body: "B", desktopImage: image("desktop-b"), mobileImage: null, destination: "/products/b" }] }) satisfies Extract<PublicStarterHomeSection, { kind: "banner" }>;
 
 test("single and stacked banners use mobile images, desktop fallback and lazy media", async () => {
   const Banner = await bannerRenderer();
+  const published = renderToStaticMarkup(React.createElement(Banner, { section: section("single"), priority: true }));
+  assert.match(published, /<source[^>]+mobile-a.webp[^>]+width="900"[^>]+height="1600"/);
+  assert.match(published, /<img[^>]+desktop-a.webp[^>]+width="1600"[^>]+height="900"/);
   const single = renderToStaticMarkup(React.createElement(Banner, { section: section("single"), previewMode: "mobile" }));
   assert.match(single, /src="https:\/\/media.celebix.site\/mobile-a.webp"/);
   assert.doesNotMatch(single, /desktop-b|hidden.webp|aria-roledescription="carousel"/);
@@ -34,7 +37,7 @@ test("single and stacked banners use mobile images, desktop fallback and lazy me
   assert.doesNotMatch(stacked, /hidden.webp|aria-roledescription="carousel"/);
 });
 
-test("slider excludes disabled slides, controls active slide and pauses autoplay after interaction", async () => {
+test("slider resumes autoplay only on request after focus or manual navigation", async () => {
   const Banner = await bannerRenderer();
   const window = new Window({ url: "https://shop.example/" });
   const previous = { window: globalThis.window, document: globalThis.document };
@@ -42,21 +45,49 @@ test("slider excludes disabled slides, controls active slide and pauses autoplay
   globalThis.document = window.document as unknown as Document;
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
   let tick: (() => void) | undefined;
-  let cleared = false;
-  window.matchMedia = (() => ({ matches: false })) as unknown as typeof window.matchMedia;
+  const motion = Object.assign(new window.EventTarget(), { matches: false });
+  window.matchMedia = (() => motion) as unknown as typeof window.matchMedia;
   window.setInterval = ((callback: () => void, milliseconds: number) => { assert.equal(milliseconds, 5000); tick = callback; return 7; }) as unknown as typeof window.setInterval;
-  window.clearInterval = (() => { cleared = true; }) as typeof window.clearInterval;
+  window.clearInterval = (() => { tick = undefined; }) as typeof window.clearInterval;
   const container = window.document.createElement("div"); window.document.body.append(container);
   const root = createRoot(container as unknown as HTMLElement);
+  const outside = window.document.createElement("button"); window.document.body.append(outside);
+  const rotation = () => container.querySelector("section > button:first-child") as InstanceType<typeof window.HTMLButtonElement>;
+  const activeSlide = () => container.querySelector('[data-active="true"]')!;
   try {
     await React.act(async () => root.render(React.createElement(Banner, { section: section("slider") })));
     assert.equal(container.querySelectorAll("article").length, 2);
-    assert.equal(container.querySelector('[data-active="true"]')?.getAttribute("data-slide-id"), "slide_first");
+    assert.equal(activeSlide().getAttribute("data-slide-id"), "slide_first");
+    assert.equal(rotation()?.getAttribute("aria-label"), "Otomatik geçişi durdur");
     await React.act(async () => tick?.());
-    assert.equal(container.querySelector('[data-active="true"]')?.getAttribute("data-slide-id"), "slide_second");
-    await React.act(async () => (container.querySelector('button[aria-label="Sonraki banner"]') as unknown as HTMLButtonElement)?.click());
-    assert.equal(container.querySelector('[data-active="true"]')?.getAttribute("data-slide-id"), "slide_first");
-    assert.equal(cleared, true);
+    assert.equal(activeSlide().getAttribute("data-slide-id"), "slide_second");
+
+    const bannerLink = activeSlide().querySelector("a")!;
+    await React.act(async () => bannerLink.focus());
+    assert.equal(tick, undefined);
+    assert.equal(rotation().getAttribute("aria-label"), "Otomatik geçişi başlat");
+    const arrow = new window.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true, cancelable: true });
+    await React.act(async () => bannerLink.dispatchEvent(arrow));
+    assert.equal(arrow.defaultPrevented, false);
+    assert.equal(activeSlide().getAttribute("data-slide-id"), "slide_second");
+    await React.act(async () => outside.focus());
+    assert.equal(tick, undefined, "leaving keyboard focus must not restart rotation");
+
+    await React.act(async () => rotation().click());
+    assert.ok(tick);
+    motion.matches = true;
+    await React.act(async () => motion.dispatchEvent(new window.Event("change")));
+    assert.equal(tick, undefined, "enabling reduced motion must stop rotation");
+    motion.matches = false;
+    await React.act(async () => motion.dispatchEvent(new window.Event("change")));
+    assert.equal(tick, undefined, "restoring motion preference must not restart rotation");
+
+    await React.act(async () => rotation().click());
+    assert.ok(tick);
+    const next = container.querySelector('button[aria-label="Sonraki banner"]') as InstanceType<typeof window.HTMLButtonElement>;
+    await React.act(async () => next.click());
+    assert.equal(activeSlide().getAttribute("data-slide-id"), "slide_first");
+    assert.equal(tick, undefined);
     assert.equal(container.querySelector('[data-active="false"]')?.getAttribute("aria-hidden"), "true");
     assert.equal(container.querySelector('[data-active="false"] a')?.getAttribute("tabindex"), "-1");
   } finally {
