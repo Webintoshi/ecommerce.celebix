@@ -66,8 +66,7 @@ export function createCrossHostHandoffAutoPostResponse(input: Readonly<{
     headers: {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store",
-      // A navigation POST needs its HTTPS Origin to survive the referrer policy.
-      "referrer-policy": "strict-origin",
+      "referrer-policy": "no-referrer",
       "x-content-type-options": "nosniff",
       "content-security-policy": policy,
     },

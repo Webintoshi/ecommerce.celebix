@@ -230,7 +230,7 @@ test("the actual owner signup completion HTML redeems with its source Origin and
   });
   assert.equal(response.status, 200);
   assert.equal(response.headers.has("set-cookie"), false);
-  assert.equal(response.headers.get("referrer-policy"), "strict-origin");
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
   const html = await response.text();
   const action = /<form[^>]+action="([^"]+)"/u.exec(html)?.[1];
   const handoff = /name="handoff" value="([^"]+)"/u.exec(html)?.[1];
@@ -278,8 +278,16 @@ test("redeems store switches from exact active platform and custom admin origins
   }
 });
 
-test("rejects absent, opaque, and unresolved store-switch origins before redemption", async () => {
-  for (const origin of [null, "null", "https://unknown.admin.saas-staging.celebix.site", "https://admin.unverified.example"]) {
+test("accepts existing sender navigation during rollout", async () => {
+  for (const origin of [null, "null"]) {
+    const current = fixture();
+    assert.equal((await current.handler(request({ origin }))).status, 303);
+    assert.equal(current.redeemCalls, 1);
+  }
+});
+
+test("rejects unresolved store-switch origins before redemption", async () => {
+  for (const origin of ["https://unknown.admin.saas-staging.celebix.site", "https://admin.unverified.example"]) {
     const current = fixture();
     const response = await current.handler(request({ origin }));
     assert.equal(response.status, 503);

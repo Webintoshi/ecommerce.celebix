@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "7c259d30784ad7f065ed17f3962a73a1433a9512d912e04bedb876b83b383da7",
+  "inputDigest": "d5edba0ed2ed78b5c83b8d56b009bdca4cea0dcd80d5e92c0b978422918f1991",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -113,7 +113,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-auto-post.ts",
-      "sha256": "c90dc6d679da4532e041f77a162db7d1fd305c09819a38d54360e842d9e43cce"
+      "sha256": "4f354d43b9f6f1f43b4107f6391e004bfa91e19572ebd4eb765721f325eea90c"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-default.ts",
@@ -121,7 +121,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-http.ts",
-      "sha256": "617b0522ac051e422a6bcf27928472d050eb444892ae934778488c8aa1821033"
+      "sha256": "ae41e77f221f44e7e6badfe48ce6812a8ab88e358e023c7abb52d05835b59219"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-session-handoff/postgres-repository.ts",
