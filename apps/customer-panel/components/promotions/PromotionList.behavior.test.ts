@@ -59,10 +59,6 @@ async function promotionScreen(run: (screen: any) => Promise<void>, options: Opt
   await withEditor(async context => {
     // Native popover layout is covered by browser QA; HappyDOM only exercises its action controls.
     Object.defineProperty(context.window.HTMLElement.prototype, "hidePopover", { configurable: true, value() {} });
-    Object.defineProperties(context.window, {
-      confirm: { configurable: true, writable: true, value: () => true },
-      prompt: { configurable: true, writable: true, value: () => "YENIKOD" },
-    });
     const settle = async () => { await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); }); };
     const button = (label: string, within: ParentNode = context.container): HTMLButtonElement => {
       const found = Array.from(within.querySelectorAll<HTMLButtonElement>("button")).filter(element => !element.closest("[hidden]")).find(element => element.getAttribute("aria-label") === label || element.textContent?.trim() === label || (label === "Filtreler" && /^Filtreler\d*$/.test(element.textContent?.trim() ?? "")));
@@ -228,26 +224,37 @@ test("reload recovery remains reachable when the committed deletion no longer ap
 test("lifecycle actions retain the record version, status semantics and current server filter after conflict", async () => {
   const active = record(1, { name: "Etkin kaydın süresi dolmuş", effectiveStatus: "ended" });
   const paused = record(2, { name: "İleri tarihli duraklatılmış", status: "paused", effectiveStatus: "paused", startsAt: "2099-01-01T00:00:00.000Z", version: 11 });
-  await promotionScreen(async ({ click, row, mutations, reads, window }) => {
+  await promotionScreen(async ({ click, row, mutations, reads, container }) => {
     await click("Aktif");
     await click("Duraklat", row(active.name));
     assert.deepEqual(mutations[0], [active.id, 7, "pause", "active"]);
     assert.deepEqual(reads.at(-1), { effectiveStatuses: ["active"] });
     await click("Devam ettir", row(paused.name));
     assert.deepEqual(mutations[1], [paused.id, 11, "resume", "scheduled"]);
-    window.confirm = () => false; await click("Arşivle", row(active.name)); assert.equal(mutations.length, 2);
-    window.confirm = () => true; await click("Arşivle", row(active.name));
+    await click("Arşivle", row(active.name));
+    assert.match(container.querySelector("dialog[open]")?.textContent ?? "", /Geçmiş siparişler korunur/);
+    assert.equal(mutations.length, 2);
+    await click("Vazgeç", container.querySelector("dialog[open]"));
+    assert.equal(mutations.length, 2);
+    await click("Arşivle", row(active.name));
+    await click("Kampanyayı arşivle", container.querySelector("dialog[open]"));
     assert.deepEqual(mutations[2], [active.id, 7, "archive", "active"]);
   }, { records: [active, paused], lifecycle: async () => ({ kind: "version_conflict", current: { version: 12 } }) });
 });
 
 test("code duplication requires a replacement code and keeps the original expected version", async () => {
   const item = record(1, { name: "Kodlu kampanya", triggerKind: "code", activeCodeCount: 2 });
-  await promotionScreen(async ({ click, row, window, duplicates, container }) => {
-    window.prompt = () => null; await click("Çoğalt", row(item.name)); assert.equal(duplicates.length, 0);
-    window.prompt = () => "   "; await click("Çoğalt", row(item.name)); assert.equal(duplicates.length, 0);
+  await promotionScreen(async ({ click, row, change, duplicates, container }) => {
+    await click("Çoğalt", row(item.name));
+    await click("Vazgeç", container.querySelector("dialog[open]"));
+    assert.equal(duplicates.length, 0);
+    await click("Çoğalt", row(item.name));
+    await change("Yeni kupon kodu", "   ");
+    await click("Kopyayı oluştur", container.querySelector("dialog[open]"));
+    assert.equal(duplicates.length, 0);
     assert.match(container.textContent, /yeni bir kupon kodu gerekir/);
-    window.prompt = () => "BAHAR2027"; await click("Çoğalt", row(item.name));
+    await change("Yeni kupon kodu", "BAHAR2027");
+    await click("Kopyayı oluştur", container.querySelector("dialog[open]"));
     assert.deepEqual(duplicates, [[item.id, 7, `${item.name} — Kopya`, ["BAHAR2027"]]]);
   }, { records: [item] });
 });

@@ -29,6 +29,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { isActionableEnter } from "@/lib/keyboard";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("tr-TR", {
@@ -290,7 +291,7 @@ export default function MuhasebePage() {
                 placeholder="Orn: 12345"
                 className={INPUT_CLASS}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && invoiceOrderId.trim()) {
+                  if (isActionableEnter(e) && invoiceOrderId.trim()) {
                     createInvoiceQuickly();
                   }
                 }}

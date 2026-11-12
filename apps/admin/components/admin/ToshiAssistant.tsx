@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
+import { isActionableEnter } from "@/lib/keyboard";
 import {
     X,
     Send,
@@ -464,7 +465,7 @@ export default function ToshiAssistant() {
     );
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === "Enter" && !e.shiftKey) {
+        if (isActionableEnter(e) && !e.shiftKey) {
             e.preventDefault();
             sendMessage();
         }

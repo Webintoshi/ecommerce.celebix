@@ -8,6 +8,7 @@ import { buildProductCategoryTree, getChildCategoriesByParentSlug } from "@/lib/
 import { fetchCategories } from "@/lib/categories";
 import { PRODUCT_TAG_LIMITS, normalizeProductTag } from "@/lib/product-tags";
 import { cn } from "@/lib/utils";
+import { isActionableEnter } from "@/lib/keyboard";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import type { AdminProductWizardState } from "@/types/admin-product-wizard";
 
@@ -405,7 +406,7 @@ export function StepBasicInfo({ data, onChange, errors }: StepBasicInfoProps) {
               value={tagInput}
               onChange={(event) => setTagInput(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === "Enter") {
+                if (isActionableEnter(event)) {
                   event.preventDefault();
                   addTag(tagInput);
                 }

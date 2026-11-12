@@ -32,6 +32,7 @@ import {
   GripVertical,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { buildStorefrontProductUrl } from "@/lib/store-runtime";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
@@ -1120,7 +1121,7 @@ export default function ProductsPageClient({
 
               {sortedProducts.length > 0 && viewMode === "grid" ? (
                 <div className={cn("grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 min-[1800px]:grid-cols-4", loading ? "opacity-70" : "")}>
-                  {sortedProducts.map((product) => {
+                  {sortedProducts.map((product, index) => {
                     const primaryVariant = getPrimaryVariant(product);
                     const stockMeta = getStockMeta(primaryVariant.stock);
                     const StockIcon = stockMeta.icon;
@@ -1151,13 +1152,15 @@ export default function ProductsPageClient({
                             />
                           </div>
 
-                          {product.images && product.images.length > 0 ? (
-                            <img
+                          {product.images?.[0] ? (
+                            <Image
                               src={product.images[0]}
                               alt={product.name}
+                              fill
+                              sizes="(min-width: 1800px) 25vw, (min-width: 1536px) 33vw, (min-width: 768px) 50vw, 100vw"
+                              loading={index === 0 ? "eager" : "lazy"}
                               className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
                               onError={(e) => {
-                                e.currentTarget.src = "";
                                 e.currentTarget.style.display = "none";
                               }}
                             />
@@ -1373,10 +1376,14 @@ export default function ProductsPageClient({
                                   SURFACE_FOCUS_RING,
                                 )}
                               />
-                              {product.images && product.images.length > 0 ? (
-                                <img
+                              {product.images?.[0] ? (
+                                <Image
                                   src={product.images[0]}
                                   alt={product.name}
+                                  width={64}
+                                  height={64}
+                                  sizes="64px"
+                                  loading="lazy"
                                   className="h-16 w-16 rounded-2xl border border-stone-200 object-cover"
                                 />
                               ) : (
@@ -1608,10 +1615,14 @@ export default function ProductsPageClient({
                                 </td>
                                 <td className="px-4 py-4">
                                   <div className="flex items-center gap-4">
-                                    {product.images && product.images.length > 0 ? (
-                                      <img
+                                    {product.images?.[0] ? (
+                                      <Image
                                         src={product.images[0]}
                                         alt={product.name}
+                                        width={64}
+                                        height={64}
+                                        sizes="64px"
+                                        loading="lazy"
                                         className="h-16 w-16 rounded-2xl border border-stone-200 object-cover"
                                       />
                                     ) : (

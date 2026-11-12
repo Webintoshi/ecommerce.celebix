@@ -5,6 +5,10 @@ import {
   type StarterThemeSectionConfigV4,
 } from "@celebix/saas-contracts";
 
+export function nextSectionId(kind: StarterThemeSectionConfigV4["kind"]): HomepageSectionId {
+  return `home_${kind}_${globalThis.crypto.randomUUID().replaceAll("-", "_")}` as HomepageSectionId;
+}
+
 export type HomepageUndo = Readonly<{
   label: string;
   section: StarterThemeSectionConfigV4;

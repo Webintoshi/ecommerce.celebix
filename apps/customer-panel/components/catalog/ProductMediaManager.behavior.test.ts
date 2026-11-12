@@ -215,6 +215,32 @@ test("a failed gallery reorder retains the prior order and releases the save gua
   }, { media: existingMedia, api: { reorder: async (_productId: string, ids: string[]) => { if (++calls === 1) throw new Error("fixture_failure"); return ids.map((id, sortOrder) => ({ ...existingMedia.find(item => item.id === id), sortOrder })); } } });
 });
 
+test("gallery tabs point to labeled panels and move focus and selection with navigation keys", async () => {
+  await withMediaManager(async () => {}, async (container, browser) => {
+    const tabs = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    const [active, archive] = tabs;
+    assert.ok(active && archive);
+    const panelFor = (tab: HTMLButtonElement) => {
+      const panel = browser.document.getElementById(tab.getAttribute("aria-controls") ?? "") as unknown as HTMLElement | null;
+      assert.ok(panel);
+      assert.equal(panel.getAttribute("role"), "tabpanel");
+      assert.equal(panel.getAttribute("aria-labelledby"), tab.id);
+      return panel;
+    };
+    assert.equal(panelFor(active).hidden, false);
+    assert.equal(panelFor(archive).hidden, true);
+    active.focus();
+    await act(async () => active.dispatchEvent(new browser.KeyboardEvent("keydown", { key: "End", bubbles: true }) as unknown as Event));
+    assert.equal(browser.document.activeElement, archive);
+    assert.equal(archive.tabIndex, 0);
+    assert.equal(panelFor(active).hidden, true);
+    assert.equal(panelFor(archive).hidden, false);
+    await act(async () => archive.dispatchEvent(new browser.KeyboardEvent("keydown", { key: "Home", bubbles: true }) as unknown as Event));
+    assert.equal(browser.document.activeElement, active);
+    assert.equal(panelFor(active).hidden, false);
+  }, { media: existingMedia, canArchive: true });
+});
+
 test("saved-gallery alt editing, archive confirmation and restore remain operational", async () => {
   let archives = 0, restores = 0; const altTexts: unknown[] = [];
   await withMediaManager(async () => {}, async (container, browser) => {

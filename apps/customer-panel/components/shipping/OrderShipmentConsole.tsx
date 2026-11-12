@@ -57,6 +57,7 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
   const formId = useId();
   const [packageValues, setPackageValues] = useState<PackageValues>(DEFAULT_PACKAGE);
   const [open, setOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<{ action: "cancel" | "return"; opener: HTMLButtonElement } | null>(null);
   const [quote, setQuote] = useState<ShippingQuoteSession | null>(null);
   const quoteScope = useRef<string | null>(null);
   const [shipment, setShipment] = useState<Shipment | null | undefined>(undefined);
@@ -81,6 +82,7 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
     setLoadError("");
     setMessage("");
     setQuote(null);
+    setConfirmation(null);
     quoteScope.current = null;
     setSelectedOptionId("");
     if (lastOrderId.current !== orderId) {
@@ -181,8 +183,8 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
 
   async function shipmentAction(action: "refresh" | "label" | "cancel" | "return") {
     if (!currentShipment || inFlight.current !== "") return;
-    if (action === "cancel" && (currentShipment.status !== "ready" || !window.confirm("Bu gönderiyi iptal etmek istiyor musunuz?"))) return;
-    if (action === "return" && (currentShipment.status !== "delivered" || !window.confirm("Bu sipariş için iade gönderisi oluşturulsun mu?"))) return;
+    if (action === "cancel" && currentShipment.status !== "ready") return;
+    if (action === "return" && currentShipment.status !== "delivered") return;
     if (action === "refresh" && (["cancelled", "returned", "lost"] as Shipment["status"][]).includes(currentShipment.status)) return;
     if (action === "label" && (currentShipment.label.available || currentShipment.status === "cancelled")) return;
     const signal = begin(action);
@@ -211,8 +213,8 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
           <div className={styles.actions}>
             {!(["cancelled", "returned", "lost"] as Shipment["status"][]).includes(currentShipment.status) ? <button className={styles.button} type="button" onClick={() => { void shipmentAction("refresh"); }} disabled={busy !== ""}><RefreshCw aria-hidden="true" size={16} />{busy === "refresh" ? "Güncelleniyor…" : "Durumu güncelle"}</button> : null}
             {currentShipment.label.available ? <a className={styles.button} href={shippingFulfillmentApi.shipmentLabelUrl(orderId, currentShipment.id)} target="_blank" rel="noreferrer"><Printer aria-hidden="true" size={16} />Etiketi aç</a> : currentShipment.status !== "cancelled" ? <button className={styles.button} type="button" onClick={() => { void shipmentAction("label"); }} disabled={busy !== ""}><Printer aria-hidden="true" size={16} />{busy === "label" ? "Hazırlanıyor…" : "Etiket hazırla"}</button> : null}
-            {currentShipment.status === "ready" ? <button className={`${styles.button} ${styles.danger}`} type="button" onClick={() => { void shipmentAction("cancel"); }} disabled={busy !== ""}>{busy === "cancel" ? "İptal ediliyor…" : "Gönderiyi iptal et"}</button> : null}
-            {currentShipment.status === "delivered" ? <button className={styles.button} type="button" onClick={() => { void shipmentAction("return"); }} disabled={busy !== ""}><RotateCcw aria-hidden="true" size={16} />{busy === "return" ? "Başlatılıyor…" : "İade başlat"}</button> : null}
+            {currentShipment.status === "ready" ? <button className={`${styles.button} ${styles.danger}`} type="button" onClick={(event) => setConfirmation({ action: "cancel", opener: event.currentTarget })} disabled={busy !== ""}>{busy === "cancel" ? "İptal ediliyor…" : "Gönderiyi iptal et"}</button> : null}
+            {currentShipment.status === "delivered" ? <button className={styles.button} type="button" onClick={(event) => setConfirmation({ action: "return", opener: event.currentTarget })} disabled={busy !== ""}><RotateCcw aria-hidden="true" size={16} />{busy === "return" ? "Başlatılıyor…" : "İade başlat"}</button> : null}
           </div>
         </>
       )}
@@ -233,6 +235,22 @@ export function OrderShipmentConsole({ orderId, orderVersion }: Readonly<{ order
           {message ? <p className={styles.message} role="status">{message}</p> : null}
         </div>
       </OrderActionDialog>
+      {confirmation && currentShipment ? <OrderActionDialog
+        open
+        title={confirmation.action === "cancel" ? "Gönderiyi iptal et" : "İade başlat"}
+        description={confirmation.action === "cancel" ? "Bu siparişin gönderisi iptal edilecek." : "Bu sipariş için iade gönderisi oluşturulacak."}
+        opener={confirmation.opener}
+        onClose={() => setConfirmation(null)}
+        footer={<>
+          <button className={styles.button} type="button" onClick={() => setConfirmation(null)}>Vazgeç</button>
+          <button className={`${styles.button} ${confirmation.action === "cancel" ? styles.danger : styles.primary}`} type="button" onClick={() => {
+            setConfirmation(null);
+            void shipmentAction(confirmation.action);
+          }}>{confirmation.action === "cancel" ? "Gönderiyi iptal et" : "İade gönderisini oluştur"}</button>
+        </>}
+      >
+        <p>{currentShipment.carrier ?? "Basit Kargo"}{currentShipment.trackingNumber ? ` · ${currentShipment.trackingNumber}` : ""}</p>
+      </OrderActionDialog> : null}
     </div>
   );
 }

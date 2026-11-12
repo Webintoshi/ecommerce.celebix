@@ -25,12 +25,15 @@ export async function fetchAdminJson<T>(
     () => controller.abort(),
     options.timeoutMs ?? 8000
   );
+  const signal = options.init?.signal
+    ? AbortSignal.any([controller.signal, options.init.signal])
+    : controller.signal;
 
   try {
     const response = await fetch(input, {
       cache: options.cache ?? "no-store",
       ...options.init,
-      signal: controller.signal,
+      signal,
     });
 
     const payload = await response.json().catch(() => null);

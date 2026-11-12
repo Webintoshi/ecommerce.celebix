@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { ArrowRight, BarChart3, ChevronDown, Copy, Eye, Gift, Layers, MoreHorizontal, Package, Pause, Pencil, Percent, Play, Plus, Search, SlidersHorizontal, Tag, Ticket, Truck, Archive, Trash2 } from "lucide-react";
 import type { PromotionAdminEffectiveStatus, PromotionAdminListItem, PromotionOverviewResult } from "@celebix/saas-contracts";
+import { OrderActionDialog } from "@/components/orders/OrderActionDialog";
 import { PanelActionButton, PanelEmptyState, PanelPageHeader, PanelStatusBadge } from "@/components/panel/PanelPageShell";
 import { DesignSettingsModal } from "@/components/settings/design/DesignSettingsDrawer";
 import { PromotionListLoader, promotionApi as defaultPromotionApi, promotionErrorMessage, type ListQuery, type PromotionApiClient } from "@/lib/promotion-ui/client";
@@ -30,6 +31,7 @@ function overviewMoney(value: PromotionOverviewResult | null, field: "discountMi
 function dates(item: PromotionAdminListItem, timezone: string) { const formatter = new Intl.DateTimeFormat("tr-TR", { dateStyle: "medium", timeZone: timezone }); return `${item.startsAt ? formatter.format(new Date(item.startsAt)) : "Yayınlandığında"} – ${item.endsAt ? formatter.format(new Date(item.endsAt)) : "Süresiz"}`; }
 
 type RowAction = "pause" | "resume" | "archive" | "duplicate" | "delete";
+type ActionConfirmation = Readonly<{ item: PromotionAdminListItem; action: "archive" | "duplicate"; opener?: HTMLElement | null }>;
 type FilterSnapshot = Readonly<{ status: string; trigger: string; benefit: string; audience: string; from: string; to: string }>;
 const QUICK_STATUSES = [{ value: "", label: "Tümü" }, { value: "active", label: "Aktif" }, { value: "scheduled", label: "Planlandı" }, { value: "draft", label: "Taslak" }];
 const BENEFIT_ICONS = { percentage: Percent, fixed_amount: Tag, free_shipping: Truck, buy_x_get_y: Gift, quantity_tiers: Layers, bundle_price: Package, gift: Gift };
@@ -61,6 +63,10 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
   const promotionApi = api;
   const wheelSources = useLuckyWheelPromotionSources();
   const [deleteItem, setDeleteItem] = useState<Readonly<{ id: string; name: string }> | null>(null);
+  const [actionConfirmation, setActionConfirmation] = useState<ActionConfirmation | null>(null);
+  const [codeError, setCodeError] = useState(false);
+  const couponFormId = useId();
+  const pendingRowActions = useRef(new Set<string>());
   const [deletionRecovery, setDeletionRecovery] = useState(() => promotionApi.pendingDeletions());
   const deleteFocus = useRef<HTMLElement | null>(null);
   const [range, setRange] = useState<7 | 30 | 90>(30);
@@ -147,12 +153,11 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     appliedQueryRef.current = selected; setAppliedQuery(selected); setItems([]); setNextCursor(null); load(selected); setFiltersOpen(false); setFilterError("");
   }
 
-  const action = (item: PromotionAdminListItem, selected: RowAction, trigger?: HTMLElement | null) => {
-    if (busy.includes(item.id) || wheelSources.phase !== "loaded" || wheelSources.sources.has(item.id)) return;
-    if (selected === "delete") { if (canArchive) { deleteFocus.current = trigger ?? null; setDeleteItem(item); } return; }
-    if (selected === "archive" && !window.confirm("Kampanya arşivlensin mi? Geçmiş siparişler korunur.")) return;
-    const replacementCode = selected === "duplicate" && item.triggerKind === "code" ? window.prompt("Kopya kampanya için kullanılmamış yeni kupon kodunu yazın.", "") : "";
-    if (replacementCode === null || (selected === "duplicate" && item.triggerKind === "code" && replacementCode.trim() === "")) { if (replacementCode !== null) setMessage("Kodlu kampanya kopyası için yeni bir kupon kodu gerekir."); return; }
+  const rowActionAvailable = (item: PromotionAdminListItem) => !pendingRowActions.current.has(item.id) && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id);
+  const applyRowAction = (item: PromotionAdminListItem, selected: Exclude<RowAction, "delete">, replacementCode = "") => {
+    if (!rowActionAvailable(item)) return;
+    if (selected === "archive" ? !canArchive : selected === "duplicate" ? !canManage : !canPublish) return;
+    pendingRowActions.current.add(item.id);
     setBusy((current) => [...current, item.id]); setMessage("");
     const operation = selected === "duplicate" ? promotionApi.duplicate(item.id, item.version, `${item.name} — Kopya`, replacementCode ? [replacementCode] : []) : promotionApi.lifecycle(item.id, item.version, selected, item.startsAt && item.startsAt > new Date().toISOString() ? "scheduled" : "active");
     void operation.then((result) => {
@@ -162,8 +167,32 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
       } else if (result.kind === "version_conflict") { setMessage("Kampanya başka bir kullanıcı tarafından güncellendi. Liste yenilendi."); load(appliedQueryRef.current, undefined, true); }
       else if (result.kind === "publish_blocked") setMessage("Kampanya yeniden etkinleştirilemedi; ayarlarını kontrol edin.");
       else setMessage(result.message);
-    }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => setBusy((current) => current.filter((id) => id !== item.id)));
+    }).catch((error: unknown) => setMessage(promotionErrorMessage(error instanceof Error ? error.message : "promotion_unavailable"))).finally(() => {
+      pendingRowActions.current.delete(item.id);
+      setBusy((current) => current.filter((id) => id !== item.id));
+    });
   };
+
+  const action = (item: PromotionAdminListItem, selected: RowAction, trigger?: HTMLElement | null) => {
+    if (!rowActionAvailable(item)) return;
+    if (selected === "delete") { if (canArchive) { deleteFocus.current = trigger ?? null; setDeleteItem(item); } return; }
+    if (selected === "archive" || (selected === "duplicate" && item.triggerKind === "code")) {
+      setCodeError(false);
+      setActionConfirmation({ item, action: selected, opener: trigger });
+      return;
+    }
+    applyRowAction(item, selected);
+  };
+
+  function confirmRowAction(replacementCode = "") {
+    if (!actionConfirmation) return;
+    if (actionConfirmation.action === "duplicate" && !replacementCode.trim()) {
+      setCodeError(true);
+      return;
+    }
+    setActionConfirmation(null);
+    applyRowAction(actionConfirmation.item, actionConfirmation.action, replacementCode);
+  }
 
   const rowActions = (item: PromotionAdminListItem) => <PromotionActions item={item} canManage={canManage && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canPublish={canPublish && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} canArchive={canArchive && wheelSources.phase === "loaded" && !wheelSources.sources.has(item.id)} busy={busy.includes(item.id) || phase === "loading"} onAction={action} />;
   const identity = (item: PromotionAdminListItem) => {
@@ -214,6 +243,29 @@ export function PromotionList({ timezone, canManage, canPublish, canArchive, api
     </> : null}
     </div>
     {deleteItem ? <PromotionDeleteDialog key={deleteItem.id} id={deleteItem.id} name={deleteItem.name} api={promotionApi} returnFocusRef={deleteFocus} onCancel={() => { setDeleteItem(null); setDeletionRecovery(promotionApi.pendingDeletions()); }} onDeleted={() => { setDeleteItem(null); window.setTimeout(() => filterTrigger.current?.focus(), 0); setDeletionRecovery(promotionApi.pendingDeletions()); setMessage("İndirim silindi."); setOverviewRetry(value => value + 1); load(appliedQueryRef.current, undefined, true); }} /> : null}
+    {actionConfirmation ? <OrderActionDialog
+      open
+      title={actionConfirmation.action === "archive" ? "Kampanyayı arşivle" : "Kampanyayı çoğalt"}
+      description={actionConfirmation.action === "archive" ? "Arşivlenen kampanya artık uygulanmaz. Geçmiş siparişler korunur." : "Kopya kampanya için kullanılmamış bir kupon kodu girin."}
+      opener={actionConfirmation.opener}
+      onClose={() => setActionConfirmation(null)}
+      footer={<>
+        <button className="button button-secondary" type="button" onClick={() => setActionConfirmation(null)}>Vazgeç</button>
+        {actionConfirmation.action === "archive"
+          ? <button className="button button-danger" type="button" onClick={() => confirmRowAction()}>Kampanyayı arşivle</button>
+          : <button className="button button-primary" type="submit" form={couponFormId}>Kopyayı oluştur</button>}
+      </>}
+    >
+      <p><strong>{actionConfirmation.item.name}</strong></p>
+      {actionConfirmation.action === "duplicate" ? <form id={couponFormId} className={`${styles.filterFields} ${styles.couponForm}`} onSubmit={(event) => {
+        event.preventDefault();
+        const value = event.currentTarget.querySelector("input")?.value ?? "";
+        confirmRowAction(value);
+      }}>
+        <label>Yeni kupon kodu<input name="couponCode" autoComplete="off" aria-invalid={codeError || undefined} aria-describedby={codeError ? `${couponFormId}-error` : undefined} onChange={() => setCodeError(false)} /></label>
+        {codeError ? <p id={`${couponFormId}-error`} className={styles.filterError} role="alert">Kopya için yeni bir kupon kodu gerekir.</p> : null}
+      </form> : null}
+    </OrderActionDialog> : null}
     <DesignSettingsModal open={filtersOpen} surface={{ label: "Filtreler", hint: "İndirimleri durum, tür, hedef kitle ve tarihe göre daraltın." }} onClose={closeFilters} onApply={applyFilters} applyLabel="Filtreleri uygula" returnFocusRef={filterTrigger} className={styles.filterModal}>
       <form className={styles.filterFields} onSubmit={event => { event.preventDefault(); applyFilters(); }}>
         <label>Durum<select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}><option value="">Tümü</option>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, Copy, Filter, Mail, RefreshCw, Save, Send, X } from "lucide-react";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { IsolatedHtmlPreview } from "@/components/admin/IsolatedHtmlPreview";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { buildEmailTemplateVariables, renderEmailTemplate } from "@/lib/email-marketing";
 import type { EmailConfig } from "@/types/notification";
@@ -736,9 +737,10 @@ export default function EmailMarketingPage() {
                       </div>
                       <div className="rounded-[20px] border border-[#efe1cf] bg-white px-4 py-4">
                         <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#aa8a68]">İçerik</div>
-                        <div
-                          className="prose prose-sm max-w-none text-[#4b392a] prose-a:text-[#9a632a] prose-headings:text-[#2f2012]"
-                          dangerouslySetInnerHTML={{ __html: previewContent?.html || activeTemplate.bodyHtml }}
+                        <IsolatedHtmlPreview
+                          className="block h-64 w-full border-0"
+                          title="E-posta içeriği önizlemesi"
+                          html={previewContent?.html || "<p>Önizlenecek içerik yok.</p>"}
                         />
                       </div>
                     </div>

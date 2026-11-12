@@ -28,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { pollWhileVisible } from "@/lib/visible-polling";
 import { AnalyticsStats, TimeRange } from "@/types/analytics";
 
 interface DashboardData {
@@ -114,10 +115,11 @@ export default function AnalyticsPage() {
   }, [selectedPeriod]);
 
   useEffect(() => {
-    const fetchLiveData = async () => {
+    return pollWhileVisible(async (signal) => {
       try {
-        const res = await fetch("/api/analytics/live", { cache: "no-store" });
+        const res = await fetch("/api/analytics/live", { cache: "no-store", signal });
         const result = await res.json();
+        if (signal.aborted) return;
 
         if (res.ok && result?.success && result?.data) {
           setLiveVisitors(result.data.liveVisitors || 0);
@@ -126,20 +128,18 @@ export default function AnalyticsPage() {
           return;
         }
 
-        const heartbeatRes = await fetch("/api/analytics/heartbeat", { cache: "no-store" });
+        const heartbeatRes = await fetch("/api/analytics/heartbeat", { cache: "no-store", signal });
         const heartbeatResult = await heartbeatRes.json();
+        if (signal.aborted) return;
         setLiveVisitors(heartbeatResult.visitors || 0);
         setLiveData(null);
         setLastLiveUpdatedAt(new Date());
       } catch {
+        if (signal.aborted) return;
         setLiveVisitors(0);
         setLiveData(null);
       }
-    };
-
-    fetchLiveData();
-    const interval = setInterval(fetchLiveData, 10000);
-    return () => clearInterval(interval);
+    }, 10_000);
   }, []);
 
   useEffect(() => {

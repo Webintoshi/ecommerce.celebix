@@ -76,6 +76,7 @@
 .loading > div > span:first-child { height: 44px; }
 .filterModal { max-width: 640px; }
 .filterFields { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.couponForm { grid-template-columns: minmax(0, 1fr); }
 .filterFields label { display: grid; min-width: 0; align-content: start; gap: 8px; color: var(--cp-text-primary); font-size: 14px; font-weight: var(--cp-font-weight-control); }
 .filterFields :is(input, select) { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--cp-border); border-radius: var(--cp-control-radius); padding: 8px 12px; background: var(--cp-surface); color: var(--cp-text-primary); }
 .filterFields :is(input, select):focus-visible { outline: 2px solid var(--cp-control-focus); outline-offset: 2px; }

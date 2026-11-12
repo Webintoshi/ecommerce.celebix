@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from "react";
 import type { ProductMediaLifecycle } from "../../../../packages/saas-contracts/src/media/index.ts";
 import { Archive, ArrowLeft, ArrowRight, GripVertical, Image as ImageIcon, ImagePlus, Pencil, RotateCcw, Trash2 } from "lucide-react";
 
@@ -308,9 +308,18 @@ function ProductMediaManagerWorkspace({
   }
 
   const visibleMedia = tab === "active" ? activeMedia : archivedMedia;
+  const galleryId = useId();
+  const otherTab = tab === "active" ? "archived" : "active";
 
-  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, nextTab: "active" | "archived") {
-    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    let nextTab: "active" | "archived";
+    switch (event.key) {
+      case "ArrowLeft":
+      case "ArrowRight": nextTab = otherTab; break;
+      case "Home": nextTab = "active"; break;
+      case "End": nextTab = "archived"; break;
+      default: return;
+    }
     event.preventDefault();
     setTab(nextTab);
     (nextTab === "active" ? activeTabRef : archivedTabRef).current?.focus();
@@ -324,14 +333,15 @@ function ProductMediaManagerWorkspace({
           {tab === "active" ? <p>İlk görsel mağazada kapak olur.</p> : null}
         </div>
         {canArchive ? <div className={styles.tabs} role="tablist" aria-label="Görsel durumu">
-          <button ref={activeTabRef} type="button" role="tab" aria-selected={tab === "active"} tabIndex={tab === "active" ? 0 : -1} onClick={() => setTab("active")} onKeyDown={(event) => handleTabKeyDown(event, "archived")}>Aktif <span>{activeMedia.length}</span></button>
-          <button ref={archivedTabRef} type="button" role="tab" aria-selected={tab === "archived"} tabIndex={tab === "archived" ? 0 : -1} onClick={() => setTab("archived")} onKeyDown={(event) => handleTabKeyDown(event, "active")}>Arşiv <span>{archivedMedia.length}</span></button>
+          <button ref={activeTabRef} id={`${galleryId}-active-tab`} type="button" role="tab" aria-controls={`${galleryId}-active-panel`} aria-selected={tab === "active"} tabIndex={tab === "active" ? 0 : -1} onClick={() => setTab("active")} onKeyDown={handleTabKeyDown}>Aktif <span>{activeMedia.length}</span></button>
+          <button ref={archivedTabRef} id={`${galleryId}-archived-tab`} type="button" role="tab" aria-controls={`${galleryId}-archived-panel`} aria-selected={tab === "archived"} tabIndex={tab === "archived" ? 0 : -1} onClick={() => setTab("archived")} onKeyDown={handleTabKeyDown}>Arşiv <span>{archivedMedia.length}</span></button>
         </div> : null}
       </div>
 
       {error ? <div className={styles.error} role="alert"><span>{error}</span><button type="button" onClick={() => void load()}>Galeriyi yenile</button></div> : null}
       {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
 
+      <div id={canArchive ? `${galleryId}-${tab}-panel` : undefined} role={canArchive ? "tabpanel" : undefined} aria-labelledby={canArchive ? `${galleryId}-${tab}-tab` : undefined} tabIndex={canArchive ? 0 : undefined}>
       {loading && !resolved ? <div className={styles.grid} role="status" aria-label="Görseller yükleniyor"><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /><span className={styles.skeleton} /></div> : tab === "archived" && visibleMedia.length === 0 ? (
         <div className={styles.empty}><ImageIcon aria-hidden="true" /><strong>Arşivlenmiş görsel yok</strong><span>Arşivlediğiniz görseller burada görünür.</span></div>
       ) : tab === "active" && visibleMedia.length === 0 && !canManage ? (
@@ -382,6 +392,8 @@ function ProductMediaManagerWorkspace({
         </div>
         </CatalogSortArea>
       )}
+      </div>
+      {canArchive ? <div id={`${galleryId}-${otherTab}-panel`} role="tabpanel" aria-labelledby={`${galleryId}-${otherTab}-tab`} hidden /> : null}
 
       {archiveTarget && canArchive ? (
         <div className={styles.dialogLayer}>

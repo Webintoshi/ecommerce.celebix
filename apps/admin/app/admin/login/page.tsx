@@ -6,13 +6,12 @@ import { Loader2, Lock, ShieldCheck, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { sanitizeInternalRedirectPath } from "@celebix/platform-config/src/http-security";
 import { getBrowserSupabaseClient } from "@/lib/supabase-browser";
+import { Label } from "@/components/ui/label";
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const supabase = useMemo(() => getBrowserSupabaseClient(), []);
   const [nextPath, setNextPath] = useState("/admin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -43,8 +42,9 @@ export default function AdminLoginPage() {
     };
   }, [router, supabase]);
 
-  const handleLogin = async (event: React.FormEvent) => {
+  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const credentials = new FormData(event.currentTarget);
     setLoading(true);
 
     try {
@@ -52,8 +52,8 @@ export default function AdminLoginPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email.trim(),
-          password,
+          email: String(credentials.get("email") ?? "").trim(),
+          password: String(credentials.get("password") ?? ""),
         }),
       });
 
@@ -120,17 +120,18 @@ export default function AdminLoginPage() {
             </p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="flex flex-col gap-5">
             <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-1.5">
+              <Label htmlFor="admin-email" className="mb-1.5 block">
                 E-posta
-              </label>
+              </Label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
                 <input
+                  id="admin-email"
+                  name="email"
                   type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="username"
                   placeholder="yonetici@magaza.com"
                   className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
                   required
@@ -139,15 +140,16 @@ export default function AdminLoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-1.5">
+              <Label htmlFor="admin-password" className="mb-1.5 block">
                 Şifre
-              </label>
+              </Label>
               <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
                 <input
+                  id="admin-password"
+                  name="password"
                   type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="current-password"
                   placeholder="••••••••"
                   className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-neutral-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all"
                   required

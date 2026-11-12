@@ -12,6 +12,7 @@ import {
     Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { isActionableEnter } from "@/lib/keyboard";
 
 interface HeroOverlay {
     title: string;
@@ -511,7 +512,7 @@ function UrlInput({ placeholder, onAdd }: { placeholder: string; onAdd: (value: 
                 className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm"
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={(e) => {
-                    if (e.key === "Enter" && value.trim()) {
+                    if (isActionableEnter(e) && value.trim()) {
                         onAdd(value.trim());
                         setValue("");
                     }

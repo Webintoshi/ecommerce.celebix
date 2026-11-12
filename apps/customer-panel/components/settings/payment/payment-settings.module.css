@@ -1,5 +1,5 @@
 /* Settings-only presentation. Provider authority and checkout behavior stay in the existing controllers. */
-.page, .dialogLayer, .drawerLayer {
+.page, .paymentModal {
   --pay-text: var(--settings-text, var(--text));
   --pay-muted: var(--settings-muted, var(--muted));
   --pay-border: var(--settings-border, var(--border));
@@ -24,7 +24,8 @@
 .iconButton { width: var(--cp-button-height); flex: 0 0 var(--cp-button-height); padding: 0; }
 .primaryButton svg, .secondaryButton svg, .iconButton svg { width: var(--cp-button-icon-size); height: var(--cp-button-icon-size); flex: 0 0 auto; }
 .primaryButton:disabled, .secondaryButton:disabled, .plannedButton:disabled, .iconButton:disabled { cursor: not-allowed; opacity: .5; }
-.page :is(button, input, textarea, select, summary, a):focus-visible, .dialogLayer :is(button, input, textarea, select, a):focus-visible, .drawerLayer :is(button, input, textarea, select, a):focus-visible { outline: 2px solid var(--pay-brand); outline-offset: 2px; }
+.page :is(button, input, textarea, select, summary, a):focus-visible, .paymentModal :is(button, input, textarea, select, a):focus-visible { outline: 2px solid var(--pay-brand); outline-offset: 2px; }
+.page [role="tabpanel"]:focus-visible, .paymentModal [role="tabpanel"]:focus-visible { outline: 2px solid var(--pay-brand); outline-offset: -2px; }
 .paymentSummary { display: flex; min-width: 0; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; }
 .summaryMetrics { display: flex; flex-wrap: wrap; gap: 24px; margin: 0; }
 .summaryMetrics > div { display: grid; gap: 4px; }
@@ -54,8 +55,9 @@
 .workspaceTabs button, .addFlowTabs button { position: relative; display: inline-flex; min-width: 44px; min-height: 48px; flex: 0 0 auto; align-items: center; gap: 8px; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 0 4px; color: var(--pay-muted); cursor: pointer; font: inherit; font-size: 13px; white-space: nowrap; font-weight: var(--cp-font-weight-control); }
 .workspaceTabs button svg, .addFlowTabs button svg { width: 16px; height: 16px; }
 .workspaceTabs button > span { color: var(--pay-muted); font-size: 12px; }
-.workspaceTabs .activeWorkspaceTab, .addFlowTabs .activeAddFlowTab { border-bottom-color: var(--pay-brand); color: var(--pay-text); font-weight: var(--cp-font-weight-control); }
+.workspaceTabs [aria-selected="true"], .addFlowTabs [aria-selected="true"] { border-bottom-color: var(--pay-brand); color: var(--pay-text); font-weight: var(--cp-font-weight-control); }
 .workspaceTabs button:hover, .addFlowTabs button:hover { color: var(--pay-text); }
+.workspaceTabs button:focus-visible, .addFlowTabs button:focus-visible { outline-offset: -2px; }
 .loadingState, .dialogState { margin: 0; padding: 32px 16px; color: var(--pay-muted); font-size: 13px; text-align: center; }
 .emptyMethods { display: grid; justify-items: center; gap: 12px; padding: 40px 16px; text-align: center; }
 .emptyMethods > svg { width: 40px; height: 40px; color: var(--pay-muted); }
@@ -97,8 +99,14 @@
 .methodActionMenu .destructiveAction { color: var(--pay-danger); }
 .methodActionMenu .recoveryAction { color: var(--pay-warning); }
 .methodCards { display: none; }
-.dialogLayer, .drawerLayer { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; overflow: auto; background: rgb(32 28 25 / 32%); padding: 24px; }
-.catalogDialog, .orderDialog, .connectionDrawer, .builtInDrawer, .checkoutSettingsDrawer { display: flex; min-width: 0; width: min(960px, 100%); max-height: calc(100dvh - 48px); flex-direction: column; border: 1px solid var(--pay-border); border-radius: 16px; background: var(--pay-surface); box-shadow: 0 20px 80px rgb(32 28 25 / 16%); }
+.paymentModal { box-sizing: border-box; position: fixed; inset: 0; display: flex; width: min(960px, calc(100% - 48px)); min-width: 0; max-width: none; max-height: calc(100dvh - 48px); flex-direction: column; overflow: auto; overscroll-behavior: contain; margin: auto; border: 1px solid var(--pay-border); border-radius: 16px; background: var(--pay-surface); padding: 0; box-shadow: 0 20px 80px rgb(32 28 25 / 16%); }
+.paymentModal:not([open]) { display: none; }
+.paymentModal::backdrop { background: rgb(32 28 25 / 32%); }
+.stateDialog { max-width: 480px; }
+.stateDialog .dialogHeader { grid-template-columns: auto minmax(0, 1fr); }
+.stateReason { display: grid; gap: 8px; padding: 16px 24px; }
+.stateReason small { color: var(--pay-muted); }
+.stateReason[data-invalid] small { color: var(--pay-danger); }
 .catalogDialog [hidden] { display: none; }
 .onlineAddFlow { min-height: 0; overflow-y: auto; }
 .addFlowTabs { margin: 0 24px; }
@@ -125,7 +133,8 @@
 .builtInCopy p, .builtInCopy small { color: var(--pay-muted); font-size: 12px; line-height: 1.6; }
 .builtInCard > button { padding-inline: 12px; white-space: nowrap; }
 .catalogFilters { display: grid; grid-template-columns: minmax(160px, 1.5fr) repeat(4, minmax(0, 1fr)); gap: 12px; padding: 0 0 20px; }
-.catalogFilters input, .catalogFilters select, .connectionForm input, .connectionForm select, .builtInForm input, .builtInForm textarea, .selectField select { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-surface); padding: 8px 12px; color: var(--pay-text); font: inherit; font-size: 13px; }
+.catalogFilters input, .catalogFilters select, .connectionForm input, .connectionForm select, .builtInForm input, .builtInForm textarea, .selectField select, .stateReason input { width: 100%; min-width: 0; min-height: 44px; border: 1px solid var(--pay-border); border-radius: 8px; background: var(--pay-surface); padding: 8px 12px; color: var(--pay-text); font: inherit; font-size: 13px; }
+.stateReason input { box-sizing: border-box; }
 .catalogFilters input, .connectionForm input, .builtInForm input, .builtInForm textarea {
   font-weight: var(--cp-font-weight-body);
 }
@@ -153,8 +162,7 @@
 .providerCard > button { justify-self: start; }
 .providerCatalogSurface { min-width: 0; }
 .onlineAddFlow .providerCatalogSurface { padding: 24px; }
-.drawerLayer { place-items: stretch; padding: 0; }
-.connectionDrawer, .builtInDrawer, .checkoutSettingsDrawer { width: min(520px, 100%); max-height: 100dvh; justify-self: end; overflow-y: auto; border-radius: 16px 0 0 16px; }
+.connectionDrawer, .builtInDrawer, .checkoutSettingsDrawer { width: min(520px, 100%); height: 100dvh; max-height: 100dvh; margin-block: 0; margin-inline: auto 0; overflow-y: auto; border-radius: 16px 0 0 16px; }
 .connectionForm, .builtInForm, .checkoutSettingsForm { display: grid; gap: 24px; padding: 24px; }
 .connectionForm label, .builtInForm label { display: grid; min-width: 0; gap: 8px; font-size: 13px; font-weight: var(--cp-font-weight-control); }
 .builtInForm textarea { min-height: 104px; max-height: 240px; resize: vertical; }
@@ -270,9 +278,10 @@
   .paymentSummary .primaryButton { margin-left: auto; }
   .summaryMetrics { gap: 24px; }
   .workspaceTabs, .addFlowTabs { gap: 20px; }
-  .dialogLayer { padding: 12px; }
-  .catalogDialog, .orderDialog { max-height: calc(100dvh - 24px); border-radius: 12px; }
+  .catalogDialog, .orderDialog, .stateDialog { width: min(960px, calc(100% - 24px)); max-height: calc(100dvh - 24px); border-radius: 12px; }
   .dialogHeader { grid-template-columns: minmax(0, 1fr) auto; padding: 16px; }
+  .stateDialog .dialogHeader { grid-template-columns: minmax(0, 1fr); }
+  .stateReason { padding-inline: 16px; }
   .dialogTitleIcon { display: none; }
   .dialogHeader h2 { font-size: 16px; }
   .addFlowTabs { margin-inline: 16px; }
@@ -290,7 +299,7 @@
   .dialogActions .primaryButton, .drawerActions .primaryButton { margin-left: auto; }
   .connectionDrawer, .builtInDrawer, .checkoutSettingsDrawer { border-radius: 0; }
   .connectionForm, .builtInForm, .checkoutSettingsForm { gap: 20px; padding: 20px 16px; }
-  .catalogFilters input, .catalogFilters select, .connectionForm input, .connectionForm select, .builtInForm input, .builtInForm textarea, .selectField select { font-size: 16px; }
+  .catalogFilters input, .catalogFilters select, .connectionForm input, .connectionForm select, .builtInForm input, .builtInForm textarea, .selectField select, .stateReason input { font-size: 16px; }
   .paytrModeControl input { font-size: inherit; }
   .paytrStatusCard, .checkoutAuthorityCard { grid-template-columns: auto minmax(0, 1fr); }
   .paytrStatusCard > :last-child, .checkoutAuthorityCard > :last-child { grid-column: 2; justify-self: start; }

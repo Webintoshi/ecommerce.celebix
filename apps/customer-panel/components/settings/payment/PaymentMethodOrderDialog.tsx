@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
   type DragEvent,
-  type KeyboardEvent,
   type RefObject,
 } from "react";
 
@@ -23,6 +22,7 @@ import {
 } from "@/lib/payment-settings-ui/console-state";
 import type { buildPaymentSettingsViewModel } from "@/lib/payment-settings-ui/model";
 
+import { PaymentModal } from "./PaymentModal";
 import styles from "./payment-settings.module.css";
 
 type MethodRow = ReturnType<typeof buildPaymentSettingsViewModel>["methods"][number];
@@ -46,7 +46,6 @@ export function PaymentMethodOrderDialog(props: Readonly<{
   onClose(): void;
 }>) {
   const canManage = props.canManage;
-  const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const originalIds = useMemo(() => props.methods.map(({ id }) => id), [props.methods]);
   const [order, setOrder] = useState<readonly string[]>(originalIds);
@@ -58,30 +57,9 @@ export function PaymentMethodOrderDialog(props: Readonly<{
   const rowsById = useMemo(() => new Map(props.rows.map((row) => [row.id, row] as const)), [props.rows]);
 
   useEffect(() => { setOrder(Object.freeze([...originalIds])); }, [originalIds]);
-  useEffect(() => {
-    closeRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, []);
-
   function close(force = false) {
     if (busy && !force) return;
     props.onClose();
-    queueMicrotask(() => props.openerRef.current?.focus());
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") { event.preventDefault(); close(); return; }
-    if (event.key !== "Tab") return;
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable?.length) { event.preventDefault(); return; }
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
   function drop(event: DragEvent<HTMLLIElement>, targetId: string) {
@@ -108,10 +86,7 @@ export function PaymentMethodOrderDialog(props: Readonly<{
   }
 
   return (
-    <div className={styles.dialogLayer} onMouseDown={(event) => {
-      if (event.target === event.currentTarget) close();
-    }}>
-      <div ref={dialogRef} className={styles.orderDialog} role="dialog" aria-modal="true" aria-labelledby="payment-order-title" aria-describedby="payment-order-description" onKeyDown={onKeyDown}>
+      <PaymentModal className={styles.orderDialog} labelledBy="payment-order-title" describedBy="payment-order-description" initialFocusRef={closeRef} openerRef={props.openerRef} onDismiss={() => close()}>
         <header className={styles.dialogHeader}>
           <div className={styles.dialogTitleIcon}><GripVertical aria-hidden="true" /></div>
           <div><h2 id="payment-order-title">Checkout sırası</h2><p id="payment-order-description">Etkin ödeme yöntemlerinin müşteriye görüneceği sırayı düzenleyin ve önizleyin.</p></div>
@@ -156,7 +131,6 @@ export function PaymentMethodOrderDialog(props: Readonly<{
           <button type="button" className={styles.secondaryButton} onClick={() => close()} disabled={busy}>Vazgeç</button>
           <button type="button" className={styles.primaryButton} onClick={() => void save()} disabled={!canManage || !props.mutationAvailable || props.mutationBusy || !changed || busy}><Save />{busy ? "Kaydediliyor…" : "Kaydet"}</button>
         </footer>
-      </div>
-    </div>
+      </PaymentModal>
   );
 }

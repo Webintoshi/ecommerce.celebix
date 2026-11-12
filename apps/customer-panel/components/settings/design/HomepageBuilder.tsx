@@ -2,22 +2,12 @@
 import { ChevronDown,ChevronUp,Copy,Eye,EyeOff,GripVertical,Plus,RotateCcw,Trash2 } from "lucide-react";
 import { useEffect,useMemo,useRef,useState } from "react";
 import { normalizeStarterThemeCompositionV4,type HomepageSectionId,type StarterThemeCompositionConfigV4,type StarterThemeSectionConfigV4,type StorefrontDesignAssetOption,type StorefrontDesignDestinationOption,type StorefrontDesignDocument,type StorefrontDesignEditorMediaOption,type StorefrontDesignMediaOption,type StorefrontAsset } from "@celebix/saas-contracts";
-import { addHomepageSection,duplicateHomepageSection,moveHomepageSection,removeHomepageSection,restoreRemovedHomepageSection,setHomepageSectionVisibility,updateHomepageSection,type HomepageUndo } from "./homepage-command-model";
+import { addHomepageSection,duplicateHomepageSection,moveHomepageSection,nextSectionId,removeHomepageSection,restoreRemovedHomepageSection,setHomepageSectionVisibility,updateHomepageSection,type HomepageUndo } from "./homepage-command-model";
+import { SECTION_LABEL,SECTION_LIBRARY } from "./homepage-section-library";
 import { HomepageSectionFields,sectionFieldErrors } from "./HomepageSectionFields";
 import {scoreHomepageQuality} from "./homepage-quality-model";
 import styles from "../design-settings.module.css";
-export const SECTION_LIBRARY=Object.freeze([
- {kind:"banner",label:"Banner",hint:"Tek görsel, slayt veya alt alta bannerlar."},
- {kind:"category_grid",label:"Kategori vitrini",hint:"Kendi seçtiğiniz kategorileri gösterin."},
- {kind:"product_row",label:"Ürün bölümü",hint:"Yeni, indirimli, kategori veya seçili ürünler."},
- {kind:"split_campaign",label:"İkili kampanya",hint:"Yan yana iki görsel bağlantı."},
- {kind:"brand_story",label:"Marka hikâyesi",hint:"Mağazanızı metin ve görselle anlatın."},
- {kind:"value_propositions",label:"Değer önerileri",hint:"Teslimat, güven ve iade vaatleri."},
- {kind:"testimonials",label:"Müşteri yorumları",hint:"Onaylanmış ürün yorumları."},
-] satisfies readonly Readonly<{kind:StarterThemeSectionConfigV4["kind"];label:string;hint:string}>[]);
-export const SECTION_LABEL=Object.freeze(Object.fromEntries(SECTION_LIBRARY.map(item=>[item.kind,item.label])) as Record<StarterThemeSectionConfigV4["kind"],string>);
 function editableComposition(design:StorefrontDesignDocument):StarterThemeCompositionConfigV4{return design.composition.schemaVersion===4?design.composition as StarterThemeCompositionConfigV4:normalizeStarterThemeCompositionV4(design.composition);}
-export function nextSectionId(kind:StarterThemeSectionConfigV4["kind"]):HomepageSectionId{return `home_${kind}_${globalThis.crypto.randomUUID().replaceAll("-","_")}` as HomepageSectionId;}
 export function sectionSummary(section:StarterThemeSectionConfigV4):string {
  if(section.kind==="banner")return `${section.slides.length} görsel · ${{single:"Tek banner",slider:"Slayt",stacked:"Alt alta"}[section.layout]}`;
  if(section.kind==="category_grid")return `${section.categoryIds.length} kategori`;

@@ -4,7 +4,6 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as React from "react";
 import { act, createElement } from "react";
-import { createRoot } from "react-dom/client";
 import * as jsxRuntime from "react/jsx-runtime";
 import { Window } from "happy-dom";
 import ts from "typescript";
@@ -20,7 +19,7 @@ test("attribute editor saves a name and selected values without asking for a tec
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({
     window: browser, document: browser.document, navigator: browser.navigator,
-    HTMLElement: browser.HTMLElement, Event: browser.Event, MouseEvent: browser.MouseEvent,
+    HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, Event: browser.Event, MouseEvent: browser.MouseEvent, KeyboardEvent: browser.KeyboardEvent,
     MutationObserver: browser.MutationObserver, FormData: browser.FormData, IS_REACT_ACT_ENVIRONMENT: true,
   })) {
     globals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
@@ -46,6 +45,7 @@ test("attribute editor saves a name and selected values without asking for a tec
     throw new Error(`unexpected_import:${name}`);
   }, compiled, compiled.exports);
   const Editor = compiled.exports.CatalogResourceEditor as React.ComponentType<{ kind: "attribute"; canManage: boolean; resourceId?: string }>;
+  const { createRoot } = await import("react-dom/client");
   const container = browser.document.createElement("div");
   browser.document.body.append(container);
   const root = createRoot(container as unknown as Parameters<typeof createRoot>[0]);
@@ -62,7 +62,20 @@ test("attribute editor saves a name and selected values without asking for a tec
     });
     const add = [...container.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Değer ekle");
     assert.ok(add);
-    await act(async () => { add.click(); });
+    const composingEnter = new browser.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    Object.defineProperty(composingEnter, "isComposing", { value: true });
+    const webKitEnter = new browser.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    Object.defineProperty(webKitEnter, "keyCode", { value: 229 });
+    await act(async () => {
+      draft.dispatchEvent(composingEnter as unknown as Event);
+      draft.dispatchEvent(webKitEnter as unknown as Event);
+    });
+    assert.equal(composingEnter.defaultPrevented, false);
+    assert.equal(webKitEnter.defaultPrevented, false);
+    assert.equal(draft.value, "M", "composing Enter must leave the input intact");
+    const ordinaryEnter = new browser.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true });
+    await act(async () => { draft.dispatchEvent(ordinaryEnter as unknown as Event); });
+    assert.equal(ordinaryEnter.defaultPrevented, true);
     assert.match(container.textContent ?? "", /M değerini kaldır|M×/);
     const form = container.querySelector("form");
     assert.ok(form);

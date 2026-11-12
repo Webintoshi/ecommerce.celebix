@@ -913,7 +913,8 @@ export function ProductListConsole({
       ) : (
         <div className="catalog-table-shell" role="region" aria-label="Ürün karşılaştırma tablosu" aria-busy={loading || loadingMore} tabIndex={0} data-stale={rowsStale ? "true" : undefined} aria-describedby={rowsStale ? "product-stale-warning" : undefined}>
           <table className="catalog-table">
-            <thead><tr><th>Seç</th><th>Ürün</th><th>SKU</th><th>Fiyat</th><th>Stok</th><th>Durum</th><th>Yayında</th><th>İşlemler</th></tr></thead>
+            <caption className="sr-only">Ürünler</caption>
+            <thead><tr><th scope="col">Seç</th><th scope="col">Ürün</th><th scope="col">SKU</th><th scope="col">Fiyat</th><th scope="col">Stok</th><th scope="col">Durum</th><th scope="col">Yayında</th><th scope="col">İşlemler</th></tr></thead>
             <tbody>
               {visibleRows.map(({ product, variant, featuredImage }) => (
                 <tr key={product.id} className={selected.includes(product.id) ? "is-selected" : undefined}>

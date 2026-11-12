@@ -13,9 +13,9 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent,
 } from "react";
 
+import { PaymentModal } from "./PaymentModal";
 import styles from "./payment-settings.module.css";
 
 export type BuiltInPaymentMethodDrawerSubmit = Readonly<{
@@ -122,7 +122,6 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
   onSubmit(value: BuiltInPaymentMethodDrawerSubmit): void | Promise<void>;
   onClose(): void;
 }>) {
-  const drawerRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const labelRef = useRef<HTMLInputElement>(null);
   const bankNameRef = useRef<HTMLInputElement>(null);
@@ -140,17 +139,6 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
   const Icon = isBankTransfer ? Banknote : Truck;
 
   useEffect(() => {
-    if (!props.busy && props.canManage) labelRef.current?.focus();
-    else if (!props.busy) closeRef.current?.focus();
-    else drawerRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, []);
-
-  useEffect(() => {
     setFormValues(initialFormValues(props.kind, props.method));
     setFormError(null);
   }, [props.kind, props.method?.id, props.method?.version]);
@@ -166,31 +154,6 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
 
   function close() {
     if (!props.busy && !submitOwnedRef.current) props.onClose();
-  }
-
-  function onKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape" && !props.busy && !submitOwnedRef.current) {
-      event.preventDefault();
-      props.onClose();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable?.length) {
-      event.preventDefault();
-      return;
-    }
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
   }
 
   function focusField(field: BuiltInFormField) {
@@ -270,18 +233,12 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
 
   const disabled = props.busy || !props.canManage;
   return (
-    <div className={styles.drawerLayer} onMouseDown={(event) => {
-      if (event.target === event.currentTarget) close();
-    }}>
-      <aside
-        ref={drawerRef}
+      <PaymentModal
         className={styles.builtInDrawer}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="built-in-payment-title"
-        aria-describedby="built-in-payment-description"
-        tabIndex={-1}
-        onKeyDown={onKeyDown}
+        labelledBy="built-in-payment-title"
+        describedBy="built-in-payment-description"
+        initialFocusRef={props.canManage ? labelRef : closeRef}
+        onDismiss={close}
       >
         <header className={styles.dialogHeader}>
           <div className={styles.dialogTitleIcon}><Icon aria-hidden="true" /></div>
@@ -420,7 +377,6 @@ export function BuiltInPaymentMethodDrawer(props: Readonly<{
             </button>
           </footer>
         </form>
-      </aside>
-    </div>
+      </PaymentModal>
   );
 }

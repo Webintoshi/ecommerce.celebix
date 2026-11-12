@@ -16,3 +16,11 @@ test("design editing exposes direct Apply and local Cancel without a draft write
  assert.match(workspace,/storefrontDesignApi.apply/);assert.match(workspace,/operationId:started.token.operationId/);assert.doesNotMatch(workspace,/saveDraft|\.publish\(|queueSave|readNavigationDraft|localStorage|sessionStorage|>Yayınla</);
  assert.match(modal,/>Vazgeç</);assert.match(modal,/Uygula/);assert.match(modal,/aria-modal="true"/);assert.match(modal,/event.key==="Escape"/);
 });
+
+test("editor-only fields and section builders are loaded outside the initial preview bundle", async () => {
+ const workspace = await readFile(new URL("./DesignWorkspace.tsx", import.meta.url), "utf8");
+ for (const editorModule of ["DesignStepEditor", "HomepageBuilder"]) {
+   assert.match(workspace, new RegExp(`import\\("\\./${editorModule}"\\)`));
+   assert.doesNotMatch(workspace, new RegExp(`from "\\./${editorModule}"`));
+ }
+});

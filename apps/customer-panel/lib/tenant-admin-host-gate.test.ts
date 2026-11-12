@@ -17,6 +17,39 @@ function request(hostname: string, pathname: string, headers: Record<string, str
   return new NextRequest(`http://panel.internal:3400${pathname}`, { headers: { host: hostname, ...headers } });
 }
 
+test("panel pages send document security headers without restricting cross-origin session redirects", async (t) => {
+  const previousEnvironment = process.env.NODE_ENV;
+  t.after(() => {
+    if (previousEnvironment === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+    else Reflect.set(process.env, "NODE_ENV", previousEnvironment);
+  });
+  Reflect.set(process.env, "NODE_ENV", "production");
+  const hostname = new URL(ENVIRONMENTS[0].panel).hostname;
+  const handler = createCustomerPanelProxy({
+    clock: () => NOW,
+    async resolveRuntime() {
+      return {
+        access: { panelOrigin: ENVIRONMENTS[0].panel },
+        adminDomains: { async resolvePublicBrand() { return { kind: "admin_host_unknown" as const }; } },
+      };
+    },
+  });
+
+  for (const pathname of ["/login", "/products"]) {
+    const { headers } = await handler(request(hostname, pathname, { "x-forwarded-proto": "https" }));
+    assert.equal(headers.get("x-middleware-next"), "1");
+    assert.equal(headers.get("x-frame-options"), "DENY");
+    assert.equal(headers.get("x-content-type-options"), "nosniff");
+    assert.equal(headers.get("referrer-policy"), "strict-origin-when-cross-origin");
+    assert.equal(headers.get("permissions-policy"), "camera=(), geolocation=(), microphone=()");
+    assert.equal(headers.get("strict-transport-security"), "max-age=15552000; includeSubDomains");
+    assert.equal(headers.get("content-security-policy"), "base-uri 'self'; frame-ancestors 'none'; object-src 'none'");
+  }
+
+  const http = await handler(request(hostname, "/login"));
+  assert.equal(http.headers.has("strict-transport-security"), false);
+});
+
 test("unknown exact NET, SITE and production admin hosts return 404 on root and login before session redirects", async () => {
   for (const environment of ENVIRONMENTS) {
     const received: string[] = [];

@@ -25,8 +25,9 @@ function hiddenOrInert(element: Element | null): boolean {
 function namedButton(container: HTMLElement, label: string) { return [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.getAttribute("aria-label") === label || button.textContent === label); }
 const list = async () => ({ conversations: [], defaultProvider: { provider: "deepseek" as const, model: "deepseek-flash" } });
 
-async function withAssistant(api: Api, verify: (container: HTMLElement, browser: Window, unmount: () => Promise<void>) => Promise<void>, localExecute?: (intent: unknown) => Promise<{ text: string; sources: [] }>, mode: "page" | "drawer" = "page") {
+async function withAssistant(api: Api, verify: (container: HTMLElement, browser: Window, unmount: () => Promise<void>) => Promise<void>, localExecute?: (intent: unknown) => Promise<{ text: string; sources: [] }>, mode: "page" | "drawer" = "page", supportsFieldSizing = false) {
   const browser = new Window({ url: "https://panel.example.test/toshi" });
+  Object.defineProperty(browser, "CSS", { value: { supports: (property: string, value: string) => supportsFieldSizing && property === "field-sizing" && value === "content" } });
   const globals = new Map<string, PropertyDescriptor | undefined>();
   for (const [key, value] of Object.entries({ window: browser, document: browser.document, navigator: browser.navigator, HTMLElement: browser.HTMLElement, HTMLInputElement: browser.HTMLInputElement, HTMLTextAreaElement: browser.HTMLTextAreaElement, HTMLSelectElement: browser.HTMLSelectElement, Event: browser.Event, MouseEvent: browser.MouseEvent, KeyboardEvent: browser.KeyboardEvent, IS_REACT_ACT_ENVIRONMENT: true })) {
     globals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
@@ -89,6 +90,18 @@ async function type(container: HTMLElement, browser: Window, value: string) {
   });
 }
 function submit(container: HTMLElement, browser: Window) { container.querySelector("form")!.dispatchEvent(new browser.Event("submit", { bubbles: true, cancelable: true }) as unknown as Event); }
+
+test("composer delegates sizing to CSS when supported and retains the existing fallback", async () => {
+  const api = { list, get: async () => conversation, send: async () => conversation };
+  for (const supportsFieldSizing of [true, false]) {
+    await withAssistant(api, async (container, browser) => {
+      const composer = container.querySelector("textarea")!;
+      Object.defineProperty(composer, "scrollHeight", { get: () => 86 });
+      await type(container, browser, "İlk satır\nİkinci satır");
+      assert.equal(composer.style.height, supportsFieldSizing ? "" : "86px");
+    }, undefined, "page", supportsFieldSizing);
+  }
+});
 
 test("real Toshi UI loads durable history and pinned model then sends natural-language follow-up", async () => {
   const calls: unknown[] = [];

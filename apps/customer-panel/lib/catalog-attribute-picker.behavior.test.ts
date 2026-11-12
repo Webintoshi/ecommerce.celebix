@@ -39,7 +39,7 @@ async function withPicker(savedResources: readonly unknown[], verify: (input: { 
     if (name === "@/lib/catalog-onboarding-ui/attribute-variants") return { attributeChoices, mergeSelectedVariants, reconcileVariantRows, updateSharedVariantDefault, variantAttributeKey };
     if (name === "@/lib/catalog-onboarding-ui/attribute-resource") return { attributeValueIdentity, buildAttributeResourceMutation, parseAttributeMeasurementValue, saveAttributeForPicker };
     if (name === "@/lib/catalog-onboarding-ui/variant-matrix") return { buildVariantMatrix };
-    if (name === "./attribute-variant-picker.module.css" || name === "./create-advanced.module.css") return styles;
+    if (name.endsWith(".module.css")) return styles;
     throw new Error(`unexpected_import:${name}`);
   }, compiled, compiled.exports);
   const Picker = compiled.exports.AttributeVariantPicker as React.ComponentType<{ value: readonly VariantDraft[]; onChange(value: readonly VariantDraft[]): void }>;

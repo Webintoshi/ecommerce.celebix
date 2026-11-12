@@ -198,7 +198,7 @@ export function MerchantContentBodyField({value, bodyFormat, readOnly = false, h
     </div> : null}
     {linkOpen && !disabled ? <div className={styles.linkPanel} role="group" aria-label="Bağlantı düzenle" onKeyDown={(event) => {
       if (event.key === 'Escape') {event.preventDefault();setLinkOpen(false);editor?.commands.focus();}
-      if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {event.preventDefault();applyLink();}
+      if (event.key === 'Enter' && !event.nativeEvent.isComposing && event.keyCode !== 229 && event.target instanceof HTMLInputElement) {event.preventDefault();applyLink();}
     }}>
       <label htmlFor={linkId}>Bağlantı adresi</label>
       <div className={styles.linkControls}><input id={linkId} value={linkValue} placeholder="https://" autoFocus onChange={(event) => {setLinkValue(event.currentTarget.value);setError('');}} />

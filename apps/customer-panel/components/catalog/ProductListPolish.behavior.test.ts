@@ -18,6 +18,14 @@ function component(status = "active", api: Record<string, unknown> = {}) {
   }).ProductListConsole;
 }
 
+test("product comparison exposes its own table caption and column headers", async () => {
+  await mounted(component(), {}, async host => {
+    const table = host.querySelector("table.catalog-table");
+    assert.equal(table.caption?.textContent, "Ürünler");
+    assert.equal(table.querySelectorAll("th[scope=col]").length, table.querySelectorAll("thead th").length);
+  });
+});
+
 test("bulk choices appear after eligible selection while page size remains available without write permission", async () => {
   await mounted(component(), { canManage: true, canArchive: true }, async host => {
     assert.equal(Boolean(host.querySelector('[aria-label="Toplu İşlemler"]')), false);

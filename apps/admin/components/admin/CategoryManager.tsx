@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import type { PointerEvent } from "react";
 import {
   fetchCategories,
   addCategory,
@@ -55,7 +56,26 @@ const INPUT_CLASSNAME =
 const SECTION_CLASSNAME =
   "rounded-[28px] border border-[#eadfd4] bg-gradient-to-br from-white via-[#fffdfa] to-[#f9f3ed] p-5 shadow-[0_22px_50px_rgba(86,55,24,0.08)] md:p-6";
 
+function syncModal(dialog: HTMLDialogElement | null, open: boolean) {
+  if (!dialog || dialog.open === open) return;
+  if (open) dialog.showModal();
+  else dialog.close();
+}
+
+function isOutsideDialog(event: PointerEvent<HTMLDialogElement>) {
+  const { left, right, top, bottom } = event.currentTarget.getBoundingClientRect();
+  return event.clientX < left || event.clientX > right || event.clientY < top || event.clientY > bottom;
+}
+
+function setDialogAutofocus(control: HTMLElement | null) {
+  control?.setAttribute("autofocus", "");
+}
+
 export default function CategoryManager() {
+  const formDialog = useRef<HTMLDialogElement>(null);
+  const deleteDialog = useRef<HTMLDialogElement>(null);
+  const newCollectionTrigger = useRef<HTMLButtonElement>(null);
+  const backdropPointer = useRef<{ dialog: HTMLDialogElement; pointerId: number } | null>(null);
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [imageErrors, setImageErrors] = useState<Record<string, boolean>>({});
@@ -103,6 +123,32 @@ export default function CategoryManager() {
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
+
+  useEffect(() => {
+    syncModal(formDialog.current, isFormOpen);
+  }, [isFormOpen]);
+
+  useEffect(() => {
+    syncModal(deleteDialog.current, Boolean(deleteConfirm));
+  }, [deleteConfirm]);
+
+  const restoreMissingFocus = () => {
+    if (document.activeElement === document.body) newCollectionTrigger.current?.focus();
+  };
+
+  const onBackdropPress = (event: PointerEvent<HTMLDialogElement>) => {
+    const dialog = event.currentTarget;
+    if ("closedBy" in dialog) return;
+    backdropPointer.current = isOutsideDialog(event) ? { dialog, pointerId: event.pointerId } : null;
+  };
+
+  const onBackdropRelease = (event: PointerEvent<HTMLDialogElement>) => {
+    const pressed = backdropPointer.current;
+    backdropPointer.current = null;
+    if (pressed?.dialog === event.currentTarget && pressed.pointerId === event.pointerId && isOutsideDialog(event)) {
+      event.currentTarget.close();
+    }
+  };
 
   const buildTree = (cats: CategoryInfo[], parentId: string | null = null): CategoryInfo[] => {
     return cats
@@ -459,6 +505,7 @@ export default function CategoryManager() {
               </div>
 
               <button
+                ref={newCollectionTrigger}
                 type="button"
                 onClick={handleNew}
                 className="inline-flex items-center justify-center gap-2 rounded-[22px] bg-gradient-to-r from-[#FE6100] to-[#e85a00] px-5 py-3 text-sm font-semibold text-white shadow-[0_18px_35px_rgba(254,97,0,0.26)] transition hover:translate-y-[-1px] hover:from-[#f05c00] hover:to-[#d84f00] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
@@ -605,15 +652,17 @@ export default function CategoryManager() {
         )}
       </div>
 
-      {isFormOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6">
-          <div className="absolute inset-0 bg-[#2d1f16]/45 backdrop-blur-sm" onClick={() => setIsFormOpen(false)} />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="collection-form-title"
-            className="relative flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-[32px] border border-[#efddcf] bg-gradient-to-br from-white via-[#fffdfa] to-[#f8efe6] shadow-[0_34px_100px_rgba(52,34,18,0.28)]"
-          >
+      <dialog
+        ref={formDialog}
+        closedby="any"
+        aria-labelledby="collection-form-title"
+        aria-describedby="collection-form-description"
+        className="m-auto max-h-[92dvh] w-[calc(100%_-_2rem)] max-w-4xl flex-col overflow-hidden overscroll-contain rounded-[32px] border border-[#efddcf] bg-gradient-to-br from-white via-[#fffdfa] to-[#f8efe6] p-0 shadow-[0_34px_100px_rgba(52,34,18,0.28)] open:flex backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#2d1f16]/45 backdrop:backdrop-blur-sm"
+        onClose={() => { setIsFormOpen(false); restoreMissingFocus(); }}
+        onPointerDown={onBackdropPress}
+        onPointerUp={onBackdropRelease}
+      >
+        {isFormOpen && <>
             <div className="sticky top-0 z-10 border-b border-[#efdfd0] bg-white/95 px-6 py-5 backdrop-blur md:px-8">
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-2">
@@ -621,7 +670,7 @@ export default function CategoryManager() {
                   <h2 id="collection-form-title" className="text-2xl font-semibold tracking-[-0.04em] text-[#241913]">
                     {editingCategory ? "Koleksiyon Düzenle" : "Yeni Koleksiyon"}
                   </h2>
-                  <p className="text-sm leading-6 text-[#7a6859]">
+                  <p id="collection-form-description" className="text-sm leading-6 text-[#7a6859]">
                     Koleksiyon bilgilerini, görselini ve vitrin ayarlarını tek akışta düzenleyin.
                   </p>
                 </div>
@@ -637,7 +686,7 @@ export default function CategoryManager() {
             </div>
 
             <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
-              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+              <div className="flex flex-1 flex-col gap-5 overflow-y-auto overscroll-contain px-6 py-6 md:px-8 md:py-7">
                 <section className={SECTION_CLASSNAME}>
                   <div className="mb-5 space-y-1.5">
                     <h3 className="text-lg font-semibold text-[#241913]">Temel Bilgiler</h3>
@@ -650,6 +699,7 @@ export default function CategoryManager() {
                         Koleksiyon Adı <span className="text-[#d04f45]">*</span>
                       </label>
                       <input
+                        ref={setDialogAutofocus}
                         id="collection-name"
                         type="text"
                         value={formData.name}
@@ -864,19 +914,20 @@ export default function CategoryManager() {
                 </div>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+        </>}
+      </dialog>
 
-      {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-[#2d1f16]/45 backdrop-blur-sm" onClick={() => setDeleteConfirm(null)} />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-collection-title"
-            className="relative w-full max-w-md overflow-hidden rounded-[30px] border border-[#efd9d3] bg-gradient-to-br from-white via-[#fffdfa] to-[#fbf1ef] shadow-[0_34px_90px_rgba(52,34,18,0.28)]"
-          >
+      <dialog
+        ref={deleteDialog}
+        closedby="any"
+        aria-labelledby="delete-collection-title"
+        aria-describedby="delete-collection-description"
+        className="m-auto w-[calc(100%_-_2rem)] max-w-md overflow-hidden overscroll-contain rounded-[30px] border border-[#efd9d3] bg-gradient-to-br from-white via-[#fffdfa] to-[#fbf1ef] p-0 shadow-[0_34px_90px_rgba(52,34,18,0.28)] backdrop:overflow-hidden backdrop:overscroll-contain backdrop:bg-[#2d1f16]/45 backdrop:backdrop-blur-sm"
+        onClose={() => { setDeleteConfirm(null); restoreMissingFocus(); }}
+        onPointerDown={onBackdropPress}
+        onPointerUp={onBackdropRelease}
+      >
+        {deleteConfirm && <>
             <div className="border-b border-[#f3dfda] px-6 py-5">
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-[22px] bg-gradient-to-br from-[#fff0ec] to-[#ffd9d4] text-[#c24d42] shadow-sm">
@@ -887,7 +938,7 @@ export default function CategoryManager() {
                   <h3 id="delete-collection-title" className="text-xl font-semibold tracking-[-0.03em] text-[#2f1e18]">
                     Koleksiyonu Sil
                   </h3>
-                  <p className="text-sm leading-6 text-[#7e675d]">Bu işlem geri alınamaz ve mevcut bağlantıları etkileyebilir.</p>
+                  <p id="delete-collection-description" className="text-sm leading-6 text-[#7e675d]">Bu işlem geri alınamaz ve mevcut bağlantıları etkileyebilir.</p>
                 </div>
               </div>
             </div>
@@ -901,6 +952,7 @@ export default function CategoryManager() {
 
             <div className="flex flex-col-reverse gap-3 border-t border-[#f3dfda] bg-white/90 px-6 py-4 sm:flex-row sm:justify-end">
               <button
+                ref={setDialogAutofocus}
                 type="button"
                 onClick={() => setDeleteConfirm(null)}
                 className="inline-flex items-center justify-center rounded-[18px] border border-[#ead9cb] bg-white px-5 py-3 text-sm font-medium text-[#654c3c] shadow-sm transition hover:border-[#FE6100]/25 hover:text-[#FE6100] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#FE6100]/20"
@@ -915,9 +967,8 @@ export default function CategoryManager() {
                 Sil
               </button>
             </div>
-          </div>
-        </div>
-      )}
+        </>}
+      </dialog>
 
       {toast && (
         <div

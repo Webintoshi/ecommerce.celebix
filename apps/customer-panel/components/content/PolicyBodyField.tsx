@@ -265,7 +265,7 @@ export function PolicyBodyField({ value, readOnly = false, onValueChange, toolba
       {linkPanel && !disabled ? (
         <div className={styles.linkPanel} role="group" aria-label="Bağlantı düzenle" onKeyDown={(event) => {
           if (event.key === "Escape") { event.preventDefault(); closeLinkPanel(); }
-          if (event.key === "Enter" && event.target instanceof HTMLInputElement) { event.preventDefault(); applyLink(); }
+          if (event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229 && event.target instanceof HTMLInputElement) { event.preventDefault(); applyLink(); }
         }}>
           <label htmlFor={linkId}>Bağlantı adresi</label>
           <div className={styles.linkControls}>

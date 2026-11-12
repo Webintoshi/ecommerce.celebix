@@ -2,4 +2,4 @@ import { requireServerPanelAccess } from "@/lib/server-access";
 import type {Metadata} from "next";import {ProductStorefrontPreview} from "@/components/catalog/ProductStorefrontPreview";
 export const metadata:Metadata={title:"Ürün mağaza önizlemesi",robots:{index:false,follow:false}};
 export default async function Page({params,searchParams}:{params:Promise<{productId:string}>;searchParams:Promise<{token?:string}>}){
-  await requireServerPanelAccess();const {productId}=await params,{token}=await searchParams;return <main className="catalog-page">{token?<ProductStorefrontPreview productId={productId} token={token}/>:<div className="feedback feedback-error"><strong>Önizleme bağlantısı geçersiz</strong><p>Ürün sayfasından yeni bir bağlantı oluşturun.</p></div>}</main>;}
+  await requireServerPanelAccess();const {productId}=await params,{token}=await searchParams;return <div className="catalog-page">{token?<ProductStorefrontPreview productId={productId} token={token}/>:<div className="feedback feedback-error"><strong>Önizleme bağlantısı geçersiz</strong><p>Ürün sayfasından yeni bir bağlantı oluşturun.</p></div>}</div>;}

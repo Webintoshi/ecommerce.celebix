@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { isActionableEnter } from "@/lib/keyboard";
 import {
   ArrowLeft,
   Loader2,
@@ -224,7 +225,7 @@ export default function CustomerForm({ customerId, title }: CustomerFormProps) {
   };
 
   const handleTagKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
+    if (isActionableEnter(event)) {
       event.preventDefault();
       handleAddTag();
     }

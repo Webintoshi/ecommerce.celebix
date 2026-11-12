@@ -706,6 +706,31 @@ test("a delayed default template never replaces the name the user has already en
   );
 });
 
+test("renaming a barcode template edits the prefilled name and uses the original version only on save", async () => {
+  await mounted(async ({ container, browser, releaseLibrary, requests }) => {
+    await act(async () => releaseLibrary());
+    await step(container, 2);
+    await click(container, "Mağaza şablonları");
+    await click(container, "Yeniden adlandır");
+    const dialog = container.querySelector<HTMLElement>('dialog[aria-label="Şablonu yeniden adlandır"][open]')!;
+    assert.ok(dialog);
+    const name = labelled<HTMLInputElement>(dialog, "Yeni şablon adı", "input");
+    assert.equal(name.value, "Mağaza varsayılanı");
+    assert.equal(browser.document.activeElement, name);
+    await click(dialog, "Vazgeç");
+    assert.equal(requests.some(request => request.method === "PATCH"), false);
+    await click(container, "Yeniden adlandır");
+    const reopened = container.querySelector<HTMLElement>('dialog[aria-label="Şablonu yeniden adlandır"][open]')!;
+    await change(labelled<HTMLInputElement>(reopened, "Yeni şablon adı", "input"), "Vitrin etiketi", browser);
+    await click(reopened, "Kaydet");
+    const writes = requests.filter(request => request.method === "PATCH");
+    assert.equal(writes.length, 1);
+    assert.equal(writes[0]?.path, `/api/catalog/barcode-label-templates/${PRODUCT}`);
+    assert.equal(writes[0]?.body?.expectedVersion, 1);
+    assert.equal(writes[0]?.body?.name, "Vitrin etiketi");
+  }, true, false, true);
+});
+
 test("starting output commits the chosen template before a delayed store default arrives", async () => {
   await mounted(
     async ({ container, releaseLibrary, releasePrint, requests }) => {

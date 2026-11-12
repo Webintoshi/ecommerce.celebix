@@ -161,6 +161,9 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
   return (
     <ModelContext.Provider value={model}>
       <div className={styles.shell}>
+        <a className={styles.skipLink} href="#panel-main-content" onClick={() => desktopFocusRef.current?.focus()}>
+          Ana içeriğe geç
+        </a>
         <PanelSidebar model={model} mode="desktop" />
         <PanelSidebar
           model={model}
@@ -187,6 +190,7 @@ export function PanelLayoutClient({ model, children }: { model: PanelClientChrom
           <PanelTopbarChromeProvider onChange={handleChromeChange} targets={topbarTargets} scopeKey={pathname}>
             <main
               ref={desktopFocusRef}
+              id="panel-main-content"
               className={`${styles.content} ${pathname === "/discounts/new" ? styles.compactContent : ""}`}
               tabIndex={-1}
             ><PanelInitialDataBoundary scopeKey={pathname}>{children}</PanelInitialDataBoundary></main>

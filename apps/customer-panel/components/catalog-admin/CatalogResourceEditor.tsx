@@ -262,7 +262,7 @@ function CatalogResourceEditorWorkspace(props: { kind: CatalogAdminResourceKind;
           <label htmlFor="attribute-value-draft">Seçenek değerleri</label>
           <p id="attribute-values-help">{resource?.config.measurementField ? "Seçilen değer, varyantın ilgili ölçü alanına otomatik yazılır." : "Değerleri tek tek ekleyin."}</p>
           <div className={styles.attributeValueEntry}>
-            <input ref={attributeValueInput} id="attribute-value-draft" aria-describedby={attributeValueError ? "attribute-values-help attribute-values-error" : "attribute-values-help"} aria-invalid={Boolean(attributeValueError)} placeholder={resource?.config.measurementField === "weight" ? "Örn. 750 g" : resource?.config.measurementField === "volume" ? "Örn. 500 ml" : "Örn. Siyah"} maxLength={100} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addAttributeValue(); } }} />
+            <input ref={attributeValueInput} id="attribute-value-draft" aria-describedby={attributeValueError ? "attribute-values-help attribute-values-error" : "attribute-values-help"} aria-invalid={Boolean(attributeValueError)} placeholder={resource?.config.measurementField === "weight" ? "Örn. 750 g" : resource?.config.measurementField === "volume" ? "Örn. 500 ml" : "Örn. Siyah"} maxLength={100} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing && event.keyCode !== 229) { event.preventDefault(); addAttributeValue(); } }} />
             <button className={styles.button} type="button" onClick={addAttributeValue}>Değer ekle</button>
           </div>
           {attributeValueError ? <p id="attribute-values-error" className={styles.error} role="alert">{attributeValueError}</p> : null}

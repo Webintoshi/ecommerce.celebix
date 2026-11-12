@@ -169,3 +169,31 @@ test("returned shipments expose no refresh or cancellation and retain label prep
     assert.equal(operations, 0);
   });
 });
+
+test("shipment cancellation and return require an explicit contextual confirmation", async () => {
+  for (const [status, action, trigger, confirm] of [
+    ["ready", "cancel", "Gönderiyi iptal et", "Gönderiyi iptal et"],
+    ["delivered", "return", "İade başlat", "İade gönderisini oluştur"],
+  ] as const) {
+    const operations: unknown[][] = [];
+    await mounted(api({
+      currentShipmentForOrder: async () => shipment(status),
+      shipmentAction: async (orderId, shipmentId, version, action) => {
+        operations.push([orderId, shipmentId, version, action]);
+        return shipment(action === "cancel" ? "cancelled" : "returning");
+      },
+    }), async (container) => {
+      await act(async () => button(container, trigger)!.click());
+      const dialog = container.querySelector<HTMLElement>("[data-dialog]:not([hidden])[data-dialog][aria-label]:last-child")!;
+      assert.ok(dialog);
+      assert.match(dialog.textContent ?? "", /Örnek Kargo/);
+      assert.equal(operations.length, 0);
+      await act(async () => button(dialog, "Vazgeç")!.click());
+      assert.equal(operations.length, 0);
+      await act(async () => button(container, trigger)!.click());
+      const reopened = container.querySelector<HTMLElement>("[data-dialog]:not([hidden]):last-child")!;
+      await act(async () => button(reopened, confirm)!.click());
+      assert.deepEqual(operations, [[ID, SECOND, 1, action]]);
+    });
+  }
+});

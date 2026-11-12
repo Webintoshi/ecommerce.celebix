@@ -5,28 +5,10 @@ import { Activity, Globe, Monitor, Smartphone, Tablet, Wifi } from "lucide-react
 import { motion, AnimatePresence } from "framer-motion";
 import type { LiveAnalyticsSnapshot } from "@/lib/admin-data-types";
 import { cn } from "@/lib/utils";
+import { useAnimatedCounter } from "@/lib/use-animated-counter";
 
 function AnimatedNumber({ value }: { value: number }) {
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    const duration = 500;
-    const steps = 20;
-    const increment = value / steps;
-    let current = 0;
-    let step = 0;
-
-    const timer = window.setInterval(() => {
-      step += 1;
-      current = Math.min(Math.round(increment * step), value);
-      setDisplayValue(current);
-      if (step >= steps) {
-        window.clearInterval(timer);
-      }
-    }, duration / steps);
-
-    return () => window.clearInterval(timer);
-  }, [value]);
+  const displayValue = useAnimatedCounter(value);
 
   return <span>{displayValue}</span>;
 }

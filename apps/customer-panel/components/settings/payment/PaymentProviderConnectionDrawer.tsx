@@ -8,7 +8,7 @@ import type {
   PaymentProviderEnvironment,
 } from "@celebix/saas-contracts";
 import { AlertTriangle, CheckCircle2, PlugZap, ShieldCheck, X } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import {
   ProviderExecutionApiError,
@@ -19,6 +19,7 @@ import {
   selectPaymentProviderConnectionProfile,
 } from "@/lib/payment-settings-ui/model";
 
+import { PaymentModal } from "./PaymentModal";
 import styles from "./payment-settings.module.css";
 import { PaytrConnectionForm } from "./PaytrConnectionForm";
 
@@ -44,7 +45,6 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
   onClose(): void;
   onSaved(profileId: string, environment: PaymentProviderEnvironment): Promise<PaytrRefreshResult | null>;
 }>) {
-  const drawerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const mountedRef = useRef(true);
   const [busy, setBusy] = useState(false);
@@ -55,13 +55,7 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
 
   useEffect(() => {
     mountedRef.current = true;
-    closeRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      mountedRef.current = false;
-      document.body.style.overflow = previousOverflow;
-    };
+    return () => { mountedRef.current = false; };
   }, []);
 
   const selectedProfile = selectPaymentProviderConnectionProfile(
@@ -82,23 +76,6 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
   const canSubmit = connection !== null
     && selectedProfile?.status !== "pending_validation"
     && (selectedProfile === null || connection.canRotate);
-
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape" && !busy) {
-      event.preventDefault();
-      props.onClose();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable?.length) { event.preventDefault(); return; }
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -182,17 +159,12 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
   }
 
   return (
-    <div className={styles.drawerLayer} onMouseDown={(event) => {
-      if (event.target === event.currentTarget && !busy) props.onClose();
-    }}>
-      <aside
-        ref={drawerRef}
+      <PaymentModal
         className={styles.connectionDrawer}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="payment-connection-title"
-        aria-describedby="payment-connection-description"
-        onKeyDown={onKeyDown}
+        labelledBy="payment-connection-title"
+        describedBy="payment-connection-description"
+        initialFocusRef={closeRef}
+        onDismiss={() => { if (!busy) props.onClose(); }}
       >
         <header className={styles.dialogHeader}>
           <div className={styles.dialogTitleIcon}>{props.descriptor.providerCode === "paytr_iframe" ? <ShieldCheck aria-hidden="true" /> : <PlugZap aria-hidden="true" />}</div>
@@ -258,7 +230,6 @@ export function PaymentProviderConnectionDrawer(props: Readonly<{
             <button type="submit" className={styles.primaryButton} disabled={busy || !props.canManage || !canSubmit}>{busy ? "Kaydediliyor…" : connection?.submitLabel ?? "Bağlantıyı kaydet"}</button>
           </footer>
         </form>
-      </aside>
-    </div>
+      </PaymentModal>
   );
 }

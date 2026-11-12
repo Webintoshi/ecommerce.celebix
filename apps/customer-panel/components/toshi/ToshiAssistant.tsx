@@ -96,7 +96,7 @@ export function ToshiAssistant({ mode, headerActions, titleRef }: Readonly<{ mod
 
   useEffect(() => {
     const textarea = composerRef.current;
-    if (!textarea) return;
+    if (!textarea || window.CSS?.supports("field-sizing", "content")) return;
     textarea.style.height = "44px";
     textarea.style.height = `${Math.min(132, Math.max(44, textarea.scrollHeight))}px`;
   }, [input]);

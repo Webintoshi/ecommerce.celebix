@@ -10,10 +10,8 @@ import {
   X,
 } from "lucide-react";
 import {
-  useEffect,
   useRef,
   useState,
-  type KeyboardEvent,
   type RefObject,
 } from "react";
 
@@ -23,6 +21,8 @@ import type {
   PaymentSettingsFilters,
 } from "@/lib/payment-settings-ui/model";
 
+import { PaymentModal } from "./PaymentModal";
+import { PaymentTabs } from "./PaymentTabs";
 import styles from "./payment-settings.module.css";
 
 type ProviderCatalogProps = Readonly<{
@@ -57,7 +57,6 @@ function providerLifecycleTone(card: PaymentProviderCatalogCard) {
 
 function ProviderCatalogSurface(props: ProviderCatalogProps & Readonly<{
   headingId: string;
-  searchRef?: RefObject<HTMLInputElement | null>;
 }>) {
   return <div className={styles.providerCatalogSurface}>
     <div className={styles.catalogFilters}>
@@ -65,7 +64,6 @@ function ProviderCatalogSurface(props: ProviderCatalogProps & Readonly<{
         <Search aria-hidden="true" />
         <span className={styles.srOnly}>Ödeme sağlayıcısı ara</span>
         <input
-          ref={props.searchRef}
           value={props.query}
           onChange={(event) => props.onQuery(event.currentTarget.value)}
           placeholder="Sağlayıcı veya ödeme modu ara"
@@ -144,54 +142,22 @@ export function PaymentProviderCatalogDialog(props: ProviderCatalogProps & Reado
   onBuiltInSelect(kind: BuiltInPaymentMethodCatalogCard["kind"]): void;
   onClose(): void;
 }>) {
-  const dialogRef = useRef<HTMLDivElement>(null);
   const manualTabRef = useRef<HTMLButtonElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const [selection, setSelection] = useState<"manual" | "online">("manual");
 
   function close() {
     if (props.busy) return;
     props.onClose();
-    queueMicrotask(() => props.openerRef.current?.focus());
-  }
-
-  function selectOnline() {
-    setSelection("online");
-    queueMicrotask(() => searchRef.current?.focus());
-  }
-
-  useEffect(() => {
-    manualTabRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, []);
-
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") { event.preventDefault(); close(); return; }
-    if (event.key !== "Tab") return;
-    const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable?.length) { event.preventDefault(); return; }
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
   return (
-    <div className={styles.dialogLayer} onMouseDown={(event) => {
-      if (event.target === event.currentTarget) close();
-    }}>
-      <div
-        ref={dialogRef}
+      <PaymentModal
         className={styles.catalogDialog}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="payment-catalog-title"
-        aria-describedby="payment-catalog-description"
-        onKeyDown={onKeyDown}
+        labelledBy="payment-catalog-title"
+        describedBy="payment-catalog-description"
+        initialFocusRef={manualTabRef}
+        openerRef={props.openerRef}
+        onDismiss={close}
       >
         <header className={styles.dialogHeader}>
           <div className={styles.dialogTitleIcon}><CreditCard aria-hidden="true" /></div>
@@ -204,12 +170,12 @@ export function PaymentProviderCatalogDialog(props: ProviderCatalogProps & Reado
 
         {!props.canManage ? <p className={styles.readOnlyNotice}>Salt okunur erişim: yöntemleri inceleyebilirsiniz ancak bağlantı kuramazsınız.</p> : null}
 
-        <div className={styles.addFlowTabs} role="tablist" aria-label="Ödeme yöntemi türü">
-          <button ref={manualTabRef} type="button" role="tab" aria-selected={selection === "manual"} className={selection === "manual" ? styles.activeAddFlowTab : undefined} onClick={() => setSelection("manual")}><Banknote aria-hidden="true" />Manuel yöntemler</button>
-          <button type="button" role="tab" aria-selected={selection === "online"} className={selection === "online" ? styles.activeAddFlowTab : undefined} onClick={selectOnline}><CreditCard aria-hidden="true" />Online ödeme</button>
-        </div>
+        <PaymentTabs<"manual" | "online"> id="payment-catalog" className={styles.addFlowTabs} label="Ödeme yöntemi türü" value={selection} onChange={setSelection} tabs={[
+          { value: "manual", ref: manualTabRef, label: <><Banknote aria-hidden="true" />Manuel yöntemler</> },
+          { value: "online", label: <><CreditCard aria-hidden="true" />Online ödeme</> },
+        ]} />
 
-        <section hidden={selection !== "manual"} className={styles.catalogBuiltInBody} aria-labelledby="built-in-payment-methods-title">
+        <section id="payment-catalog-panel-manual" hidden={selection !== "manual"} className={styles.catalogBuiltInBody} role="tabpanel" aria-labelledby="payment-catalog-tab-manual" tabIndex={0}>
           <div className={styles.catalogSectionHeading}>
             <div><h3 id="built-in-payment-methods-title">Yerleşik yöntemler</h3><p>Sağlayıcı bağlantısı gerektirmeden Celebix checkout’unda kullanılır.</p></div>
             <span>{props.builtInCards.length} yöntem</span>
@@ -240,10 +206,9 @@ export function PaymentProviderCatalogDialog(props: ProviderCatalogProps & Reado
             })}
           </div>
         </section>
-        <div hidden={selection !== "online"} className={styles.onlineAddFlow}>
-          <ProviderCatalogSurface {...props} headingId="payment-provider-dialog-results-title" searchRef={searchRef} />
+        <div id="payment-catalog-panel-online" hidden={selection !== "online"} className={styles.onlineAddFlow} role="tabpanel" aria-labelledby="payment-catalog-tab-online" tabIndex={0}>
+          <ProviderCatalogSurface {...props} headingId="payment-provider-dialog-results-title" />
         </div>
-      </div>
-    </div>
+      </PaymentModal>
   );
 }

@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type RefObject,
   type SyntheticEvent,
 } from "react";
 import {
@@ -216,26 +217,38 @@ function StudioDialog({
   onClose,
   title,
   className,
+  opener,
+  initialFocusRef,
   children,
 }: {
   open: boolean;
   onClose(): void;
   title: string;
   className: string;
+  opener?: HTMLElement;
+  initialFocusRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      initialFocusRef?.current?.focus();
+    }
     if (!open && dialog.open) dialog.close();
-  }, [open]);
+    if (opener) return () => {
+      if (dialog.open) dialog.close();
+      if (opener.isConnected) opener.focus();
+    };
+  }, [open, opener, initialFocusRef]);
   return (
     <dialog
       ref={dialogRef}
       className={className}
       aria-label={title}
+      onCancel={(event) => { event.preventDefault(); onClose(); }}
       onClose={onClose}
     >
       <header>
@@ -319,6 +332,9 @@ export function BarcodeLabelStudio({
     [bulkQuantity, setBulkQuantity] = useState("1"),
     [historyOpen, setHistoryOpen] = useState(false),
     [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templateRename, setTemplateRename] = useState<{ template: BarcodeLabelTemplate; opener: HTMLButtonElement }>();
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const renameInput = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1),
     [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS),
     [rows, setRows] = useState<readonly BarcodeLabelVariantRow[]>([]),
@@ -1063,9 +1079,10 @@ export function BarcodeLabelStudio({
   async function manageTemplate(
     template: BarcodeLabelTemplate,
     action: "rename" | "duplicate" | "default" | "archive",
+    newName?: string,
   ) {
-    if (!canManage || pendingAction.current) return;
-    if (!canManage) return;
+    const name = action === "rename" ? newName?.trim() : template.name;
+    if (!canManage || pendingAction.current || !name) return;
     pendingAction.current = true;
     setBusy(`template-${template.id}`);
     try {
@@ -1089,11 +1106,6 @@ export function BarcodeLabelStudio({
           parseBarcodeLabelTemplate,
         );
       else {
-        const name =
-          action === "rename"
-            ? window.prompt("Yeni şablon adı", template.name)
-            : template.name;
-        if (!name) return;
         changed = await mutation(
           `/api/catalog/barcode-label-templates/${template.id}`,
           "PATCH",
@@ -2696,7 +2708,10 @@ export function BarcodeLabelStudio({
                     <button
                       type="button"
                       disabled={!!busy}
-                      onClick={() => void manageTemplate(template, "rename")}
+                      onClick={(event) => {
+                        setNewTemplateName(template.name);
+                        setTemplateRename({ template, opener: event.currentTarget });
+                      }}
                     >
                       Yeniden adlandır
                     </button>
@@ -2730,6 +2745,29 @@ export function BarcodeLabelStudio({
           <small>Henüz mağaza şablonu yok.</small>
         )}
       </StudioDialog>
+      {templateRename && canManage ? <StudioDialog
+        open
+        onClose={() => setTemplateRename(undefined)}
+        title="Şablonu yeniden adlandır"
+        className="barcode-history-dialog"
+        opener={templateRename.opener}
+        initialFocusRef={renameInput}
+      >
+        <form className="barcode-rename-form" onSubmit={(event) => {
+          event.preventDefault();
+          if (!newTemplateName.trim() || pendingAction.current) return;
+          setTemplateRename(undefined);
+          void manageTemplate(templateRename.template, "rename", newTemplateName);
+        }}>
+          <label>Yeni şablon adı
+            <input ref={renameInput} name="name" value={newTemplateName} onChange={(event) => setNewTemplateName(event.currentTarget.value)} maxLength={120} required />
+          </label>
+          <div className="barcode-rename-actions">
+            <button className="button button-secondary" type="button" onClick={() => setTemplateRename(undefined)}>Vazgeç</button>
+            <button className="button button-primary" type="submit" disabled={!newTemplateName.trim() || !!busy}>Kaydet</button>
+          </div>
+        </form>
+      </StudioDialog> : null}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { Window } from "happy-dom";
 import * as React from "react";
@@ -30,6 +31,17 @@ const root = new URL("../", import.meta.url);
 const source = (path: string) => readFile(new URL(path, root), "utf8");
 const NOW = "2026-07-27T12:00:00.000Z";
 const IYZICO_PROFILE_ID = "40000000-0000-4000-8000-000000000090";
+const PAYMENT_UI_DEPENDENCIES = new Set(["./PaymentModal", "./PaymentTabs", "./PaymentStateDialog"]);
+
+function compilePaymentUiDependency(specifier: string, requireModule: (specifier: string) => unknown) {
+  const module = { exports: {} };
+  const path = new URL(`components/settings/payment/${specifier.slice(2)}.tsx`, root);
+  const output = ts.transpileModule(readFileSync(path, "utf8"), {
+    compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  Function("require", "module", "exports", output)(requireModule, module, module.exports);
+  return module.exports;
+}
 
 function executableIyzicoCard(environment: "test" | "live" = "test") {
   const evidenceDigest = `sha256:${"a".repeat(64)}`;
@@ -176,7 +188,7 @@ type DrawerNode = {
     isConnected: boolean;
     tagName: string;
     focus(): void;
-    querySelectorAll(): readonly DrawerNode["target"][];
+    open: boolean;
   };
 };
 
@@ -249,6 +261,7 @@ function createDrawerHookRuntime() {
       });
     },
   } as unknown as typeof React;
+  runtime.useLayoutEffect = runtime.useEffect;
   return {
     runtime,
     flush(component: () => ReactNode, force = false) {
@@ -287,17 +300,16 @@ function mountDrawer(
     focusCount: 0,
     isConnected: true,
     tagName: node.type.toUpperCase(),
+    ownerDocument: documentState,
+    open: false,
+    showModal() { this.open = true; },
+    close() { this.open = false; },
+    getBoundingClientRect() { return { left: 10, right: 100, top: 10, bottom: 100 }; },
+    closest() { return null; },
     focus() {
       if (node.props.disabled === true) return;
       this.focusCount += 1;
       documentState.activeElement = this;
-    },
-    querySelectorAll() {
-      return drawerNodes(children)
-        .filter((child) =>
-          (child.type === "button" || child.type === "input" || child.type === "textarea")
-          && child.props.disabled !== true)
-        .map((child) => child.target);
     },
   };
   const ref = (node.props as { ref?: unknown }).ref;
@@ -363,6 +375,7 @@ async function compileBuiltInDrawer(input: Readonly<{
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === "./payment-settings.module.css") return styles;
+    if (PAYMENT_UI_DEPENDENCIES.has(specifier)) return compilePaymentUiDependency(specifier, requireModule);
     throw new Error(`unexpected_built_in_drawer_import:${specifier}`);
   };
   class TestFormData {
@@ -434,6 +447,7 @@ async function compileRealDomBuiltInDrawer() {
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "@celebix/saas-contracts") return contracts;
     if (specifier === "./payment-settings.module.css") return styles;
+    if (PAYMENT_UI_DEPENDENCIES.has(specifier)) return compilePaymentUiDependency(specifier, requireModule);
     throw new Error(`unexpected_real_dom_built_in_drawer_import:${specifier}`);
   };
   Function("require", "module", "exports", output)(
@@ -512,6 +526,7 @@ async function compilePaymentCatalogDialog(input: Readonly<Record<string, unknow
     if (specifier === "next/image") return { __esModule: true, default: Image };
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "./payment-settings.module.css") return styles;
+    if (PAYMENT_UI_DEPENDENCIES.has(specifier)) return compilePaymentUiDependency(specifier, requireModule);
     throw new Error(`unexpected_payment_catalog_import:${specifier}`);
   };
   Function(
@@ -582,6 +597,7 @@ async function compilePaymentOrderDialog(input: Readonly<{
     }
     if (specifier === "@/lib/payment-settings-ui/console-state") return state;
     if (specifier === "./payment-settings.module.css") return styles;
+    if (PAYMENT_UI_DEPENDENCIES.has(specifier)) return compilePaymentUiDependency(specifier, requireModule);
     throw new Error(`unexpected_payment_order_import:${specifier}`);
   };
   Function("require", "module", "exports", "document", output)(
@@ -676,8 +692,6 @@ async function compilePaymentConsole(input: Readonly<{
     body: { style: { overflow: "visible" } },
   };
   const windowState = {
-    confirm() { return true; },
-    prompt() { return "Operasyon kontrolü"; },
     history: { replaceState() {} },
   };
   const events: string[] = [];
@@ -743,6 +757,7 @@ async function compilePaymentConsole(input: Readonly<{
     if (specifier === "next/image") return { __esModule: true, default: Image };
     if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
     if (specifier === "./payment-settings.module.css") return styles;
+    if (PAYMENT_UI_DEPENDENCIES.has(specifier)) return compilePaymentUiDependency(specifier, requireCatalogModule);
     throw new Error(`unexpected_nested_payment_catalog_import:${specifier}`);
   };
   Function(
@@ -807,6 +822,7 @@ async function compilePaymentConsole(input: Readonly<{
       return { ProviderCheckoutSettingsDrawer: Host("checkout-settings-drawer") };
     }
     if (specifier === "./payment-settings.module.css") return styles;
+    if (PAYMENT_UI_DEPENDENCIES.has(specifier)) return compilePaymentUiDependency(specifier, requireModule);
     throw new Error(`unexpected_payment_console_import:${specifier}`);
   };
   Function(
@@ -1013,7 +1029,7 @@ test("mounted payment console opens built-in create and edit drawers and reloads
   (add.props.onClick as () => void)();
   console.render();
   const catalog = console.nodes().find((node) =>
-    node.props.role === "dialog" && node.props["aria-labelledby"] === "payment-catalog-title");
+    node.type === "dialog" && node.props["aria-labelledby"] === "payment-catalog-title");
   assert.ok(catalog);
   const bankButton = drawerNodes(catalog.children).find((node) =>
     node.type === "button" && drawerText(node) === "Ekle");
@@ -1258,10 +1274,16 @@ test("mounted console disables both order launchers and guards reopening during 
   let dialog = console.nodes().find((node) => node.type === "order-dialog");
   assert.ok(dialog);
 
-  const emergency = console.nodes().find((node) =>
-    node.type === "button" && drawerText(node) === "Acil kapat");
-  assert.ok(emergency);
-  (emergency.props.onClick as () => void)();
+  const disable = console.nodes().find((node) =>
+    node.type === "button" && drawerText(node) === "Devre dışı bırak");
+  assert.ok(disable);
+  (disable.props.onClick as (event: unknown) => void)({ currentTarget: disable.target });
+  console.render();
+  const confirmation = console.nodes().find((node) => node.type === "dialog" && node.props["aria-labelledby"] === "payment-state-title");
+  assert.ok(confirmation);
+  const form = drawerNodes(confirmation.children).find((node) => node.type === "form");
+  assert.ok(form);
+  (form.props.onSubmit as (event: unknown) => void)({ preventDefault() {} });
   await new Promise<void>((resolve) => setImmediate(resolve));
   console.render();
   assert.deepEqual(console.events, ["list:initial", "set-state", "list:reload"]);
@@ -1832,10 +1854,10 @@ test("built-in drawer owns submit synchronously, normalizes IBAN, and unlocks on
   const label = drawer.nodes().find((node) => node.type === "input" && node.props.name === "label");
   assert.ok(label);
   assert.equal(label.target.focusCount, 1);
-  const dialog = drawer.nodes().find((node) => node.type === "aside");
+  const dialog = drawer.nodes().find((node) => node.type === "dialog");
   assert.ok(dialog);
-  assert.equal(dialog.props.role, "dialog");
-  assert.equal(dialog.props["aria-modal"], "true");
+  assert.equal(dialog.target.open, true);
+  assert.equal(dialog.props["aria-labelledby"], "built-in-payment-title");
   const form = drawer.nodes().find((node) => node.type === "form");
   assert.ok(form);
   const event = { preventDefault() {}, currentTarget: {} };
@@ -1881,10 +1903,9 @@ test("built-in drawer owns submit synchronously, normalizes IBAN, and unlocks on
   drawer.setBusy(false);
   drawer.render(true);
   let prevented = false;
-  const reloadedDialog = drawer.nodes().find((node) => node.type === "aside");
+  const reloadedDialog = drawer.nodes().find((node) => node.type === "dialog");
   assert.ok(reloadedDialog);
-  (reloadedDialog.props.onKeyDown as (event: unknown) => void)({
-    key: "Escape",
+  (reloadedDialog.props.onCancel as (event: unknown) => void)({
     preventDefault() { prevented = true; },
   });
   assert.equal(prevented, true);
@@ -2170,7 +2191,7 @@ test("built-in drawer associates and focuses each actual invalid config field", 
   }
 });
 
-test("built-in drawer contains Tab focus and handles backdrop, busy close suppression, and emergency notice", async () => {
+test("built-in drawer opens a native modal and handles backdrop, busy close suppression, and emergency notice", async () => {
   let closes = 0;
   const drawer = await compileBuiltInDrawer({
     kind: "bank_transfer",
@@ -2181,36 +2202,15 @@ test("built-in drawer contains Tab focus and handles backdrop, busy close suppre
     onClose() { closes += 1; },
   });
   drawer.render();
-  const dialog = drawer.nodes().find((node) => node.type === "aside");
+  const dialog = drawer.nodes().find((node) => node.type === "dialog");
   assert.ok(dialog);
-  const focusable = drawer.nodes().filter((node) =>
-    (node.type === "button" || node.type === "input" || node.type === "textarea")
-    && node.props.disabled !== true);
-  const first = focusable[0];
-  const last = focusable.at(-1);
-  assert.ok(first);
-  assert.ok(last);
-  drawer.documentState.activeElement = first.target;
-  let prevented = 0;
-  (dialog.props.onKeyDown as (event: unknown) => void)({
-    key: "Tab",
-    shiftKey: true,
-    preventDefault() { prevented += 1; },
+  assert.equal(dialog.target.open, true);
+  const pressBackdrop = (node: DrawerNode, x: number) => (node.props.onClick as (event: unknown) => void)({
+    target: node.target, currentTarget: node.target, detail: 1, clientX: x, clientY: 40,
   });
-  assert.equal(last.target.focusCount, 1);
-  drawer.documentState.activeElement = last.target;
-  (dialog.props.onKeyDown as (event: unknown) => void)({
-    key: "Tab",
-    shiftKey: false,
-    preventDefault() { prevented += 1; },
-  });
-  assert.equal(first.target.focusCount, 1);
-  assert.equal(prevented, 2);
-
-  const layer = drawer.nodes().find((node) => node.props.className === "drawerLayer");
-  assert.ok(layer);
-  const backdrop = {};
-  (layer.props.onMouseDown as (event: unknown) => void)({ target: backdrop, currentTarget: backdrop });
+  pressBackdrop(dialog, 50);
+  assert.equal(closes, 0);
+  pressBackdrop(dialog, 5);
   assert.equal(closes, 1);
 
   const busyDrawer = await compileBuiltInDrawer({
@@ -2222,16 +2222,14 @@ test("built-in drawer contains Tab focus and handles backdrop, busy close suppre
     onClose() { closes += 1; },
   });
   busyDrawer.render();
-  const busyDialog = busyDrawer.nodes().find((node) => node.type === "aside");
-  const busyLayer = busyDrawer.nodes().find((node) => node.props.className === "drawerLayer");
+  const busyDialog = busyDrawer.nodes().find((node) => node.type === "dialog");
   const busyClose = busyDrawer.nodes().find((node) =>
     node.type === "button" && node.props["aria-label"] === "Yerleşik yöntem penceresini kapat");
   assert.ok(busyDialog);
-  assert.ok(busyLayer);
   assert.ok(busyClose);
-  assert.equal(busyDialog.target.focusCount, 1);
-  (busyDialog.props.onKeyDown as (event: unknown) => void)({ key: "Escape", preventDefault() {} });
-  (busyLayer.props.onMouseDown as (event: unknown) => void)({ target: backdrop, currentTarget: backdrop });
+  assert.equal(busyDialog.target.open, true);
+  (busyDialog.props.onCancel as (event: unknown) => void)({ preventDefault() {} });
+  pressBackdrop(busyDialog, 5);
   (busyClose.props.onClick as () => void)();
   assert.equal(closes, 1);
 
@@ -2253,7 +2251,7 @@ test("built-in drawer contains Tab focus and handles backdrop, busy close suppre
 });
 
 test("payment dialogs provide focus safety, masked connection state and dormant secrets", async () => {
-  const [consoleSource, catalogSource, drawerSource, paytrSource, checkoutSource, orderSource, css] = await Promise.all([
+  const [consoleSource, catalogSource, drawerSource, paytrSource, checkoutSource, orderSource, css, modalSource] = await Promise.all([
     source("components/settings/payment/PaymentSettingsConsole.tsx"),
     source("components/settings/payment/PaymentProviderCatalogDialog.tsx"),
     source("components/settings/payment/PaymentProviderConnectionDrawer.tsx"),
@@ -2261,13 +2259,14 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
     source("components/settings/payment/ProviderCheckoutSettingsDrawer.tsx"),
     source("components/settings/payment/PaymentMethodOrderDialog.tsx"),
     source("components/settings/payment/payment-settings.module.css"),
+    source("components/settings/payment/PaymentModal.tsx"),
   ]);
-  assert.match(catalogSource, /role="dialog"/);
-  assert.match(catalogSource, /aria-modal="true"/);
-  assert.match(catalogSource, /searchRef\.current\?\.focus/);
-  assert.match(catalogSource, /openerRef\.current\?\.focus/);
-  assert.match(catalogSource, /event\.key [!=]== "Tab"/);
-  assert.match(catalogSource, /event\.key === "Escape"/);
+  assert.match(catalogSource, /<PaymentModal/);
+  assert.match(catalogSource, /initialFocusRef=\{manualTabRef\}/);
+  assert.match(catalogSource, /openerRef=\{props\.openerRef\}/);
+  assert.match(modalSource, /<dialog/);
+  assert.match(modalSource, /\.showModal\(\)/);
+  assert.match(modalSource, /onCancel=/);
   assert.match(catalogSource, /disabled=\{!card\.connectable/);
   assert.match(catalogSource, /card\.lifecycleLabel/);
   assert.match(drawerSource, /credentialFields/);
@@ -2296,10 +2295,8 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.doesNotMatch(paytrSource, /defaultValue=.*(?:merchantKey|merchantSalt)/);
   assert.doesNotMatch(drawerSource, /window[.]location[.]origin/);
   assert.doesNotMatch(drawerSource, /defaultValue=\{[^}]*credential|merchantKey\s*:|merchantSalt\s*:/);
-  assert.match(checkoutSource, /role="dialog"/);
-  assert.match(checkoutSource, /aria-modal="true"/);
-  assert.match(checkoutSource, /event\.key === "Escape"/);
-  assert.match(checkoutSource, /props\.openerRef\.current\?\.focus/);
+  assert.match(checkoutSource, /<PaymentModal/);
+  assert.match(checkoutSource, /openerRef=\{props\.openerRef\}/);
   assert.match(checkoutSource, /Tüm uygun taksitler/);
   assert.match(checkoutSource, /Yalnız tek çekim/);
   assert.match(checkoutSource, /Üst sınır belirle/);
@@ -2309,7 +2306,8 @@ test("payment dialogs provide focus safety, masked connection state and dormant 
   assert.match(consoleSource, /readiness === "verification"/);
   assert.match(consoleSource, /selectedCard\?\.configurableDescriptor/);
   assert.match(consoleSource, /emergencyReason/);
-  assert.match(consoleSource, /window\.confirm/);
+  assert.match(consoleSource, /<PaymentStateDialog/);
+  assert.doesNotMatch(consoleSource, /window\.(confirm|prompt)/);
   assert.match(orderSource, /draggable/);
   assert.match(orderSource, /Yukarı/);
   assert.match(orderSource, /Aşağı/);
@@ -2332,7 +2330,7 @@ test("pending PayTR TEST validation permits switching to LIVE while the pending 
     const Icon = (props: Record<string, unknown>) => createElement("svg", props);
     const styles = new Proxy({}, { get: (_target, property) => property === "__esModule" ? true : property === "default" ? styles : String(property) });
     const components: Record<string, unknown> = {};
-    for (const name of ["PaytrConnectionForm", "PaymentProviderConnectionDrawer"]) {
+    for (const name of ["PaytrConnectionForm", "PaymentModal", "PaymentProviderConnectionDrawer"]) {
       const output = ts.transpileModule(await source(`components/settings/payment/${name}.tsx`), {
         compilerOptions: { esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
       }).outputText;
@@ -2342,7 +2340,7 @@ test("pending PayTR TEST validation permits switching to LIVE while the pending 
         if (specifier === "react") return React;
         if (specifier === "lucide-react") return new Proxy({}, { get: () => Icon });
         if (specifier === "./payment-settings.module.css") return styles;
-        if (specifier === "./PaytrConnectionForm") return components;
+        if (specifier === "./PaytrConnectionForm" || specifier === "./PaymentModal") return components;
         if (specifier === "@/lib/payment-settings-ui/model") return models;
         if (specifier === "@/lib/provider-execution-ui/client") return { ...client, providerExecutionApi: { save: () => assert.fail("switching environment must not submit credentials") } };
         throw new Error(`unexpected_payment_connection_import:${specifier}`);

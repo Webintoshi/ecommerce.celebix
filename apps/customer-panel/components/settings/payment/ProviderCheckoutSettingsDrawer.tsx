@@ -12,7 +12,6 @@ import {
   useRef,
   useState,
   type FormEvent,
-  type KeyboardEvent,
   type RefObject,
 } from "react";
 
@@ -21,6 +20,7 @@ import {
   type ProviderCheckoutPreferenceSelection,
 } from "@/lib/payment-settings-ui/provider-preferences";
 
+import { PaymentModal } from "./PaymentModal";
 import styles from "./payment-settings.module.css";
 
 const INSTALLMENT_LIMITS = Object.freeze([2, 3, 6, 9, 12] as const);
@@ -36,7 +36,6 @@ export function ProviderCheckoutSettingsDrawer(props: Readonly<{
   onClose(): void;
 }>) {
   const view = buildProviderCheckoutPreferenceView(props.method);
-  const drawerRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const [locale, setLocale] = useState<ProviderPaymentMethodLocale>(view.locale);
   const [installmentMode, setInstallmentMode] = useState<ProviderInstallmentMode>(view.installmentMode);
@@ -51,33 +50,6 @@ export function ProviderCheckoutSettingsDrawer(props: Readonly<{
     setMaxInstallment(view.installmentMode === "limited" ? view.maxInstallment : 6);
   }, [props.method.version, view.installmentMode, view.locale, view.maxInstallment]);
 
-  useEffect(() => {
-    closeRef.current?.focus();
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      requestAnimationFrame(() => props.openerRef.current?.focus());
-    };
-  }, [props.openerRef]);
-
-  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape" && !props.busy) {
-      event.preventDefault();
-      props.onClose();
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    if (!focusable?.length) { event.preventDefault(); return; }
-    const first = focusable[0]!;
-    const last = focusable[focusable.length - 1]!;
-    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-  }
-
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (props.busy || !props.canManage || !props.mutationAvailable) return;
@@ -88,17 +60,13 @@ export function ProviderCheckoutSettingsDrawer(props: Readonly<{
     }));
   }
 
-  return <div className={styles.drawerLayer} onMouseDown={(event) => {
-    if (event.target === event.currentTarget && !props.busy) props.onClose();
-  }}>
-    <aside
-      ref={drawerRef}
+  return <PaymentModal
       className={styles.checkoutSettingsDrawer}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="provider-checkout-settings-title"
-      aria-describedby="provider-checkout-settings-description"
-      onKeyDown={onKeyDown}
+      labelledBy="provider-checkout-settings-title"
+      describedBy="provider-checkout-settings-description"
+      initialFocusRef={closeRef}
+      openerRef={props.openerRef}
+      onDismiss={() => { if (!props.busy) props.onClose(); }}
     >
       <header className={styles.dialogHeader}>
         <div className={styles.dialogTitleIcon}><CreditCard aria-hidden="true" /></div>
@@ -158,6 +126,5 @@ export function ProviderCheckoutSettingsDrawer(props: Readonly<{
           <button type="submit" className={styles.primaryButton} disabled={props.busy || !props.canManage || !props.mutationAvailable}>{props.busy ? "Kaydediliyor…" : "Checkout ayarlarını kaydet"}</button>
         </footer>
       </form>
-    </aside>
-  </div>;
+  </PaymentModal>;
 }

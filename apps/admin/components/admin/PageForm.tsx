@@ -20,6 +20,7 @@ import { format } from "date-fns";
 import { tr } from "date-fns/locale";
 import { STORE_RUNTIME } from "@/lib/store-runtime";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
+import { IsolatedHtmlPreview } from "@/components/admin/IsolatedHtmlPreview";
 import type { CmsPage } from "@/types/cms";
 
 interface PageFormProps {
@@ -185,11 +186,10 @@ export function PageForm({
                 {formData.title || "Basliksiz Sayfa"}
               </h1>
               <p className="mb-6 text-sm text-gray-500">{pageBaseUrl}{formData.slug}</p>
-              <div
-                className="prose prose-neutral max-w-none text-gray-700 [&_blockquote]:border-l-4 [&_blockquote]:border-gray-300 [&_blockquote]:pl-4 [&_blockquote]:italic [&_h2]:mt-8 [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:mt-6 [&_h3]:text-xl [&_h3]:font-semibold [&_ol]:pl-6 [&_ul]:pl-6"
-                dangerouslySetInnerHTML={{
-                  __html: formData.content || "<p>Henuz icerik girilmedi.</p>",
-                }}
+              <IsolatedHtmlPreview
+                className="block h-[30rem] w-full border-0"
+                title="Sayfa içeriği önizlemesi"
+                html={formData.content || "<p>Henüz içerik girilmedi.</p>"}
               />
             </div>
           ) : (

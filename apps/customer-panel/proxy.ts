@@ -4,6 +4,7 @@ import {
   normalizeAdminRequestHostname,
   type PostgresAdminDomainRepository,
 } from "@celebix/saas-data";
+import { applySecurityHeaders } from "../../packages/platform-config/src/http-security.ts";
 
 type AdminHostGateRuntime = Readonly<{
   access: Readonly<{ panelOrigin: string }>;
@@ -18,22 +19,28 @@ type AdminHostGateDependencies = Readonly<{
 
 const LOCAL_DEVELOPMENT_HOSTS = new Set(["localhost:3400", "127.0.0.1:3400", "[::1]:3400"]);
 
-function denied(status: 404 | 503): NextResponse {
-  return new NextResponse(status === 404 ? "Admin host not found" : "Admin host unavailable", {
+function securePanelDocument(request: NextRequest, response: NextResponse): NextResponse {
+  // Session logout and store switching can redirect form submissions to another trusted host.
+  response.headers.set("Content-Security-Policy", "base-uri 'self'; frame-ancestors 'none'; object-src 'none'");
+  return applySecurityHeaders(request, response, "admin", { contentSecurityPolicy: "route-owned" });
+}
+
+function denied(request: NextRequest, status: 404 | 503): NextResponse {
+  const response = new NextResponse(status === 404 ? "Admin host not found" : "Admin host unavailable", {
     status,
     headers: {
       "cache-control": "no-store",
       "content-type": "text/plain; charset=utf-8",
-      "x-content-type-options": "nosniff",
     },
   });
+  return securePanelDocument(request, response);
 }
 
 function continuePage(request: NextRequest): NextResponse {
   const headers = new Headers(request.headers);
   // Page authorization must use the real route, never a caller supplied header.
   headers.set("x-celebix-panel-pathname", request.nextUrl.pathname);
-  return NextResponse.next({ request: { headers } });
+  return securePanelDocument(request, NextResponse.next({ request: { headers } }));
 }
 
 export function createCustomerPanelProxy(dependencies: AdminHostGateDependencies) {
@@ -45,21 +52,21 @@ export function createCustomerPanelProxy(dependencies: AdminHostGateDependencies
     }
     let hostname: string;
     try { hostname = normalizeAdminRequestHostname(originalHost); }
-    catch { return denied(404); }
+    catch { return denied(request, 404); }
 
     try {
       const runtime = await dependencies.resolveRuntime();
-      if (!runtime) return denied(503);
+      if (!runtime) return denied(request, 503);
       const panelOrigin = runtime.access.panelOrigin;
       adminOriginEnvironmentFromPanelOrigin(panelOrigin);
       if (hostname === new URL(panelOrigin).hostname) return continuePage(request);
 
       const now = dependencies.clock();
-      if (!(now instanceof Date) || !Number.isFinite(now.getTime())) return denied(503);
+      if (!(now instanceof Date) || !Number.isFinite(now.getTime())) return denied(request, 503);
       const resolved = await runtime.adminDomains.resolvePublicBrand({ hostname, now: new Date(now) });
-      if (resolved.kind === "admin_host_unknown") return denied(404);
-      return resolved.kind === "resolved" ? continuePage(request) : denied(503);
-    } catch { return denied(503); }
+      if (resolved.kind === "admin_host_unknown") return denied(request, 404);
+      return resolved.kind === "resolved" ? continuePage(request) : denied(request, 503);
+    } catch { return denied(request, 503); }
   };
 }
 

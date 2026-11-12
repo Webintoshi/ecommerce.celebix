@@ -285,6 +285,9 @@
 .barcode-studio .barcode-history-dialog > :is(section, div) { padding: 24px; }
 .barcode-studio .barcode-history-dialog > small { display: block; padding: 16px 24px 24px; }
 .barcode-studio .barcode-history-dialog > footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--barcode-border); }
+.barcode-studio .barcode-rename-form { display: grid; gap: 16px; padding: 24px; }
+.barcode-studio .barcode-rename-form label { display: grid; gap: 8px; }
+.barcode-studio .barcode-rename-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 
 @media (max-width: 1280px) {
   .barcode-studio :is(.barcode-workspace, .barcode-studio-grid) { grid-template-columns: minmax(0, 1fr) 256px; gap: 24px; }

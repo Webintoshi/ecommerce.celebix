@@ -31,6 +31,8 @@ import {
 } from "@/lib/admin-data-types";
 import { fetchAdminJson } from "@/lib/admin-client-fetch";
 import { cn } from "@/lib/utils";
+import { pollWhileVisible } from "@/lib/visible-polling";
+import { useAnimatedCounter } from "@/lib/use-animated-counter";
 
 interface StatConfig {
   key: keyof DashboardStats;
@@ -119,27 +121,7 @@ function AnimatedCounter({
   value: number;
   formatter: (v: number) => string;
 }) {
-  const [displayValue, setDisplayValue] = useState(0);
-
-  useEffect(() => {
-    const duration = 600;
-    const steps = 25;
-    const increment = value / steps;
-    let current = 0;
-    let step = 0;
-
-    const timer = window.setInterval(() => {
-      step += 1;
-      current = Math.min(Math.round(increment * step), value);
-      setDisplayValue(current);
-
-      if (step >= steps) {
-        window.clearInterval(timer);
-      }
-    }, duration / steps);
-
-    return () => window.clearInterval(timer);
-  }, [value]);
+  const displayValue = useAnimatedCounter(value, 600);
 
   return <span>{formatter(displayValue)}</span>;
 }
@@ -528,31 +510,20 @@ export default function AdminDashboardClient({
   };
 
   useEffect(() => {
-    let isMounted = true;
-
-    const refreshLiveData = async () => {
+    return pollWhileVisible(async (signal) => {
       try {
         const response = await fetchAdminJson<{
           success: boolean;
           data: LiveAnalyticsSnapshot;
-        }>("/api/analytics/live", { timeoutMs: 8000 });
+        }>("/api/analytics/live", { timeoutMs: 8000, init: { signal } });
 
-        if (isMounted && response.success && response.data) {
+        if (!signal.aborted && response.success && response.data) {
           setLiveData(response.data);
         }
       } catch (error) {
-        console.error("Failed to refresh live analytics:", error);
+        if (!signal.aborted) console.error("Failed to refresh live analytics:", error);
       }
-    };
-
-    const interval = window.setInterval(() => {
-      void refreshLiveData();
-    }, 20000);
-
-    return () => {
-      isMounted = false;
-      window.clearInterval(interval);
-    };
+    }, 20_000, { immediate: false });
   }, []);
 
   const liveDeviceTotal = liveData.devices.mobile + liveData.devices.desktop + liveData.devices.tablet;
