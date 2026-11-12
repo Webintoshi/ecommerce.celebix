@@ -7,6 +7,7 @@ import {
 import { RAW_PAYMENT_PROVIDER_CATALOG } from "./catalog-data.ts";
 import logoManifest from "./logo-manifest.json" with { type: "json" };
 import {
+  resolveCustomerPanelPaymentActivationMode,
   resolveIyzicoCompiledExecutionAuthority,
   resolvePaytrCompiledExecutionAuthority,
 } from "../payment-provider-adapters/default.ts";
@@ -52,9 +53,10 @@ export function validatePaymentProviderLogoBindings(
 export function createPaymentProviderCatalog(
   iyzicoApproval?: unknown,
   iyzicoBuild?: unknown,
+  paytrEnvironment: "test" | "live" = "test",
 ): readonly PaymentProviderCatalogEntry[] {
   const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
-  const paytrAuthority = resolvePaytrCompiledExecutionAuthority();
+  const paytrAuthority = resolvePaytrCompiledExecutionAuthority(undefined, paytrEnvironment);
   const akbankAuthority = resolveAkbankCompiledExecutionAuthority("live") ?? resolveAkbankCompiledExecutionAuthority("test");
   const selected = iyzicoAuthority === null && paytrAuthority === null && akbankAuthority === null
     ? RAW_PAYMENT_PROVIDER_CATALOG
@@ -67,8 +69,8 @@ export function createPaymentProviderCatalog(
       if (entry.providerCode === "paytr_iframe" && paytrAuthority !== null) {
         return Object.freeze({
           ...entry,
-          readiness: "sandbox_ready" as const,
-          environments: Object.freeze(["test"] as const),
+          readiness: paytrEnvironment === "live" ? "production_ready" as const : "sandbox_ready" as const,
+          environments: Object.freeze([paytrEnvironment]),
           executionAuthority: paytrAuthority,
         });
       }
@@ -87,7 +89,11 @@ export function createPaymentProviderCatalog(
   return catalog;
 }
 
-export const PAYMENT_PROVIDER_CATALOG = createPaymentProviderCatalog();
+export const PAYMENT_PROVIDER_CATALOG = createPaymentProviderCatalog(
+  undefined,
+  undefined,
+  resolveCustomerPanelPaymentActivationMode(process.env) === "approved_live" ? "live" : "test",
+);
 
 const BY_PROVIDER_CODE = new Map(
   PAYMENT_PROVIDER_CATALOG.map((entry) => [entry.providerCode, entry] as const),

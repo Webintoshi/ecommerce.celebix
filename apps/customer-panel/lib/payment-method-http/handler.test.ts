@@ -7,7 +7,12 @@ import {
   type PaymentMethodRepository,
 } from "@celebix/saas-data";
 
-import { PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
+import {
+  createDefaultCustomerPanelPaymentProviderRegistry,
+  createDefaultHostedPaymentAdapterRegistry,
+  resolveCustomerPanelPaymentActivationMode,
+} from "../payment-provider-adapters/default.ts";
+import { createPaymentProviderCatalog, PAYMENT_PROVIDER_CATALOG } from "../payment-providers/catalog.ts";
 import type { ServerPaymentMethodsRuntime } from "../server-payment-methods/runtime.ts";
 import { createPaymentMethodHttpHandlers } from "./handler.ts";
 
@@ -447,6 +452,37 @@ test("provider method mutation requires exact catalog registry packet evidence v
     expectedVersion: 1, state: "active", emergencyReason: null,
   }), METHOD)).status, 503);
   assert.deepEqual(rejectedState.calls.map(({ kind }) => kind), ["list"]);
+});
+
+test("an approved live PayTR panel can re-enable its live method while test methods stay blocked", async () => {
+  const adapters = createDefaultHostedPaymentAdapterRegistry({
+    request: async () => { throw new Error("method activation must not contact PayTR"); },
+  });
+  const mode = resolveCustomerPanelPaymentActivationMode({ CELEBIX_PAYTR_IFRAME_PANEL_MODE: "approved_live" });
+  const providerExecution = {
+    adapters,
+    registry: createDefaultCustomerPanelPaymentProviderRegistry(adapters, undefined, mode),
+  };
+  const catalog = createPaymentProviderCatalog(undefined, undefined, "live");
+  const entry = catalog.find(({ providerCode }) => providerCode === "paytr_iframe");
+  assert.equal(entry?.readiness, "production_ready");
+  assert.equal(entry?.executionAuthority?.environment, "live");
+  assert.deepEqual(entry?.executionAuthority, providerExecution.registry.get("paytr_iframe", "payment_processing")?.executionAuthority);
+
+  const pathname = `/api/payment-methods/${METHOD}/state`;
+  for (const environment of ["live", "test"] as const) {
+    const method = Object.freeze({
+      ...paymentMethod(), kind: "provider" as const, profileId: PROFILE,
+      providerCode: "paytr_iframe", label: "PayTR", config: providerConfig(environment),
+      state: "disabled" as const,
+    });
+    const probe = fixture({ catalog, providerExecution, method });
+    const response = await probe.handlers.state(request("POST", pathname, {
+      expectedVersion: 1, state: "active", emergencyReason: null,
+    }), METHOD);
+    assert.equal(response.status, environment === "live" ? 200 : 503);
+    assert.deepEqual(probe.calls.map(({ kind }) => kind), environment === "live" ? ["list", "setState"] : ["list"]);
+  }
 });
 
 test("method, path, query, private-header, session, role and Origin boundaries fail before repository", async () => {
