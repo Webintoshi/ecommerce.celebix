@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "497ca2fc96d4ac2f9945dec7abaa1ea7aaa7407f3edfadf28c64c2cc3a01070b",
+  "inputDigest": "b0de4147880dee36e903a707b43288fc8a5a9095cdae35e678668ab97a8164aa",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -3909,11 +3909,15 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/grounding.ts",
-      "sha256": "b5fd009b84bf2a5883c82e378c5e431f8b6c8e52f55c3bcbd20cbeb6b5552379"
+      "sha256": "9f44cd459b61106ed164a94dd2ce5fa7c2e9919db88f0fc70a7799419a99b008"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/index.ts",
       "sha256": "e4fb436913c3046503f682bceb545f1d9eacbf444d63b6dbc0bd43e09f6a9d6e"
+    },
+    {
+      "path": "packages/saas-contracts/src/content-authoring/optional-styling.ts",
+      "sha256": "6ebcdf3fee3b794aa50e10ba6272d07381f01f7365ba87d3907d888dda167bfe"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/origins.ts",
@@ -3921,11 +3925,15 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/types.ts",
-      "sha256": "99fb252a4ff5871ac9bd177ee5ebb048bde1674be06351a070c3f68e0cbd1f03"
+      "sha256": "82b86e144bffa21d931c003094b05ebf1c775498ec0c75604dcb2f1a909fff45"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/validation.ts",
       "sha256": "4e409082525f6771c7933658b1cbf23b0dd663e087293a5b04d89a1073d1d733"
+    },
+    {
+      "path": "packages/saas-contracts/src/content-authoring/variant-overview.ts",
+      "sha256": "8a958ba53b533ada29207a56ff64daa4df4d2fc4f1a42ffff4a2362008765568"
     },
     {
       "path": "packages/saas-contracts/src/content-resource-authoring/index.ts",

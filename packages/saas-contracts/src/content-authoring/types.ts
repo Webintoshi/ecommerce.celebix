@@ -48,6 +48,7 @@ export interface ProductFact {
     readonly unit?: string;
     readonly scope: "product" | "variant";
     readonly variantId?: string;
+    readonly attributeId?: string;
     readonly source: "current_draft" | "tenant_reference";
 }
 /** Internal server-built exact source group; never ordinary fact authority. */

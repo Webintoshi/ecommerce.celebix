@@ -4,7 +4,7 @@ import MarkdownIt,{type Options} from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
 import type {ContentAuthoringBlock,ContentAuthoringClaim,ContentAuthoringField,ContentAuthoringTextNode,ProductFact,ProductFactPacket} from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
 import {canonicalContentAuthoringValue} from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
-import {assertProductDraftGrounding}from'../../../../packages/saas-contracts/src/content-authoring/grounding.ts';
+import {assertProductDraftGrounding, productVariantOverviews}from'../../../../packages/saas-contracts/src/content-authoring/grounding.ts';
 
 export const PRODUCT_BOLD_FACT_PREFIX='format:bold:';
 function fail():never{throw new TypeError('content_authoring_contract_invalid');}
@@ -50,7 +50,8 @@ export function createProductWriterProtocol(input:Readonly<{packet:ProductFactPa
  const sourceMap=new Map(slots.map(slot=>[slot.marker,slot]));
  const attrs=(facts:readonly ProductFact[])=>facts.filter(fact=>!['title','category','brand'].includes(fact.field)&&!existing(fact)).map(fact=>({name:fact.field,value:fact.value,...(fact.unit?{unit:fact.unit}:{})}));
  const variantIds=[...new Set(originals.filter(fact=>fact.scope==='variant').map(fact=>fact.variantId))];
- const context={productName:packet.title,attributes:attrs(originals.filter(fact=>fact.scope==='product')),variants:variantIds.map(id=>({name:originals.find(fact=>fact.variantId===id&&fact.field==='title')?.value??'',attributes:attrs(originals.filter(fact=>fact.variantId===id))})),sourceSlots:slots.map(({marker,text})=>({marker,text}))};
+ const optionOverviews=fields.includes('description')?productVariantOverviews(packet).map(({label,values})=>`${label} seçenekleri: ${values.join(', ')}.`):[];
+ const context={productName:packet.title,attributes:attrs(originals.filter(fact=>fact.scope==='product')),variants:variantIds.map(id=>({name:originals.find(fact=>fact.variantId===id&&fact.field==='title')?.value??'',attributes:attrs(originals.filter(fact=>fact.variantId===id))})),...(optionOverviews.length?{optionOverviews}:{}),sourceSlots:slots.map(({marker,text})=>({marker,text}))};
  function decode(value:unknown):unknown{
   const raw=object(value);
   // Previously persisted/provider structured drafts remain accepted and validated by the caller.

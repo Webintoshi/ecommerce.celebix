@@ -13,6 +13,35 @@ const draft = (text: string, field: ContentAuthoringField = 'description'): Cont
 });
 const validate = (text: string, source = packet(), field: ContentAuthoringField = 'description') => validateProductDraftOutput(draft(text, field), source, [field]);
 
+test('variant overviews cover only the exact recorded values under their own attribute', () => {
+  const source = packet([
+    ...['Beyaz', 'Altın'].map((value, index) => ({ ...fact('Renk', value), ref: `color:${index}`, scope: 'variant' as const, variantId: String(index), attributeId: 'color' })),
+    ...['M', 'L'].map((value, index) => ({ ...fact('Beden', value), ref: `size:${index}`, scope: 'variant' as const, variantId: String(index), attributeId: 'size' })),
+  ], 'Dökümlü Pantolon');
+  for (const text of ['Renk seçenekleri: Beyaz, Altın.', 'Altın ve Beyaz renk seçenekleri bulunur.', 'Beden seçenekleri: M ve L.']) {
+    assert.doesNotThrow(() => validate(text, source));
+    assert.throws(() => validate(text, source, 'seoDescription'));
+  }
+  for (const text of ['Renk seçenekleri: Beyaz, Yeşil.', 'Renk seçenekleri: Beyaz.', 'Renk seçenekleri: Beyaz, Beyaz, Altın.', 'Renk seçenekleri: M ve L.', 'Renk seçenekleri: Beyaz, Altın. Altın malzemeden.', 'Beden seçenekleri: M ve L. 2 m uzunluğunda.']) {
+    assert.throws(() => validate(text, source), text);
+  }
+  const incomplete = { ...source, facts: source.facts.filter(value => value.ref !== 'color:1') };
+  assert.throws(() => validate('Renk seçenekleri: Beyaz, Altın.', incomplete));
+  const ambiguous = { ...source, facts: source.facts.map(value => value.ref === 'color:1' ? { ...value, attributeId: 'other-color' } : value) };
+  assert.throws(() => validate('Renk seçenekleri: Beyaz, Altın.', ambiguous));
+  assert.doesNotThrow(() => validate('Dilerseniz beyaz bir gömlekle kombinleyebilirsiniz.', source));
+  assert.throws(() => validate('Dilerseniz beyaz bir gömlekle kombinleyebilirsiniz. Ürün beyaz.', source));
+});
+
+test('food and textile variant choices use the same bounded overview', () => {
+  const source = packet(['Vanilya', 'Çilek'].map((value, index) => ({
+    ...fact('Aroma', value), ref: `flavor:${index}`, scope: 'variant' as const, variantId: String(index), attributeId: 'flavor',
+  })), 'Atıştırmalık');
+  assert.doesNotThrow(() => validate('Aroma seçenekleri: Vanilya ve Çilek.', source));
+  assert.throws(() => validate('Aroma seçenekleri: Vanilya, Çilek ve Muz.', source));
+  assert.throws(() => validate('Ürünün içeriği vanilya.', source));
+});
+
 for (const field of ['description', 'seoTitle', 'seoDescription'] as const) {
   test(`title-only source rejects unsupported numeric and material prose in ${field}`, () => {
     assert.throws(() => validate('24 ayar 14,89 g altın Burgu Bileklik', packet(), field));

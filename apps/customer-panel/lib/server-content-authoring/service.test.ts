@@ -781,6 +781,42 @@ test('AUTO can replace two rejected SEO claims while keeping the complete descri
  assert.equal(f.state().debits, 1);
 });
 
+test('AUTO completes a multi-option clothing draft without a corrective request', async () => {
+ const title='Dökümlü Pantolon';
+ const colorId='11111111-1111-4111-8111-111111111112';
+ const sizeId='11111111-1111-4111-8111-111111111113';
+ const variants=['Small','Medıum','Large','X Large'].flatMap(size=>['BEYAZ','KIRMIZI','SIYAH','KAHVE'].map(color=>({
+  title:`${size} / ${color}`,
+  attributes:[{attributeId:colorId,value:color},{attributeId:sizeId,value:size}],
+ })));
+ const source=buildProductFactPacket(null,{title,variants},{
+  category:()=>null,brand:()=>null,variant:()=>null,
+  attribute:attributeId=>({id:attributeId,name:attributeId===colorId?'Renk':'Beden'}),
+ });
+ const body=`**Dökümlü Pantolon**, farklı üstler ve ayakkabılarla eşleştirebileceğiniz bir pantolon modelidir. Gardırobunuzdaki parçalarla birlikte değerlendirirken pantolonun genel görünümünü ve seçtiğiniz üstle nasıl durduğunu göz önünde bulundurabilirsiniz.
+
+## Günlük kombinler
+
+Dilerseniz beyaz bir gömlekle kombinleyebilirsiniz. Gömleği açık bırakarak içine düz bir tişört giyebilir veya tek başına kullanabilirsiniz. Hafta sonu için sade bir üst ve spor ayakkabı tercih edebilirsiniz. Pantolonun görünümünü öne çıkarmak istediğinizde, çanta ve ayakkabıyı da sade tutmak bir seçenektir. Katmanlı bir kombin düşünüyorsanız gömleğin üzerine ince bir hırka alabilir, üst parçaları gideceğiniz yere göre seçebilirsiniz. Benzer tonları birlikte kullanabileceğiniz gibi, üst ve alt parçalar arasında daha belirgin bir geçiş de tercih edebilirsiniz.
+
+## Üst ve ayakkabı eşleştirmeleri
+
+Gömlekle hazırladığınız bir kombini ceket ve düz ayakkabıyla tamamlayabilirsiniz. Farklı bir görünüm denemek isterseniz tişört ve kısa bir ceketle başlayabilirsiniz. Aksesuar seçerken pantolonla birlikte kullanacağınız üst parçanın yakasına ve çantanızın biçimine de bakabilirsiniz. Daha sade bir görünüm için küçük bir çanta, günlük kullanım için yanınıza almak istediğiniz eşyaları taşıyabilecek bir çanta seçebilirsiniz. Ayakkabı tercihinizi yaparken pantolonun paçasının seçtiğiniz ayakkabıyla nasıl göründüğünü kontrol edebilirsiniz. Böylece aynı pantolonu üst ve ayakkabı seçimini değiştirerek farklı biçimlerde değerlendirebilirsiniz.
+
+Beyaz, kırmızı, siyah ve kahve renk seçenekleri bulunur.
+
+Beden seçenekleri: Small, Medıum, Large ve X Large.`;
+ const f=capturedAutomaticRun([request=>{
+  const {product}=JSON.parse(request.messages[1].content);
+  assert.deepEqual(product.optionOverviews,['Renk seçenekleri: BEYAZ, KIRMIZI, SIYAH, KAHVE.','Beden seçenekleri: Small, Medıum, Large, X Large.']);
+  return JSON.stringify({descriptionMarkdown:body,seoTitle:title,seoDescription:`${title} modelini ve kombin fikirlerini inceleyin.`});
+ }],source);
+ const result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'completed');
+ assert.match(renderContentAuthoringDescription(result.draft!.description!),/Beyaz, kırmızı, siyah ve kahve renk seçenekleri/);
+ assert.deepEqual(f.state(),{providerCalls:1,begins:1,completions:1,debits:1,balance:90,held:0});
+});
+
 for(const stage of ['policy_limits','source_order','render']as const)test(`AUTO correction identifies closed ${stage} feedback without weakening validation`,async()=>{
  const first:any=structuredClone(capturedCorrectedList),second:any=structuredClone(capturedCorrectedList),source:any=structuredClone(capturedAutomaticPacket);
  if(stage==='policy_limits')first.description.push({type:'paragraph',children:[{type:'text',text:Array(1001).fill('ürün').join(' ')}]});

@@ -1,4 +1,6 @@
 import type { ContentAuthoringDraft, ContentAuthoringField, ContentAuthoringTextNode, ProductFact, ProductFactPacket } from './types.ts';
+import { stripOptionalStylingColor } from './optional-styling.ts';
+import { matchesVariantOverview, parseVariantOverview, variantOverviewOptions } from './variant-overview.ts';
 
 export type ProductDraftGroundingIssue = Readonly<{
   reason: 'numeric' | 'critical_term' | 'variant_scope' | 'fact_scope';
@@ -107,6 +109,12 @@ function variantIsNamed(text: string, id: string | undefined, packet: ProductFac
   ));
 }
 
+export function productVariantOverviews(packet: ProductFactPacket) {
+  const colorNames = /^(?:(?:acik|koyu) )?(?:altin|gumus|platin)(?: rengi)?$/u;
+  return variantOverviewOptions(packet).filter(({ label, values }) => label === 'Beden' || label === 'Numara' || values.every(value =>
+    !critical.test(normalize(value)) || (label === 'Renk' && colorNames.test(normalize(value)))));
+}
+
 /**
  * Server-only evidence check (pure, with no IO): numeric tokens, unit aliases, listed critical
  * TR/EN terms and exact variant values must be covered by same-scope source fragments.
@@ -154,8 +162,16 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
   }
   const title = normalize(packet.title);
   const hasCargoPantolon = cargoPantolonUses(title).some(use => !use.shipping);
-  function check(raw: string, nodes: readonly ContentAuthoringTextNode[], field: ContentAuthoringField, blockIndex: number | null): void {
+  const overviews = new Map(productVariantOverviews(packet).map(group => [normalize(group.label), group.values]));
+  function check(raw: string, nodes: readonly ContentAuthoringTextNode[], field: ContentAuthoringField, blockIndex: number | null, paragraph = false): void {
     const location = { field, blockIndex };
+    const plainParagraph = paragraph && nodes.every(node => node.type === 'text');
+    const overview = plainParagraph ? parseVariantOverview(raw) : null;
+    const options = overview && overviews.get(overview.label);
+    if (overview && options) {
+      if (matchesVariantOverview(overview.list, options)) return;
+      unsupported({ ...location, reason: 'variant_scope', tokens: [] });
+    }
     const text = normalize(raw);
     const eligible = packet.facts.filter(f => f.scope === 'product' || variantIsNamed(text, f.variantId, packet));
     for (const node of nodes) {
@@ -177,12 +193,16 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     if (critical.test(criticalUncovered)) unsupported({ ...location, reason: 'critical_term', tokens: matchedTokens(criticalUncovered, new RegExp(critical.source, 'gu')) });
     // Even a noncritical colour/size value must not escape its known variant scope.
     for (const f of packet.facts) {
-      if (f.scope === 'variant' && !eligible.includes(f) && occurrence(f.value).test(uncovered)) unsupported({ ...location, reason: 'variant_scope', tokens: matchedTokens(uncovered, occurrence(f.value)) });
+      if (f.scope !== 'variant' || eligible.includes(f)) continue;
+      const styling = plainParagraph && f.attributeId && ['renk', 'color', 'colour'].includes(normalize(f.field))
+        ? stripOptionalStylingColor(text, normalize(f.value)) : text;
+      const variantText = styling === text ? uncovered : uncovered.split('').map((char, index) => styling[index] === text[index] ? char : ' ').join('');
+      if (occurrence(f.value).test(variantText)) unsupported({ ...location, reason: 'variant_scope', tokens: matchedTokens(variantText, occurrence(f.value)) });
     }
   }
   const nodeText = (nodes: readonly ContentAuthoringTextNode[]) => nodes.map(n => n.type === 'text' ? n.text : `${n.value}${n.unit ? ` ${n.unit}` : ''}`).join('');
   for (const [blockIndex, block] of (draft.description ?? []).entries()) {
-    if (block.type === 'paragraph' || block.type === 'heading') check(nodeText(block.children), block.children, 'description', blockIndex);
+    if (block.type === 'paragraph' || block.type === 'heading') check(nodeText(block.children), block.children, 'description', blockIndex, block.type === 'paragraph');
     else if (block.type === 'list') for (const item of block.items) check(nodeText(item), item, 'description', blockIndex);
     else if (block.type === 'table') for (const row of block.rows) check(row.map(nodeText).join(' | '), row.flat(), 'description', blockIndex);
   }
