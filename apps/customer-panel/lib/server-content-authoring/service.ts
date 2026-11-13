@@ -130,11 +130,38 @@ export function createContentAuthoringService(deps:Dependencies){
     if(request.action==='auto')draft=validateAutomaticDraft(draft);
     if(draft.description)checked('render',()=>renderContentAuthoringDescription(draft.description!));return draft;
    };
+   // An invalid SEO claim can discard an otherwise usable article. Keep the
+   // article only when the entire draft passes with verified product-name SEO.
+   const recoverWithProductName=(parsed:unknown,failure:unknown)=>{
+    if(!writer||!request.fields.includes('description')||!parsed||typeof parsed!=='object'||Array.isArray(parsed))return;
+    const candidate={...parsed} as Partial<Record<'descriptionMarkdown'|'seoTitle'|'seoDescription',unknown>>;
+    if(typeof candidate.descriptionMarkdown!=='string'||Object.hasOwn(candidate,'claims')||Object.hasOwn(candidate,'sourceFingerprint'))return;
+    const productName=packet.title.normalize('NFC');
+    let issue=getProductDraftGroundingIssue(failure);
+    for(let replaced=0;replaced<2;replaced++){
+     const target=issue?.field;
+     if(issue?.reason!=='critical_term'||(target!=='seoTitle'&&target!=='seoDescription')||!request.fields.includes(target))return;
+     const limit=target==='seoTitle'?60:160;
+     const value=candidate[target];
+     const replacement=target==='seoDescription'?productName+' hakkında bilgi alın.':productName;
+     if(typeof value!=='string'||[...value].length>limit||[...replacement].length>limit||value===replacement)return;
+     candidate[target]=replacement;
+     try{
+      const draft=validateProductDraftOutput(writer.decode(candidate),packet,request.fields);
+      assertToshiGeneratedLimits(draft);
+      assertProductWriterCompleteness(draft);
+      assertAutomaticSourcePreserved(draft,packet);
+      if(draft.description)renderContentAuthoringDescription(draft.description);
+      return draft;
+     }catch(error){issue=getProductDraftGroundingIssue(error);}
+    }
+   };
    let draft;try{draft=validate();}catch(error){
     validationFailure??=error;
     diagnose(1);
     // A known, completed but invalid answer can be corrected once. Network/dispatch uncertainty is never retried.
     if(request.action!=='auto'||endsAt-performance.now()<12000||!output.text.trim()||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
+    const firstVerified=recoverWithProductName(diagnosticParsed,validationFailure);
     const markdown=(diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown,sourceSlots=writer?.context.sourceSlots;
     const markerPattern=/\[\[TOSHI_SOURCE_[^\]\r\n]*\]\]/gu;
     const sourceRepair=(diagnosticStage as ProductValidationDiagnosticStage)==='writer_decode'&&typeof markdown==='string'&&sourceSlots?.length&&(JSON.stringify(markdown.match(markerPattern)??[])!==JSON.stringify(sourceSlots.map(slot=>slot.marker))||markdown.replace(markerPattern,'').includes('[[TOSHI_SOURCE_'))?sourceSlots:undefined;
@@ -164,9 +191,10 @@ export function createContentAuthoringService(deps:Dependencies){
        break;
       }catch(error){issue=getProductDraftGroundingIssue(error);}
      }
-     if(!recovered)throw new ContentAuthoringError('invalid_output');
+     const verified=recovered??recoverWithProductName(diagnosticParsed,validationFailure)??firstVerified;
+     if(!verified)throw new ContentAuthoringError('invalid_output');
      try{
-      draft=validateAutomaticDraft(recovered);
+      draft=validateAutomaticDraft(verified);
       if(draft.description)renderContentAuthoringDescription(draft.description);
      }catch{throw new ContentAuthoringError('invalid_output');}
     }

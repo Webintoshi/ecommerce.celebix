@@ -738,6 +738,49 @@ test('SEO grounding raised inside writer decoding keeps the actual SEO target fo
  assert.equal(result.status,'completed');assert.deepEqual(feedback.issue,{reason:'critical_term',field:'seoTitle',blockIndex:null,tokens:['organik']});assert.equal(feedback.fieldNote,'seo_product_scope_only');assert.equal(f.state().debits,1);
 });
 
+test('AUTO keeps the first verified description when the SEO correction introduces a new description error', async () => {
+ const first = JSON.stringify({
+  descriptionMarkdown: expandedFoodMarkdown,
+  seoTitle: 'Organik Erişte',
+  seoDescription: 'İrmikli ve Yumurtalı Kesme Erişte ile servis fikirlerini inceleyin.',
+ });
+ const second = sourceRepairOutput('Organik erişte.\n\n' + expandedFoodMarkdown);
+ const f = capturedAutomaticRun([first, second]);
+ const result = await f.service.generateContent(f.input);
+ assert.equal(result.status, 'completed');
+ assert.deepEqual(result.draft!.description, expandedFoodDraft.description);
+ assert.equal(result.draft!.seoTitle, capturedAutomaticPacket.title);
+ assert.equal(result.draft!.seoDescription, JSON.parse(first).seoDescription);
+ assert.deepEqual(f.state(), {providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
+});
+
+test('AUTO does not use SEO recovery to publish a thin description or discard numeric evidence checks', async () => {
+ for (const [descriptionMarkdown, seoTitle] of [
+  ['Kısa açıklama.', 'Organik Erişte'],
+  [expandedFoodMarkdown, 'Erişte 99999 g'],
+ ]) {
+  const bad = JSON.stringify({descriptionMarkdown, seoTitle, seoDescription: capturedAutomaticPacket.title});
+  const f = capturedAutomaticRun([bad, bad]);
+  assert.equal((await f.service.generateContent(f.input)).status, 'failed');
+  assert.equal(f.state().debits, 0);
+ }
+});
+
+test('AUTO can replace two rejected SEO claims while keeping the complete description', async () => {
+ const bad = JSON.stringify({
+  descriptionMarkdown: expandedFoodMarkdown,
+  seoTitle: 'Organik Erişte',
+  seoDescription: 'Ücretsiz kargo ile erişte.',
+ });
+ const f = capturedAutomaticRun([bad, bad]);
+ const result = await f.service.generateContent(f.input);
+ assert.equal(result.status, 'completed');
+ assert.deepEqual(result.draft!.description, expandedFoodDraft.description);
+ assert.equal(result.draft!.seoTitle, capturedAutomaticPacket.title);
+ assert.equal(result.draft!.seoDescription, capturedAutomaticPacket.title+' hakkında bilgi alın.');
+ assert.equal(f.state().debits, 1);
+});
+
 for(const stage of ['policy_limits','source_order','render']as const)test(`AUTO correction identifies closed ${stage} feedback without weakening validation`,async()=>{
  const first:any=structuredClone(capturedCorrectedList),second:any=structuredClone(capturedCorrectedList),source:any=structuredClone(capturedAutomaticPacket);
  if(stage==='policy_limits')first.description.push({type:'paragraph',children:[{type:'text',text:Array(1001).fill('ürün').join(' ')}]});
