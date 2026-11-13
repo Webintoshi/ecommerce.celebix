@@ -216,6 +216,27 @@ test('ordinary active adjustment adverbials retain the distinction from passive 
  for(const text of ['Ürün ayarlanarak kullanılır.','Ürün ayarlı.','Ürün ayarlanabilir.','Miktarı ayarlayarak 14 g ekleyin.'])assert.throws(()=>validate(text,packet([], 'Erişte')),text);
 });
 
+test('a recorded kargo pantolon can use the apparel term in descriptions and SEO', () => {
+  const source = packet([], 'Lunea Yüksek Bel Kemerli  Kargo Pantolon');
+  for (const field of ['description', 'seoTitle', 'seoDescription'] as const) {
+    for (const text of ['Yüksek bel kargo pantolon', 'Kargo pantolonu günlük kombinlerde kullanabilirsiniz.', 'KARGO PANTOLONLA gündelik kombinler']) {
+      assert.doesNotThrow(() => validate(text, source, field), text);
+    }
+  }
+  assert.doesNotThrow(() => validate('Kargo pantolonla günlük kombinler.', packet([fact('Kategori', 'Pantolon')], source.title)));
+});
+
+test('the apparel term does not cover unverified clothing or shipping claims', () => {
+  const source = packet([], 'Lunea Yüksek Bel Kemerli Kargo Pantolon');
+  for (const text of ['Ücretsiz kargo.', 'Kargo pantolon, ücretsiz kargo.', 'Kargo pantolon için kargo bedava.', 'Kargo pantolon için ücretsizdir.', 'Kargo pantolonda her zaman ücretsiz.', 'Ücretsiz kargo pantolon için geçerli.', 'Hızlı kargo pantolon için geçerli.', 'Kargolu pantolon.', 'Kargo pantolon, aynı gün teslimat.', 'Pamuklu kargo pantolon.']) {
+    assert.throws(() => validate(text, source), text);
+  }
+  assert.throws(() => validate('Ücretsiz Kargo Pantolon.', packet([], 'Kargo Pantolon')));
+  assert.throws(() => validate('Kargo Pantolon için ücretsiz.', packet([], 'Kargo Pantolon')));
+  assert.throws(() => validate('Kargo pantolon.', packet([], 'Kemerli Pantolon')));
+  assert.throws(() => validate('Kargo pantolon.', packet([], 'Ücretsiz Kargo Pantolon')));
+});
+
 function groundingFailure(output:ContentAuthoringDraft,source=packet(),selected:readonly ContentAuthoringField[]=['description']):unknown{
  try{validateProductDraftOutput(output,source,selected);}catch(error){return error;}
  assert.fail('Unsupported output must still be rejected');

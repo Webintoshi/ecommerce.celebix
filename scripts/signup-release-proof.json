@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "7c259d30784ad7f065ed17f3962a73a1433a9512d912e04bedb876b83b383da7",
+  "inputDigest": "497ca2fc96d4ac2f9945dec7abaa1ea7aaa7407f3edfadf28c64c2cc3a01070b",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -2956,6 +2956,10 @@
       "sha256": "aab9a3a003db7d91e424d17a747641eee20e80f9547a3bdae94d0deb14943f9b"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202611130506_catalog_variant_commerce_repair.up.sql",
+      "sha256": "4f5d34a8abf23f1e2cc6475e54abf67ce70b3e980b7086988e55ffad6366d3dd"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -3905,7 +3909,7 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/grounding.ts",
-      "sha256": "62a362b05aa8f66ad74995f6c266d1fd192a40c633e10061a84eb69a2c763185"
+      "sha256": "b5fd009b84bf2a5883c82e378c5e431f8b6c8e52f55c3bcbd20cbeb6b5552379"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/index.ts",

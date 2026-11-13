@@ -68,6 +68,17 @@ const spatialUnder = new RegExp(String.raw`(^|[^\p{L}\p{N}])((?:` + [
 // adverbials, and possessive verbal nouns with ordinary case endings. Never match ayar/ayarlı,
 // ambiguous ayarlar, or passive/causative capability claims such as ayarlanabilir.
 const ordinaryAdjust = /(^|[^\p{L}\p{N}])(ayarla(?:mak|ma(?:m(?:ız)?|n(?:ız)?)(?:ı|ın|a|da|dan)?|y(?:ın(?:ız)?|abilir(?:im|sin(?:iz)?|iz)|arak)|rken))(?=$|[^\p{L}\p{N}])/gu;
+// Match the garment name and its common Turkish case forms without treating
+// a delivery claim around the same words as evidence of the garment type.
+const cargoPantolon = /(?<![\p{L}\p{N}])kargo pantolon(?:u|un|una|unu|unda|undan|uyla|a|da|dan|la|lar(?:i|in|ina|ini|inda|indan|iyla|a|da|dan|la)?)?(?![\p{L}\p{N}])/gu;
+const shippingPrefix = /(?:^|[^\p{L}\p{N}])(?:ucretsiz|bedava|bedelsiz|ucretli|hizli|standart|ekspres|express|indirimli|ayni gun|ertesi gun)(?:\s+|\s*[:–—-]\s*)$/u;
+const shippingPredicate = /^ (?:icin )?(?:(?:her zaman|tamamen) )?(?:ucretsiz|bedava|bedelsiz|ucretli|hizli|indirimli)(?:dir|tir)?(?![\p{L}\p{N}])/u;
+function cargoPantolonUses(text: string): { index: number; shipping: boolean }[] {
+  return [...text.matchAll(cargoPantolon)].map(({ 0: phrase, index }) => ({
+    index,
+    shipping: shippingPrefix.test(text.slice(0, index)) || shippingPredicate.test(text.slice(index + phrase.length)),
+  }));
+}
 function criticalProjection(raw: string): string {
   const original = raw.normalize('NFKC').toLocaleLowerCase('tr-TR').normalize('NFC').replace(/\p{Cf}/gu, '');
   // Nulls preserve normalized positions without joining or authorizing other
@@ -141,6 +152,8 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     if(expected.size)unsupported();
     return;
   }
+  const title = normalize(packet.title);
+  const hasCargoPantolon = cargoPantolonUses(title).some(use => !use.shipping);
   function check(raw: string, nodes: readonly ContentAuthoringTextNode[], field: ContentAuthoringField, blockIndex: number | null): void {
     const location = { field, blockIndex };
     const text = normalize(raw);
@@ -148,7 +161,7 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     for (const node of nodes) {
       if (node.type === 'fact' && !eligible.some(f => f.ref === node.factRef)) unsupported({ ...location, reason: 'fact_scope', tokens: [] });
     }
-    const evidence = [normalize(packet.title), ...eligible.flatMap(fragments)].filter(Boolean).sort((a, b) => b.length - a.length);
+    const evidence = [title, ...eligible.flatMap(fragments)].filter(Boolean).sort((a, b) => b.length - a.length);
     // Fixed-size spaces preserve boundaries between unmatched tokens and source fragments.
     let uncovered = text;
     let criticalUncovered = criticalProjection(raw);
@@ -156,6 +169,10 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
       criticalUncovered = criticalUncovered.slice(0, offset) + ' '.repeat(match.length) + criticalUncovered.slice(offset + match.length);
       return ' '.repeat(match.length);
     });
+    for (const { index, shipping } of cargoPantolonUses(text)) {
+      const replacement = shipping ? 'kargo' : hasCargoPantolon ? '     ' : null;
+      if (replacement !== null) criticalUncovered = criticalUncovered.slice(0, index) + replacement + criticalUncovered.slice(index + 5);
+    }
     if (/\p{N}/u.test(uncovered)) unsupported({ ...location, reason: 'numeric', tokens: matchedTokens(uncovered, /[+\-±∓]?\p{N}+(?:[.,]\p{N}+)*/gu) });
     if (critical.test(criticalUncovered)) unsupported({ ...location, reason: 'critical_term', tokens: matchedTokens(criticalUncovered, new RegExp(critical.source, 'gu')) });
     // Even a noncritical colour/size value must not escape its known variant scope.
