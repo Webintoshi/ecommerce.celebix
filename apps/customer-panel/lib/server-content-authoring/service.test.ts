@@ -781,6 +781,30 @@ test('AUTO can replace two rejected SEO claims while keeping the complete descri
  assert.equal(f.state().debits, 1);
 });
 
+test('AUTO preserves a corrected description when a variant leaks into the second meta description', async () => {
+ const source=buildProductFactPacket(null,{title:'İrmikli ve Yumurtalı Kesme Erişte',variants:[
+  {title:'Sade / Beyaz',attributes:[{attributeId:id,value:'Beyaz'}]},
+  {title:'Sade / Siyah',attributes:[{attributeId:id,value:'Siyah'}]},
+ ]},{category:()=>null,brand:()=>null,variant:()=>null,attribute:()=>({id,name:'Renk'})});
+ const first=JSON.stringify({descriptionMarkdown:'Beyaz erişte.\n\n'+expandedFoodMarkdown,seoTitle:source.title,seoDescription:source.title});
+ const second=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:source.title,seoDescription:'Beyaz seçeneğini inceleyin.'});
+ const f=capturedAutomaticRun([first,second],source);
+ const result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'completed');
+ assert.equal(result.draft?.seoDescription,source.title+' hakkında bilgi alın.');
+ assert.equal(f.state().debits,1);
+});
+
+test('AUTO can recover one invalid SEO field and a removable paragraph in the same response', async () => {
+ const bad=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown+'\n\nOrganik üründür.',seoTitle:'Organik Erişte',seoDescription:capturedAutomaticPacket.title});
+ const f=capturedAutomaticRun([bad,bad]);
+ const result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'completed');
+ assert.equal(result.draft?.seoTitle,capturedAutomaticPacket.title);
+ assert.deepEqual(result.draft?.description,expandedFoodDraft.description);
+ assert.equal(f.state().debits,1);
+});
+
 test('AUTO completes a multi-option clothing draft without a corrective request', async () => {
  const title='Dökümlü Pantolon';
  const colorId='11111111-1111-4111-8111-111111111112';
@@ -801,19 +825,19 @@ Dilerseniz beyaz bir gömlekle kombinleyebilirsiniz. Gömleği açık bırakarak
 
 ## Üst ve ayakkabı eşleştirmeleri
 
-Gömlekle hazırladığınız bir kombini ceket ve düz ayakkabıyla tamamlayabilirsiniz. Farklı bir görünüm denemek isterseniz tişört ve kısa bir ceketle başlayabilirsiniz. Aksesuar seçerken pantolonla birlikte kullanacağınız üst parçanın yakasına ve çantanızın biçimine de bakabilirsiniz. Daha sade bir görünüm için küçük bir çanta, günlük kullanım için yanınıza almak istediğiniz eşyaları taşıyabilecek bir çanta seçebilirsiniz. Ayakkabı tercihinizi yaparken pantolonun paçasının seçtiğiniz ayakkabıyla nasıl göründüğünü kontrol edebilirsiniz. Böylece aynı pantolonu üst ve ayakkabı seçimini değiştirerek farklı biçimlerde değerlendirebilirsiniz.
+Gömlekle hazırladığınız bir kombini ceket ve düz ayakkabıyla tamamlayabilirsiniz. Farklı bir görünüm denemek isterseniz tişört ve kısa bir ceketle başlayabilirsiniz. Aksesuar seçerken pantolonla birlikte kullanacağınız üst parçanın yakasına ve çantanızın biçimine de bakabilirsiniz. Daha sade bir görünüm için küçük bir çanta, günlük kullanım için yanınıza almak istediğiniz eşyaları taşıyabilecek bir çanta seçebilirsiniz. Ayakkabı tercihinizi yaparken pantolonun paçasının seçtiğiniz ayakkabıyla nasıl göründüğünü kontrol edebilirsiniz. Böylece aynı pantolonu üst ve ayakkabı seçimini değiştirerek farklı biçimlerde değerlendirebilirsiniz. Üst parçanın boyunu değiştirerek pantolonun genel görünümünün farklı eşleşmelerde nasıl değiştiğine de bakabilirsiniz.
 
-Beyaz, kırmızı, siyah ve kahve renk seçenekleri bulunur.
-
-Beden seçenekleri: Small, Medıum, Large ve X Large.`;
+`;
  const f=capturedAutomaticRun([request=>{
   const {product}=JSON.parse(request.messages[1].content);
-  assert.deepEqual(product.optionOverviews,['Renk seçenekleri: BEYAZ, KIRMIZI, SIYAH, KAHVE.','Beden seçenekleri: Small, Medıum, Large, X Large.']);
+  assert.deepEqual(product.platformOptionFields,['Renk','Beden']);
+  assert.deepEqual(product.variants,[]);
   return JSON.stringify({descriptionMarkdown:body,seoTitle:title,seoDescription:`${title} modelini ve kombin fikirlerini inceleyin.`});
  }],source);
  const result=await f.service.generateContent(f.input);
  assert.equal(result.status,'completed');
- assert.match(renderContentAuthoringDescription(result.draft!.description!),/Beyaz, kırmızı, siyah ve kahve renk seçenekleri/);
+ assert.match(renderContentAuthoringDescription(result.draft!.description!),/Renk seçenekleri: BEYAZ, KIRMIZI, SIYAH, KAHVE/);
+ assert.match(renderContentAuthoringDescription(result.draft!.description!),/Beden seçenekleri: Small, Medıum, Large, X Large/);
  assert.deepEqual(f.state(),{providerCalls:1,begins:1,completions:1,debits:1,balance:90,held:0});
 });
 

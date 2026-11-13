@@ -130,29 +130,44 @@ export function createContentAuthoringService(deps:Dependencies){
     if(request.action==='auto')draft=validateAutomaticDraft(draft);
     if(draft.description)checked('render',()=>renderContentAuthoringDescription(draft.description!));return draft;
    };
-   // An invalid SEO claim can discard an otherwise usable article. Keep the
-   // article only when the entire draft passes with verified product-name SEO.
-   const recoverWithProductName=(parsed:unknown,failure:unknown)=>{
+   // Keep bounded repairs on one candidate so a rejected SEO field and an
+   // independent paragraph can be repaired without weakening either check.
+   const recoverAutomaticDraft=(parsed:unknown,decoded:unknown,failure:unknown)=>{
     if(!writer||!request.fields.includes('description')||!parsed||typeof parsed!=='object'||Array.isArray(parsed))return;
-    const candidate={...parsed} as Partial<Record<'descriptionMarkdown'|'seoTitle'|'seoDescription',unknown>>;
-    if(typeof candidate.descriptionMarkdown!=='string'||Object.hasOwn(candidate,'claims')||Object.hasOwn(candidate,'sourceFingerprint'))return;
-    const productName=packet.title.normalize('NFC');
+    const raw={...parsed} as Partial<Record<'descriptionMarkdown'|'seoTitle'|'seoDescription',unknown>>;
+    if(typeof raw.descriptionMarkdown!=='string'||Object.hasOwn(raw,'claims')||Object.hasOwn(raw,'sourceFingerprint'))return;
+    let candidate=decoded as ContentAuthoringDraft|undefined;
     let issue=getProductDraftGroundingIssue(failure);
-    for(let replaced=0;replaced<2;replaced++){
-     const target=issue?.field;
-     if(issue?.reason!=='critical_term'||(target!=='seoTitle'&&target!=='seoDescription')||!request.fields.includes(target))return;
-     const limit=target==='seoTitle'?60:160;
-     const value=candidate[target];
-     const replacement=target==='seoDescription'?productName+' hakkında bilgi alın.':productName;
-     if(typeof value!=='string'||[...value].length>limit||[...replacement].length>limit||value===replacement)return;
-     candidate[target]=replacement;
+    let removed=0,replaced=0;
+    const productName=packet.title.normalize('NFC');
+    while(issue){
+     const {field,reason,blockIndex:index}=issue;
+     if((field==='seoTitle'||field==='seoDescription')&&['critical_term','variant_scope'].includes(reason)){
+      const limit=field==='seoTitle'?60:160;
+      const value=raw[field],replacement=field==='seoDescription'?productName+' hakkında bilgi alın.':productName;
+      if(++replaced>2||!request.fields.includes(field)||typeof value!=='string'||[...value].length>limit||[...replacement].length>limit||value===replacement)return;
+      raw[field]=replacement;
+      if(candidate)candidate={...candidate,[field]:replacement};
+     }else if(field==='description'&&['critical_term','variant_scope'].includes(reason)&&candidate?.description&&index!=null&&index>0){
+      if(++removed>3)return;
+      const block=candidate.description[index];
+      if(block?.type!=='paragraph'||block.children.some(node=>node.type==='fact'))return;
+      const prose=block.children.map(node=>node.type==='text'?node.text:'').join('');
+      if(/(?<!\p{L})(?:ancak|ama|fakat|oysa|yalnızca|sadece|hariç|koşuluyla|şartıyla|değil\p{L}*)(?!\p{L})/iu.test(prose))return;
+      const previous=candidate.description[index-1],next=candidate.description[index+1];
+      if(previous?.type==='heading'&&(!next||next.type==='heading'))return;
+      candidate={...candidate,description:candidate.description.filter((_,position)=>position!==index)};
+     }else return;
      try{
-      const draft=validateProductDraftOutput(writer.decode(candidate),packet,request.fields);
-      assertToshiGeneratedLimits(draft);
-      assertProductWriterCompleteness(draft);
-      assertAutomaticSourcePreserved(draft,packet);
-      if(draft.description)renderContentAuthoringDescription(draft.description);
-      return draft;
+      // Decode again to check SEO against the writer's stricter product-only evidence.
+      const decodedCandidate=writer.decode(raw) as ContentAuthoringDraft;
+      candidate??=decodedCandidate;
+      const verified=validateProductDraftOutput(candidate,packet,request.fields);
+      assertToshiGeneratedLimits(verified);
+      assertProductWriterCompleteness(verified);
+      assertAutomaticSourcePreserved(verified,packet);
+      if(verified.description)renderContentAuthoringDescription(verified.description);
+      return verified;
      }catch(error){issue=getProductDraftGroundingIssue(error);}
     }
    };
@@ -161,37 +176,17 @@ export function createContentAuthoringService(deps:Dependencies){
     diagnose(1);
     // A known, completed but invalid answer can be corrected once. Network/dispatch uncertainty is never retried.
     if(request.action!=='auto'||endsAt-performance.now()<12000||!output.text.trim()||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
-    const firstVerified=recoverWithProductName(diagnosticParsed,validationFailure);
+    const firstVerified=recoverAutomaticDraft(diagnosticParsed,diagnosticDraft,validationFailure);
     const markdown=(diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown,sourceSlots=writer?.context.sourceSlots;
     const markerPattern=/\[\[TOSHI_SOURCE_[^\]\r\n]*\]\]/gu;
     const sourceRepair=(diagnosticStage as ProductValidationDiagnosticStage)==='writer_decode'&&typeof markdown==='string'&&sourceSlots?.length&&(JSON.stringify(markdown.match(markerPattern)??[])!==JSON.stringify(sourceSlots.map(slot=>slot.marker))||markdown.replace(markerPattern,'').includes('[[TOSHI_SOURCE_'))?sourceSlots:undefined;
     await authority();const previousUsage=knownUsage;
     output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:toshiProductCorrectionFeedback(validationStage,request.fields,validationFailure,sourceRepair)}],tools:[],outputFormat:'json_object',authoringProfile:'product_quality',maxOutputTokens:12288,signal}));active();
     const nextUsage=measuredUsage(output);knownUsage=previousUsage&&nextUsage?{inputTokens:previousUsage.inputTokens+nextUsage.inputTokens,outputTokens:previousUsage.outputTokens+nextUsage.outputTokens,totalTokens:previousUsage.totalTokens+nextUsage.totalTokens}:null;
-    try{draft=validate();}catch{
+    try{draft=validate();}catch(error){
+     validationFailure??=error;
      diagnose(2);
-     const generatedMarkdown=typeof (diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown==='string';
-     let candidate=generatedMarkdown?diagnosticDraft as ContentAuthoringDraft|undefined:undefined;
-     let issue=getProductDraftGroundingIssue(validationFailure);
-     let recovered:ContentAuthoringDraft|undefined;
-     // A grounding issue is available only after the candidate passed shape checks.
-     // Remove standalone prose only and leave all recorded facts and headings in place.
-     for(let removed=0;removed<3;removed++){
-      const index=issue?.blockIndex;
-      if(!candidate?.description||issue?.field!=='description'||!['critical_term','variant_scope'].includes(issue.reason)||index==null||index===0)break;
-      const block=candidate.description[index];
-      if(block?.type!=='paragraph'||block.children.some(node=>node.type==='fact'))break;
-      const prose=block.children.map(node=>node.type==='text'?node.text:'').join('');
-      if(/(?<!\p{L})(?:ancak|ama|fakat|oysa|yalnızca|sadece|hariç|koşuluyla|şartıyla|değil\p{L}*)(?!\p{L})/iu.test(prose))break;
-      const previous=candidate.description[index-1],next=candidate.description[index+1];
-      if(previous?.type==='heading'&&(!next||next.type==='heading'))break;
-      candidate={...candidate,description:candidate.description.filter((_,position)=>position!==index)};
-      try{
-       recovered=validateProductDraftOutput(candidate,packet,request.fields);
-       break;
-      }catch(error){issue=getProductDraftGroundingIssue(error);}
-     }
-     const verified=recovered??recoverWithProductName(diagnosticParsed,validationFailure)??firstVerified;
+     const verified=recoverAutomaticDraft(diagnosticParsed,diagnosticDraft,validationFailure)??firstVerified;
      if(!verified)throw new ContentAuthoringError('invalid_output');
      try{
       draft=validateAutomaticDraft(verified);
@@ -199,6 +194,7 @@ export function createContentAuthoringService(deps:Dependencies){
      }catch{throw new ContentAuthoringError('invalid_output');}
     }
    }
+   if(writer&&typeof (diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown==='string')draft=writer.appendVariantOverviews(draft);
    await authority();const usage=knownUsage;
    finalizing=true;return await terminal(deps.repository.completeGeneration({...base(),expectedVersion:claim.version,claimToken:claim.claimToken,validatedDraft:draft,usage}));
   }catch(error){

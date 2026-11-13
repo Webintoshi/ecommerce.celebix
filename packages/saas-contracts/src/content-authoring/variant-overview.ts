@@ -32,7 +32,7 @@ export function variantOverviewOptions(packet: ProductFactPacket) {
       ? (value: string) => value.split(' / ').every(size => sizeLabel.test(size))
       : (value: string) => plainLabel.test(value);
     if (values.length < 2 || values.length > 24 || values.some(value => value.length > 48 || !valid(fold(value)))) return [];
-    return [{ label, values }];
+    return [{ label, values, attributeId: group.id }];
   });
 }
 

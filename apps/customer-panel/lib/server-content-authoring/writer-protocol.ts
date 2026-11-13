@@ -2,15 +2,18 @@ import 'server-only';
 import {createHash,randomBytes} from 'node:crypto';
 import MarkdownIt,{type Options} from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
-import type {ContentAuthoringBlock,ContentAuthoringClaim,ContentAuthoringField,ContentAuthoringTextNode,ProductFact,ProductFactPacket} from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
-import {canonicalContentAuthoringValue} from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
+import type {ContentAuthoringBlock,ContentAuthoringClaim,ContentAuthoringDraft,ContentAuthoringField,ContentAuthoringTextNode,ProductFact,ProductFactPacket} from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
+import {canonicalContentAuthoringValue,validateProductDraftOutput} from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
 import {assertProductDraftGrounding, productVariantOverviews}from'../../../../packages/saas-contracts/src/content-authoring/grounding.ts';
+import {matchesVariantOverview,parseVariantOverview} from '../../../../packages/saas-contracts/src/content-authoring/variant-overview.ts';
+import {renderContentAuthoringDescription} from './render.ts';
+import {assertToshiGeneratedLimits} from './toshi-policy.ts';
 
 export const PRODUCT_BOLD_FACT_PREFIX='format:bold:';
 function fail():never{throw new TypeError('content_authoring_contract_invalid');}
 const fold=(value:string)=>value.normalize('NFC').toLocaleLowerCase('tr-TR');
 const existing=(fact:ProductFact)=>fact.field==='merchantDescription'||fact.ref.startsWith('product:existing:')||fact.ref.startsWith('source:');
-const display=(fact:ProductFact)=>fact.value+(fact.unit?' '+fact.unit:'');
+const display=(fact:Pick<ProductFact,'value'|'unit'>)=>fact.value+(fact.unit?' '+fact.unit:'');
 const markdownOptions:Options&{maxNesting:number}={html:false,linkify:false,typographer:false,breaks:false,maxNesting:12};
 const parser=new MarkdownIt(markdownOptions);
 
@@ -49,9 +52,50 @@ export function createProductWriterProtocol(input:Readonly<{packet:ProductFactPa
  const slots=sources.map((fact,index)=>({marker:`[[TOSHI_SOURCE_${nonce}_${index}]]`,text:fact.value,fact}));
  const sourceMap=new Map(slots.map(slot=>[slot.marker,slot]));
  const attrs=(facts:readonly ProductFact[])=>facts.filter(fact=>!['title','category','brand'].includes(fact.field)&&!existing(fact)).map(fact=>({name:fact.field,value:fact.value,...(fact.unit?{unit:fact.unit}:{})}));
- const variantIds=[...new Set(originals.filter(fact=>fact.scope==='variant').map(fact=>fact.variantId))];
- const optionOverviews=fields.includes('description')?productVariantOverviews(packet).map(({label,values})=>`${label} seçenekleri: ${values.join(', ')}.`):[];
- const context={productName:packet.title,attributes:attrs(originals.filter(fact=>fact.scope==='product')),variants:variantIds.map(id=>({name:originals.find(fact=>fact.variantId===id&&fact.field==='title')?.value??'',attributes:attrs(originals.filter(fact=>fact.variantId===id))})),...(optionOverviews.length?{optionOverviews}:{}),sourceSlots:slots.map(({marker,text})=>({marker,text}))};
+ const variantFacts=new Map<string,ProductFact[]>();
+ for(const fact of originals)if(fact.scope==='variant'&&fact.variantId){
+  const group=variantFacts.get(fact.variantId)??[];
+  group.push(fact);
+  variantFacts.set(fact.variantId,group);
+ }
+ const optionOverviews=fields.includes('description')?productVariantOverviews(packet):[];
+ const summarizedIds=new Set(optionOverviews.map(({attributeId})=>attributeId));
+ const variants=[...variantFacts.values()].flatMap(facts=>{
+  const name=facts.find(fact=>fact.field==='title')?.value??'';
+  const summarized=facts.filter(fact=>fact.attributeId&&summarizedIds.has(fact.attributeId));
+  const attributes=attrs(facts.filter(fact=>!summarized.includes(fact)));
+  const optionNames=summarized.map(fact=>fold(fact.value));
+  const nameParts=fold(name).split(' / ');
+  const optionParts=optionNames.flatMap(value=>value.split(' / '));
+  const derivedName=optionNames.includes(fold(name))||(
+   nameParts.length===optionParts.length&&nameParts.sort().join('\0')===optionParts.sort().join('\0')
+  );
+  return summarized.length&&!attributes.length&&(!name||derivedName)?[]:[{name,attributes}];
+ });
+ const context={productName:packet.title,attributes:attrs(originals.filter(fact=>fact.scope==='product')),variants,...(optionOverviews.length?{platformOptionFields:optionOverviews.map(({label})=>label)}:{}),sourceSlots:slots.map(({marker,text})=>({marker,text}))};
+
+ function appendVariantOverviews(draft:ContentAuthoringDraft):ContentAuthoringDraft{
+  if(!draft.description||!optionOverviews.length)return draft;
+  const existingOverviews=draft.description.flatMap(block=>{
+   if(block.type!=='paragraph')return [];
+   const text=block.children.map(node=>node.type==='text'?node.text:display(node)).join('');
+   const overview=parseVariantOverview(text);
+   return overview?[overview]:[];
+  });
+  const additions:ContentAuthoringBlock[]=optionOverviews.flatMap(({label,values})=>{
+   if(existingOverviews.some(overview=>overview.label===fold(label)&&matchesVariantOverview(overview.list,values)))return [];
+   return [{type:'paragraph',children:[{type:'text',text:`${label} seçenekleri: ${values.join(', ')}.`}]}];
+  });
+  if(!additions.length)return draft;
+  try{
+   const result=validateProductDraftOutput({...draft,description:[...draft.description,...additions]},packet,fields);
+   assertToshiGeneratedLimits(result);
+   renderContentAuthoringDescription(result.description!);
+   return result;
+  }catch{
+   return draft;
+  }
+ }
  function decode(value:unknown):unknown{
   const raw=object(value);
   // Previously persisted/provider structured drafts remain accepted and validated by the caller.
@@ -95,5 +139,5 @@ export function createProductWriterProtocol(input:Readonly<{packet:ProductFactPa
   for(const field of ['seoTitle','seoDescription']as const)if(fields.includes(field)){const text=safeString(raw[field],field==='seoTitle'?200:500).normalize('NFC');if(/[\r\n<>]/u.test(text)||text.includes('**')||text.includes('[[TOSHI_SOURCE_'))fail();assertProductDraftGrounding({[field]:text,suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint},{...packet,facts:originals.filter(fact=>fact.scope==='product'&&!existing(fact))});draft[field]=text;}
   return draft;
  }
- return {context,decode};
+ return {context,decode,appendVariantOverviews};
 }

@@ -66,6 +66,63 @@ test('writer context supplies readable attributes and variants without internal 
   assert.equal(writer.context.attributes.filter(attribute => attribute.value === 'Çelik').length, 1);
 });
 
+const optionSource: ProductFactPacket = {
+  ...base,
+  facts: [...base.facts,
+    ...['Beyaz', 'Siyah'].flatMap((color, index) => {
+      const variant = { scope: 'variant' as const, variantId: `option-${index}` };
+      const size = ['M', 'L'][index]!;
+      return [
+        fact(`variant:${index}:title`, 'title', `${size} / ${color}`, variant),
+        fact(`variant:${index}:color`, 'Renk', color, { ...variant, attributeId: 'color' }),
+        fact(`variant:${index}:size`, 'Beden', size, { ...variant, attributeId: 'size' }),
+      ];
+    })],
+};
+
+test('platform adds verified variant overviews without asking the writer to repeat their values', () => {
+  const { writer, packet } = protocol(optionSource, selected);
+  assert.deepEqual(writer.context.platformOptionFields, ['Renk', 'Beden']);
+  assert.deepEqual(writer.context.variants, []);
+  assert.doesNotMatch(JSON.stringify(writer.context), /Beyaz|Siyah|M \/|L \//u);
+  const draft = accepted(writer.decode({ descriptionMarkdown: '**Burgu Bileklik** ile günlük görünüm.', seoTitle: base.title, seoDescription: base.title }), packet, selected);
+  assert.equal(draft.description?.length, 1);
+  const enriched = writer.appendVariantOverviews(draft);
+  assert.deepEqual(enriched.description?.slice(0, 1), draft.description);
+  assert.equal(renderContentAuthoringDescription(enriched.description!), '<p><strong>Burgu Bileklik</strong> ile günlük görünüm.</p><p>Renk seçenekleri: Beyaz, Siyah.</p><p>Beden seçenekleri: M, L.</p>');
+  assert.equal(enriched.seoTitle, draft.seoTitle);
+  assert.equal(enriched.seoDescription, draft.seoDescription);
+  assert.equal(writer.appendVariantOverviews(enriched), enriched);
+  accepted(enriched, packet, selected);
+});
+
+test('platform retains technical variant context and does not repeat merchant source overviews', () => {
+  const source = attachAutomaticProductSource({
+    ...optionSource,
+    facts: [...optionSource.facts, fact('variant:0:weight', 'weight', '2.2', { scope: 'variant', variantId: 'option-0', unit: 'g' })],
+  }, { currentDraft: { title: base.title, description: '<p>Siyah ve beyaz renk seçenekleri bulunur.</p><p>Mağaza açıklaması.</p>' } } as any);
+  const { writer, packet } = protocol(source);
+  assert.deepEqual(writer.context.variants, [{ name: 'M / Beyaz', attributes: [{ name: 'weight', value: '2.2', unit: 'g' }] }]);
+  const [first, last] = writer.context.sourceSlots.map(slot => slot.marker);
+  const draft = accepted(writer.decode({ descriptionMarkdown: `${first}\n\n${last}` }), packet, ['description']);
+  const enriched = writer.appendVariantOverviews(draft);
+  assert.deepEqual(enriched.description?.slice(0, 2), draft.description);
+  assert.deepEqual(enriched.claims, draft.claims);
+  assert.equal(renderContentAuthoringDescription(enriched.description!), '<p>Siyah ve beyaz renk seçenekleri bulunur.</p><p>Mağaza açıklaması.</p><p>Beden seçenekleri: M, L.</p>');
+  accepted(enriched, packet, ['description']);
+});
+
+test('platform leaves SEO-only and already bounded descriptions unchanged', () => {
+  const seo = protocol(optionSource, ['seoTitle']);
+  const seoDraft = accepted(seo.writer.decode({ seoTitle: base.title }), seo.packet, ['seoTitle']);
+  assert.equal(seo.writer.context.platformOptionFields, undefined);
+  assert.equal(seo.writer.appendVariantOverviews(seoDraft), seoDraft);
+
+  const { writer, packet } = protocol(optionSource);
+  const draft = accepted(writer.decode({ descriptionMarkdown: Array(100).fill('Ürün metni.').join('\n\n') }), packet, ['description']);
+  assert.equal(writer.appendVariantOverviews(draft), draft);
+});
+
 test('plain selected JSON becomes validated structured content with server generated evidence', () => {
   const { packet, writer } = protocol(base, selected);
   const draft = accepted(writer.decode({ descriptionMarkdown: '## Ürün bilgileri\n\n**burgu bileklik** ile **ÇELİK** görünüm.\n\nAğırlık: **14.89 g**.', seoTitle: 'Burgu Bileklik', seoDescription: 'Çelik Burgu Bileklik, 14.89 g.' }), packet, selected);
