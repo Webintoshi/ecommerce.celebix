@@ -138,7 +138,8 @@ export function createContentAuthoringService(deps:Dependencies){
     if(typeof raw.descriptionMarkdown!=='string'||Object.hasOwn(raw,'claims')||Object.hasOwn(raw,'sourceFingerprint'))return;
     let candidate=decoded as ContentAuthoringDraft|undefined;
     let issue=getProductDraftGroundingIssue(failure);
-    let removed=0,replaced=0;
+    let removed=0,replaced=0,replacedIntro=false;
+    const qualifiesOtherProse=/(?<!\p{L})(?:ancak|ama|fakat|oysa|yalnızca|sadece|hariç|koşuluyla|şartıyla|değil\p{L}*|\p{L}+(?:maz|mez))(?!\p{L})/iu;
     const productName=packet.title.normalize('NFC');
     while(issue){
      const {field,reason,blockIndex:index}=issue;
@@ -148,12 +149,23 @@ export function createContentAuthoringService(deps:Dependencies){
       if(++replaced>2||!request.fields.includes(field)||typeof value!=='string'||[...value].length>limit||[...replacement].length>limit||value===replacement)return;
       raw[field]=replacement;
       if(candidate)candidate={...candidate,[field]:replacement};
+     }else if(field==='description'&&['critical_term','variant_scope'].includes(reason)&&candidate?.description&&index===0){
+      const intro=candidate.description[0];
+      const titleFact=packet.facts.find(fact=>fact.ref.startsWith('format:bold:')&&fact.scope==='product'&&fact.field==='title'&&fact.value===packet.title);
+      if(replacedIntro||!titleFact||intro?.type!=='paragraph'||intro.children.some(node=>node.type==='fact'&&node.factRef!==titleFact.ref))return;
+      const prose=intro.children.map(node=>node.type==='text'?node.text:node.value).join('');
+      if(!prose.includes(packet.title)||qualifiesOtherProse.test(prose))return;
+      replacedIntro=true;
+      const titleNode={type:'fact' as const,factRef:titleFact.ref,value:titleFact.value};
+      const claims=candidate.claims.some(claim=>claim.field==='description'&&claim.factRef===titleFact.ref)
+       ? candidate.claims : [...candidate.claims,{field:'description' as const,factRef:titleFact.ref,value:titleFact.value}];
+      candidate={...candidate,claims,description:[{type:'paragraph',children:[titleNode,{type:'text',text:' için ürün bilgilerini ve kullanım önerilerini inceleyin.'}]},...candidate.description.slice(1)]};
      }else if(field==='description'&&['critical_term','variant_scope'].includes(reason)&&candidate?.description&&index!=null&&index>0){
       if(++removed>3)return;
       const block=candidate.description[index];
       if(block?.type!=='paragraph'||block.children.some(node=>node.type==='fact'))return;
       const prose=block.children.map(node=>node.type==='text'?node.text:'').join('');
-      if(/(?<!\p{L})(?:ancak|ama|fakat|oysa|yalnızca|sadece|hariç|koşuluyla|şartıyla|değil\p{L}*)(?!\p{L})/iu.test(prose))return;
+      if(qualifiesOtherProse.test(prose))return;
       const previous=candidate.description[index-1],next=candidate.description[index+1];
       if(previous?.type==='heading'&&(!next||next.type==='heading'))return;
       candidate={...candidate,description:candidate.description.filter((_,position)=>position!==index)};

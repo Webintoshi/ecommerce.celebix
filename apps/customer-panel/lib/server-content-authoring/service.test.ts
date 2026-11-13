@@ -805,6 +805,18 @@ test('AUTO can recover one invalid SEO field and a removable paragraph in the sa
  assert.equal(f.state().debits,1);
 });
 
+test('AUTO can rebuild an unsupported introduction from the complete recorded product name', async () => {
+ const bad=sourceRepairOutput(expandedFoodMarkdown.replace('**, irmik','**, organik irmik')+
+  '\n\nServis sırasında erişteyi bir ana yemeğin yanında sunmayı veya küçük bir kasede tek başına değerlendirmeyi tercih edebilirsiniz.');
+ const f=capturedAutomaticRun([bad,bad]);
+ const result=await f.service.generateContent(f.input);
+ assert.equal(result.status,'completed');
+ const html=renderContentAuthoringDescription(result.draft!.description!);
+ assert.match(html,/^<p><strong>İrmikli ve Yumurtalı Kesme Erişte<\/strong>/u);
+ assert.doesNotMatch(html,/organik/u);
+ assert.equal(f.state().debits,1);
+});
+
 test('AUTO completes a multi-option clothing draft without a corrective request', async () => {
  const title='Dökümlü Pantolon';
  const colorId='11111111-1111-4111-8111-111111111112';
