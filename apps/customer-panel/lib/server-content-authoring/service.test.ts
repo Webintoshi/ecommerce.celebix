@@ -688,6 +688,49 @@ test('two shape-valid numeric grounding failures remain zero-charge and expose n
  assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});assert.ok(!JSON.stringify(result).includes('99999'));assert.ok(!JSON.stringify(events).includes('99999'));
 });
 
+test('AUTO recovers complete copy after both answers include unsupported standalone prose', async () => {
+ const bad = sourceRepairOutput(expandedFoodMarkdown + '\n\nOrganik üründür.\n\nÜcretsiz kargo.');
+ const f = capturedAutomaticRun([bad, bad]);
+ const result = await f.service.generateContent(f.input);
+ assert.equal(result.status, 'completed');
+ assert.deepEqual(result.draft!.description, expandedFoodDraft.description);
+ assert.equal(result.draft!.seoDescription, capturedAutomaticPacket.title);
+ assert.deepEqual(f.state(), {providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
+ assert.deepEqual(await f.service.generateContent(f.input), result);
+ assert.equal(f.state().debits, 1);
+});
+
+test('AUTO cannot recover if removing unsupported prose leaves incomplete copy', async () => {
+ const bad = sourceRepairOutput('**İrmikli ve Yumurtalı Kesme Erişte** ile bir tabak hazırlayabilirsiniz.\n\n## Sunum\n\nOrganik üründür.');
+ const f = capturedAutomaticRun([bad, bad]);
+ const result = await f.service.generateContent(f.input);
+ assert.equal(result.status, 'failed');
+ assert.equal(result.draft, null);
+ assert.equal(f.state().debits, 0);
+});
+
+test('AUTO does not remove a paragraph that qualifies the preceding copy', async () => {
+ const bad = sourceRepairOutput(expandedFoodMarkdown + '\n\nAncak organik bir ürün değildir.');
+ const f = capturedAutomaticRun([bad, bad]);
+ const result = await f.service.generateContent(f.input);
+ assert.equal(result.status, 'failed');
+ assert.equal(result.draft, null);
+ assert.equal(f.state().debits, 0);
+});
+
+test('AUTO recovery leaves every merchant source paragraph in its original order', async () => {
+ const f = capturedAutomaticRun([body => {
+  const slots: {marker:string;text:string}[] = JSON.parse(body.messages[1].content).product.sourceSlots;
+  return sourceRepairOutput(expandedFoodMarkdown + '\n\nOrganik üründür.\n\n' + slots.map(slot=>slot.marker).join('\n\n'));
+ }], sourceRepairPacket());
+ const result = await f.service.generateContent(f.input);
+ assert.equal(result.status, 'completed');
+ const preserved = result.draft!.description!.flatMap(block =>
+  block.type==='paragraph' ? block.children.flatMap(node => node.type==='fact' && node.factRef.startsWith('product:existing:') ? [node.value] : []) : []);
+ assert.deepEqual(preserved, sourceRepairTexts);
+ assert.equal(f.state().debits, 1);
+});
+
 test('SEO grounding raised inside writer decoding keeps the actual SEO target for correction',async()=>{
  const bad=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:'Organik Erişte',seoDescription:capturedAutomaticPacket.title});
  const good=JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});

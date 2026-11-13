@@ -5,6 +5,7 @@ import { openMerchantProviderCredential, type MerchantProviderCredentialKeyring,
 import type { ContentAuthoringRepository, ContentGeneration, ContentGenerationDispatchClaim, ContentGenerationUsage } from '../../../../packages/saas-data/src/content-authoring/types.ts';
 import type { ContentAuthoringRequest, ContentAuthoringDraft, ProductFactPacket } from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
 import { parseContentAuthoringRequest, validateProductDraftOutput } from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
+import { getProductDraftGroundingIssue } from '../../../../packages/saas-contracts/src/content-authoring/grounding.ts';
 import { attachProductSourcePreservation } from './source-spans.ts';
 import { ToshiGenerationError } from '../toshi-generation/types.ts';
 import type { ToshiGenerationRegistry } from '../toshi-generation/types.ts';
@@ -108,6 +109,14 @@ export function createContentAuthoringService(deps:Dependencies){
    let diagnosticStage:ProductValidationDiagnosticStage='output',diagnosticParsed:unknown,diagnosticDraft:unknown;
    const checked=<T>(stage:ToshiProductValidationStage,operation:()=>T,detail:ProductValidationDiagnosticStage=stage):T=>{validationStage=stage;diagnosticStage=detail;return operation();};
    const diagnose=(attempt:1|2)=>{if(request.action==='auto')reportProductValidationFailure({attempt,stage:diagnosticStage,output,parsed:diagnosticParsed,draft:diagnosticDraft,sourceSlotsExpected:writer?.context.sourceSlots.length??0,failure:validationFailure},deps.diagnostic);};
+   const validateAutomaticDraft=(draft:ContentAuthoringDraft)=>{
+    const compact=checked('policy_limits',()=>normalizeToshiGeneratedSeo(draft,packet));
+    if(compact!==draft)draft=checked('contract_or_grounding',()=>validateProductDraftOutput(compact,packet,request.fields));
+    checked('policy_limits',()=>assertToshiGeneratedLimits(draft));
+    checked('policy_limits',()=>assertProductWriterCompleteness(draft),'completeness');
+    checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));
+    return draft;
+   };
    const validate=()=>{
     diagnosticParsed=undefined;diagnosticDraft=undefined;validationFailure=undefined;
     checked('contract_or_grounding',()=>{if(output.toolCalls.length||!output.text.trim()||Buffer.byteLength(output.text,'utf8')>32768||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');},'output');
@@ -118,11 +127,7 @@ export function createContentAuthoringService(deps:Dependencies){
      const decoded=writer?checked('contract_or_grounding',()=>writer.decode(parsed),'writer_decode'):parsed;diagnosticDraft=decoded;
      draft=checked('contract_or_grounding',()=>validateProductDraftOutput(decoded,packet,request.fields));
     }catch(error){validationFailure=error;const preserved=preservedSeoOnlyDraft(packet,request.fields);if(!preserved)throw new ContentAuthoringError('invalid_output');draft=preserved;}
-    if(request.action==='auto'){
-     const compact=checked('policy_limits',()=>normalizeToshiGeneratedSeo(draft,packet));
-     if(compact!==draft)draft=checked('contract_or_grounding',()=>validateProductDraftOutput(compact,packet,request.fields));
-     checked('policy_limits',()=>assertToshiGeneratedLimits(draft));checked('policy_limits',()=>assertProductWriterCompleteness(draft),'completeness');checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));
-    }
+    if(request.action==='auto')draft=validateAutomaticDraft(draft);
     if(draft.description)checked('render',()=>renderContentAuthoringDescription(draft.description!));return draft;
    };
    let draft;try{draft=validate();}catch(error){
@@ -136,7 +141,35 @@ export function createContentAuthoringService(deps:Dependencies){
     await authority();const previousUsage=knownUsage;
     output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:toshiProductCorrectionFeedback(validationStage,request.fields,validationFailure,sourceRepair)}],tools:[],outputFormat:'json_object',authoringProfile:'product_quality',maxOutputTokens:12288,signal}));active();
     const nextUsage=measuredUsage(output);knownUsage=previousUsage&&nextUsage?{inputTokens:previousUsage.inputTokens+nextUsage.inputTokens,outputTokens:previousUsage.outputTokens+nextUsage.outputTokens,totalTokens:previousUsage.totalTokens+nextUsage.totalTokens}:null;
-    try{draft=validate();}catch{diagnose(2);throw new ContentAuthoringError('invalid_output');}
+    try{draft=validate();}catch{
+     diagnose(2);
+     const generatedMarkdown=typeof (diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown==='string';
+     let candidate=generatedMarkdown?diagnosticDraft as ContentAuthoringDraft|undefined:undefined;
+     let issue=getProductDraftGroundingIssue(validationFailure);
+     let recovered:ContentAuthoringDraft|undefined;
+     // A grounding issue is available only after the candidate passed shape checks.
+     // Remove standalone prose only and leave all recorded facts and headings in place.
+     for(let removed=0;removed<3;removed++){
+      const index=issue?.blockIndex;
+      if(!candidate?.description||issue?.field!=='description'||!['critical_term','variant_scope'].includes(issue.reason)||index==null||index===0)break;
+      const block=candidate.description[index];
+      if(block?.type!=='paragraph'||block.children.some(node=>node.type==='fact'))break;
+      const prose=block.children.map(node=>node.type==='text'?node.text:'').join('');
+      if(/(?<!\p{L})(?:ancak|ama|fakat|oysa|yalnızca|sadece|hariç|koşuluyla|şartıyla|değil\p{L}*)(?!\p{L})/iu.test(prose))break;
+      const previous=candidate.description[index-1],next=candidate.description[index+1];
+      if(previous?.type==='heading'&&(!next||next.type==='heading'))break;
+      candidate={...candidate,description:candidate.description.filter((_,position)=>position!==index)};
+      try{
+       recovered=validateProductDraftOutput(candidate,packet,request.fields);
+       break;
+      }catch(error){issue=getProductDraftGroundingIssue(error);}
+     }
+     if(!recovered)throw new ContentAuthoringError('invalid_output');
+     try{
+      draft=validateAutomaticDraft(recovered);
+      if(draft.description)renderContentAuthoringDescription(draft.description);
+     }catch{throw new ContentAuthoringError('invalid_output');}
+    }
    }
    await authority();const usage=knownUsage;
    finalizing=true;return await terminal(deps.repository.completeGeneration({...base(),expectedVersion:claim.version,claimToken:claim.claimToken,validatedDraft:draft,usage}));
