@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "b0de4147880dee36e903a707b43288fc8a5a9095cdae35e678668ab97a8164aa",
+  "inputDigest": "792465e4cf669adcfda6e9fcda7e196d8ab2e54200ec17d778d3c90dc36021b6",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -3909,7 +3909,7 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/grounding.ts",
-      "sha256": "9f44cd459b61106ed164a94dd2ce5fa7c2e9919db88f0fc70a7799419a99b008"
+      "sha256": "b4f7d1787876c6ed5886f8c0f432092abc5bba33703098ef6f5007f4659d29a9"
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/index.ts",
@@ -3933,7 +3933,7 @@
     },
     {
       "path": "packages/saas-contracts/src/content-authoring/variant-overview.ts",
-      "sha256": "8a958ba53b533ada29207a56ff64daa4df4d2fc4f1a42ffff4a2362008765568"
+      "sha256": "f8f6c4d60360a617476d87b9d993badaf0d8e196a957b18c5db7fdc2bde13d88"
     },
     {
       "path": "packages/saas-contracts/src/content-resource-authoring/index.ts",

@@ -42,6 +42,14 @@ test('food and textile variant choices use the same bounded overview', () => {
   assert.throws(() => validate('Ürünün içeriği vanilya.', source));
 });
 
+test('an option name containing a conjunction is preserved in the suggested overview', () => {
+  const source = packet(['Siyah ve Beyaz', 'Lacivert'].map((value, index) => ({
+    ...fact('Renk', value), ref: `color:${index}`, scope: 'variant' as const, variantId: String(index), attributeId: 'color',
+  })), 'Gömlek');
+  assert.doesNotThrow(() => validate('Renk seçenekleri: Siyah ve Beyaz, Lacivert.', source));
+  assert.throws(() => validate('Renk seçenekleri: Siyah, Beyaz, Lacivert.', source));
+});
+
 for (const field of ['description', 'seoTitle', 'seoDescription'] as const) {
   test(`title-only source rejects unsupported numeric and material prose in ${field}`, () => {
     assert.throws(() => validate('24 ayar 14,89 g altın Burgu Bileklik', packet(), field));

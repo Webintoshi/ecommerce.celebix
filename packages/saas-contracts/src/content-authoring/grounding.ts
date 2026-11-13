@@ -110,7 +110,7 @@ function variantIsNamed(text: string, id: string | undefined, packet: ProductFac
 }
 
 export function productVariantOverviews(packet: ProductFactPacket) {
-  const colorNames = /^(?:(?:acik|koyu) )?(?:altin|gumus|platin)(?: rengi)?$/u;
+  const colorNames = /^(?:(?:acik|koyu) )?(?:altin|gumus|platin|gold|silver|platinum)(?: rengi)?$/u;
   return variantOverviewOptions(packet).filter(({ label, values }) => label === 'Beden' || label === 'Numara' || values.every(value =>
     !critical.test(normalize(value)) || (label === 'Renk' && colorNames.test(normalize(value)))));
 }
@@ -170,7 +170,9 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     const options = overview && overviews.get(overview.label);
     if (overview && options) {
       if (matchesVariantOverview(overview.list, options)) return;
-      unsupported({ ...location, reason: 'variant_scope', tokens: [] });
+      const fullNames = new Set(packet.facts.filter(fact => fact.scope === 'variant' && fact.field === 'title').map(fact => normalize(fact.value) + ' secenegi'));
+      const individuallyNamed = normalize(overview.list).split(/, | ve /u).every(value => fullNames.has(value));
+      if (!individuallyNamed) unsupported({ ...location, reason: 'variant_scope', tokens: [] });
     }
     const text = normalize(raw);
     const eligible = packet.facts.filter(f => f.scope === 'product' || variantIsNamed(text, f.variantId, packet));
@@ -194,7 +196,7 @@ export function assertProductDraftGrounding(draft: ContentAuthoringDraft, packet
     // Even a noncritical colour/size value must not escape its known variant scope.
     for (const f of packet.facts) {
       if (f.scope !== 'variant' || eligible.includes(f)) continue;
-      const styling = plainParagraph && f.attributeId && ['renk', 'color', 'colour'].includes(normalize(f.field))
+      const styling = paragraph && f.attributeId && ['renk', 'color', 'colour'].includes(normalize(f.field))
         ? stripOptionalStylingColor(text, normalize(f.value)) : text;
       const variantText = styling === text ? uncovered : uncovered.split('').map((char, index) => styling[index] === text[index] ? char : ' ').join('');
       if (occurrence(f.value).test(variantText)) unsupported({ ...location, reason: 'variant_scope', tokens: matchedTokens(variantText, occurrence(f.value)) });

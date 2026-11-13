@@ -8,8 +8,8 @@ const labels = new Map([
 ]);
 
 const fold = (value: string) => value.normalize('NFC').toLocaleLowerCase('tr-TR').replace(/ı/gu, 'i');
-const sizeLabel = /^(?:(?:u[ks]|eu) )?(?:[0-9]{1,3}|x{0,4}[sl]|[m]|[2-6]x[ls]|small|medium|large|x{1,4} (?:small|large))$/u;
-const plainLabel = /^\p{L}+(?:[ -]\p{L}+){0,3}$/u;
+const sizeLabel = /^(?:(?:u[ks]|eu) )?(?:[0-9]{1,3}|x{0,4}[sl]|m|[2-6]x[ls]|small|medium|large|standart|standard|x{1,4} (?:small|large))$/u;
+const plainLabel = /^\p{L}+(?:(?:[ -]| & )\p{L}+){0,3}$/u;
 const leadingOverview = /^(renk|beden|numara|desen|aroma) seçenekleri: (.+)$/u;
 const trailingOverview = /^(.+) (renk|beden|numara|desen|aroma) seçenekleri (?:bulunur|vardir|sunulur|mevcuttur)$/u;
 
@@ -28,8 +28,10 @@ export function variantOverviewOptions(packet: ProductFactPacket) {
   return [...groups].flatMap(([label, group]) => {
     if (group.ambiguous || group.variants.size !== variants.size) return [];
     const values = [...new Map([...group.variants.values()].map(value => [fold(value), value])).values()];
-    const valid = label === 'Beden' || label === 'Numara' ? sizeLabel : plainLabel;
-    if (values.length < 2 || values.length > 24 || values.some(value => value.length > 48 || !valid.test(fold(value)))) return [];
+    const valid = label === 'Beden' || label === 'Numara'
+      ? (value: string) => value.split(' / ').every(size => sizeLabel.test(size))
+      : (value: string) => plainLabel.test(value);
+    if (values.length < 2 || values.length > 24 || values.some(value => value.length > 48 || !valid(fold(value)))) return [];
     return [{ label, values }];
   });
 }
@@ -45,6 +47,7 @@ export function parseVariantOverview(text: string) {
 }
 
 export function matchesVariantOverview(list: string, values: readonly string[]): boolean {
+  if (list === values.map(fold).join(', ')) return true;
   const available = new Set(values.map(fold));
   const parts = list.split(/, | ve /u);
   return parts.length === available.size && new Set(parts).size === parts.length && parts.every(value => available.has(value));
