@@ -10,6 +10,7 @@ import { useHydrated } from "./use-hydrated";
 import type { StorefrontVisualTheme } from "../themes/visual-theme.ts";
 import { EZMEO_STOREFRONT_ID } from "../themes/ezmeo/theme.ts";
 import { ALPLER_STOREFRONT_ID } from "../themes/alpler/theme.ts";
+import { SIORA_STOREFRONT_ID } from "../themes/siora/theme.ts";
 import { useGuzidePanelHistory } from "../themes/guzide/useGuzidePanelHistory";
 import { useSioraPanelHistory } from "../themes/siora/useSioraPanelHistory";
 import { registerEngagementCart } from "../lib/engagement/integration.ts";
@@ -75,7 +76,10 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
   const pendingDrawerGateRef = useRef<Promise<boolean> | null>(null);
   const drawerGateRef = useRef<(() => Promise<boolean> | null) | null>(null);
   const registerDrawerGate = useCallback((gate: () => Promise<boolean> | null) => { drawerGateRef.current = gate; return () => { if (drawerGateRef.current === gate) drawerGateRef.current = null; }; }, []);
-  const coordinated = visualTheme === "alpler-deniz" || visualTheme === "ezmeo-deniz";
+  const scopedCartId = visualTheme === "alpler-deniz" ? ALPLER_STOREFRONT_ID
+    : visualTheme === "ezmeo-deniz" ? EZMEO_STOREFRONT_ID
+      : visualTheme === "siora-deniz" ? SIORA_STOREFRONT_ID : undefined;
+  const coordinated = Boolean(scopedCartId);
   const guzide = visualTheme === "guzide-deniz" && Boolean(storefrontId);
   const showQuantitySelector = presentation?.showQuantitySelector ?? true;
   const refreshGenerationRef = useRef(0);
@@ -166,7 +170,7 @@ export function CartStatusProvider({ children, presentation, locale, visualTheme
       },
     });
   }, [storefrontId, closeDrawerAndWait]);
-  return <Context.Provider value={value}>{coordinated ? <Suspense fallback={null}><ScopedCartHistory storefrontId={visualTheme === "ezmeo-deniz" ? EZMEO_STOREFRONT_ID : ALPLER_STOREFRONT_ID} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : guzide ? <Suspense fallback={null}><GuzideCartHistory storefrontId={storefrontId!} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : null}{children}<SideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} style={drawerStyle} /><span className="sr-only" aria-live="polite">{!hydrated || loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
+  return <Context.Provider value={value}>{scopedCartId ? <Suspense fallback={null}><ScopedCartHistory storefrontId={scopedCartId} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : guzide ? <Suspense fallback={null}><GuzideCartHistory storefrontId={storefrontId!} bridge={drawerHistoryRef} onClose={hideDrawer} /></Suspense> : null}{children}<SideCartDrawer presentation={presentation} locale={locale} visualTheme={visualTheme} style={drawerStyle} /><span className="sr-only" aria-live="polite">{!hydrated || loading ? "Sepet yükleniyor" : unavailable ? "Sepet kullanılamıyor" : `${cart?.itemCount ?? 0} ürün sepette`}</span></Context.Provider>;
 }
 
 export function useCartStatus(): CartStatus {

@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type MouseEvent
 import type { PublicProduct } from "@celebix/saas-contracts";
 import { useProductVariantMedia } from "../../components/ProductVariantMedia";
 import { StorefrontModal } from "../../components/StorefrontModal";
-import { EzmeoProductImage } from "./EzmeoProductImage";
+import { ResponsiveProductImage } from "../../components/ResponsiveProductImage";
 import styles from "./ezmeo-product-gallery.module.css";
 
 const galleryImageSizes = "(max-width: 640px) calc(100vw - 28px), (max-width: 1024px) min(calc(100vw - 40px), 640px), min(50vw, 680px)";
@@ -108,7 +108,7 @@ export function EzmeoProductGallery({ product }: Readonly<{ product: PublicProdu
   return <div className={styles.root} data-ezmeo-gallery>
     <div className={styles.viewport} ref={trackRef} data-ezmeo-gallery-track role="group" aria-label="Ürün görsel galerisi" aria-roledescription="karusel" onScroll={onScroll} onPointerDown={interruptScroll} onWheel={interruptScroll} onKeyDown={keyboard}>
       {images.map((image, index) => <button className={styles.slide} data-ezmeo-slide key={image.id} type="button" aria-label={`${product.title}, ${index + 1}. görseli büyüt`} aria-current={index === selected ? "true" : undefined} aria-hidden={index !== selected || undefined} tabIndex={index === selected ? 0 : -1} onClick={event => openZoom(index, event)}>
-        <EzmeoProductImage media={image} alt={image.altText || product.title} sizes={galleryImageSizes} decoding="async" loading={index === 0 ? "eager" : "lazy"} fetchPriority={index === 0 ? "high" : "low"} />
+        <ResponsiveProductImage media={image} alt={image.altText || product.title} sizes={galleryImageSizes} decoding="async" loading={index === 0 ? "eager" : "lazy"} fetchPriority={index === 0 ? "high" : "low"} />
         <span className={styles.zoomMark} aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="10" cy="10" r="6" /><path d="m15 15 5 5M7 10h6m-3-3v6" /></svg></span>
       </button>)}
     </div>
@@ -121,7 +121,7 @@ export function EzmeoProductGallery({ product }: Readonly<{ product: PublicProdu
       </div>
       <div className={styles.thumbnails} ref={thumbnailRef} role="group" aria-label="Ürün görselleri">
         {images.map((image, index) => <button data-ezmeo-thumbnail key={image.id} type="button" onClick={() => choose(index)} aria-label={`${index + 1}. görseli göster`} aria-current={index === selected ? "true" : undefined}>
-          <EzmeoProductImage media={image} alt="" sizes={thumbnailImageSizes} decoding="async" />
+          <ResponsiveProductImage media={image} alt="" sizes={thumbnailImageSizes} decoding="async" />
         </button>)}
       </div>
     </> : null}

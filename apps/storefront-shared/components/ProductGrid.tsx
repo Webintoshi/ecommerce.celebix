@@ -3,11 +3,12 @@ import type { PublicProduct, PublicStarterThemePresentation } from "@celebix/saa
 import { productGridOrder } from "@/lib/public-product-ordering.ts";
 import { ProductCard } from "./ProductCard";
 
-export function ProductGrid({ products, locale, cardStyle, imageRatio, emptyMessage, preserveOrder = false }: Readonly<{
+export function ProductGrid({ products, locale, cardStyle, imageRatio, emptyTitle, emptyMessage, preserveOrder = false }: Readonly<{
   products: readonly PublicProduct[];
   locale: string;
   cardStyle: PublicStarterThemePresentation["theme"]["productCardStyle"];
   imageRatio: PublicStarterThemePresentation["theme"]["productImageRatio"];
+  emptyTitle?: string;
   emptyMessage?: string;
   preserveOrder?: boolean;
 }>) {
@@ -21,7 +22,7 @@ export function ProductGrid({ products, locale, cardStyle, imageRatio, emptyMess
   ) : (
     <div className="store-empty">
       <span>◇</span>
-      <h2>Ürünler hazırlanıyor</h2>
+      <h2>{emptyTitle ?? "Ürünler hazırlanıyor"}</h2>
       <p>{emptyMessage ?? "Bu mağazanın aktif ürünleri yakında burada olacak."}</p>
     </div>
   );

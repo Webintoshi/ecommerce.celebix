@@ -15,6 +15,8 @@ browserTests.push("components/OrderBumpOffers.test.ts");
 browserTests.push("components/CatalogProductList.test.ts", "components/FavoritesPageClient.test.ts");
 browserTests.push("components/HizliPurchase.test.ts", "components/HizliContent.test.ts");
 browserTests.push("components/ProductCardRating.test.ts");
+browserTests.push("components/SioraProductGallery.test.ts");
+browserTests.push("components/SioraProductExplorer.test.ts");
 const serverTests = directories.flatMap((directory) => readdirSync(directory, { withFileTypes: true })
   .filter((entry) => entry.isFile() && entry.name.endsWith(".test.ts"))
   .map((entry) => path.posix.join(directory, entry.name)))

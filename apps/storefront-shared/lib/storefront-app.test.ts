@@ -320,13 +320,14 @@ test("starter storefront consumes the public presentation and exposes no inert c
 });
 
 test("public content shell owns exact fixed policies search favorites and sibling card controls", async () => {
-  const [policy, search, favorites, resolveRoute, utilities, favoriteButton, footer, card] = await Promise.all([
+  const [policy, search, favorites, resolveRoute, utilities, favoriteButton, favoriteProvider, footer, card] = await Promise.all([
     readFile(new URL("../app/policies/[policyKey]/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/search/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/favorites/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/api/favorites/resolve/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../components/StoreUtilities.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/FavoriteButton.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../components/FavoriteStatusProvider.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/Footer.tsx", import.meta.url), "utf8"),
     readFile(new URL("../components/ProductCard.tsx", import.meta.url), "utf8"),
   ]);
@@ -341,7 +342,8 @@ test("public content shell owns exact fixed policies search favorites and siblin
   assert.match(resolveRoute, /readFavoriteResolutionRequest/);
   assert.match(resolveRoute, /resolveProductIds/);
   for (const path of ["/search", "/favorites", "/account", "/cart"]) assert.match(utilities, new RegExp(`href: ['\"]${path.replace("/", "\\/")}`));
-  assert.match(favoriteButton, /favoritesStorageKey/);
+  assert.match(favoriteProvider, /favoritesStorageKey/);
+  assert.match(favoriteButton, /useFavoriteStatus/);
   assert.match(favoriteButton, /aria-pressed/);
   assert.match(footer, /runtime[.]content[.]listPolicies/);
   assert.match(footer, /mergePublishedPolicyFooterGroups/);
@@ -536,6 +538,10 @@ test("shared storefront uses only the reviewed public PostgreSQL repository and 
   const files = [...await sourceFiles(appRoot), ...await sourceFiles(runtimeRoot)];
   const forbiddenImport = /(?:from\s+|import\s*\()["'][^"']*(?:supabase|drizzle|@aws-sdk|redis|stripe|iyzipay|craftgate)[^"']*["']/i;
   const reviewedPaymentEdges = new Set([
+    "components/CheckoutForm.tsx\u0000./PaymentTrust\u0000from",
+    "components/Footer.tsx\u0000./PaymentTrust\u0000from",
+    "components/PaymentTrust.tsx\u0000./payment-trust.module.css\u0000from",
+    "components/RetailFooter.tsx\u0000./PaymentTrust\u0000from",
     "app/api/quick-order/checkout/route.ts\u0000@/lib/checkout/hosted-payment.ts\u0000from",
     "app/api/payments/[providerCode]/callback/[binding]/route.ts\u0000@/lib/payment-adapters/runtime.ts\u0000from",
     "lib/default-runtime.ts\u0000./checkout/hosted-payment.ts\u0000from",

@@ -11,6 +11,7 @@ import type { PublicProduct, StarterProductDetailConfigV2 } from "@celebix/saas-
 import { useCartStatus } from "../../components/CartStatusProvider";
 import { FavoriteButton } from "../../components/FavoriteButton";
 import { useProductVariantSelection } from "../../components/ProductVariantMedia";
+import { ResponsiveProductImage } from "../../components/ResponsiveProductImage";
 import { useHydrated } from "../../components/use-hydrated";
 import { addCartLineAndOpenDrawer, storefrontCartClient } from "@/lib/cart/client.ts";
 import { emitStorefrontCommerceEvent } from "@/lib/analytics/events.ts";
@@ -129,7 +130,7 @@ export function SioraProductPurchase({ product, initialVariantId,storefrontId, l
       {options.showBrand && product.brand ? <Link className={styles.brand} href={`/search?q=${encodeURIComponent(product.brand.name)}`}>{product.brand.name}</Link> : null}
       <div className={styles.titleRow}><h1>{product.title}</h1><div className={styles.favorite}><FavoriteButton productId={product.id} productTitle={product.title} /></div></div>
       {options.showSku && selectedVariant?.sku ? <p className={styles.sku}>Ürün kodu: {selectedVariant.sku}</p> : null}
-      {groups.some(({ label }) => label) ? <div className={styles.colors}><div className={styles.colorLabel}><span>Renk</span><span>{group?.label}</span></div><div className={styles.swatches} role="group" aria-label="Renk seçimi">{groups.map((item) => <button type="button" key={item.key} aria-label={`${item.label}${item.variants.some(({ available }) => available) ? "" : ", tükendi"}`} aria-pressed={item.key === group?.key} disabled={pending !== null} onClick={() => changeColor(item.key)}>{item.media ? <img src={item.media.url} alt="" width="66" height="66" loading="lazy" decoding="async" /> : <span>{item.label}</span>}</button>)}</div></div> : null}
+      {groups.some(({ label }) => label) ? <div className={styles.colors}><div className={styles.colorLabel}><span>Renk</span><span>{group?.label}</span></div><div className={styles.swatches} role="group" aria-label="Renk seçimi">{groups.map((item) => <button type="button" key={item.key} aria-label={`${item.label}${item.variants.some(({ available }) => available) ? "" : ", tükendi"}`} aria-pressed={item.key === group?.key} disabled={pending !== null} onClick={() => changeColor(item.key)}>{item.media ? <ResponsiveProductImage media={{ url: item.media.url, width: 66, height: 66 }} alt="" sizes="(max-width: 767px) 61px, 66px" decoding="async" /> : <span>{item.label}</span>}</button>)}</div></div> : null}
       {needsChoice ? <button ref={selectorRef} className={styles.selector} type="button" disabled={pending !== null} onClick={(event) => openModal("options", event.currentTarget)} aria-haspopup="dialog"><span>{variant ? `${choiceLabel}: ${sioraOptionLabel(variant)}` : `${choiceLabel} seçin`}</span><Chevron /></button> : null}
       {sizeGuide ? <button type="button" className={styles.sizeHelp} onClick={(event) => openModal("guide", event.currentTarget)}><span aria-hidden="true">▱</span> {sizeGuideHeading}</button> : null}
       <div className={styles.price}>{!pricesHidden && compareAt && amount !== null && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}{!pricesHidden ? <span>{priceText}</span> : null}</div>

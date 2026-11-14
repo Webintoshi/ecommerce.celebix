@@ -13,14 +13,15 @@ const serverCart: PublicCart = {
 };
 const replacedCart: PublicCart = { ...serverCart, version: 5, itemCount: 3, subtotalCents: 30_000, totalCents: 30_000, items: [{ ...serverCart.items[0], quantity: 3, lineTotalCents: 30_000 }] };
 type Gate = () => Promise<boolean> | null;
-type Status = { cart: PublicCart | null; drawerOpen: boolean; loading: boolean; openDrawer(trigger?: HTMLElement): void; replaceCart(cart: PublicCart): void; registerDrawerGate?(gate: Gate): () => void };
+type Status = { cart: PublicCart | null; drawerOpen: boolean; loading: boolean; openDrawer(trigger?: HTMLElement): void; closeDrawer(event?: React.MouseEvent<HTMLElement>): void; replaceCart(cart: PublicCart): void; registerDrawerGate?(gate: Gate): () => void };
 type CartModule = { CartStatusProvider: React.ComponentType<Record<string, unknown>>; useCartStatus(): Status };
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(complete => { resolve = complete; }); return { promise, resolve }; }
 
 async function withCart(run: (fixture: {
-  container: HTMLElement; open(): Promise<void>; status(): Status; unmount(): Promise<void>;
+  container: HTMLElement; open(): Promise<void>; checkout(): Promise<void>; pushes: string[]; status(): Status; unmount(): Promise<void>;
 }) => Promise<void>, options: { gate?: Gate; visualTheme?: string; storefrontId?: string; resolve?: () => Promise<PublicCart> } = {}) {
-  const router = { push() {} };
+  const pushes: string[] = [];
+  const router = { push(href: string) { pushes.push(href); } };
   const load = componentLoader({
     "next/navigation": { useRouter: () => router, usePathname: () => window.location.pathname, useSearchParams: () => new URLSearchParams(window.location.search) },
     "@/lib/cart/client.ts": { storefrontCartClient: { resolve: options.resolve ?? (async () => serverCart) } },
@@ -39,16 +40,17 @@ async function withCart(run: (fixture: {
     const state = module.useCartStatus();
     return React.createElement(React.Fragment, null,
       React.createElement("button", { id: "cart-trigger", type: "button", onClick: (event: React.MouseEvent<HTMLButtonElement>) => state.openDrawer(event.currentTarget) }, "Sepeti aç"),
+      state.drawerOpen ? React.createElement("a", { id: "cart-checkout", href: "/checkout", onClick: state.closeDrawer }, "Ödemeye geç") : null,
       React.createElement("output", { "data-cart-open": String(state.drawerOpen), "data-cart-count": String(state.cart?.itemCount ?? 0), "data-cart-loading": String(state.loading) }, state.drawerOpen ? "Sepet açık" : "Sepet kapalı"));
   }
   await withProductBrowser(async ({ container, render, click }) => {
-    const previousElement = globalThis.HTMLElement;
-    Object.assign(globalThis, { HTMLElement: window.HTMLElement });
+    const { HTMLElement: previousElement, HTMLAnchorElement: previousAnchor } = globalThis;
+    Object.assign(globalThis, { HTMLElement: window.HTMLElement, HTMLAnchorElement: window.HTMLAnchorElement });
     window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} }) as unknown as MediaQueryList;
     window.history.replaceState({ __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: ["", { children: ["urun", {}] }], custom: "keep" }, "", PRODUCT_ROUTE);
     await render(React.createElement(module.CartStatusProvider, { visualTheme: options.visualTheme ?? "guzide-deniz", storefrontId: options.storefrontId ?? STORE, locale: "tr" }, React.createElement(Consumer), React.createElement(Controls)));
-    try { await run({ container, open: () => click("#cart-trigger"), status: () => status!, unmount: () => render(null) }); }
-    finally { Object.assign(globalThis, { HTMLElement: previousElement }); }
+    try { await run({ container, open: () => click("#cart-trigger"), checkout: () => click("#cart-checkout"), pushes, status: () => status!, unmount: () => render(null) }); }
+    finally { Object.assign(globalThis, { HTMLElement: previousElement, HTMLAnchorElement: previousAnchor }); }
   });
 }
 
@@ -102,7 +104,7 @@ test("Güzide late resolve cannot overwrite the replacement cart while the drawe
 });
 
 test("non-Güzide cart drawers keep their immediate behavior and never acquire Güzide history entries", async () => {
-  for (const visualTheme of ["starter", "siora-deniz"]) {
+  for (const visualTheme of ["starter", "lilyum-deniz"]) {
     const gate = deferred<boolean>();
     await withCart(async ({ container, open }) => {
       const before = window.history.length; await open();
@@ -112,6 +114,23 @@ test("non-Güzide cart drawers keep their immediate behavior and never acquire G
       assert.equal(container.querySelector("output")?.getAttribute("data-cart-open"), "true");
     }, { visualTheme, storefrontId: "other-store", gate: () => gate.promise });
   }
+});
+
+test("Siora Back consumes the cart entry before checkout navigation", async () => {
+  await withCart(async ({ container, open, checkout, pushes }) => {
+    const pop = () => new Promise<void>(resolve => window.addEventListener("popstate", () => resolve(), { once: true }));
+    await open();
+    assert.match(window.history.state.__celebixSioraPanel.owner, /ff465e64-1491-40ef-8840-c66281155a1d:cart:/);
+    await React.act(async () => { const popped = pop(); window.history.back(); await popped; });
+    assert.equal(window.location.pathname, PRODUCT_ROUTE);
+    assert.equal(container.querySelector("output")?.getAttribute("data-cart-open"), "false");
+    await open();
+    const popped = pop();
+    await checkout();
+    await React.act(async () => { await popped; await new Promise(resolve => window.setTimeout(resolve, 30)); });
+    assert.equal(window.history.state.__celebixSioraPanel, undefined);
+    assert.deepEqual(pushes, ["/checkout"]);
+  }, { visualTheme: "siora-deniz" });
 });
 
 test("Güzide a gate completed after provider teardown cannot push a stale cart entry", async () => {

@@ -30,12 +30,13 @@ async function category(slug: string) {
   const { runtime, storefront, design } = requireStorefrontPage(
     await resolveStorefrontPage(),
   );
+  const catalogTheme = ezmeoThemeFor(storefront) ?? hizliThemeFor(storefront) ?? guzideThemeFor(storefront) ?? sioraThemeFor(storefront);
   try {
     const selected = await runtime.repository.listPublicProductsByCategory({
       storefront,
       now: new Date(),
       slug,
-      limit: (ezmeoThemeFor(storefront) ?? hizliThemeFor(storefront) ?? guzideThemeFor(storefront)) ? 1 : 48,
+      limit: catalogTheme ? 1 : 48,
     });
     const seoSelection = await loadPublicResourceSeo(runtime.seo, storefront.hostname, "category", selected.category.id);
     return {
@@ -43,6 +44,7 @@ async function category(slug: string) {
       runtime,
       storefront,
       design,
+      catalogTheme,
       category: selected.category,
       products: selected.items,
     };
@@ -81,14 +83,13 @@ export async function renderCategoryPage({
     );
   }
   const { presentation } = selected.storefront;
-  const ezmeo = ezmeoThemeFor(selected.storefront);
-  const guzide = guzideThemeFor(selected.storefront);
-  const hizli = hizliThemeFor(selected.storefront);
+  const { catalogTheme } = selected;
+  const guzide = catalogTheme === "guzide-deniz";
   const navigation = "navigation" in presentation ? presentation.navigation : {
     items: (presentation.categoryShowcase?.items ?? []).map(({ name, slug }) => ({ name, slug, children: [] })),
   };
-  const selection = parseProductCatalogQuery(ezmeo || guzide || hizli ? await searchParams : {});
-  const catalog = ezmeo || guzide || hizli ? await (async () => {
+  const selection = parseProductCatalogQuery(catalogTheme ? await searchParams : {});
+  const catalog = catalogTheme ? await (async () => {
     if (!selected.runtime.repository.queryPublicCatalog) throw new Error("public_catalog_query_unavailable");
     try {
       return await selected.runtime.repository.queryPublicCatalog({
@@ -125,8 +126,8 @@ export async function renderCategoryPage({
         <span aria-current="page">{selected.category.name}</span>
       </nav>
       <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.section}` : ""}`}>
-        {(ezmeo || guzide || hizli) && catalog ? <ProductExplorer
-          visualTheme={ezmeo ?? hizli ?? guzide}
+        {catalogTheme && catalog ? <ProductExplorer
+          visualTheme={catalogTheme}
           products={catalog.items}
           selection={selection}
           total={catalog.total}
@@ -138,7 +139,7 @@ export async function renderCategoryPage({
           imageRatio={presentation.theme.productImageRatio}
           preserveOrder
         /> : <>
-          {(alplerThemeFor(selected.storefront) ?? sioraThemeFor(selected.storefront)) ? <h1 className="siora-page-title">{selected.category.name}</h1> : <h1 className="sr-only">{selected.category.name}</h1>}
+          {alplerThemeFor(selected.storefront) ? <h1 className="siora-page-title">{selected.category.name}</h1> : <h1 className="sr-only">{selected.category.name}</h1>}
           <ProductGrid
             products={selected.products}
             preserveOrder

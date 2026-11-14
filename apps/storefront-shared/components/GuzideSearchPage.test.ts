@@ -7,6 +7,7 @@ import { isCatalogSearchCursor } from "../../../packages/saas-data/src/catalog-s
 import * as guzide from "../themes/guzide/theme.ts";
 import * as ezmeo from "../themes/ezmeo/theme.ts";
 import * as hizli from "../themes/hizli-kutu/theme.ts";
+import { SIORA_STOREFRONT_ID } from "../themes/siora/theme.ts";
 import * as catalogQuery from "../lib/product-catalog-query.ts";
 
 const GUZIDE = "a828862c-4cc1-475a-89cc-5fbee31eb43f";
@@ -18,10 +19,14 @@ function nodes(value: unknown): Node[] {
   return [node, ...[node.props.children].flat(Infinity).flatMap(nodes)];
 }
 
-async function loadSearch(id: string) {
+async function loadSearch(id: string, outcome: "products" | "empty" | "unavailable" = "products") {
   const calls: Record<string, unknown>[] = [], catalogCalls: Record<string, unknown>[] = [];
   const products = [{ id: "real-search-product" }];
-  const context = { storefront: { id, hostname: "guzide.example.test", locale: "tr", presentation: { theme: { productCardStyle: "compact", productImageRatio: "portrait" } } }, design: {}, runtime: { repository: { async queryPublicCatalog(input: Record<string, unknown>) { catalogCalls.push(input); return { items: products, total: 50, nextOffset: 24 }; } }, content: { async search(input: Record<string, unknown>) { calls.push(input); return { items: products, nextCursor: cursor }; } } } };
+  const context = { storefront: { id, hostname: "guzide.example.test", locale: "tr", presentation: { theme: { productCardStyle: "compact", productImageRatio: "portrait" } } }, design: {}, runtime: { repository: { async queryPublicCatalog(input: Record<string, unknown>) { catalogCalls.push(input); return { items: products, total: 50, nextOffset: 24 }; } }, content: { async search(input: Record<string, unknown>) {
+    calls.push(input);
+    if (outcome === "unavailable") throw new Error("catalog_unavailable");
+    return outcome === "empty" ? { items: [], nextCursor: null } : { items: products, nextCursor: cursor };
+  } } } };
   const dependencies: Record<string, unknown> = {
     "@/components/CommercePolicyServerPage": { withCommercePolicyPage: <T,>(Page: T) => Page },
     "react/jsx-runtime": jsxRuntime, "next/link": "a", "@celebix/saas-data": { isCatalogSearchCursor },
@@ -76,6 +81,21 @@ test("Güzide search keeps invalid query and cursor handling without requesting 
     assert.equal(calls.length, 0);
     assert.deepEqual(nodes(tree).find(({ type }) => type === "ProductGrid")?.props.products, []);
     assert.equal(nodes(tree).find(({ props }) => props.className === "store-button search-next"), undefined);
+  }
+});
+
+test("Siora shared search distinguishes empty, initial, invalid and unavailable states", async () => {
+  const scenarios = [
+    { parameters: { q: "zzzsiora000" }, outcome: "empty", title: "Ürün bulunamadı", calls: 1 },
+    { parameters: {}, outcome: "empty", title: "Ürün ara", calls: 0 },
+    { parameters: { q: "zzzsiora000", cursor: "invalid" }, outcome: "empty", title: "Arama sayfası geçersiz", calls: 0 },
+    { parameters: { q: "zzzsiora000" }, outcome: "unavailable", title: "Arama tamamlanamadı", calls: 1 },
+  ] as const;
+  for (const { parameters, outcome, title, calls: expectedCalls } of scenarios) {
+    const { module, calls } = await loadSearch(SIORA_STOREFRONT_ID, outcome);
+    const tree = await module.default!({ searchParams: Promise.resolve(parameters) });
+    assert.equal(calls.length, expectedCalls);
+    assert.equal(nodes(tree).find(({ type }) => type === "ProductGrid")?.props.emptyTitle, title);
   }
 });
 

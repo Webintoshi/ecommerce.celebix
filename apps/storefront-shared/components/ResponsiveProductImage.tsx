@@ -1,6 +1,6 @@
 import { getImageProps } from "next/image";
 import type { ImgHTMLAttributes } from "react";
-import { isEzmeoProductImageSource } from "./product-image-source.ts";
+import { optimizedProductImageStorefront } from "../lib/product-image-source.ts";
 
 type Props = Readonly<{
   media: { url: string; width?: number; height?: number };
@@ -10,13 +10,14 @@ type Props = Readonly<{
   loading?: ImgHTMLAttributes<HTMLImageElement>["loading"];
   fetchPriority?: ImgHTMLAttributes<HTMLImageElement>["fetchPriority"];
   decoding?: ImgHTMLAttributes<HTMLImageElement>["decoding"];
+  draggable?: boolean;
 }>;
 
-export function EzmeoProductImage({
-  media, alt, sizes, className, loading = "lazy", fetchPriority, decoding,
+export function ResponsiveProductImage({
+  media, alt, sizes, className, loading = "lazy", fetchPriority, decoding, draggable,
 }: Props) {
   const { url, width, height } = media;
-  const optimize = isEzmeoProductImageSource(url);
+  const optimize = Boolean(optimizedProductImageStorefront(url));
   const { src, srcSet } = optimize
     ? getImageProps({ src: url, alt, width: width || 1, height: height || 1, sizes }).props
     : { src: url, srcSet: undefined };
@@ -29,6 +30,7 @@ export function EzmeoProductImage({
     width={width}
     height={height}
     loading={loading}
+    draggable={draggable}
     decoding={decoding ?? (optimize ? "async" : undefined)}
     fetchPriority={optimize || loading === "eager" ? fetchPriority : undefined}
     sizes={srcSet ? sizes : undefined}

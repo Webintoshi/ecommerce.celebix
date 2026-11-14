@@ -67,11 +67,10 @@ async function SearchPage({
     typeof parameters.cursor === "string" && isCatalogSearchCursor(parameters.cursor)
       ? parameters.cursor
       : undefined;
+  const invalidCursor = parameters.cursor !== undefined && cursor === undefined;
   let failed = false;
   const result =
-    selected === null ||
-    selected === "" ||
-    (parameters.cursor !== undefined && cursor === undefined)
+    !selected || invalidCursor
       ? null
       : await runtime.content.search({
           hostname: storefront.hostname,
@@ -82,28 +81,32 @@ async function SearchPage({
         }).catch(() => { failed = true; return null; });
   const products = result?.items ?? Object.freeze([]);
   const guzide = guzideThemeFor(storefront);
-  const message =
-    selected === null
-      ? "Arama metni geçersiz."
-      : selected === ""
-        ? "Aramak istediğiniz ürünü yazın."
-        : "Aramanızla eşleşen ürün bulunamadı.";
+  const emptyState = failed
+    ? { title: "Arama tamamlanamadı", message: "Lütfen aramayı tekrar deneyin." }
+    : selected === null
+      ? { title: "Geçersiz arama metni", message: "Arama metnini düzenleyip tekrar deneyin." }
+      : invalidCursor
+        ? { title: "Arama sayfası geçersiz", message: "Sonuçları görmek için aramayı yeniden başlatın." }
+        : selected === ""
+          ? { title: "Ürün ara", message: "Aramak istediğiniz ürünü yazın." }
+          : { title: "Ürün bulunamadı", message: "Başka bir ürün adı, kodu veya kategori deneyin." };
   const grid = <ProductGrid
     preserveOrder
     products={products}
     locale={storefront.locale}
     cardStyle={storefront.presentation.theme.productCardStyle}
     imageRatio={storefront.presentation.theme.productImageRatio}
-    emptyMessage={failed ? "Lütfen aramayı tekrar deneyin." : message}
+    emptyTitle={emptyState.title}
+    emptyMessage={emptyState.message}
   />;
   return (
     <StorefrontFrame storefront={storefront} design={design}>
-      {selected && !cursor ? <CommercePageEvent event={{ name: "search", data: {} }} /> : null}
+      {selected && !cursor && !invalidCursor ? <CommercePageEvent event={{ name: "search", data: {} }} /> : null}
       <section className={`store-section store-container${guzide ? ` ${guzideCatalogStyles.catalog}` : ""}`}>
         <h1 className="sr-only">Arama</h1>
         <StorefrontSearchForm key={selected ?? ""} defaultValue={selected ?? ""} clientNavigation={!!guzide} />
         <p className="search-result-count" aria-live="polite">
-          {selected && !failed ? `${products.length} ürün gösteriliyor${result?.nextCursor ? " · Daha fazla sonuç var" : ""}` : ""}
+          {result ? `${products.length} ürün gösteriliyor${result.nextCursor ? " · Daha fazla sonuç var" : ""}` : ""}
         </p>
         {failed ? <p role="alert">Arama şu anda tamamlanamadı. <Link href={`/search?q=${encodeURIComponent(selected ?? "")}`}>Aramayı yeniden başlat</Link></p> : null}
         {guzide ? <div className={guzideCatalogStyles.products}>{grid}</div> : grid}

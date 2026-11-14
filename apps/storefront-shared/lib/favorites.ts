@@ -56,6 +56,10 @@ export function parseFavoriteProductIds(raw: string | null): readonly string[] {
   try { return uniqueProductIds(JSON.parse(raw)) ?? Object.freeze([]); } catch { return Object.freeze([]); }
 }
 
+export function mergeFavoriteProductIds(local: readonly string[], remote: readonly string[]): readonly string[] {
+  return [...new Set([...local, ...remote])].filter((id) => UUID.test(id)).slice(0, MAXIMUM_FAVORITES);
+}
+
 export function parseFavoriteResolutionResponse(value: unknown): readonly PublicProduct[] | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   const descriptors = Object.getOwnPropertyDescriptors(value) as unknown as Record<PropertyKey, PropertyDescriptor>;

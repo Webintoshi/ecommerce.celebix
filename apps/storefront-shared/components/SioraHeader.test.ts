@@ -155,6 +155,23 @@ test("opening another desktop menu closes the previous one and keeps the header 
   });
 });
 
+test("focus moving within a desktop category keeps it open and leaving it closes it", async () => {
+  await withHeader(async ({ container }) => {
+    const menu = container.querySelector<HTMLDetailsElement>("#clothes")!;
+    const inside = menu.querySelector("a")!;
+    const outside = container.querySelector<HTMLAnchorElement>("#all-products")!;
+    await React.act(async () => {
+      menu.open = true;
+      menu.querySelector("summary")!.focus();
+      inside.focus();
+    });
+    assert.equal(menu.open, true);
+    await React.act(async () => outside.focus());
+    assert.equal(menu.open, false);
+    assert.equal(document.activeElement, outside);
+  });
+});
+
 test("mobile scroll never compacts the header or makes controls inert", async () => {
   await withHeader(async ({ container, scroll }) => {
     await scroll(400);

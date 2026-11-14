@@ -90,8 +90,30 @@ test("Güzide category queries the real validated category and existing URL filt
   assert.equal(explorer.props.path, "/kategori/kolyeler");
 });
 
-test("Unrelated, Siora and Alpler category pages keep their original 48-item repository and grid behavior", async () => {
-  for (const id of ["unrelated", "a828862c-4cc1-475a-89cc-5fbee31eb4400", siora.SIORA_STOREFRONT_ID, alpler.ALPLER_STOREFRONT_ID]) {
+test("Siora category keeps its title and scopes search, ordering and continuation to the selected category", async () => {
+  const { module, listCalls, queryCalls, product } = await loadRoute(siora.SIORA_STOREFRONT_ID);
+  const tree = await module.renderCategoryPage!({
+    params: Promise.resolve({ slug: "kolyeler" }),
+    routeVariant: "localized",
+    searchParams: Promise.resolve({ q: "  şık  ", filter: "discounted", sort: "price-desc", offset: "24" }),
+  } as never);
+  assert.equal(listCalls[0]?.limit, 1);
+  assert.equal(queryCalls.length, 1);
+  const { categorySlug, query, filter, order, offset, limit } = queryCalls[0]!;
+  assert.deepEqual({ categorySlug, query, filter, order, offset, limit }, {
+    categorySlug: "kolyeler", query: "şık", filter: "discounted", order: "price-desc", offset: 24, limit: 24,
+  });
+  const explorer = nodes(tree).find(({ type }) => type === "ProductExplorer");
+  assert.equal(explorer?.props.visualTheme, "siora-deniz");
+  assert.deepEqual(explorer?.props.catalog, { title: "Admin Kolyeler", slug: "kolyeler", navigation });
+  assert.deepEqual(explorer?.props.products, [product]);
+  assert.equal(explorer?.props.total, 61);
+  assert.equal(explorer?.props.nextOffset, 48);
+  assert.equal(explorer?.props.path, "/kategori/kolyeler");
+});
+
+test("Unrelated and Alpler category pages keep their original 48-item repository and grid behavior", async () => {
+  for (const id of ["unrelated", "a828862c-4cc1-475a-89cc-5fbee31eb4400", alpler.ALPLER_STOREFRONT_ID]) {
     const { module, listCalls, queryCalls } = await loadRoute(id);
     const tree = await module.renderCategoryPage!({ params: Promise.resolve({ slug: "kolyeler" }), routeVariant: "localized", searchParams: Promise.resolve({ filter: "available", offset: "24" }) } as never);
     assert.equal(listCalls[0]?.limit, 48);

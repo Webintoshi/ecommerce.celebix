@@ -123,6 +123,8 @@ export function CheckoutForm({
     "bank_transfer" | "cash_on_delivery" | "hosted_card" | "reward" | ""
   >("");
   const [identityNumber, setIdentityNumber] = useState("");
+  const [attemptedIdentity, setAttemptedIdentity] = useState(false);
+  const identityInvalid = attemptedIdentity && !/^[0-9]{11}$/u.test(identityNumber);
   const [pending, setPending] = useState(false);
   const [bumpPending, setBumpPending] = useState(false);
   const bumpBusy = useRef(false);
@@ -411,6 +413,7 @@ export function CheckoutForm({
       selectedMethod.kind === "hosted_card" &&
       selectedMethod.requiredCustomerFields.includes("identity_number");
     if (identityRequired && !/^[0-9]{11}$/u.test(identityNumber)) {
+      setAttemptedIdentity(true);
       setStatus("T.C. kimlik numaranızı kontrol edin.");
       window.requestAnimationFrame(() =>
         formRef.current
@@ -752,6 +755,7 @@ export function CheckoutForm({
                     name="paymentMethod"
                     onChange={() => {
                       if (!uncertainPayment.current) operation.current = null;
+                      setAttemptedIdentity(false);
                       setPaymentKind(method.kind);
                     }}
                     type="radio"
@@ -787,6 +791,8 @@ export function CheckoutForm({
                   pattern="[0-9]{11}"
                   required
                   value={identityNumber}
+                  aria-invalid={identityInvalid}
+                  aria-describedby={identityInvalid ? "checkout-identity-error" : undefined}
                   onChange={(event) =>
                     setIdentityNumber(
                       event.currentTarget.value
@@ -795,6 +801,7 @@ export function CheckoutForm({
                     )
                   }
                 />
+                {identityInvalid ? <small className="checkout-field-error" id="checkout-identity-error">T.C. kimlik numaranızı 11 hane olarak girin.</small> : null}
               </label>
             ) : null}
             {quote?.paymentMethods.length ? null : (

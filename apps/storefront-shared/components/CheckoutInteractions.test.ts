@@ -95,6 +95,29 @@ const bumpOffer = { ruleId: "30000000-0000-4000-8000-000000000002", productId: "
 const bumpProjection = { cartVersion: 1, heading: "Birlikte iyi gider", offers: [bumpOffer] };
 const validDraft = { firstName: "Ada", lastName: "Lovelace", email: "ada@example.test", phone: "+14155552671", addressLine1: "Cadde 1", city: "İstanbul", district: "Kadıköy", postalCode: "34710", note: "" };
 
+test("hosted checkout connects the identity error to its field before any payment request", async () => {
+  let attempts = 0;
+  const Form = loadForm(async () => {
+    const selected = response([]);
+    const quote = { ...selected.quote, paymentMethods: [
+      { kind: "hosted_card", id: "30000000-0000-4000-8000-000000000001", label: "Kart", instructions: "Güvenli ödeme", providerCode: "paytr_iframe", presentation: "iframe", requiredCustomerFields: ["identity_number"] },
+    ] };
+    return { quote, quoteDigest: digest(quote) };
+  }, { startHosted: async () => { attempts += 1; throw new Error("unexpected_payment_request"); } });
+  await withProductBrowser(async ({ container, render, click, change }) => {
+    await render(React.createElement(Form, { intentKind: "cart", initialDraft: validDraft }));
+    const identity = container.querySelector<HTMLInputElement>('input[name="identityNumber"]')!;
+    assert.equal(identity.getAttribute("aria-describedby"), null);
+    await click(".checkout-submit");
+    assert.equal(attempts, 0);
+    assert.equal(identity.getAttribute("aria-invalid"), "true");
+    assert.equal(identity.getAttribute("aria-describedby"), "checkout-identity-error");
+    assert.match(container.querySelector("#checkout-identity-error")?.textContent ?? "", /11 hane/);
+    await change('input[name="identityNumber"]', "12345678901");
+    assert.equal(identity.getAttribute("aria-describedby"), null);
+  });
+});
+
 test("Ezmeo orb inputs preserve prefilled native values, labels, country selection and edits", async () => {
   const Form = loadForm(async () => response([]));
   await withProductBrowser(async ({ container, render, change }) => {

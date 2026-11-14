@@ -3,9 +3,29 @@
 import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { PublicProduct } from "@celebix/saas-contracts";
 import { useProductVariantMedia } from "../../components/ProductVariantMedia";
+import { ResponsiveProductImage } from "../../components/ResponsiveProductImage";
 import styles from "./siora-product-gallery.module.css";
 
 type MouseDrag = { pointerId: number; startX: number; startLeft: number; moved: boolean };
+
+const galleryImageSizes = "(max-width: 767px) min(100vw, 767px), 44.9vw";
+const thumbnailImageSizes = "(max-width: 767px) 35px, 44px";
+const scrollTolerance = 1;
+
+function indexAtScroll(strip: HTMLDivElement): number | undefined {
+  const end = strip.scrollWidth - strip.clientWidth;
+  if (!strip.clientWidth || !strip.children.length) return undefined;
+  if (end > scrollTolerance && strip.scrollLeft >= end - scrollTolerance) return strip.children.length - 1;
+  let nearest = 0;
+  let nearestDistance = Infinity;
+  for (const [index, panel] of Array.from(strip.children).entries()) {
+    const distance = Math.abs((panel as HTMLElement).offsetLeft - strip.scrollLeft);
+    if (distance >= nearestDistance) break;
+    nearest = index;
+    nearestDistance = distance;
+  }
+  return nearest;
+}
 
 function motionBehavior(): ScrollBehavior {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
@@ -35,21 +55,23 @@ export function SioraProductGallery({ product }: Readonly<{ product: PublicProdu
   const suppressClickRef = useRef(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const suppressionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const programmaticRef = useRef(false);
+  const scrollTargetRef = useRef<number | null>(null);
   const scrollSelectionRef = useRef<string | null>(null);
   const previousMediaKeyRef = useRef(mediaKey);
   const selectedIndexRef = useRef(selected);
   const [zoomed, setZoomed] = useState(false);
   const [enlarged, setEnlarged] = useState(false);
+  const hasImages = Boolean(active);
 
   const alignPanel = useCallback((index: number, behavior: ScrollBehavior) => {
     const strip = stripRef.current;
     const panel = strip?.children[index] as HTMLElement | undefined;
     if (!strip || !panel) return;
-    programmaticRef.current = true;
-    strip.scrollTo({ left: panel.offsetLeft, behavior });
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
-    scrollTimerRef.current = setTimeout(() => { programmaticRef.current = false; }, behavior === "smooth" ? 500 : 0);
+    scrollTimerRef.current = null;
+    const left = Math.min(panel.offsetLeft, Math.max(0, strip.scrollWidth - strip.clientWidth));
+    scrollTargetRef.current = left;
+    strip.scrollTo({ left, behavior });
   }, []);
 
   const selectIndex = (index: number) => {
@@ -79,11 +101,11 @@ export function SioraProductGallery({ product }: Readonly<{ product: PublicProdu
 
   useEffect(() => {
     const strip = stripRef.current;
-    if (!strip) return;
+    if (!hasImages || !strip || !window.ResizeObserver) return;
     const observer = new window.ResizeObserver(() => alignPanel(selectedIndexRef.current, "auto"));
     observer.observe(strip);
     return () => observer.disconnect();
-  }, [alignPanel]);
+  }, [alignPanel, hasImages]);
 
   useEffect(() => () => {
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
@@ -97,10 +119,16 @@ export function SioraProductGallery({ product }: Readonly<{ product: PublicProdu
     return () => { document.body.style.overflow = originalOverflow; };
   }, [zoomed]);
 
-  const openZoom = (opener: HTMLElement, index = selected) => {
-    if (!images[index] || !dialogRef.current) return;
+  const openZoom = (opener: HTMLElement, index?: number) => {
+    const strip = stripRef.current;
+    const manualScrollPending = scrollTargetRef.current === null && scrollTimerRef.current !== null;
+    const next = index ?? (strip && manualScrollPending ? indexAtScroll(strip) : undefined) ?? selected;
+    const image = images[next];
+    if (!image || !dialogRef.current) return;
     openerRef.current = opener;
-    selectMedia(images[index].id);
+    scrollSelectionRef.current = image.id;
+    selectMedia(image.id);
+    alignPanel(next, "auto");
     setEnlarged(false);
     if (!dialogRef.current.open) dialogRef.current.showModal();
     setZoomed(true);
@@ -125,25 +153,38 @@ export function SioraProductGallery({ product }: Readonly<{ product: PublicProdu
   };
 
   const onScroll = () => {
-    if (programmaticRef.current || dragRef.current) return;
+    if (dragRef.current) return;
     if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
     scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null;
       const strip = stripRef.current;
-      if (!strip || !images.length) return;
-      const firstPanel = strip.children[0] as HTMLElement | undefined;
-      if (!firstPanel?.offsetWidth) return;
-      const next = Math.min(images.length - 1, Math.round(strip.scrollLeft / firstPanel.offsetWidth));
-      const id = images[next].id;
+      if (!strip) return;
+      const target = scrollTargetRef.current;
+      scrollTargetRef.current = null;
+      // Multiple desktop thumbnails can share the last reachable panel position.
+      if (target !== null && Math.abs(strip.scrollLeft - target) <= scrollTolerance) return;
+      const next = indexAtScroll(strip);
+      const id = next === undefined ? undefined : images[next]?.id;
+      if (!id) return;
       scrollSelectionRef.current = id;
       selectMedia(id);
     }, 100);
   };
 
+  const startManualScroll = () => {
+    scrollTargetRef.current = null;
+    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = null;
+  };
+
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    programmaticRef.current = false;
     suppressClickRef.current = false;
     if (suppressionTimerRef.current) clearTimeout(suppressionTimerRef.current);
-    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    if (event.pointerType !== "mouse") {
+      startManualScroll();
+      return;
+    }
+    if (event.button !== 0) return;
     dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startLeft: event.currentTarget.scrollLeft, moved: false };
   };
 
@@ -151,7 +192,8 @@ export function SioraProductGallery({ product }: Readonly<{ product: PublicProdu
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     const distance = event.clientX - drag.startX;
-    if (Math.abs(distance) > 8) {
+    if (!drag.moved && Math.abs(distance) > 8) {
+      startManualScroll();
       drag.moved = true;
       suppressClickRef.current = true;
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -166,26 +208,24 @@ export function SioraProductGallery({ product }: Readonly<{ product: PublicProdu
   const finishDrag = (event: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     dragRef.current = null;
+    const next = drag?.moved ? indexAtScroll(event.currentTarget) : undefined;
     delete event.currentTarget.dataset.dragging;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
     if (!drag?.moved) return;
-    const panel = event.currentTarget.children[0] as HTMLElement | undefined;
-    if (panel?.offsetWidth) selectIndex(Math.min(images.length - 1, Math.round(event.currentTarget.scrollLeft / panel.offsetWidth)));
+    if (next !== undefined) selectIndex(next);
     suppressionTimerRef.current = setTimeout(() => { suppressClickRef.current = false; }, 200);
   };
 
   return <div className={styles.gallery} role="group" aria-label={`${product.title} fotoğraf galerisi`}>
     <p className={styles.srOnly} id={descriptionId}>Fotoğraflar arasında gezinmek için sağ ve sol ok tuşlarını, büyütmek için Enter tuşunu kullanın.</p>
     {active ? <>
-      <div ref={stripRef} className={styles.strip} tabIndex={0} aria-label="Ürün fotoğrafları" aria-describedby={descriptionId} onKeyDown={onGalleryKeyDown} onScroll={onScroll} onWheel={() => { programmaticRef.current = false; }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
+      <div ref={stripRef} className={styles.strip} tabIndex={0} aria-label="Ürün fotoğrafları" aria-describedby={descriptionId} onKeyDown={onGalleryKeyDown} onScroll={onScroll} onWheel={(event) => { if (event.deltaX || event.shiftKey) startManualScroll(); }} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
         {images.map((image, index) => <button className={styles.panel} key={image.id} type="button" tabIndex={-1} aria-label={`${index + 1}. fotoğrafı büyüt`} onClick={(event) => { if (!suppressClickRef.current) openZoom(event.currentTarget, index); }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image.url} alt={image.altText || `${product.title}, fotoğraf ${index + 1}`} width={image.width} height={image.height} loading={index < 2 ? "eager" : "lazy"} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
+          <ResponsiveProductImage media={image} alt={image.altText || `${product.title}, fotoğraf ${index + 1}`} sizes={galleryImageSizes} loading={index === 0 ? "eager" : "lazy"} fetchPriority={index === 0 ? "high" : "auto"} decoding="async" draggable={false} />
         </button>)}
       </div>
       <div ref={thumbsRef} className={styles.thumbnails} aria-label="Fotoğraf seçimi">{images.map((image, index) => <button key={image.id} type="button" className={styles.thumbnail} aria-label={`${index + 1}. fotoğrafı göster`} aria-current={index === selected ? "true" : undefined} onClick={() => selectIndex(index)}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={image.url} alt="" width={image.width} height={image.height} loading="lazy" decoding="async" draggable={false} />
+        <ResponsiveProductImage media={image} alt="" sizes={thumbnailImageSizes} decoding="async" draggable={false} />
       </button>)}</div>
       <button className={styles.zoomButton} type="button" aria-label="Seçili fotoğrafı büyüt" onClick={(event) => openZoom(event.currentTarget)}><ZoomIcon /></button>
     </> : <div className={styles.empty}>Görsel yakında</div>}

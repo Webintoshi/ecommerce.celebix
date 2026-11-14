@@ -4,6 +4,7 @@ import test from "node:test";
 import type { PublicProduct } from "@celebix/saas-contracts";
 import {
   favoritesStorageKey,
+  mergeFavoriteProductIds,
   parseFavoriteResolutionResponse,
   parseFavoriteProductIds,
   readFavoriteResolutionRequest,
@@ -30,6 +31,7 @@ test("favorites are isolated by canonical hostname and only canonical UUID array
 test("favorites never exceed one hundred and canonical resolution removes missing IDs", () => {
   const ids = Array.from({ length: 101 }, (_, index) => `10000000-0000-4000-8000-${String(index).padStart(12, "0")}`);
   assert.deepEqual(parseFavoriteProductIds(JSON.stringify(ids)), []);
+  assert.deepEqual(mergeFavoriteProductIds([FIRST], [FIRST, "invalid", ...ids]), [FIRST, ...ids.filter((id) => id !== FIRST).slice(0, 99)]);
   assert.deepEqual(reconcileFavoriteProductIds([FIRST, SECOND], [product(SECOND)]), [SECOND]);
   assert.deepEqual(toggleFavoriteProductId([FIRST], SECOND), [FIRST, SECOND]);
   assert.deepEqual(toggleFavoriteProductId([FIRST, SECOND], FIRST), [SECOND]);

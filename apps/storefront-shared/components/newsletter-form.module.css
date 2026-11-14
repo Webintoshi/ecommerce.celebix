@@ -13,6 +13,7 @@
 .form .emailField button:focus-visible { outline: 2px solid var(--retail-footer-fg); outline-offset: 1px; }
 .form .consent { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; align-items: center; min-height: 44px; color: var(--retail-footer-muted); font-size: 11px; line-height: 1.55; cursor: pointer; }
 .form .consent input { width: 17px; height: 17px; margin: 0; accent-color: var(--retail-footer-fg); }
+.form .consent input[aria-invalid="true"] { outline: 1px solid currentColor; outline-offset: 2px; }
 .form .consent input:focus-visible { outline: 2px solid var(--retail-footer-fg); outline-offset: 3px; }
 .form .consent > span { display: block; border: 0; padding: 0; }
 .form > p { min-height: 0; margin: 0; color: var(--retail-footer-muted); font-size: 12px; line-height: 1.5; }

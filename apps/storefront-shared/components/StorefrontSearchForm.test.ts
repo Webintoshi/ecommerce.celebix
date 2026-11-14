@@ -39,7 +39,7 @@ test("live search debounces typing, discards obsolete replies and supports keybo
   } finally { globalThis.fetch = previous; }
 });
 
-async function withSuggestionLinks(clientNavigation: boolean, run: (browser: { container: HTMLElement; pushes: string[]; reopen: () => Promise<void> }) => Promise<void>, onNavigate?: (href: string) => void) {
+async function withSuggestionLinks(clientNavigation: boolean, run: (browser: { container: HTMLElement; pushes: string[]; reopen: () => Promise<void> }) => Promise<void>, onNavigate?: (href: string) => void, variant?: "siora-mobile") {
   const pushes: string[] = [];
   const previous = globalThis.fetch;
   globalThis.fetch = (async () => Response.json({ items: [{ id: "necklace", title: "Altın Kolye", href: "/urun/altin-kolye", priceCents: 10000, currency: "TRY", imageUrl: null, imageAlt: "", available: true }] })) as typeof fetch;
@@ -49,7 +49,7 @@ async function withSuggestionLinks(clientNavigation: boolean, run: (browser: { c
     await withProductBrowser(async ({ container, render }) => {
       let key = 0;
       const reopen = async () => {
-        await render(React.createElement(Form, { key: ++key, defaultValue: "altın kolye", clientNavigation, onNavigate }));
+        await render(React.createElement(Form, { key: ++key, defaultValue: "altın kolye", clientNavigation, onNavigate, variant }));
         await React.act(async () => { container.querySelector<HTMLInputElement>('input[name="q"]')!.focus(); });
         await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 280)); });
         assert.ok(container.querySelector('a[href="/urun/altin-kolye"]'), "real suggestion is ready");
@@ -108,7 +108,7 @@ test("search can defer result, keyboard and form navigation to its enclosing ove
     assert.deepEqual(destinations, ["/urun/altin-kolye", "/urun/altin-kolye", "/search?q=alt%C4%B1n%20kolye"]);
     assert.deepEqual(pushes, []);
     assert.equal(container.querySelector(".store-search-suggestions"), null);
-  }, href => destinations.push(href));
+  }, href => destinations.push(href), "siora-mobile");
 });
 
 test("Güzide client search preserves modified-click behavior and other tenant defaults do not push routes", async () => {
@@ -153,5 +153,10 @@ test("search options stay out of the tab sequence and Escape dismisses only the 
     assert.equal(input.getAttribute("aria-controls"), null);
     assert.equal(input.value, "altın kolye");
     assert.equal((await key("Escape")).defaultPrevented, false);
+    await key("ArrowDown");
+    assert.equal(input.getAttribute("aria-expanded"), "true");
+    assert.equal(input.getAttribute("aria-activedescendant"), option.id);
+    await key("Enter");
+    assert.deepEqual(pushes, ["/urun/altin-kolye"]);
   });
 });

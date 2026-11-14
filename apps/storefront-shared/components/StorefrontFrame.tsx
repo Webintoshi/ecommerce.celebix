@@ -8,7 +8,6 @@ import { createStorefrontTypographyResources } from "@celebix/storefront-design-
 import { Footer } from "./Footer";
 import { Header } from "./Header";
 import { CartStatusProvider } from "./CartStatusProvider";
-import { FavoriteStatusProvider } from "./FavoriteStatusProvider";
 import { campaignFrameSettings } from "./campaign-ui-model";
 import { guzideThemeFor } from "../themes/guzide/theme.ts";
 import { sioraThemeFor } from "../themes/siora/theme.ts";
@@ -47,6 +46,7 @@ export function StorefrontFrame({
   const guzideTheme = guzideThemeFor(storefront);
   const visualTheme = ezmeoThemeFor(storefront) ?? (checkout ? undefined : hizliThemeFor(storefront)) ?? lilyumThemeFor(storefront) ?? alplerThemeFor(storefront) ?? sioraThemeFor(storefront) ?? guzideTheme;
   const immersiveSiora = immersiveProduct && Boolean(sioraThemeFor(storefront)) && !checkout;
+  const hasSioraNavigation = visualTheme === "siora-deniz" && !checkout;
   const logo = lilyumLogoFor(storefront, customized ? (design.brand.logo ?? storefront.presentation.logo) : storefront.presentation.logo);
   const style: DesignStyle = {
     ...typography.style,
@@ -74,28 +74,27 @@ export function StorefrontFrame({
             data-font={customized ? design.brand.fontFamily : undefined}
             style={style}
           >
+            {hasSioraNavigation ? <a className="siora-skip-link" href="#siora-main">İçeriğe geç</a> : null}
             {checkout ? <CheckoutHeader storefront={storefront} logo={logo} /> : <Header storefront={storefront} design={design} />}
-            <main>{children}</main>
+            <main id={hasSioraNavigation ? "siora-main" : undefined} tabIndex={hasSioraNavigation ? -1 : undefined}>{children}</main>
             <Footer storefront={storefront} logo={logo} checkout={checkout} />
           </div>
   );
   const legacy = <>{typographyLinks}
     <CartStatusProvider presentation={campaign.cart} locale={storefront.locale} visualTheme={visualTheme} storefrontId={storefront.id} drawerStyle={visualTheme === "hizli-kutu-deniz" || visualTheme === "ezmeo-deniz" ? style : undefined}>
-      <FavoriteStatusProvider>{legacyContent}</FavoriteStatusProvider>
+      {legacyContent}
     </CartStatusProvider>
   </>;
   if (guzideTheme && persistentGuzide) return <>
     {typographyLinks}
     <CartStatusProvider presentation={campaign.cart} locale={storefront.locale} visualTheme={visualTheme} storefrontId={storefront.id} drawerStyle={visualTheme === "hizli-kutu-deniz" || visualTheme === "ezmeo-deniz" ? style : undefined}>
-      <FavoriteStatusProvider>
-        <GuzideClientFrame storefrontId={storefront.id} locale={storefront.locale}
+      <GuzideClientFrame storefrontId={storefront.id} locale={storefront.locale}
           className={`starter-storefront ${campaign.campaignClass} ${campaign.cornerClass} ${tokens.schemeClass} ${tokens.headingClass} ${tokens.cardClass} ${tokens.imageClass}`}
           style={style} publishedDesign={customized ? "true" : "false"} font={customized ? design.brand.fontFamily : undefined}
           header={<Header storefront={storefront} design={design} />} checkoutHeader={<CheckoutHeader storefront={storefront} logo={logo} />}
           footer={<Footer storefront={storefront} logo={logo} />} checkoutFooter={<Footer storefront={storefront} logo={logo} checkout />}>
-          {children}
-        </GuzideClientFrame>
-      </FavoriteStatusProvider>
+        {children}
+      </GuzideClientFrame>
     </CartStatusProvider>
   </>;
   return guzideTheme ? <GuzidePageBoundary fallback={legacy} standaloneFrame={<>{typographyLinks}{legacyContent}</>}>{children}</GuzidePageBoundary> : legacy;

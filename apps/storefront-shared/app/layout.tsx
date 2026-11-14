@@ -5,6 +5,7 @@ import { createStorefrontTypographyResources } from "@celebix/storefront-design-
 import { StorefrontAnalyticsTracker } from "../components/StorefrontAnalyticsTracker.tsx";
 import { StorefrontAnalyticsBridge } from "../components/StorefrontAnalyticsBridge.tsx";
 import { resolveStorefrontPage } from "../lib/page-context.ts";
+import { FavoriteStatusProvider } from "../components/FavoriteStatusProvider";
 import { StorefrontFrame } from "../components/StorefrontFrame";
 import { StorefrontNavigationScroll } from "../components/StorefrontNavigationScroll";
 import { ContactWidget } from "../components/ContactWidget";
@@ -53,9 +54,15 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <head>{googleMarketing?.verificationToken ? <meta name="google-site-verification" content={googleMarketing.verificationToken} /> : null}</head>
       <body>
         {page.kind === "active" && googleMarketing && nonce && hasGoogleMarketingTags(googleMarketing) ? <GoogleMarketingConsent storeId={page.context.storefront.id} hostname={page.context.storefront.primaryHostname} nonce={nonce} projection={googleMarketing} /> : null}
-        {page.kind === 'active' ? <CommercePolicyProvider policy={page.context.commercePolicy}>{guzideThemeFor(page.context.storefront)
-          ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
-          : children}</CommercePolicyProvider> : children}
+        {page.kind === 'active' ? (
+          <CommercePolicyProvider policy={page.context.commercePolicy}>
+            <FavoriteStatusProvider>
+              {guzideThemeFor(page.context.storefront)
+                ? <StorefrontFrame storefront={page.context.storefront} design={page.context.design} persistentGuzide>{children}</StorefrontFrame>
+                : children}
+            </FavoriteStatusProvider>
+          </CommercePolicyProvider>
+        ) : children}
         <StorefrontNavigationScroll />
         {page.kind === "active" && page.context.commercePolicy.checkoutAllowed ? <StoreEngagement storefrontId={page.context.storefront.id} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} /> : null}
         {page.kind === "active" && page.context.contactWidget?.enabled && contactBrand ? <ContactWidget config={page.context.contactWidget} storefrontName={page.context.storefront.presentation.displayName} brandColor={page.context.design.brand.primaryColor} hostname={page.context.storefront.primaryHostname} logo={contactBrand.logo} fontFamily={contactBrand.fontFamily} /> : null}

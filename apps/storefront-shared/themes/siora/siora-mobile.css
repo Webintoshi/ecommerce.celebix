@@ -1,3 +1,16 @@
+[data-storefront-theme="siora-deniz"] .siora-skip-link {
+  position: fixed;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+  z-index: 110;
+  padding: 12px 16px;
+  color: var(--white, #fff);
+  background: var(--ink, #171717);
+  transform: translateY(calc(-100% - 16px));
+}
+[data-storefront-theme="siora-deniz"] .siora-skip-link:focus { transform: none; }
+[data-storefront-theme="siora-deniz"] #siora-main { scroll-margin-block-start: var(--siora-header-height, 64px); }
+
 /* The two-row header is scoped to Siora's resolved tenant. */
 [data-storefront-theme="siora-deniz"] .siora-header {
   --siora-upper-height: 80px;
@@ -37,6 +50,8 @@
 [data-storefront-theme="siora-deniz"] .siora-desktop-navigation > a,
 [data-storefront-theme="siora-deniz"] .siora-navigation-summary { display: flex; min-height: 54px; align-items: center; gap: 6px; border: 0; color: inherit; font-size: 11px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase; text-decoration: none; cursor: pointer; }
 [data-storefront-theme="siora-deniz"] .siora-desktop-navigation > a:hover,
+[data-storefront-theme="siora-deniz"] .siora-desktop-navigation > a[aria-current="page"],
+[data-storefront-theme="siora-deniz"] .siora-navigation-category:has([aria-current="page"]) > summary,
 [data-storefront-theme="siora-deniz"] .siora-navigation-summary:hover { text-decoration: underline; text-underline-offset: 6px; text-decoration-thickness: 1px; }
 [data-storefront-theme="siora-deniz"] .siora-navigation-category { position: static; }
 [data-storefront-theme="siora-deniz"] .siora-navigation-summary { list-style: none; }
@@ -48,12 +63,12 @@
 [data-storefront-theme="siora-deniz"] .siora-navigation-links { display: grid; align-content: start; gap: 4px; }
 [data-storefront-theme="siora-deniz"] .siora-navigation-links > strong { margin-bottom: 10px; font-size: 13px; font-weight: 500; }
 [data-storefront-theme="siora-deniz"] .siora-navigation-links a { display: flex; min-height: 36px; align-items: center; color: inherit; font-size: 12px; line-height: 1.45; text-decoration: none; }
-[data-storefront-theme="siora-deniz"] .siora-navigation-links a:hover { text-decoration: underline; text-underline-offset: 4px; }
+[data-storefront-theme="siora-deniz"] .siora-navigation-links a:is(:hover, [aria-current="page"]) { text-decoration: underline; text-underline-offset: 4px; }
 [data-storefront-theme="siora-deniz"] .siora-navigation-branch { display: grid; margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--line, #e7e7e7); }
 [data-storefront-theme="siora-deniz"] .siora-navigation-featured { display: grid; align-content: start; gap: 10px; color: inherit; font-size: 12px; text-decoration: none; }
 [data-storefront-theme="siora-deniz"] .siora-navigation-featured img { display: block; width: 100%; height: auto; max-height: 220px; object-fit: cover; }
 [data-storefront-theme="siora-deniz"] .siora-mobile-shell { display: contents; }
-[data-storefront-theme="siora-deniz"] :is(.siora-header-mobile-tools, .siora-header-account, .siora-mobile-bottom, .siora-mobile-bottom-space) { display: none; }
+[data-storefront-theme="siora-deniz"] :is(.siora-header-mobile-tools, .siora-header-account, .siora-mobile-bottom, .siora-mobile-bottom-space, .siora-mobile-header-fallback) { display: none; }
 [data-storefront-theme="siora-deniz"] .siora-mobile-dialog { border: 0; padding: 0; color: var(--ink, #171717); background: var(--white, #fff); }
 [data-storefront-theme="siora-deniz"] :is(.siora-header a, .siora-header button, .siora-header summary):focus-visible { outline: 1px solid color-mix(in srgb, currentColor 40%, transparent); outline-offset: 2px; }
 [data-storefront-theme="siora-deniz"] .siora-header input:focus-visible { outline: 0; box-shadow: none; }
@@ -81,6 +96,7 @@
   [data-storefront-theme="siora-deniz"] .siora-wordmark img { width: 100%; max-width: 136px; height: 56px; max-height: 56px; }
   [data-storefront-theme="siora-deniz"] .siora-header-mobile-tools { grid-area: tools; display: flex; justify-self: start; align-items: center; gap: 0; }
   [data-storefront-theme="siora-deniz"] .siora-header-mobile-tools button,
+  [data-storefront-theme="siora-deniz"] .siora-mobile-header-fallback a,
   [data-storefront-theme="siora-deniz"] .siora-header-account { display: inline-flex; width: 44px; min-height: 44px; justify-content: center; align-items: center; padding: 0; border: 0; color: inherit; background: transparent; cursor: pointer; }
   [data-storefront-theme="siora-deniz"] .siora-header-account { grid-area: account; justify-self: end; width: 44px; }
   [data-storefront-theme="siora-deniz"] .siora-header-mobile-tools .siora-icon { width: 20px; height: 20px; }
@@ -144,10 +160,29 @@
   [data-storefront-theme="siora-deniz"] .siora-mobile-search-field:focus-within { box-shadow: 0 1px 0 var(--ink, #171717); }
   [data-storefront-theme="siora-deniz"] .siora-mobile-search-submit { display: flex; min-height: 52px; justify-content: space-between; align-items: center; border: 1px solid var(--ink, #171717); border-radius: 0; padding: 12px 18px; color: var(--white, #fff); background: var(--ink, #171717); font: inherit; font-size: 12px; cursor: pointer; }
   [data-storefront-theme="siora-deniz"] .siora-mobile-search-submit .siora-icon { width: 20px; height: 20px; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-live-search .store-search-suggestions {
+    position: static;
+    min-width: 0;
+    width: 100%;
+    padding: 16px 0 0;
+    border: 0;
+    border-top: 1px solid var(--line, #e7e7e7);
+    border-radius: 0;
+    box-shadow: none;
+  }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-live-search .store-search-suggestions ul { max-height: none; overflow: visible; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-live-search .store-search-suggestions li a { overflow-wrap: anywhere; }
   [data-storefront-theme="siora-deniz"] .siora-mobile-search > a { display: flex; min-height: 44px; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; color: var(--muted, #555); font-size: 12px; text-decoration: none; }
   [data-storefront-theme="siora-deniz"] .siora-mobile-search > a .siora-icon { width: 18px; height: 18px; }
   [data-storefront-theme="siora-deniz"] :is(.siora-mobile-bottom, .siora-mobile-dialog) :is(a, button, summary):focus-visible { outline: 1px solid color-mix(in srgb, var(--ink, #171717) 40%, transparent); outline-offset: 2px; }
   [data-storefront-theme="siora-deniz"] .siora-mobile-dialog input:focus-visible { outline: 0; }
+}
+
+@media (max-width: 767px) and (scripting: none) {
+  [data-storefront-theme="siora-deniz"]:has(.siora-mobile-bottom) { padding-bottom: 0; }
+  [data-storefront-theme="siora-deniz"] :is(.siora-header-mobile-tools, .siora-mobile-bottom) { display: none; }
+  [data-storefront-theme="siora-deniz"] .siora-header-bar > noscript { display: contents; }
+  [data-storefront-theme="siora-deniz"] .siora-mobile-header-fallback { grid-area: tools; display: flex; }
 }
 
 @keyframes siora-panel-enter { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }

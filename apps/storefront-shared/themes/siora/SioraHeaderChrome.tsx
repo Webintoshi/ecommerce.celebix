@@ -61,29 +61,35 @@ export function SioraHeaderChrome({ children, headerStyle, headerWidth, headerLa
       if (menu instanceof HTMLDetailsElement && menu.open && menu.closest(".siora-desktop-navigation")) closeMenus(menu);
       schedule();
     };
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || !desktop.matches) return;
-      const menu = header.querySelector<HTMLDetailsElement>(".siora-desktop-navigation details[open]");
-      if (menu) { event.preventDefault(); closeMenus(); menu.querySelector<HTMLElement>("summary")?.focus(); }
-    };
     update();
     window.addEventListener("scroll", schedule, { passive: true });
     desktop.addEventListener("change", breakpoint);
     document.addEventListener("pointerdown", outside);
     header.addEventListener("toggle", toggle, true);
-    header.addEventListener("keydown", escape);
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("scroll", schedule);
       desktop.removeEventListener("change", breakpoint);
       document.removeEventListener("pointerdown", outside);
       header.removeEventListener("toggle", toggle, true);
-      header.removeEventListener("keydown", escape);
       closeMenus();
     };
   }, [pathname]);
 
-  return <header ref={headerRef} className="siora-header" data-storefront-header-bar data-header-style={headerStyle} data-header-width={headerWidth} data-header-layout={headerLayout} data-siora-home={/^(?:\/(?:tr|en))?\/?$/u.test(pathname)} data-siora-scrolled={view.scrolled} data-siora-compact={view.compact} onFocusCapture={() => setView((current) => current.compact ? { ...current, compact: false } : current)}>
+  return <header ref={headerRef} className="siora-header" data-storefront-header-bar data-header-style={headerStyle} data-header-width={headerWidth} data-header-layout={headerLayout} data-siora-home={/^(?:\/(?:tr|en))?\/?$/u.test(pathname)} data-siora-scrolled={view.scrolled} data-siora-compact={view.compact}
+    onFocusCapture={() => setView((current) => current.compact ? { ...current, compact: false } : current)}
+    onBlur={(event) => {
+      const menu = event.target.closest<HTMLDetailsElement>(".siora-desktop-navigation details[open]");
+      if (menu && event.relatedTarget && !menu.contains(event.relatedTarget)) menu.open = false;
+    }}
+    onKeyDown={(event) => {
+      if (event.defaultPrevented || event.key !== "Escape" || !window.matchMedia("(min-width: 768px)").matches) return;
+      const menu = event.currentTarget.querySelector<HTMLDetailsElement>(".siora-desktop-navigation details[open]");
+      if (!menu) return;
+      event.preventDefault();
+      menu.open = false;
+      menu.querySelector<HTMLElement>("summary")?.focus();
+    }}>
     {children}
   </header>;
 }

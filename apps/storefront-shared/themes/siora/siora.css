@@ -45,6 +45,10 @@
 [data-storefront-theme="siora-deniz"] .product-image-shell > span { color: #8a8a83; font-size: 10px; letter-spacing: .05em; }
 [data-storefront-theme="siora-deniz"] .product-card-copy { justify-items: start; gap: 7px; text-align: left; }
 [data-storefront-theme="siora-deniz"] .product-card h3 { min-height: 2.8em; font-family: var(--store-body-font); font-size: 12px; font-weight: 400; line-height: 1.5; letter-spacing: .005em; overflow-wrap: anywhere; }
+@media (any-hover: none) {
+  [data-storefront-theme="siora-deniz"] .product-image-shell .product-image-secondary { display: none; }
+  [data-storefront-theme="siora-deniz"] .product-card:is(:hover, :focus-within) .product-image-shell:has(.product-image-secondary) .product-image-primary { opacity: 1; }
+}
 [data-storefront-theme="siora-deniz"] .product-card-brand { font-size: 8px; font-weight: 450; letter-spacing: .13em; }
 [data-storefront-theme="siora-deniz"] .price-row { justify-content: start; gap: 9px; font-size: 12px; }
 [data-storefront-theme="siora-deniz"] .price-row strong { font-size: 12px; font-weight: 550; }
@@ -81,7 +85,7 @@
 [data-storefront-theme="siora-deniz"] [data-product-related] h2 { font-family: var(--store-body-font); font-size: 28px; font-weight: 450; }
 [data-storefront-theme="siora-deniz"] .siora-catalog { gap: 24px; }
 [data-storefront-theme="siora-deniz"] .siora-catalog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-[data-storefront-theme="siora-deniz"] .siora-catalog-heading h2 { margin: 0 0 8px; font-size: clamp(27px, 3vw, 38px); font-weight: 450; letter-spacing: -.035em; }
+[data-storefront-theme="siora-deniz"] .siora-catalog-heading :is(h1, h2) { margin: 0 0 8px; font-size: clamp(27px, 3vw, 38px); font-weight: 450; letter-spacing: -.035em; overflow-wrap: anywhere; }
 [data-storefront-theme="siora-deniz"] .siora-catalog-heading p { margin: 0; color: var(--muted); font-size: 11px; }
 [data-storefront-theme="siora-deniz"] .siora-filter-trigger { display: inline-flex; min-height: 48px; align-items: center; gap: 10px; padding: 0 16px; border: 1px solid var(--line); background: var(--white); color: var(--ink); font-size: 11px; cursor: pointer; }
 [data-storefront-theme="siora-deniz"] .siora-filter-trigger svg { width: 21px; height: 21px; }
@@ -90,6 +94,8 @@
 [data-storefront-theme="siora-deniz"] .siora-catalog-search input { width: 100%; min-width: 0; min-height: 48px; border: 0; border-radius: 0; padding: 0; background: transparent; color: var(--ink); font-size: 14px; }
 [data-storefront-theme="siora-deniz"] .siora-catalog-search button { display: grid; width: 48px; height: 48px; flex-shrink: 0; place-items: center; border: 0; background: transparent; cursor: pointer; }
 [data-storefront-theme="siora-deniz"] .siora-catalog-search svg { width: 21px; height: 21px; }
+:is([data-storefront-theme="siora-deniz"], [data-storefront-theme="alpler-deniz"]) .siora-catalog-search-error { margin: 0; color: var(--ink); font-size: 13px; }
+:is([data-storefront-theme="siora-deniz"], [data-storefront-theme="alpler-deniz"]) .siora-catalog-search-error:not(:empty) { margin-top: 8px; }
 [data-storefront-theme="siora-deniz"] .siora-applied-filters { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--muted); font-size: 11px; }
 [data-storefront-theme="siora-deniz"] .siora-applied-filters button { min-height: 44px; border: 0; background: transparent; font-size: 11px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
 [data-storefront-theme="siora-deniz"] .siora-catalog-products[data-pending="true"] { opacity: .65; }

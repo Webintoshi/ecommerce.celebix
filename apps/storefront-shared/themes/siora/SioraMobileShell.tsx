@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEve
 
 import { useCartStatus } from "../../components/CartStatusProvider";
 import { useFavoriteStatus } from "../../components/FavoriteStatusProvider";
+import { StorefrontSearchForm } from "../../components/StorefrontSearchForm";
 import { useHydrated } from "../../components/use-hydrated";
 import { categoryPath, productIndexPath, localizeStorefrontPath } from "@/lib/storefront-routes.ts";
 import { isValidProductCatalogSearch } from "../../lib/product-catalog-query.ts";
@@ -25,7 +26,7 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
   const pathname = usePathname();
   const router = useRouter();
   const hydrated = useHydrated();
-  const { cart, drawerOpen, openDrawer, closeDrawer, closeDrawerAndWait } = useCartStatus();
+  const { cart, drawerOpen, openDrawer, closeDrawerAndWait } = useCartStatus();
   const { count: favoriteCount } = useFavoriteStatus();
   const [panel, setPanel] = useState<Panel | null>(null);
   const [scrolled, setScrolled] = useState(false);
@@ -64,7 +65,7 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
 
   const openPanel = useCallback((next: Panel, trigger: HTMLElement) => {
     if (!window.matchMedia("(max-width: 767px)").matches) return;
-    if (sports && drawerOpen) {
+    if (drawerOpen) {
       const sourceRoute = `${window.location.pathname}${window.location.search}`;
       void closeDrawerAndWait(false).then((sameRoute) => {
         if (!sameRoute || `${window.location.pathname}${window.location.search}` !== sourceRoute || !trigger.isConnected || !openHistory()) return;
@@ -74,17 +75,15 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
       });
       return;
     }
-    if (drawerOpen) closeDrawer();
     if (!panelRef.current) {
       if (!openHistory()) return;
       triggerRef.current = trigger;
     }
     panelRef.current = next;
     setPanel(next);
-  }, [closeDrawer, closeDrawerAndWait, drawerOpen, openHistory, sports]);
+  }, [closeDrawerAndWait, drawerOpen, openHistory]);
 
   const openCart = (trigger: HTMLElement) => {
-    if (!sports) { dismissPanel(false); openDrawer(trigger); return; }
     const sourceRoute = `${window.location.pathname}${window.location.search}`;
     hidePanel(false);
     void closeHistory().then((sameRoute) => {
@@ -163,7 +162,13 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
       <Link href="/favorites" prefetch={false} className={pathname.startsWith("/favorites") && !panel ? "is-selected" : undefined} aria-current={pathname.startsWith("/favorites") ? "page" : undefined} aria-label={favorites ? `Favoriler, ${favorites} ürün` : "Favoriler"}><SioraIcon name="heart" />{favorites ? <span className="siora-mobile-badge" aria-hidden="true">{favorites}</span> : null}<span>Favoriler</span></Link>
       <button type="button" className={drawerOpen || pathname === "/cart" ? "is-selected" : undefined} aria-label={cartCount ? `Sepetim, ${cartCount} ürün` : "Sepetim"} aria-haspopup="dialog" aria-expanded={drawerOpen} onClick={(event) => openCart(event.currentTarget)}><SioraIcon name="bag" />{cartCount ? <span className="siora-mobile-badge" aria-hidden="true">{cartCount}</span> : null}<span>Sepetim</span></button>
     </nav>
-    <dialog className="siora-mobile-dialog" id={panelId} ref={dialogRef} aria-labelledby={panelTitleId} data-panel={panel ?? undefined} onCancel={(event) => { event.preventDefault(); dismissPanel(); }} onClose={() => { if (panelRef.current) dismissPanel(); }} onClick={(event) => { if (event.target === event.currentTarget) dismissPanel(); }}>
+    <dialog className="siora-mobile-dialog" id={panelId} ref={dialogRef} aria-labelledby={panelTitleId} data-panel={panel ?? undefined}
+      onKeyDown={(event) => {
+        if (sports || event.defaultPrevented || event.nativeEvent.isComposing || event.key !== "Escape") return;
+        event.preventDefault();
+        dismissPanel();
+      }}
+      onCancel={(event) => { event.preventDefault(); dismissPanel(); }} onClose={() => { if (panelRef.current) dismissPanel(); }} onClick={(event) => { if (event.target === event.currentTarget) dismissPanel(); }}>
       <div className="siora-mobile-panel-content">
         <header className="siora-mobile-panel-header"><div><span>{displayName}</span><h2 id={panelTitleId}>{panel === "search" ? sports ? "Ürünlerde ara" : "Koleksiyonda ara" : sports ? "Ürünleri keşfet" : "Koleksiyonu keşfet"}</h2></div><button ref={closeRef} type="button" aria-label={panel === "search" ? "Aramayı kapat" : "Menüyü kapat"} onClick={() => dismissPanel()}><SioraIcon name="close" /></button></header>
         {panel === "menu" ? <>
@@ -173,7 +178,12 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
             <StorefrontNavigationItems items={navigation.items} mode="mobile" categoryHref={(slug) => categoryPath(locale, slug)} resolveHref={(item) => item.path ? localizeStorefrontPath(item.path, locale) : categoryPath(locale, item.slug)} renderLink={(href, content, className) => <Link href={href} className={className} prefetch={false} aria-current={pathname === href ? "page" : undefined} onClick={navigate}>{content}</Link>} classes={{ root: "siora-mobile-category", summary: "siora-mobile-category-summary", panel: "siora-mobile-category-panel", links: "siora-mobile-category-links", featured: "siora-mobile-featured", branch: "siora-mobile-category-branch" }} />
           </nav>
           <div className="siora-mobile-secondary"><Link href="/account" prefetch={false} onClick={navigate}><SioraIcon name="account" /> Hesabım <SioraIcon name="arrow" /></Link><Link href="/favorites" prefetch={false} onClick={navigate}><SioraIcon name="heart" /> Favorilerim {favorites ? <span>{favorites}</span> : null}</Link><button type="button" onClick={(event) => openPanel("search", event.currentTarget)}><SioraIcon name="search" /> Ürün ara <SioraIcon name="arrow" /></button></div>
-        </> : panel === "search" ? <div className="siora-mobile-search"><p>{sports ? "Aradığınız ürünü adıyla bulun." : "Aradığınız parçayı ürün adıyla bulun."}</p><form action="/search" method="get" role="search" onSubmit={submitSearch}><label className="sr-only" htmlFor={searchInputId}>Ürün adı veya anahtar kelime</label><div className="siora-mobile-search-field"><SioraIcon name="search" /><input ref={searchRef} id={searchInputId} name="q" type="search" placeholder="Ne arıyorsunuz?" autoComplete="off" enterKeyHint="search" maxLength={100} required onInput={(event) => event.currentTarget.setCustomValidity("")} /></div><button className="siora-mobile-search-submit" type="submit">Ürünleri ara <SioraIcon name="arrow" /></button></form><Link href={productIndexPath(locale)} prefetch={false} onClick={navigate}>{sports ? "Tüm ürünleri görüntüle" : "Tüm koleksiyonu görüntüle"} <SioraIcon name="arrow" /></Link></div> : null}
+        </> : panel === "search" ? <div className="siora-mobile-search">
+          <p>{sports ? "Aradığınız ürünü adıyla bulun." : "Aradığınız parçayı ürün adıyla bulun."}</p>
+          {sports ? <form action="/search" method="get" role="search" onSubmit={submitSearch}><label className="sr-only" htmlFor={searchInputId}>Ürün adı veya anahtar kelime</label><div className="siora-mobile-search-field"><SioraIcon name="search" /><input ref={searchRef} id={searchInputId} name="q" type="search" placeholder="Ne arıyorsunuz?" autoComplete="off" enterKeyHint="search" maxLength={100} required onInput={(event) => event.currentTarget.setCustomValidity("")} /></div><button className="siora-mobile-search-submit" type="submit">Ürünleri ara <SioraIcon name="arrow" /></button></form>
+            : <StorefrontSearchForm variant="siora-mobile" icon={<SioraIcon name="search" />} submitIcon={<SioraIcon name="arrow" />} inputRef={searchRef} onNavigate={navigateAfterPanelClose} />}
+          <Link href={productIndexPath(locale)} prefetch={false} onClick={navigate}>{sports ? "Tüm ürünleri görüntüle" : "Tüm koleksiyonu görüntüle"} <SioraIcon name="arrow" /></Link>
+        </div> : null}
       </div>
     </dialog>
   </div>;
