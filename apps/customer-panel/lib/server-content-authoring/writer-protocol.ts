@@ -8,6 +8,7 @@ import {assertProductDraftGrounding, productVariantOverviews}from'../../../../pa
 import {matchesVariantOverview,parseVariantOverview} from '../../../../packages/saas-contracts/src/content-authoring/variant-overview.ts';
 import {renderContentAuthoringDescription} from './render.ts';
 import {assertToshiGeneratedLimits} from './toshi-policy.ts';
+import {contradictsProductForm} from './product-identity.ts';
 
 export const PRODUCT_BOLD_FACT_PREFIX='format:bold:';
 function fail():never{throw new TypeError('content_authoring_contract_invalid');}
@@ -72,7 +73,9 @@ export function createProductWriterProtocol(input:Readonly<{packet:ProductFactPa
   );
   return summarized.length&&!attributes.length&&(!name||derivedName)?[]:[{name,attributes}];
  });
- const context={productName:packet.title,attributes:attrs(originals.filter(fact=>fact.scope==='product')),variants,...(optionOverviews.length?{platformOptionFields:optionOverviews.map(({label})=>label)}:{}),sourceSlots:slots.map(({marker,text})=>({marker,text}))};
+ const categories=originals.filter(fact=>fact.scope==='product'&&fact.field==='category').map(fact=>fact.value);
+ const brand=originals.find(fact=>fact.scope==='product'&&fact.field==='brand')?.value;
+ const context={productName:packet.title,...(categories.length?{categories}:{}),...(brand?{brand}:{}),attributes:attrs(originals.filter(fact=>fact.scope==='product')),variants,...(optionOverviews.length?{platformOptionFields:optionOverviews.map(({label})=>label)}:{}),sourceSlots:slots.map(({marker,text})=>({marker,text}))};
 
  function appendVariantOverviews(draft:ContentAuthoringDraft):ContentAuthoringDraft{
   if(!draft.description||!optionOverviews.length)return draft;
@@ -128,16 +131,34 @@ export function createProductWriterProtocol(input:Readonly<{packet:ProductFactPa
   }
   const draft:Record<string,unknown>={suggestions:[],claims,sourceFingerprint:packet.sourceFingerprint};
   if(fields.includes('description')){
-   const markdown=safeString(raw.descriptionMarkdown);if(/<\/?[a-z][^>]*>/iu.test(markdown)||/```|~~~/u.test(markdown))fail();
+   const markdown=safeString(raw.descriptionMarkdown);if(contradictsProductForm(packet.title,markdown)||/<\/?[a-z][^>]*>/iu.test(markdown)||/```|~~~/u.test(markdown))fail();
    const tokens=parser.parse(markdown,{}),blocks:ContentAuthoringBlock[]=[];let hasH2=false;
-   for(let i=0;i<tokens.length;){const open=tokens[i++],content=tokens[i++],close=tokens[i++];if(!open||!content||!close||content.type!=='inline'||!content.children)fail();const children=inline(content.children);if(!children.length)fail();
+   for(let i=0;i<tokens.length;){
+    const open=tokens[i++];
+    if(open.type==='bullet_list_open'||open.type==='ordered_list_open'){
+     const ordered=open.type==='ordered_list_open',items:ContentAuthoringTextNode[][]=[];
+     const closeType=ordered?'ordered_list_close':'bullet_list_close';
+     while(tokens[i]?.type==='list_item_open'){
+      i++;
+      if(tokens[i++]?.type!=='paragraph_open')fail();
+      const content=tokens[i++];
+      if(content?.type!=='inline'||!content.children)fail();
+      const children=inline(content.children);
+      if(!children.length||tokens[i++]?.type!=='paragraph_close'||tokens[i++]?.type!=='list_item_close')fail();
+      items.push(children);
+     }
+     if(!items.length||tokens[i++]?.type!==closeType)fail();
+     blocks.push({type:'list',ordered,items});
+     continue;
+    }
+    const content=tokens[i++],close=tokens[i++];if(!content||!close||content.type!=='inline'||!content.children)fail();const children=inline(content.children);if(!children.length)fail();
     if(open.type==='paragraph_open'&&close.type==='paragraph_close')blocks.push({type:'paragraph',children});
     else if(open.type==='heading_open'&&close.type==='heading_close'&&['h2','h3'].includes(open.tag)){if(open.tag==='h3'&&!hasH2)fail();if(open.tag==='h2')hasH2=true;blocks.push({type:'heading',level:open.tag==='h2'?2:3,children});}else fail();if(blocks.length>100)fail();
    }
    if(!blocks.length||seen.join('\0')!==slots.map(slot=>slot.marker).join('\0'))fail();draft.description=blocks;
   }
-  for(const field of ['seoTitle','seoDescription']as const)if(fields.includes(field)){const text=safeString(raw[field],field==='seoTitle'?200:500).normalize('NFC');if(/[\r\n<>]/u.test(text)||text.includes('**')||text.includes('[[TOSHI_SOURCE_'))fail();assertProductDraftGrounding({[field]:text,suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint},{...packet,facts:originals.filter(fact=>fact.scope==='product'&&!existing(fact))});draft[field]=text;}
+  for(const field of ['seoTitle','seoDescription']as const)if(fields.includes(field)){const text=safeString(raw[field],field==='seoTitle'?200:500).normalize('NFC');if(/[\r\n<>]/u.test(text)||text.includes('**')||text.includes('[[TOSHI_SOURCE_'))fail();if(contradictsProductForm(packet.title,text))fail();assertProductDraftGrounding({[field]:text,suggestions:[],claims:[],sourceFingerprint:packet.sourceFingerprint},{...packet,facts:originals.filter(fact=>fact.scope==='product'&&!existing(fact))});draft[field]=text;}
   return draft;
  }
- return {context,decode,appendVariantOverviews};
+ return {context,decode,appendVariantOverviews,nonce};
 }

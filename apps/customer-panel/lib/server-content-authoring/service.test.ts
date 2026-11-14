@@ -518,7 +518,7 @@ function capturedAutomaticRun(outputs:readonly (string|((body:any)=>string))[],s
  }});
  const credits:any={
   async reserve(value:any){if(walletRow)return {kind:walletRow.status==='reserved'?'pending':'replayed',...walletRow};held=value.cost;walletRow={status:'reserved',fingerprint:value.fingerprint,result:null,chargedCredits:0};return {kind:'created',...walletRow};},
-  async complete(value:any){assert.equal(value.fingerprint,walletRow.fingerprint);if(!['reserved','completed'].includes(walletRow.status))throw Object.assign(Error(),{code:'operation_failed'});if(walletRow.status!=='completed'){assert.equal(value.chargedCredits,10);debits++;balance-=value.chargedCredits;held=0;walletRow={...walletRow,status:'completed',result:value.result,chargedCredits:value.chargedCredits};}return {balance,reserved:held,available:balance-held};},
+  async complete(value:any){assert.equal(value.fingerprint,walletRow.fingerprint);if(!['reserved','completed'].includes(walletRow.status))throw Object.assign(Error(),{code:'operation_failed'});if(walletRow.status!=='completed'){assert.ok([1,2,3,7,8,9,10].includes(value.chargedCredits));debits++;balance-=value.chargedCredits;held=0;walletRow={...walletRow,status:'completed',result:value.result,chargedCredits:value.chargedCredits};}return {balance,reserved:held,available:balance-held};},
   async fail(){if(walletRow.status!=='completed'){held=0;walletRow={...walletRow,status:'failed'};}return {balance,reserved:held,available:balance-held};},
  };
  const service=createMeteredContentAuthoringService(createContentAuthoringService(s.dependencies),credits),automaticInput={...input,request:automaticRequest};
@@ -566,14 +566,14 @@ test('missing source markers receive exact private correction context and preser
  assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:90,held:0});
  assert.deepEqual(await f.service.generateContent(f.input),result);assert.equal(f.state().providerCalls,2);assert.equal(f.state().debits,1);
 });
-for(const mode of ['malformed','duplicate','reordered']as const)test(`source correction still rejects ${mode} markers without charging`,async()=>{
+for(const mode of ['malformed','duplicate','reordered']as const)test(`source correction still rejects ${mode} markers while retaining SEO`,async()=>{
  const f=capturedAutomaticRun([sourceRepairOutput(expandedFoodMarkdown),body=>{const slots=JSON.parse(body.messages[1].content).product.sourceSlots,markers=slots.map((slot:any)=>slot.marker);if(mode==='malformed')markers[0]=markers[0].slice(0,-1);else if(mode==='duplicate')markers.unshift(markers[0]);else[markers[0],markers[1]]=[markers[1],markers[0]];return sourceRepairOutput(markers.join('\n\n')+'\n\n'+expandedFoodMarkdown);}],sourceRepairPacket());
- const result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);
- assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.draft?.description,undefined);
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:97,held:0});
 });
 test('another writer decode failure with all exact ordered markers does not receive a source repair hint',async()=>{
  const invalid=(body:any)=>sourceRepairOutput(JSON.parse(body.messages[1].content).product.sourceSlots.map((slot:any)=>slot.marker).join('\n\n')+'\n\n`unsupported code`\n\n'+expandedFoodMarkdown);
- const f=capturedAutomaticRun([invalid,invalid],sourceRepairPacket());assert.equal((await f.service.generateContent(f.input)).status,'failed');assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).sourceRepair,undefined);assert.equal(f.state().debits,0);
+ const f=capturedAutomaticRun([invalid,invalid],sourceRepairPacket());const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.draft?.description,undefined);assert.equal(JSON.parse(f.sent[1].messages.at(-1).content).sourceRepair,undefined);assert.equal(f.state().balance,97);
 });
 
 test('thin AUTO copy is corrected once into complete copy and charges once with safe replay',async()=>{
@@ -584,8 +584,8 @@ test('thin AUTO copy is corrected once into complete copy and charges once with 
  assert.deepEqual(await f.service.generateContent(f.input),result);assert.equal(f.state().providerCalls,2);assert.equal(f.state().debits,1);
 });
 
-test('two thin AUTO answers never charge and release the full reservation',async()=>{
- const thin=JSON.stringify({descriptionMarkdown:'**İrmikli ve Yumurtalı Kesme Erişte**, bir erişte çeşididir.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
+test('two AUTO answers with no usable fields never charge and release the full reservation',async()=>{
+ const thin=JSON.stringify({descriptionMarkdown:'**İrmikli ve Yumurtalı Kesme Erişte**, bir erişte çeşididir.',seoTitle:'Organik ürün',seoDescription:'Kanseri iyileştirir ve organik üründür.'});
  const f=capturedAutomaticRun([thin,thin]),result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(result.draft,null);
  assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});
 });
@@ -627,24 +627,24 @@ test('shortening cannot hide an unsupported claim beyond the SEO boundary',async
  const meta='Ürün '.repeat(31)+'organik üründür.';
  const f=capturedAutomaticRun([JSON.stringify({descriptionMarkdown:expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:meta})]);
  const result=await f.service.generateContent(f.input);
- assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');
- assert.equal(f.state().debits,0);assert.equal(f.state().held,0);
+ assert.equal(result.status,'completed');assert.equal(result.draft?.seoDescription,undefined);
+ assert.equal(f.state().balance,92);assert.equal(f.state().held,0);
 });
 
-test('AUTO reports each rejected answer while diagnostics failures cannot alter zero-charge finalization',async()=>{
+test('AUTO reports each rejected answer while diagnostics failures cannot alter partial finalization',async()=>{
  const thin=JSON.stringify({descriptionMarkdown:'Kısa açıklama.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
  const events:any[]=[],f=capturedAutomaticRun([thin,thin]);f.dependencies.diagnostic=(event:unknown)=>{events.push(event);throw Error('private logger failure');};
- const result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');
- assert.deepEqual(events.map(event=>[event.attempt,event.stage]),[[1,'completeness'],[2,'completeness']]);assert.equal(f.state().debits,0);assert.equal(f.state().held,0);
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.draft?.description,undefined);
+ assert.deepEqual(events.map(event=>[event.attempt,event.stage]),[[1,'completeness'],[2,'completeness']]);assert.equal(f.state().balance,97);assert.equal(f.state().held,0);
 });
 
 test('AUTO grounding diagnostics distinguish decoding from evidence rejection without exposing text or identifiers',async()=>{
  const value=JSON.stringify({descriptionMarkdown:'PRIVATE_SENTINEL **Altın** ürün.',seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
  const events:any[]=[],f=capturedAutomaticRun([value,value]);f.dependencies.diagnostic=(event:unknown)=>events.push(event);
- const result=await f.service.generateContent(f.input);assert.equal(result.status,'failed');assert.deepEqual(events.map(event=>event.stage),['contract_or_grounding','contract_or_grounding']);
+ const result=await f.service.generateContent(f.input);assert.equal(result.status,'completed');assert.equal(result.draft?.description,undefined);assert.deepEqual(events.map(event=>event.stage),['contract_or_grounding','contract_or_grounding']);
  assert.deepEqual(events.map(event=>event.grounding),[{reason:'critical_term',field:'description'},{reason:'critical_term',field:'description'}]);
  const serialized=JSON.stringify(events);for(const privateValue of ['PRIVATE_SENTINEL','Altın',capturedAutomaticPacket.title,'fixture-secret',id,'descriptionMarkdown','stack'])assert.ok(!serialized.includes(privateValue),privateValue);
- assert.equal(f.state().debits,0);
+ assert.equal(f.state().balance,97);
 });
 
 test('non-AUTO validation and ambiguous AUTO dispatch do not emit output validation diagnostics',async()=>{
@@ -680,12 +680,12 @@ test('a shape-valid description grounding failure targets only its offending blo
  assert.ok(!JSON.stringify(result).includes('organik'));assert.ok(!JSON.stringify(events).includes('organik'));assert.deepEqual(await f.service.generateContent(f.input),result);assert.equal(f.state().providerCalls,2);assert.equal(f.state().debits,1);
 });
 
-test('two shape-valid numeric grounding failures remain zero-charge and expose no rejected tokens publicly',async()=>{
+test('two shape-valid numeric grounding failures retain only usable SEO and expose no rejected tokens publicly',async()=>{
  const bad=JSON.stringify({descriptionMarkdown:'Erişte 99999 g.\n\n'+expandedFoodMarkdown,seoTitle:capturedAutomaticPacket.title,seoDescription:capturedAutomaticPacket.title});
  const events:unknown[]=[],f=capturedAutomaticRun([bad,bad]);f.dependencies.diagnostic=(event:unknown)=>events.push(event);
  const result=await f.service.generateContent(f.input),feedback=JSON.parse(f.sent[1].messages.at(-1).content);
- assert.deepEqual(feedback.issue,{reason:'numeric',field:'description',blockIndex:0,tokens:['99999']});assert.equal(feedback.fieldNote,undefined);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');
- assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:0,debits:0,balance:100,held:0});assert.ok(!JSON.stringify(result).includes('99999'));assert.ok(!JSON.stringify(events).includes('99999'));
+ assert.deepEqual(feedback.issue,{reason:'numeric',field:'description',blockIndex:0,tokens:['99999']});assert.equal(feedback.fieldNote,undefined);assert.equal(result.status,'completed');assert.equal(result.draft?.description,undefined);
+ assert.deepEqual(f.state(),{providerCalls:2,begins:1,completions:1,debits:1,balance:97,held:0});assert.ok(!JSON.stringify(result).includes('99999'));assert.ok(!JSON.stringify(events).includes('99999'));
 });
 
 test('AUTO recovers complete copy after both answers include unsupported standalone prose', async () => {
@@ -704,18 +704,18 @@ test('AUTO cannot recover if removing unsupported prose leaves incomplete copy',
  const bad = sourceRepairOutput('**İrmikli ve Yumurtalı Kesme Erişte** ile bir tabak hazırlayabilirsiniz.\n\n## Sunum\n\nOrganik üründür.');
  const f = capturedAutomaticRun([bad, bad]);
  const result = await f.service.generateContent(f.input);
- assert.equal(result.status, 'failed');
- assert.equal(result.draft, null);
- assert.equal(f.state().debits, 0);
+ assert.equal(result.status, 'completed');
+ assert.equal(result.draft?.description, undefined);
+ assert.equal(f.state().balance, 97);
 });
 
 test('AUTO does not remove a paragraph that qualifies the preceding copy', async () => {
  const bad = sourceRepairOutput(expandedFoodMarkdown + '\n\nAncak organik bir ürün değildir.');
  const f = capturedAutomaticRun([bad, bad]);
  const result = await f.service.generateContent(f.input);
- assert.equal(result.status, 'failed');
- assert.equal(result.draft, null);
- assert.equal(f.state().debits, 0);
+ assert.equal(result.status, 'completed');
+ assert.equal(result.draft?.description, undefined);
+ assert.equal(f.state().balance, 97);
 });
 
 test('AUTO recovery leaves every merchant source paragraph in its original order', async () => {
@@ -761,8 +761,11 @@ test('AUTO does not use SEO recovery to publish a thin description or discard nu
  ]) {
   const bad = JSON.stringify({descriptionMarkdown, seoTitle, seoDescription: capturedAutomaticPacket.title});
   const f = capturedAutomaticRun([bad, bad]);
-  assert.equal((await f.service.generateContent(f.input)).status, 'failed');
-  assert.equal(f.state().debits, 0);
+  const result=await f.service.generateContent(f.input);
+  assert.equal(result.status, 'completed');
+  assert.equal(result.draft?.seoTitle, undefined);
+  assert.equal(Boolean(result.draft?.description), descriptionMarkdown===expandedFoodMarkdown);
+  assert.equal(f.state().balance, descriptionMarkdown===expandedFoodMarkdown?91:98);
  }
 });
 
@@ -943,4 +946,19 @@ test('fresh AUTO rejects thin legacy provider output while unsupported claims re
  const accepted=capturedAutomaticRun([JSON.stringify(short)]);assert.equal((await accepted.service.generateContent(accepted.input)).status,'failed');assert.equal(accepted.state().debits,0);assert.equal(accepted.state().held,0);
  const unsupported=productFirstQualityCandidate();unsupported.description.push({type:'paragraph',children:[{type:'text',text:'Organik ürün.'}]});
  const rejected=capturedAutomaticRun([JSON.stringify(unsupported)]),result=await rejected.service.generateContent(rejected.input);assert.equal(result.status,'failed');assert.equal(result.safeCode,'invalid_output');assert.equal(rejected.state().debits,0);assert.equal(rejected.state().held,0);
+});
+
+test('AUTO retains verified fields when correction cannot repair a rejected description', async () => {
+ const seoTitle=capturedAutomaticPacket.title;
+ const seoDescription=seoTitle+' ile çorba ve erişte tarifleri hazırlayın.';
+ const incomplete=JSON.stringify({descriptionMarkdown:'Kısa açıklama.',seoTitle,seoDescription});
+ const fixture=capturedAutomaticRun([incomplete,incomplete]);
+ const result=await fixture.service.generateContent(fixture.input);
+ assert.equal(result.status,'completed');
+ assert.equal(result.draft?.description,undefined);
+ assert.equal(result.draft?.seoTitle,seoTitle);
+ assert.equal(result.draft?.seoDescription,seoDescription);
+ assert.equal(fixture.state().providerCalls,2);
+ assert.equal(fixture.state().held,0);
+ assert.equal(fixture.state().balance,97);
 });

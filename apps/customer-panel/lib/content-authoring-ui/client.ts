@@ -14,7 +14,17 @@ export function createContentAuthoringClient(fetcher:typeof fetch=fetch){
    const ids=new Set(request.images.map(image=>image.id));if(!Array.isArray(body.results)||!Array.isArray(body.failedIds)||!Number.isSafeInteger(body.chargedCredits)||body.chargedCredits<0||!body.results.every((item:AuthoringImageAlt)=>ids.has(item.id)&&typeof item.altText==='string'&&item.altText.trim().length>0&&item.altText.length<=500)||new Set(body.results.map((item:AuthoringImageAlt)=>item.id)).size!==body.results.length||!body.failedIds.every((id:unknown)=>typeof id==='string'&&ids.has(id))||new Set([...body.results.map((item:AuthoringImageAlt)=>item.id),...body.failedIds]).size!==request.images.length||body.results.length+body.failedIds.length!==request.images.length||body.chargedCredits>body.results.length)throw new ContentAuthoringApiError('invalid_response');
    return {...body,wallet:parseToshiWallet(body.wallet)};
   },
-  async generate(request:ContentAuthoringRequest,key:string,signal?:AbortSignal){if(!UUID.test(key))throw new ContentAuthoringApiError('invalid_request');const parsed=parseContentAuthoringRequest(request);return read(await fetcher('/api/content-ai/generations',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','idempotency-key':key},body:JSON.stringify(parsed),signal}));},
+  async generate(request:ContentAuthoringRequest,key:string,signal?:AbortSignal){
+   if(!UUID.test(key))throw new ContentAuthoringApiError('invalid_request');
+   const currentDraft={...request.currentDraft};
+   if(request.action==='auto'){
+    for(const field of ['description','seoTitle','seoDescription'] as const){
+     if(!request.fields.includes(field))delete currentDraft[field];
+    }
+   }
+   const parsed=parseContentAuthoringRequest({...request,currentDraft});
+   return read(await fetcher('/api/content-ai/generations',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json','idempotency-key':key},body:JSON.stringify(parsed),signal}));
+  },
   async get(id:string,signal?:AbortSignal){if(!UUID.test(id))throw new ContentAuthoringApiError('invalid_request');return read(await fetcher(`/api/content-ai/generations/${encodeURIComponent(id)}`,{credentials:'same-origin',signal}));},
  };
 }

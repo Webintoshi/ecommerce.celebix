@@ -300,3 +300,36 @@ test('legacy structured H4 headings retain their existing compatibility behavior
   const draft = accepted(writer.decode(legacy), packet, ['description']);
   assert.deepEqual(draft.description, legacy.description);
 });
+
+test('AUTO SEO ignores unrelated description and includes catalog identity in the writer context', () => {
+  const identity = { ...base, title: 'Siyez Kesme Erişte', facts: [
+    fact('product:title:0', 'title', 'Siyez Kesme Erişte'),
+    fact('product:category:1', 'category', 'Makarna ve Erişte'),
+    fact('product:brand:2', 'brand', 'Ezmeo'),
+  ] };
+  const source = attachAutomaticProductSource(identity, {
+    draftId: '11111111-1111-4111-8111-111111111111', productId: null, productVersion: null, profileVersion: null,
+    action: 'auto', locale: 'tr', tone: 'neutral', length: 'medium', note: '', selection: null,
+    fields: ['seoTitle'], currentDraft: { title: identity.title, description: '<p>' + 'a'.repeat(1001) + '</p>' },
+  });
+  const { writer } = protocol(source, ['seoTitle']);
+  assert.equal(source, identity);
+  assert.deepEqual(writer.context.categories, ['Makarna ve Erişte']);
+  assert.equal(writer.context.brand, 'Ezmeo');
+  assert.deepEqual(writer.context.sourceSlots, []);
+});
+
+test('AUTO pasta copy rejects treating the recorded pasta as whole grain', () => {
+  const identity = { ...base, title: 'Siyez Kesme Erişte', facts: [fact('product:title:0', 'title', 'Siyez Kesme Erişte')] };
+  const { writer } = protocol(identity, selected);
+  const correct = { descriptionMarkdown: 'Siyez Kesme Erişte, çorbalarda da kullanılabilir.', seoTitle: identity.title, seoDescription: 'Siyez Kesme Erişte ile çorba hazırlayın.' };
+  assert.doesNotThrow(() => writer.decode(correct));
+  assert.throws(() => writer.decode({ ...correct, descriptionMarkdown: 'Siyez Kesme Erişte tane formuyla sunulur.' }));
+  assert.throws(() => writer.decode({ ...correct, seoDescription: 'Siyez taneleriyle pilav hazırlayın.' }));
+});
+
+test('AUTO accepts ordinary ordered and unordered lists in product descriptions', () => {
+  const { writer, packet } = protocol();
+  const draft = accepted(writer.decode({ descriptionMarkdown: '## Bakım\n\n- Yumuşak bez kullanın.\n- Kuru tutun.\n\n## Sunum\n\n1. Kutuyu açın.\n2. Bilekliği çıkarın.' }), packet, ['description']);
+  assert.match(renderContentAuthoringDescription(draft.description!), /<ul>.*<\/ul>.*<ol>.*<\/ol>/u);
+});

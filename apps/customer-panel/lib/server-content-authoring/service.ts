@@ -15,6 +15,7 @@ import { attachAutomaticProductSource,assertAutomaticSourcePreserved } from './a
 import { assertToshiGeneratedLimits,assertProductWriterCompleteness,automaticFieldActions,normalizeToshiGeneratedSeo } from './toshi-policy.ts';
 import { TOSHI_PRODUCT_EDITORIAL_PROMPT,toshiProductCorrectionFeedback,type ToshiProductValidationStage } from './editorial-prompt.ts';
 import {withProductFormattingFacts,createProductWriterProtocol}from'./writer-protocol.ts';
+import {preserveSeoProductName} from './product-identity.ts';
 import {reportProductValidationFailure,type ProductValidationDiagnosticSink,type ProductValidationDiagnosticStage}from'./validation-diagnostics.ts';
 const SAFE=new Set(['insufficient_credits','source_preservation_required','invalid_input','unauthenticated','membership_denied','store_inactive','feature_unavailable','credential_invalid','connection_missing','connection_revoked','model_unavailable','rate_limited','quota_exceeded','operation_busy','operation_mismatch','operation_not_found','version_conflict','lease_expired','dispatch_already_claimed','provider_timeout','provider_unavailable','invalid_output','cancelled','unavailable','commit_unknown']);
 export class ContentAuthoringError extends Error {constructor(readonly code:string){super('content_authoring_failed');this.code=SAFE.has(code)?code:'unavailable';}}
@@ -101,7 +102,7 @@ export function createContentAuthoringService(deps:Dependencies){
    if(row.status!=='pending'||row.dispatchState!=='not_dispatched')return row;
    const authority=async()=>{active();const c=await bounded(deps.providers.getAuthority({tenantContext:input.tenantContext,now:deps.now(),provider:credential.provider}));if(c.configId!==row!.configId||c.credentialVersion!==row!.credentialVersion||c.selectedModel!==row!.model||c.version!==credential.version)throw new ContentAuthoringError('connection_revoked');return c;};
    const current=await authority();keyring=deps.keyring();secret=openMerchantProviderCredential({envelope:current.sealedCredentials,profileId:current.configId,storeId:input.tenantContext.store.id,providerCode:current.provider,capability:'ai_assistant',credentialVersion:current.credentialVersion,keyring});keyring.keys.forEach(k=>k.key.fill(0));
-   const data=JSON.stringify(writer?{product:writer.context,fields:request.fields,fieldActions:automaticFieldActions(request),locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note}:{facts:packet,currentDraft:request.currentDraft,action:request.action,fields:request.fields,locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note,selection:request.selection});if(Buffer.byteLength(data,'utf8')>32768)throw new ContentAuthoringError('invalid_input');
+   const data=JSON.stringify(writer?{product:writer.context,fields:request.fields,fieldActions:automaticFieldActions(request),currentSeo:Object.fromEntries((['seoTitle','seoDescription'] as const).filter(field=>request.fields.includes(field)&&request.currentDraft[field]?.trim()).map(field=>[field,request.currentDraft[field]])),locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note}:{facts:packet,currentDraft:request.currentDraft,action:request.action,fields:request.fields,locale:request.locale,tone:request.tone,...(Object.hasOwn(request,'brandVoice')?{brandVoice:request.brandVoice}:{}),length:request.length,note:request.note,selection:request.selection});if(Buffer.byteLength(data,'utf8')>32768)throw new ContentAuthoringError('invalid_input');
    active();claim=await bounded(deps.repository.claimGenerationDispatch({...base(),expectedVersion:row.version}));active();await authority();
    let output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:request.action==='auto'?TOSHI_PRODUCT_EDITORIAL_PROMPT:SYSTEM,history:[{role:'user',text:data}],tools:[],outputFormat:'json_object',...(request.action==='auto'?{authoringProfile:'product_quality' as const,maxOutputTokens:12288}:{maxOutputTokens:4096}),signal}));active();
    knownUsage=measuredUsage(output);
@@ -109,12 +110,20 @@ export function createContentAuthoringService(deps:Dependencies){
    let diagnosticStage:ProductValidationDiagnosticStage='output',diagnosticParsed:unknown,diagnosticDraft:unknown;
    const checked=<T>(stage:ToshiProductValidationStage,operation:()=>T,detail:ProductValidationDiagnosticStage=stage):T=>{validationStage=stage;diagnosticStage=detail;return operation();};
    const diagnose=(attempt:1|2)=>{if(request.action==='auto')reportProductValidationFailure({attempt,stage:diagnosticStage,output,parsed:diagnosticParsed,draft:diagnosticDraft,sourceSlotsExpected:writer?.context.sourceSlots.length??0,failure:validationFailure},deps.diagnostic);};
-   const validateAutomaticDraft=(draft:ContentAuthoringDraft)=>{
-    const compact=checked('policy_limits',()=>normalizeToshiGeneratedSeo(draft,packet));
-    if(compact!==draft)draft=checked('contract_or_grounding',()=>validateProductDraftOutput(compact,packet,request.fields));
-    checked('policy_limits',()=>assertToshiGeneratedLimits(draft));
-    checked('policy_limits',()=>assertProductWriterCompleteness(draft),'completeness');
-    checked('source_order',()=>assertAutomaticSourcePreserved(draft,packet));
+   const validateAutomaticDraft=(draft:ContentAuthoringDraft,fields=request.fields,check=checked)=>{
+    const compact=check('policy_limits',()=>normalizeToshiGeneratedSeo(draft,packet));
+    if(compact!==draft)draft=check('contract_or_grounding',()=>validateProductDraftOutput(compact,packet,fields));
+    const identity = { ...draft };
+    for (const field of ['seoTitle', 'seoDescription'] as const) {
+     const value = identity[field];
+     if (value !== undefined) identity[field] = preserveSeoProductName(field, value, packet.title);
+    }
+    if (identity.seoTitle !== draft.seoTitle || identity.seoDescription !== draft.seoDescription) {
+     draft = check('contract_or_grounding', () => validateProductDraftOutput(identity, packet, fields));
+    }
+    check('policy_limits',()=>assertToshiGeneratedLimits(draft));
+    check('policy_limits',()=>assertProductWriterCompleteness(draft),'completeness');
+    check('source_order',()=>assertAutomaticSourcePreserved(draft,packet));
     return draft;
    };
    const validate=()=>{
@@ -183,27 +192,65 @@ export function createContentAuthoringService(deps:Dependencies){
      }catch(error){issue=getProductDraftGroundingIssue(error);}
     }
    };
+   function validatedFields(raw: unknown): ContentAuthoringDraft | undefined {
+    if (!writer || !raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+    if (Object.hasOwn(raw, 'claims') || Object.hasOwn(raw, 'sourceFingerprint')) return;
+    const combined: ContentAuthoringDraft = { sourceFingerprint: packet.sourceFingerprint, suggestions: [], claims: [] };
+    let count = 0;
+    for (const field of request.fields) {
+     const key = field === 'description' ? 'descriptionMarkdown' : field;
+     const value = Object.getOwnPropertyDescriptor(raw, key);
+     if (!value || !('value' in value)) continue;
+     try {
+      const fieldWriter = createProductWriterProtocol({ packet, fields: [field], nonce: writer.nonce });
+      const decoded = fieldWriter.decode({ [key]: value.value });
+      const draft = validateAutomaticDraft(validateProductDraftOutput(decoded, packet, [field]), [field], (_stage, operation) => operation());
+      if (draft.description) renderContentAuthoringDescription(draft.description);
+      Object.assign(combined, { [field]: draft[field], claims: [...combined.claims, ...draft.claims] });
+      count++;
+     } catch {
+      // A rejected field does not affect independently validated fields.
+     }
+    }
+    return count ? combined : undefined;
+   }
    let draft;try{draft=validate();}catch(error){
     validationFailure??=error;
     diagnose(1);
     // A known, completed but invalid answer can be corrected once. Network/dispatch uncertainty is never retried.
-    if(request.action!=='auto'||endsAt-performance.now()<12000||!output.text.trim()||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
-    const firstVerified=recoverAutomaticDraft(diagnosticParsed,diagnosticDraft,validationFailure);
-    const markdown=(diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown,sourceSlots=writer?.context.sourceSlots;
-    const markerPattern=/\[\[TOSHI_SOURCE_[^\]\r\n]*\]\]/gu;
-    const sourceRepair=(diagnosticStage as ProductValidationDiagnosticStage)==='writer_decode'&&typeof markdown==='string'&&sourceSlots?.length&&(JSON.stringify(markdown.match(markerPattern)??[])!==JSON.stringify(sourceSlots.map(slot=>slot.marker))||markdown.replace(markerPattern,'').includes('[[TOSHI_SOURCE_'))?sourceSlots:undefined;
-    await authority();const previousUsage=knownUsage;
-    output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:toshiProductCorrectionFeedback(validationStage,request.fields,validationFailure,sourceRepair)}],tools:[],outputFormat:'json_object',authoringProfile:'product_quality',maxOutputTokens:12288,signal}));active();
-    const nextUsage=measuredUsage(output);knownUsage=previousUsage&&nextUsage?{inputTokens:previousUsage.inputTokens+nextUsage.inputTokens,outputTokens:previousUsage.outputTokens+nextUsage.outputTokens,totalTokens:previousUsage.totalTokens+nextUsage.totalTokens}:null;
-    try{draft=validate();}catch(error){
-     validationFailure??=error;
-     diagnose(2);
-     const verified=recoverAutomaticDraft(diagnosticParsed,diagnosticDraft,validationFailure)??firstVerified;
-     if(!verified)throw new ContentAuthoringError('invalid_output');
-     try{
-      draft=validateAutomaticDraft(verified);
-      if(draft.description)renderContentAuthoringDescription(draft.description);
-     }catch{throw new ContentAuthoringError('invalid_output');}
+    const firstFields=validatedFields(diagnosticParsed);
+    if(request.action!=='auto'||!output.text.trim()||output.text.includes(new TextDecoder().decode(secret)))throw new ContentAuthoringError('invalid_output');
+    if(endsAt-performance.now()<12000){
+     if(!firstFields)throw new ContentAuthoringError('invalid_output');
+     const fields=request.fields.filter(field=>firstFields[field]!==undefined);
+     draft=validateProductDraftOutput(firstFields,packet,fields);
+    }else{
+     const firstVerified=recoverAutomaticDraft(diagnosticParsed,diagnosticDraft,validationFailure);
+     const markdown=(diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown,sourceSlots=writer?.context.sourceSlots;
+     const markerPattern=/\[\[TOSHI_SOURCE_[^\]\r\n]*\]\]/gu;
+     const sourceRepair=(diagnosticStage as ProductValidationDiagnosticStage)==='writer_decode'&&typeof markdown==='string'&&sourceSlots?.length&&(JSON.stringify(markdown.match(markerPattern)??[])!==JSON.stringify(sourceSlots.map(slot=>slot.marker))||markdown.replace(markerPattern,'').includes('[[TOSHI_SOURCE_'))?sourceSlots:undefined;
+     await authority();const previousUsage=knownUsage;
+     output=await bounded(deps.generations.get(current.provider).generate({model:row.model,secret,system:TOSHI_PRODUCT_EDITORIAL_PROMPT,history:[{role:'user',text:data},{role:'assistant',text:output.text.slice(0,24000)},{role:'user',text:toshiProductCorrectionFeedback(validationStage,request.fields,validationFailure,sourceRepair)}],tools:[],outputFormat:'json_object',authoringProfile:'product_quality',maxOutputTokens:12288,signal}));active();
+     const nextUsage=measuredUsage(output);knownUsage=previousUsage&&nextUsage?{inputTokens:previousUsage.inputTokens+nextUsage.inputTokens,outputTokens:previousUsage.outputTokens+nextUsage.outputTokens,totalTokens:previousUsage.totalTokens+nextUsage.totalTokens}:null;
+     try{draft=validate();}catch(error){
+      validationFailure??=error;
+      diagnose(2);
+      const verified=recoverAutomaticDraft(diagnosticParsed,diagnosticDraft,validationFailure)??firstVerified;
+      if(verified){
+       draft=validateAutomaticDraft(verified);
+       if(draft.description)renderContentAuthoringDescription(draft.description);
+      }else{
+       const secondFields=validatedFields(diagnosticParsed);
+       if(!firstFields&&!secondFields)throw new ContentAuthoringError('invalid_output');
+       const partialFields=request.fields.filter(field=>firstFields?.[field]!==undefined||secondFields?.[field]!==undefined);
+       const merged:ContentAuthoringDraft={sourceFingerprint:packet.sourceFingerprint,suggestions:[],claims:[]};
+       for(const field of partialFields){
+        const usable=firstFields?.[field]!==undefined?firstFields:secondFields!;
+        Object.assign(merged,{[field]:usable[field],claims:[...merged.claims,...usable.claims.filter(claim=>claim.field===field)]});
+       }
+       draft=validateProductDraftOutput(merged,packet,partialFields);
+      }
+     }
     }
    }
    if(writer&&typeof (diagnosticParsed as {descriptionMarkdown?:unknown}|null)?.descriptionMarkdown==='string')draft=writer.appendVariantOverviews(draft);

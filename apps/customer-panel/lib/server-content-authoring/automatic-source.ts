@@ -3,10 +3,12 @@ import {createHash} from 'node:crypto';
 import {normalizeProductDescriptionRichText,type ProductDescriptionRichTextNode} from '../../../../packages/platform-config/src/product-description-rich-text.ts';
 import {assertProductDraftGrounding} from '../../../../packages/saas-contracts/src/content-authoring/grounding.ts';
 import {canonicalContentAuthoringValue} from '../../../../packages/saas-contracts/src/content-authoring/validation.ts';
+import {contradictsProductForm} from './product-identity.ts';
 import type {ContentAuthoringDraft,ContentAuthoringRequest,ProductFactPacket} from '../../../../packages/saas-contracts/src/content-authoring/types.ts';
 
 /** Existing prose is merchant-supplied evidence, never independently verified attributes. */
 export function attachAutomaticProductSource(packet:ProductFactPacket,request:ContentAuthoringRequest):ProductFactPacket{
+ if(request.fields?.includes('description')===false)return packet;
  const source=request.currentDraft.description??'';
  if(!source.trim())return packet;
  if(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(source)||/<\s*(?:script|style|iframe|object|embed|form|input|svg)\b/iu.test(source))throw Object.assign(Error('source_preservation_required'),{code:'source_preservation_required'});
@@ -15,7 +17,9 @@ export function attachAutomaticProductSource(packet:ProductFactPacket,request:Co
  const clauses:string[]=[];for(const paragraph of paragraphs){if(paragraph.length<=1000){clauses.push(paragraph);continue;}let chunk='';for(const raw of paragraph.split(/(?<=[.!?])\s+/u)){const sentence=raw.trim();if(!sentence)continue;if(sentence.length>1000)throw Object.assign(Error('source_preservation_required'),{code:'source_preservation_required'});if(chunk.length+sentence.length+1>1000){clauses.push(chunk);chunk='';}chunk+=(chunk?' ':'')+sentence;}if(chunk)clauses.push(chunk);}
  if(!clauses.length)return packet;
  if(clauses.length>32||clauses.some(value=>value.length>1000))throw Object.assign(Error('source_preservation_required'),{code:'source_preservation_required'});
- const additions=clauses.map((value,i)=>({ref:`product:existing:${i}`,field:'merchantDescription',value,source:'current_draft' as const,scope:'product' as const}));
+ const compatible=clauses.filter(value=>!contradictsProductForm(packet.title,value));
+ if(!compatible.length)return packet;
+ const additions=compatible.map((value,i)=>({ref:`product:existing:${i}`,field:'merchantDescription',value,source:'current_draft' as const,scope:'product' as const}));
  const facts=[...packet.facts,...additions];
  const sourceFingerprint=createHash('sha256').update(canonicalContentAuthoringValue({base:packet.sourceFingerprint,existingSource:source,facts})).digest('hex');
  return {...packet,facts,sourceFingerprint};
