@@ -114,6 +114,26 @@ test("storefront activation flags are provider-keyed so PayTR cannot enable Iyzi
   }, "paytr_iframe"), "disabled");
 });
 
+test("Iyzico LIVE storefront mode selects only an exact LIVE authority", () => {
+  const live = Object.freeze({ environment: "live" as const, adapterVersion: 1, evidenceDigest: `sha256:${"b".repeat(64)}` });
+  const authorities = Object.freeze({
+    paytr_iframe: Object.freeze({ test: null, live: null }),
+    iyzico_iframe: IYZICO_AUTHORITY,
+    iyzico_iframe_live: live,
+  });
+  assert.equal(resolveStorefrontHostedPaymentActivationMode({
+    CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_live",
+  }, "iyzico_iframe"), "approved_live");
+  const selector = createStorefrontHostedPaymentCompiledAuthoritySelector(authorities);
+  assert.ok(selector);
+  assert.deepEqual(selector("iyzico_iframe", "test"), { providerCode: "iyzico_iframe", ...IYZICO_AUTHORITY });
+  assert.deepEqual(selector("iyzico_iframe", "live"), { providerCode: "iyzico_iframe", ...live });
+  assert.equal(createStorefrontHostedPaymentCompiledAuthoritySelector({
+    ...authorities,
+    iyzico_iframe_live: IYZICO_AUTHORITY,
+  }), null);
+});
+
 test("Iyzico compiled authority exists only for an exact self-consistent candidate and matching approval", () => {
   const candidate = storefrontPaymentDefaults as typeof storefrontPaymentDefaults & {
     resolveIyzicoCompiledExecutionAuthority?: (
@@ -218,6 +238,31 @@ test("storefront runtime requires the matching provider flag for a compiled Iyzi
   assert.ok(createDefaultHostedPaymentRuntime({
     source: { CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_test_sandbox" },
     compiledAuthorities,
+    dependencies,
+  } as never));
+  assert.equal(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_live" },
+    compiledAuthorities,
+    dependencies,
+  } as never), null);
+
+  const liveOnly = Object.freeze({
+    ...compiledAuthorities,
+    iyzico_iframe: null,
+    iyzico_iframe_live: Object.freeze({
+      environment: "live",
+      adapterVersion: 1,
+      evidenceDigest: `sha256:${"b".repeat(64)}`,
+    }),
+  });
+  assert.equal(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_test_sandbox" },
+    compiledAuthorities: liveOnly,
+    dependencies,
+  } as never), null);
+  assert.ok(createDefaultHostedPaymentRuntime({
+    source: { CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_live" },
+    compiledAuthorities: liveOnly,
     dependencies,
   } as never));
 });
@@ -479,7 +524,7 @@ test("default storefront call site stages the real repository keyring and transp
 });
 
 
-test("Akbank execution uses its exact flag and environment authority without enabling legacy bank or iyzico live", () => {
+test("Akbank execution uses its exact flag and environment authority without enabling another provider", () => {
   const testAuthority = { environment: "test" as const, adapterVersion: AKBANK_JSON_PACKET.adapterVersion, evidenceDigest: `sha256:${"c".repeat(64)}` };
   const liveAuthority = { ...testAuthority, environment: "live" as const, evidenceDigest: `sha256:${"d".repeat(64)}` };
   const authorities = { paytr_iframe: { test: null, live: null }, iyzico_iframe: null,
@@ -494,7 +539,6 @@ test("Akbank execution uses its exact flag and environment authority without ena
     assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: mode }, "paytr_iframe"), "disabled");
     assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: mode }, "iyzico_iframe"), "disabled");
   }
-  assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_IYZICO_IFRAME_STOREFRONT_MODE: "approved_live" }, "iyzico_iframe"), "disabled");
   assert.equal(resolveStorefrontHostedPaymentActivationMode({ CELEBIX_AKBANK_JSON_STOREFRONT_MODE: "enabled" }, "akbank_json"), "disabled");
   assert.equal(createStorefrontHostedPaymentCompiledAuthoritySelector({ ...authorities, akbank_json: { test: { ...testAuthority, adapterVersion: 999 }, live: null } }), null);
   assert.equal(createStorefrontHostedPaymentCompiledAuthoritySelector({ ...authorities, akbank_json: { test: null, live: { ...liveAuthority, environment: "test" } } } as never), null);

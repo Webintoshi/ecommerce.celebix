@@ -167,17 +167,26 @@ export function createMerchantProviderAdapterRegistry(
   adapters: readonly MerchantProviderAdapter[],
 ): MerchantProviderAdapterRegistry {
   const selected = dense(adapters).map(adapter);
-  const entries = new Map<string, MerchantProviderAdapter>();
+  const entries = new Map<string, Map<"test" | "live", MerchantProviderAdapter>>();
   for (const entry of selected) {
     const key = `${entry.providerCode}:${entry.capability}`;
-    if (entries.has(key)) invalid();
-    entries.set(key, entry);
+    const environment = entry.executionAuthority.environment;
+    const environments = entries.get(key) ?? new Map();
+    if (environments.has(environment)) invalid();
+    environments.set(environment, entry);
+    entries.set(key, environments);
   }
   return Object.freeze({
-    size: entries.size,
-    get(providerCode: string, capability: MerchantProviderCapability): MerchantProviderAdapter | null {
+    size: selected.length,
+    get(
+      providerCode: string,
+      capability: MerchantProviderCapability,
+      environment?: "test" | "live",
+    ): MerchantProviderAdapter | null {
       if (!PROVIDER_CODE.test(providerCode) || !MERCHANT_PROVIDER_CAPABILITIES.includes(capability as never)) return null;
-      return entries.get(`${providerCode}:${capability}`) ?? null;
+      const environments = entries.get(`${providerCode}:${capability}`);
+      if (environment !== undefined) return environments?.get(environment) ?? null;
+      return environments?.size === 1 ? environments.values().next().value ?? null : null;
     },
     list(): readonly MerchantProviderAdapter[] { return Object.freeze([...selected]); },
   });
@@ -242,21 +251,27 @@ export function createProductionMerchantProviderRegistries(
   verification: MerchantProviderVerificationAdapterRegistry;
 }> {
   const selected = frozenRecord(options, PRODUCTION_OPTION_KEYS);
-  const authorities = frozenRecord(selected.executionAuthorities, Object.hasOwn(selected.executionAuthorities as object, "akbank_json") ? ["iyzico_iframe", "paytr_iframe", "akbank_json"] : ["iyzico_iframe", "paytr_iframe"]);
+  const authorityKeys = ["iyzico_iframe", "paytr_iframe"];
+  const authorityInput = selected.executionAuthorities as object;
+  if (Object.hasOwn(authorityInput, "akbank_json")) authorityKeys.push("akbank_json");
+  if (Object.hasOwn(authorityInput, "iyzico_iframe_live")) authorityKeys.push("iyzico_iframe_live");
+  const authorities = frozenRecord(authorityInput, authorityKeys);
   const identities = frozenRecord(selected.verificationIdentities, Object.hasOwn(selected.verificationIdentities as object, "akbank_json") ? ["iyzico_iframe", "paytr_iframe", "akbank_json"] : ["iyzico_iframe", "paytr_iframe"]);
   if (!Object.isFrozen(identities.iyzico_iframe) || !Object.isFrozen(identities.paytr_iframe)) invalid();
   const iyzicoIdentities = dense(identities.iyzico_iframe);
   const paytrIdentities = dense(identities.paytr_iframe);
   const execution: MerchantProviderAdapter[] = [];
   const verification: MerchantProviderVerificationAdapter[] = [];
-  const iyzicoAuthority = authorities.iyzico_iframe as MerchantProviderExecutionAuthorityMap["iyzico_iframe"];
-  if (iyzicoAuthority !== null) {
-    if (iyzicoAuthority.environment !== "test" || iyzicoAuthority.adapterVersion !== 1) invalid();
+  for (const [key, environment] of [["iyzico_iframe", "test"], ["iyzico_iframe_live", "live"]] as const) {
+    if (!Object.hasOwn(authorities, key)) continue;
+    const authority = authorities[key] as NonNullable<MerchantProviderExecutionAuthorityMap[typeof key]> | null;
+    if (authority === null) continue;
+    if (authority.environment !== environment || authority.adapterVersion !== 1) invalid();
     execution.push(createIyzicoExecutionValidationAdapter(Object.freeze({
       executionAuthority: Object.freeze({
-        environment: "test" as const,
+        environment,
         adapterVersion: 1 as const,
-        evidenceDigest: iyzicoAuthority.evidenceDigest,
+        evidenceDigest: authority.evidenceDigest,
       }),
       transport: selected.transport as ProviderTransport,
       validationReference: selected.validationReference as () => string,

@@ -308,7 +308,7 @@ export function PaymentSettingsConsole(props: Readonly<{
 
   function requestStateChange(method: MerchantPaymentMethod, state: PaymentStateChange, opener: HTMLButtonElement) {
     if (!props.canManage || !methodsMutationAvailable || busyMethodId) return;
-    if (method.providerCode === "iyzico_iframe" && state === "active") {
+    if (method.providerCode === "iyzico_iframe" && method.config.environment !== "live" && state === "active") {
       void updateState(method, state, null);
       return;
     }
@@ -320,7 +320,7 @@ export function PaymentSettingsConsole(props: Readonly<{
 
   async function updateState(method: MerchantPaymentMethod, state: PaymentStateChange, emergencyReason: string | null) {
     if (!props.canManage || !methodsMutationAvailable || busyMethodId) return;
-    if (method.providerCode === "iyzico_iframe" && state === "active") {
+    if (method.providerCode === "iyzico_iframe" && method.config.environment !== "live" && state === "active") {
       setBusyMethodId(method.id);
       setMessage("");
       try {
@@ -414,7 +414,9 @@ export function PaymentSettingsConsole(props: Readonly<{
         card.providerCode,
         descriptor.environments,
       );
-    if (card.providerCode === "iyzico_iframe" && profile?.status === "active" && requiresMethodAuthority) {
+    if (card.providerCode === "iyzico_iframe"
+      && profile?.status === "active" && requiresMethodAuthority
+      && descriptor?.executionAuthority?.environment !== "live") {
       setBusyProviderCode(card.providerCode);
       setMessage("");
       try {

@@ -38,6 +38,7 @@ if (!CHILD) {
     createPaymentAdapterRegistry,
     createPaytrIframeAdapter,
   } = await import("@celebix/payment-adapters");
+  const { defaultProviderPaymentMethodConfig } = await import("@celebix/saas-contracts");
   const {
     PaymentAttemptRepositoryError,
     sealMerchantProviderCredential,
@@ -499,7 +500,10 @@ if (!CHILD) {
     assert.doesNotMatch(durable, /Ada|Lovelace|74300864791|Mahallesi|Örnek ürün|sandbox-secret-key/);
   });
 
-  test("iyzico signed retrieve settles once and the browser receives only the fixed local result redirect", async () => {
+  for (const environment of ["test", "live"]) test(`iyzico ${environment} signed retrieve applies settlement and redirects to the local result`, async () => {
+    const authority = Object.freeze({ ...AUTHORITY, environment });
+    const providerApiHost = environment === "live" ? "api.iyzipay.com" : "sandbox-api.iyzipay.com";
+    const providerPageHost = environment === "live" ? "cpp.iyzipay.com" : "sandbox-cpp.iyzipay.com";
     const iyzicoToken = "A234567890123456789012345678901234567";
     const iyzicoCredential = Object.freeze({
       apiKey: "sandbox-api-key",
@@ -538,9 +542,10 @@ if (!CHILD) {
           paymentMethodId: METHOD,
           profileId: PROFILE,
           providerCode: "iyzico_iframe",
-          environment: "test",
-          executionAdapterVersion: AUTHORITY.adapterVersion,
-          executionEvidenceDigest: AUTHORITY.evidenceDigest,
+          environment,
+          methodConfig: defaultProviderPaymentMethodConfig("iyzico_iframe", environment),
+          executionAdapterVersion: authority.adapterVersion,
+          executionEvidenceDigest: authority.evidenceDigest,
           credentialVersion: 1,
           orderReference: "merchant-order-123",
           amountMinor: 10_000,
@@ -548,7 +553,7 @@ if (!CHILD) {
           status: "awaiting_customer",
           version: 2,
           providerReference: iyzicoToken,
-          publicConfig: { environment: "test" },
+          publicConfig: { environment },
           sealedCredentials: sealed,
         };
       },
@@ -598,12 +603,13 @@ if (!CHILD) {
       token: retrieve.token,
     });
     let retrieveCalls = 0;
+    const callbackDiagnostics = [];
     const adapter = createIyzicoCheckoutFormAdapter(Object.freeze({
       request: Object.freeze(async (selected) => {
         retrieveCalls += 1;
         assert.equal(
           selected.url,
-          "https://sandbox-api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail",
+          `https://${providerApiHost}/payment/iyzipos/checkoutform/auth/ecom/detail`,
         );
         return {
           kind: "response",
@@ -622,18 +628,24 @@ if (!CHILD) {
         hostname: "pilot.saas-staging.celebix.site",
       }),
       selectCompiledAuthority: (providerCode) => providerCode === "iyzico_iframe"
-        ? Object.freeze({ providerCode, ...AUTHORITY })
+        ? Object.freeze({ providerCode, ...authority })
         : null,
-      matchesCompiledAuthority: async (authority) => {
-        assert.deepEqual(authority, {
+      matchesCompiledAuthority: async (compiledAuthority) => {
+        assert.deepEqual(compiledAuthority, {
           providerCode: "iyzico_iframe",
           capability: "payment_processing",
-          ...AUTHORITY,
+          ...authority,
         });
         return true;
       },
       now: () => new Date("2026-07-27T12:00:00.000Z"),
+      auditCallback: ({ stage }) => callbackDiagnostics.push(stage),
       randomBytes: (size) => new Uint8Array(size).fill(7),
+      ...(environment === "live" ? { isStandardCheckoutContext: async ({ attemptId, storeId }) => {
+        assert.equal(attemptId, ATTEMPT);
+        assert.equal(storeId, STORE_A);
+        return true;
+      } } : {}),
     });
     const route = createHostedPaymentCallbackRoute({ resolveRuntime: async () => runtime });
     const response = await route(new Request(
@@ -642,7 +654,7 @@ if (!CHILD) {
         method: "POST",
         headers: {
           "content-type": "application/x-www-form-urlencoded",
-          origin: "https://sandbox-cpp.iyzipay.com",
+          origin: `https://${providerPageHost}`,
         },
         body: `token=${iyzicoToken}`,
       },
@@ -650,8 +662,10 @@ if (!CHILD) {
       params: Promise.resolve({ providerCode: "iyzico_iframe", binding: BINDING }),
     });
 
-    assert.equal(response.status, 303);
-    assert.equal(response.headers.get("location"), "/odeme/hizli/sonuc?durum=basarili");
+    assert.equal(response.status, 303, JSON.stringify(callbackDiagnostics));
+    assert.equal(response.headers.get("location"), environment === "live"
+      ? `/checkout/payment/${ATTEMPT}/result`
+      : "/odeme/hizli/sonuc?durum=basarili");
     assert.equal(await response.text(), "");
     assert.equal(retrieveCalls, 1);
     assert.equal(settlements, 1);

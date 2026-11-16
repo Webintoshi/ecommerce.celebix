@@ -5,6 +5,8 @@ import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts"
 import {
   IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY,
   IYZICO_GENERATED_BUILD_METADATA,
+  IYZICO_GENERATED_LIVE_APPROVED_EXECUTION_AUTHORITY,
+  IYZICO_GENERATED_LIVE_BUILD_METADATA,
   type IyzicoCandidateBuildMetadata,
 } from "./build-metadata.generated.ts";
 
@@ -77,59 +79,70 @@ function exactSource(value: unknown): IyzicoAdapterSource {
   }
 }
 
+function executionDigest(candidateValue: unknown, environment: "test" | "live"): string {
+  const candidate = exactRecord(candidateValue, [
+    "buildMetadataSchemaVersion",
+    "evidenceSchemaVersion",
+    "providerCode",
+    "capability",
+    "environment",
+    "adapterVersion",
+    "gitSha",
+    "sourceDigest",
+    "candidateExecutionDigest",
+  ]);
+  if (
+    candidate.buildMetadataSchemaVersion !== 1
+    || candidate.evidenceSchemaVersion !== 1
+    || candidate.providerCode !== "iyzico_iframe"
+    || candidate.capability !== "payment_processing"
+    || candidate.environment !== environment
+    || candidate.adapterVersion !== 1
+    || typeof candidate.gitSha !== "string"
+    || !GIT_SHA.test(candidate.gitSha)
+    || typeof candidate.sourceDigest !== "string"
+    || !SHA256.test(candidate.sourceDigest)
+  ) invalid();
+  const identity = {
+    evidenceSchemaVersion: 1,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    environment,
+    adapterVersion: 1,
+  };
+  const fullDigest = sha256(JSON.stringify({
+    ...identity,
+    gitSha: candidate.gitSha,
+    sourceDigest: candidate.sourceDigest,
+  }));
+  if (candidate.candidateExecutionDigest !== fullDigest) invalid();
+  // A deployment still records the exact Git SHA. Live approval follows the
+  // reviewed execution source across releases without adapter changes.
+  return environment === "test" ? fullDigest : sha256(JSON.stringify({
+    ...identity,
+    sourceDigest: candidate.sourceDigest,
+  }));
+}
+
+export function iyzicoLiveExecutionEvidenceDigest(candidate: IyzicoCandidateBuildMetadata<"live">): string {
+  return executionDigest(candidate, "live");
+}
+
 function generatedExecutionAuthority(
   candidateValue: unknown,
   authorityValue: unknown,
+  environment: "test" | "live",
 ): Readonly<PaymentProviderExecutionAuthority> | null {
   try {
     if (authorityValue === null) return null;
-    const candidate = exactRecord(candidateValue, [
-      "buildMetadataSchemaVersion",
-      "evidenceSchemaVersion",
-      "providerCode",
-      "capability",
-      "environment",
-      "adapterVersion",
-      "gitSha",
-      "sourceDigest",
-      "candidateExecutionDigest",
-    ]);
-    const authority = exactRecord(authorityValue, [
-      "environment",
-      "adapterVersion",
-      "evidenceDigest",
-    ]);
+    const evidenceDigest = executionDigest(candidateValue, environment);
+    const authority = exactRecord(authorityValue, ["environment", "adapterVersion", "evidenceDigest"]);
     if (
-      candidate.buildMetadataSchemaVersion !== 1
-      || candidate.evidenceSchemaVersion !== 1
-      || candidate.providerCode !== "iyzico_iframe"
-      || candidate.capability !== "payment_processing"
-      || candidate.environment !== "test"
-      || candidate.adapterVersion !== 1
-      || typeof candidate.gitSha !== "string"
-      || !GIT_SHA.test(candidate.gitSha)
-      || typeof candidate.sourceDigest !== "string"
-      || !SHA256.test(candidate.sourceDigest)
-      || typeof candidate.candidateExecutionDigest !== "string"
-      || !SHA256.test(candidate.candidateExecutionDigest)
-      || candidate.candidateExecutionDigest !== sha256(JSON.stringify({
-        evidenceSchemaVersion: candidate.evidenceSchemaVersion,
-        providerCode: candidate.providerCode,
-        capability: candidate.capability,
-        environment: candidate.environment,
-        adapterVersion: candidate.adapterVersion,
-        gitSha: candidate.gitSha,
-        sourceDigest: candidate.sourceDigest,
-      }))
-      || authority.environment !== "test"
+      authority.environment !== environment
       || authority.adapterVersion !== 1
-      || authority.evidenceDigest !== candidate.candidateExecutionDigest
+      || authority.evidenceDigest !== evidenceDigest
     ) return null;
-    return Object.freeze({
-      environment: "test",
-      adapterVersion: 1,
-      evidenceDigest: authority.evidenceDigest,
-    });
+    return Object.freeze({ environment, adapterVersion: 1, evidenceDigest });
   } catch {
     return null;
   }
@@ -138,6 +151,13 @@ function generatedExecutionAuthority(
 export const IYZICO_APPROVED_EXECUTION_AUTHORITY = generatedExecutionAuthority(
   IYZICO_GENERATED_BUILD_METADATA,
   IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY,
+  "test",
+);
+
+export const IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY = generatedExecutionAuthority(
+  IYZICO_GENERATED_LIVE_BUILD_METADATA,
+  IYZICO_GENERATED_LIVE_APPROVED_EXECUTION_AUTHORITY,
+  "live",
 );
 
 export function createIyzicoAdapterSourceManifest(
@@ -184,18 +204,31 @@ function exactSourceManifest(value: unknown): IyzicoAdapterSourceManifest {
   return Object.freeze({ schemaVersion: 1, files, sourceDigest });
 }
 
-export function createIyzicoCandidateBuildMetadata(input: Readonly<{
+type IyzicoBuildInput = Readonly<{
   gitSha: string;
   sourceManifest: IyzicoAdapterSourceManifest;
-}>): IyzicoCandidateBuildMetadata {
+}>;
+
+export function createIyzicoCandidateBuildMetadata(input: IyzicoBuildInput): IyzicoCandidateBuildMetadata;
+export function createIyzicoCandidateBuildMetadata<Environment extends "test" | "live">(
+  input: IyzicoBuildInput,
+  environment: Environment,
+): IyzicoCandidateBuildMetadata<Environment>;
+export function createIyzicoCandidateBuildMetadata(
+  input: IyzicoBuildInput,
+  environment: "test" | "live" = "test",
+): IyzicoCandidateBuildMetadata<"test" | "live"> {
   const parsed = exactRecord(input, ["gitSha", "sourceManifest"]);
-  if (typeof parsed.gitSha !== "string" || !GIT_SHA.test(parsed.gitSha)) invalid();
+  if (
+    typeof parsed.gitSha !== "string" || !GIT_SHA.test(parsed.gitSha)
+    || (environment !== "test" && environment !== "live")
+  ) invalid();
   const sourceManifest = exactSourceManifest(parsed.sourceManifest);
   const candidate = Object.freeze({
     evidenceSchemaVersion: 1 as const,
     providerCode: "iyzico_iframe" as const,
     capability: "payment_processing" as const,
-    environment: "test" as const,
+    environment,
     adapterVersion: 1 as const,
     gitSha: parsed.gitSha,
     sourceDigest: sourceManifest.sourceDigest,

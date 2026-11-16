@@ -286,9 +286,14 @@ test("production execution registry binds exact compiled Iyzico authority to cre
     adapterVersion: 1,
     evidenceDigest: EVIDENCE,
   });
+  const live = Object.freeze({
+    environment: "live" as const,
+    adapterVersion: 1,
+    evidenceDigest: `sha256:${"b".repeat(64)}`,
+  });
   let requestUrl = "";
   const selected = createProductionMerchantProviderRegistries(Object.freeze({
-    executionAuthorities: Object.freeze({ iyzico_iframe: authority, paytr_iframe: null }),
+    executionAuthorities: Object.freeze({ iyzico_iframe: authority, iyzico_iframe_live: live, paytr_iframe: null }),
     verificationIdentities: Object.freeze({
       iyzico_iframe: Object.freeze([]),
       paytr_iframe: Object.freeze([]),
@@ -314,9 +319,9 @@ test("production execution registry binds exact compiled Iyzico authority to cre
     validationTimeoutMs: 5_000,
   }));
 
-  const adapter = selected.execution.get("iyzico_iframe", "payment_processing");
+  const adapter = selected.execution.get("iyzico_iframe", "payment_processing", "test");
   assert.deepEqual(adapter?.executionAuthority, authority);
-  assert.equal(selected.execution.size, 1);
+  assert.equal(selected.execution.size, 2);
   assert.equal(selected.verification.size, 0);
   const credential = new TextEncoder().encode(JSON.stringify({
     apiKey: "sandbox-api-key",
@@ -327,6 +332,14 @@ test("production execution registry binds exact compiled Iyzico authority to cre
     publicConfig: Object.freeze({ environment: "test" }),
   })), { kind: "validated" });
   assert.equal(requestUrl, "https://sandbox-api.iyzipay.com/payment/bin/check");
+  const liveAdapter = selected.execution.get("iyzico_iframe", "payment_processing", "live");
+  assert.deepEqual(liveAdapter?.executionAuthority, live);
+  assert.equal(selected.execution.get("iyzico_iframe", "payment_processing"), null);
+  assert.deepEqual(await liveAdapter?.validateCredential(Object.freeze({
+    credential: new TextEncoder().encode(JSON.stringify({ apiKey: "live-key", secretKey: "live-secret" })),
+    publicConfig: Object.freeze({ environment: "live" }),
+  })), { kind: "validated" });
+  assert.equal(requestUrl, "https://api.iyzipay.com/payment/bin/check");
   assert.deepEqual(await adapter?.execute({} as never), {
     kind: "permanently_failed",
     outcomeCode: "payment_capability_not_queued",

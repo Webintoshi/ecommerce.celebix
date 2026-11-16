@@ -362,7 +362,12 @@ export async function runMerchantProviderWorkerOnce(options: MerchantProviderWor
   if (options.mode === "validation_only") return result("empty");
   const execution = await options.repository.claim({ workerId: options.workerId, now: selectedNow, leaseExpiresAt });
   if (execution.kind === "empty") return result("empty");
-  const adapter = options.registry.get(execution.job.providerCode, execution.job.capability);
+  const { providerCode, capability, publicConfig } = execution.job;
+  const environment = publicConfig.environment;
+  const adapter = options.registry.get(providerCode, capability)
+    ?? (environment === "test" || environment === "live"
+      ? options.registry.get(providerCode, capability, environment)
+      : null);
   return executeJob(options, execution.job, adapter, selectedNow);
 }
 

@@ -50,12 +50,15 @@ export {
 export {
   IYZICO_ADAPTER_SOURCE_PATHS,
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY,
+  iyzicoLiveExecutionEvidenceDigest,
   createIyzicoAdapterSourceManifest,
   createIyzicoCandidateBuildMetadata,
   verifyIyzicoGeneratedBuildMetadata,
 } from "./providers/iyzico/build-binding.ts";
 export {
   IYZICO_GENERATED_BUILD_METADATA,
+  IYZICO_GENERATED_LIVE_BUILD_METADATA,
 } from "./providers/iyzico/build-metadata.generated.ts";
 export type {
   HostedPaymentAdapter,

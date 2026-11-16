@@ -181,14 +181,18 @@ function executableCompiledAuthorities(
       && authority.adapterVersion === packets.akbank_json.adapterVersion
       && /^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)) executable.push(Object.freeze({ providerCode: "akbank_json", authority }));
   }
-  const iyzico = authorities.iyzico_iframe;
-  if (
-    iyzico !== null
-    && resolveStorefrontHostedPaymentActivationMode(source, "iyzico_iframe") === "approved_test_sandbox"
-    && iyzico.environment === "test"
-    && iyzico.adapterVersion === packets.iyzico_iframe.adapterVersion
-    && /^sha256:[a-f0-9]{64}$/.test(iyzico.evidenceDigest)
-  ) executable.push(Object.freeze({ providerCode: "iyzico_iframe", authority: iyzico }));
+  const iyzicoMode = resolveStorefrontHostedPaymentActivationMode(source, "iyzico_iframe");
+  for (const environment of ["test", "live"] as const) {
+    const authority = environment === "test" ? authorities.iyzico_iframe : authorities.iyzico_iframe_live;
+    const enabled = iyzicoMode === "approved_test_and_live"
+      || (iyzicoMode === "approved_test_sandbox" && environment === "test")
+      || (iyzicoMode === "approved_live" && environment === "live");
+    if (authority && enabled && authority.environment === environment
+      && authority.adapterVersion === packets.iyzico_iframe.adapterVersion
+      && /^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)) {
+      executable.push(Object.freeze({ providerCode: "iyzico_iframe", authority }));
+    }
+  }
   return Object.freeze(executable);
 }
 

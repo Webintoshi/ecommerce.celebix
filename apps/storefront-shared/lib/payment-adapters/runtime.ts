@@ -712,8 +712,11 @@ function parseInitialization(
     && exactKeys(value, ["kind", "url", "providerReference"])
     && validProviderReference(value.providerReference)
   ) {
-    const url = exactBrowserUrl(adapter, environment, value.url, undefined, language);
-    return url === null ? null : Object.freeze({
+    const iyzicoLive = adapter.packet.providerCode === "iyzico_iframe" && environment === "live";
+    const token = iyzicoLive ? value.providerReference : undefined;
+    const url = exactBrowserUrl(adapter, environment, value.url, token, language);
+    if (url === null || (iyzicoLive && new URL(url).href !== url)) return null;
+    return Object.freeze({
       status: "awaiting_customer",
       providerReference: value.providerReference,
       safeCode: "redirect_ready",

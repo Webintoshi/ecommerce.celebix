@@ -698,6 +698,9 @@ function parseInitializeSuccess(
     if (selected.locale !== undefined && selected.locale !== preferences.locale) invalid();
     if (selected.systemTime !== undefined && !Number.isSafeInteger(selected.systemTime)) invalid();
     if (selected.tokenExpireTime !== undefined && !Number.isSafeInteger(selected.tokenExpireTime)) invalid();
+    if (environment === "live") {
+      return Object.freeze({ kind: "redirect" as const, url: new URL(url).href, providerReference });
+    }
     return Object.freeze({
       kind: "iframe" as const,
       url,
@@ -1105,10 +1108,7 @@ export function createIyzicoCheckoutFormAdapter(
     let responseBody: Uint8Array | undefined;
     try {
       const selected = exactRecord(input, INITIALIZE_KEYS);
-      if (selected.environment === "live") {
-        return Object.freeze({ kind: "rejected" as const, code: "environment_not_ready" });
-      }
-      if (selected.environment !== "test") invalid();
+      if (selected.environment !== "test" && selected.environment !== "live") invalid();
       const preferences = parseProviderPaymentMethodConfig("iyzico_iframe", selected.preferences);
       if (preferences.environment !== selected.environment) invalid();
       selectedCredential = parseIyzicoCredential(selected.credential);
@@ -1125,7 +1125,7 @@ export function createIyzicoCheckoutFormAdapter(
       const selectedBasket = basket(selected.basket, amountMinor);
       const result = await providerRequest(
         transport,
-        "test",
+        selected.environment,
         selectedCredential,
         INITIALIZE_PATH,
         initializePayload(
@@ -1175,7 +1175,7 @@ export function createIyzicoCheckoutFormAdapter(
       }
       return parseInitializeSuccess(
         raw,
-        "test",
+        selected.environment,
         selected.attemptId as string,
         selectedCredential,
         preferences,
@@ -1194,7 +1194,7 @@ export function createIyzicoCheckoutFormAdapter(
     try {
       const selected = exactRecord(input, CALLBACK_KEYS);
       if (
-        selected.environment !== "test" ||
+        (selected.environment !== "test" && selected.environment !== "live") ||
         selected.method !== "POST"
       ) invalid("iyzico_callback_invalid");
       const headers = exactRecord(selected.headers, ["content-type"], ["content-length"]);
@@ -1228,7 +1228,7 @@ export function createIyzicoCheckoutFormAdapter(
       if (abortSignal.aborted) return retryCallback(expectedToken, "TRY");
       const result = await retrieve(
         transport,
-        "test",
+        selected.environment,
         selectedCredential,
         selectedDependencies.randomKey,
         abortSignal,
@@ -1273,7 +1273,7 @@ export function createIyzicoCheckoutFormAdapter(
     let providerReference: string | null = null;
     try {
       const selected = exactRecord(input, QUERY_KEYS);
-      if (selected.environment !== "test" || selected.currency !== "TRY") invalid();
+      if ((selected.environment !== "test" && selected.environment !== "live") || selected.currency !== "TRY") invalid();
       if (typeof selected.attemptId !== "string" || !UUID.test(selected.attemptId)) invalid();
       const orderReference = reference(selected.orderReference);
       providerReference = token(selected.providerReference);
@@ -1283,7 +1283,7 @@ export function createIyzicoCheckoutFormAdapter(
       selectedCredential = parseIyzicoCredential(selected.credential);
       const result = await retrieve(
         transport,
-        "test",
+        selected.environment,
         selectedCredential,
         selectedDependencies.randomKey,
         abortSignal,

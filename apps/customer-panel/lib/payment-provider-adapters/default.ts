@@ -6,6 +6,7 @@ import {
   createAkbankHostedAdapter,
   resolveAkbankCompiledExecutionAuthority,
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY,
   IYZICO_IFRAME_PACKET,
   IYZICO_GENERATED_BUILD_METADATA,
   PAYTR_APPROVED_EXECUTION_AUTHORITIES,
@@ -128,6 +129,21 @@ export function resolveIyzicoCompiledExecutionAuthority(
   } catch {
     return null;
   }
+}
+
+export function resolveIyzicoPanelExecutionAuthority(
+  sandboxApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  sandboxBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
+  liveApproval: unknown = IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY,
+): Readonly<PaymentProviderExecutionAuthority> | null {
+  if (exactExecutionAuthority(liveApproval, IYZICO_IFRAME_PACKET.adapterVersion, "live")) {
+    return Object.freeze({
+      environment: "live",
+      adapterVersion: liveApproval.adapterVersion,
+      evidenceDigest: liveApproval.evidenceDigest,
+    });
+  }
+  return resolveIyzicoCompiledExecutionAuthority(sandboxApproval, sandboxBuild);
 }
 
 export function resolvePaytrCompiledExecutionAuthority(
@@ -320,8 +336,8 @@ function iyzicoEntry(
   function parsePublicConfig(value: unknown): Readonly<Record<string, MerchantAdminJson>> {
     const selected = exactRecord(value, ["environment"]);
     if (
-      selected.environment !== "test"
-      && (executionAuthority !== null || selected.environment !== "live")
+      (selected.environment !== "test" && selected.environment !== "live")
+      || (executionAuthority !== null && selected.environment !== executionAuthority.environment)
     ) invalid();
     return Object.freeze({ environment: selected.environment });
   }
@@ -370,7 +386,7 @@ function iyzicoEntry(
     adapterVersion: adapter.packet.adapterVersion,
     environments: executionAuthority === null
       ? Object.freeze(["test", "live"] as const)
-      : Object.freeze(["test"] as const),
+      : Object.freeze([executionAuthority.environment]),
     executionAuthority,
     profileSaveMode: executionAuthority === null
       ? "verification" as const
@@ -432,6 +448,7 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
   activationMode: CustomerPanelPaymentActivationMode = "disabled",
   iyzicoApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
   iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
+  iyzicoLiveApproval: unknown = IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY,
 ): MerchantProviderRegistry {
   try {
     if (hosted.size !== 3) invalid();
@@ -449,7 +466,7 @@ export function createDefaultCustomerPanelPaymentProviderRegistry(
     const paytrAuthority = activationMode === "disabled"
       ? null
       : resolvePaytrCompiledExecutionAuthority(executionAuthority, environment);
-    const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
+    const iyzicoAuthority = resolveIyzicoPanelExecutionAuthority(iyzicoApproval, iyzicoBuild, iyzicoLiveApproval);
     return createCustomerPanelProviderRegistry([
       paytrEntry(adapter, paytrAuthority),
       iyzicoEntry(iyzico, iyzicoAuthority),
@@ -469,8 +486,9 @@ export function createDefaultCustomerPanelCredentialProviderRegistry(
   activationMode: CustomerPanelPaymentActivationMode = "disabled",
   iyzicoApproval: unknown = IYZICO_APPROVED_EXECUTION_AUTHORITY,
   iyzicoBuild: unknown = IYZICO_GENERATED_BUILD_METADATA,
+  iyzicoLiveApproval: unknown = IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY,
 ): MerchantProviderRegistry {
-  const execution = createDefaultCustomerPanelPaymentProviderRegistry(hosted, executionAuthority, activationMode, iyzicoApproval, iyzicoBuild);
+  const execution = createDefaultCustomerPanelPaymentProviderRegistry(hosted, executionAuthority, activationMode, iyzicoApproval, iyzicoBuild, iyzicoLiveApproval);
   const credentials = createCustomerPanelProviderRegistry([
     paytrEntry(hosted.adapter("paytr_iframe")!, null),
     akbankEntry(hosted.adapter("akbank_json")!, null),

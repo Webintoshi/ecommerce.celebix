@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "7c259d30784ad7f065ed17f3962a73a1433a9512d912e04bedb876b83b383da7",
+  "inputDigest": "07cbf9ab6be909bb815bfd6bc94f3b9f69d0936a3a1a08e5d1fb5b8ed73d1ae3",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -929,7 +929,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/iyzico-validation-adapter.ts",
-      "sha256": "aa2fe71b8f778717e01d183494dab72d5b57744ae5792bc01d0c3cff57191bb4"
+      "sha256": "de9de135539e24a694c832135f2544e79e223e65fe7cf87273d96cb109263396"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/paytr-validation-adapter.ts",
@@ -937,7 +937,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production-config.ts",
-      "sha256": "56fdf8a025b56826142dac32b068bdfef56c902a897adee2c5955ccbaedead9b"
+      "sha256": "98d4b9c6349b61a26a3c4246a547b1004c2d6175ccd3f9e9e7cceab83a692911"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production.ts",
@@ -945,15 +945,15 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/registry.ts",
-      "sha256": "81c8d9c21e0193615df043902d63f66739be644ff55ec933fe32738457994335"
+      "sha256": "4887b5c446dd2448102e26e503c391406202986ef18b5fbeda2d6fc913a723b8"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/types.ts",
-      "sha256": "8b941b27d086a6a35f8c4a266af3d091f439bb665d4bab1f292afc3fa18eec1e"
+      "sha256": "72e3bac551031644d7301eb93fb0a01722742aebf41ea8e08175675af969b61b"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/worker.ts",
-      "sha256": "a3b9e0d3e713d5636433ecc76050c764ca2830077aa80b499b7bbc46da9e8255"
+      "sha256": "9a11f3d11688acca59ca79ce937fb97cbb06a83aefcf662534aa47996e331cf8"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/codec.ts",
@@ -2956,6 +2956,10 @@
       "sha256": "aab9a3a003db7d91e424d17a747641eee20e80f9547a3bdae94d0deb14943f9b"
     },
     {
+      "path": "apps/owner/scripts/sql/saas/202611160507_iyzico_live_activation.up.sql",
+      "sha256": "173b827c1b26648219da2d8955a8662b2a1771c8e7f203989b2cabc7397a389c"
+    },
+    {
       "path": "apps/owner/scripts/sql/saas/akbank-hosted-pos275-manifest.json",
       "sha256": "a502d3ff1ec154e445bfa2c045b422f33318be427791a95d44a40a12f1757daa"
     },
@@ -3521,7 +3525,7 @@
     },
     {
       "path": "packages/payment-adapters/src/index.ts",
-      "sha256": "d7eaa6005ed208942a27adf2e40d339d5c02c6960e31b4a02f222661ad494ccb"
+      "sha256": "1d3cfd16947d6be4e2c53041818b26a8612f8e7ea0aea5a876e005c674109909"
     },
     {
       "path": "packages/payment-adapters/src/packets/plugin-inventory.ts",
@@ -3549,11 +3553,11 @@
     },
     {
       "path": "packages/payment-adapters/src/providers/iyzico/adapter.ts",
-      "sha256": "224b8de6af304d127f4ec6effb346e65e31d909ed443c609118fd279b3abfe1d"
+      "sha256": "0dd370080bc278edbe75b628594ec6c2e05b77f4b65430915ef0705efbefbc9b"
     },
     {
       "path": "packages/payment-adapters/src/providers/iyzico/build-binding.ts",
-      "sha256": "fff177ae767313383b90b5ad6200de1d5e4495e971fcf3ed5c1595db3b305c2b"
+      "sha256": "1ded23091d368e3c50fb834dba5fdad791b0b0c9f98c0fc39520d838d2811d23"
     },
     {
       "path": "packages/payment-adapters/src/providers/iyzico/config.ts",
@@ -5897,7 +5901,7 @@
     },
     {
       "path": "scripts/generate-iyzico-sandbox-build.mjs",
-      "sha256": "ad47fff4085d97a582ffa1d3614976859a676ce44221766532f2fd730cc5a4fa"
+      "sha256": "4ccd7725892215e0155d2fa2eb5ca3b80322312acce09dc4542de892db3af20f"
     },
     {
       "path": "scripts/generate-paytr-build.mjs",

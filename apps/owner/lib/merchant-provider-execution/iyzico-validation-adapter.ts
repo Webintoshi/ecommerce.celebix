@@ -34,7 +34,7 @@ export type IyzicoValidationAdapterOptions = Readonly<{
 
 export type IyzicoExecutionValidationAdapterOptions = Readonly<{
   executionAuthority: Readonly<{
-    environment: "test";
+    environment: "test" | "live";
     adapterVersion: 1;
     evidenceDigest: string;
   }>;
@@ -278,12 +278,13 @@ export function createIyzicoExecutionValidationAdapter(
     "environment", "adapterVersion", "evidenceDigest",
   ]);
   if (
-    authority.environment !== "test" || authority.adapterVersion !== 1
+    (authority.environment !== "test" && authority.environment !== "live") || authority.adapterVersion !== 1
     || typeof authority.evidenceDigest !== "string"
     || !/^sha256:[a-f0-9]{64}$/.test(authority.evidenceDigest)
   ) invalid();
+  const environment = authority.environment;
   const validation = createIyzicoValidationAdapter(Object.freeze({
-    validationIdentity: Object.freeze({ environment: "test" as const, adapterVersion: 1 as const }),
+    validationIdentity: Object.freeze({ environment, adapterVersion: 1 as const }),
     transport: parsed.transport as ProviderTransport,
     validationReference: parsed.validationReference as () => string,
     validationRandomKey: parsed.validationRandomKey as () => string,
@@ -297,7 +298,7 @@ export function createIyzicoExecutionValidationAdapter(
     providerCode: "iyzico_iframe",
     capability: "payment_processing" as const,
     executionAuthority: Object.freeze({
-      environment: "test" as const,
+      environment,
       adapterVersion: 1,
       evidenceDigest: authority.evidenceDigest,
     }),

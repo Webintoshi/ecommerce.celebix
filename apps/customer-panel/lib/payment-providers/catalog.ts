@@ -8,7 +8,7 @@ import { RAW_PAYMENT_PROVIDER_CATALOG } from "./catalog-data.ts";
 import logoManifest from "./logo-manifest.json" with { type: "json" };
 import {
   resolveCustomerPanelPaymentActivationMode,
-  resolveIyzicoCompiledExecutionAuthority,
+  resolveIyzicoPanelExecutionAuthority,
   resolvePaytrCompiledExecutionAuthority,
 } from "../payment-provider-adapters/default.ts";
 
@@ -54,8 +54,9 @@ export function createPaymentProviderCatalog(
   iyzicoApproval?: unknown,
   iyzicoBuild?: unknown,
   paytrEnvironment: "test" | "live" = "test",
+  iyzicoLiveApproval?: unknown,
 ): readonly PaymentProviderCatalogEntry[] {
-  const iyzicoAuthority = resolveIyzicoCompiledExecutionAuthority(iyzicoApproval, iyzicoBuild);
+  const iyzicoAuthority = resolveIyzicoPanelExecutionAuthority(iyzicoApproval, iyzicoBuild, iyzicoLiveApproval);
   const paytrAuthority = resolvePaytrCompiledExecutionAuthority(undefined, paytrEnvironment);
   const akbankAuthority = resolveAkbankCompiledExecutionAuthority("live") ?? resolveAkbankCompiledExecutionAuthority("test");
   const selected = iyzicoAuthority === null && paytrAuthority === null && akbankAuthority === null
@@ -77,8 +78,8 @@ export function createPaymentProviderCatalog(
       if (entry.providerCode === "iyzico_iframe" && iyzicoAuthority !== null) {
         return Object.freeze({
           ...entry,
-          readiness: "sandbox_ready" as const,
-          environments: Object.freeze(["test"] as const),
+          readiness: iyzicoAuthority.environment === "live" ? "production_ready" as const : "sandbox_ready" as const,
+          environments: Object.freeze([iyzicoAuthority.environment]),
           executionAuthority: iyzicoAuthority,
         });
       }
