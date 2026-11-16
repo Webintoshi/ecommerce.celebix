@@ -42,3 +42,16 @@ test("capability evidence requires an exact safe execution version and digest",a
  assert.deepEqual((await probe(current)(context,new Date())).payment.providers,[current]);
  for(const invalid of[{providerCode:current.providerCode,environment:current.environment},{...current,adapterVersion:0},{...current,adapterVersion:1.5},{...current,adapterVersion:Number.MAX_SAFE_INTEGER+1},{...current,evidenceDigest:"sha256:"+"b".repeat(63)},{...current,evidenceDigest:"sha256:"+"B".repeat(64)},{...current,credential:"unexpected"}])await assert.rejects(()=>probe(invalid)(context,new Date()));
 });
+
+test("storefront readiness accepts live iyzico alongside existing card providers", async () => {
+  const providers = ["paytr_iframe", "iyzico_iframe", "akbank_json"].flatMap((providerCode) =>
+    (["test", "live"] as const).map((environment) => ({ ...executionAuthority(environment), providerCode })));
+  const probe = createSetupEdgeProbe({ ...scope, get: async (url) => {
+    const result = response(url);
+    if (url.pathname !== "/api/setup-capabilities") return result;
+    const body = JSON.parse(result.body);
+    body.payment = { kind: "ready", providers };
+    return { ...result, body: JSON.stringify(body) };
+  } });
+  assert.deepEqual((await probe(context, new Date())).payment.providers, providers);
+});
