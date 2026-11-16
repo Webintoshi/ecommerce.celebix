@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "07cbf9ab6be909bb815bfd6bc94f3b9f69d0936a3a1a08e5d1fb5b8ed73d1ae3",
+  "inputDigest": "7aaf81b41338922c6341edf004cffae7c68ddadff9182c5d4fc822ee3a5e1956",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -953,7 +953,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/worker.ts",
-      "sha256": "9a11f3d11688acca59ca79ce937fb97cbb06a83aefcf662534aa47996e331cf8"
+      "sha256": "9211aa6ee8c8e78c3988ac7eb5a5a164ae7cc16f9e7d5bedc36269402fd3464e"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/codec.ts",

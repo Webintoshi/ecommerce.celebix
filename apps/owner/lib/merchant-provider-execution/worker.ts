@@ -335,6 +335,7 @@ export async function runMerchantProviderWorkerOnce(options: MerchantProviderWor
   if (!(now instanceof Date) || !Number.isFinite(now.getTime())) invalid();
   const selectedNow = new Date(now.getTime());
   const leaseExpiresAt = new Date(selectedNow.getTime() + options.leaseDurationMs);
+  let verificationUnavailable = false;
   for (const adapter of options.verificationRegistry.list()) {
     const verification = await options.repository.claimProfileVerification({
       workerId: options.workerId,
@@ -346,7 +347,9 @@ export async function runMerchantProviderWorkerOnce(options: MerchantProviderWor
     });
     if (verification.kind === "claimed") {
       if (!exactVerificationIdentity(verification.profile, adapter)) invalid();
-      return verifyProfile(options, verification.profile, adapter, selectedNow);
+      const verified = await verifyProfile(options, verification.profile, adapter, selectedNow);
+      if (verified.kind !== "profile_unavailable") return verified;
+      verificationUnavailable = true;
     }
   }
   for (const adapter of options.registry.list()) {
@@ -359,9 +362,10 @@ export async function runMerchantProviderWorkerOnce(options: MerchantProviderWor
       return validateProfile(options, validation.profile, adapter, selectedNow);
     }
   }
-  if (options.mode === "validation_only") return result("empty");
+  const fallback = result(verificationUnavailable ? "profile_unavailable" : "empty");
+  if (options.mode === "validation_only") return fallback;
   const execution = await options.repository.claim({ workerId: options.workerId, now: selectedNow, leaseExpiresAt });
-  if (execution.kind === "empty") return result("empty");
+  if (execution.kind === "empty") return fallback;
   const { providerCode, capability, publicConfig } = execution.job;
   const environment = publicConfig.environment;
   const adapter = options.registry.get(providerCode, capability)

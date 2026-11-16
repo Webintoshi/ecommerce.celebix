@@ -388,6 +388,7 @@ test("Akbank production composition opens encrypted credentials, authenticates i
           leaseExpiresAt: new Date(NOW.getTime() + 60_000).toISOString(),
         }}] : [{outcome: "empty", result_payload: null}];
       }
+      if (text.includes("merchant_provider_profile_claim_validation")) return [{outcome: "empty", result_payload: null}];
       if (text.includes("akbank_merchant_self_service_mark_verification")) return [{outcome: signed ? "validated" : "unavailable", result_payload: {
         id: PROFILE, providerCode: "akbank_json", capability: "payment_processing", publicConfig: {environment},
         maskedAccountReference: "Akbank hesabı", status: signed ? "active" : "pending_validation",
@@ -425,7 +426,8 @@ test("Akbank production composition opens encrypted credentials, authenticates i
     if(bankFailure) throw bankFailure;
     assert.deepEqual(result,{kind: signed ? "profile_validated" : "profile_unavailable"});
     assert.equal(bankCalls,1);
-    assert.deepEqual(observed.at(-1),{providerCode: "akbank_json", environment});
+    const akbankEnvironments = observed.filter(({providerCode}) => providerCode === "akbank_json").map(({environment}) => environment);
+    assert.deepEqual(akbankEnvironments, signed && environment === "test" ? ["test"] : ["test", "live"]);
     const finalized = client.calls.find(({text})=>text.includes("akbank_merchant_self_service_mark_verification"));
     assert.ok(finalized);
     assert.deepEqual(finalized.values.slice(0,5),[PROFILE,"akbank_json","payment_processing",environment,1]);

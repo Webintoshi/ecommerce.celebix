@@ -11,6 +11,7 @@ import {
 
 import {
   createMerchantProviderAdapterRegistry,
+  createMerchantProviderVerificationAdapterRegistry,
 } from "./registry.ts";
 import { createMerchantProviderWorker } from "./worker.ts";
 import type {
@@ -179,28 +180,20 @@ function probe(options: ProbeOptions = {}) {
 
 type VerificationResult = Awaited<ReturnType<MerchantProviderVerificationAdapter["validateCredential"]>>;
 
-function verificationProbe(validation: VerificationResult, sabotageCredentialFill = false) {
-  const plaintext = new TextEncoder().encode(JSON.stringify({
-    apiKey: "sandbox-api-key",
-    secretKey: "sandbox-secret-key",
-  }));
-  const sealedCredentials = sealMerchantProviderCredential({
-    plaintext,
-    profileId: PROFILE,
-    storeId: STORE,
-    providerCode: "iyzico_iframe",
-    capability: "payment_processing",
-    credentialVersion: 1,
-    keyring: KEYRING,
-  });
-  plaintext.fill(0);
+function verificationProbe(
+  validation: VerificationResult,
+  sabotageCredentialFill = false,
+  liveValidation?: VerificationResult,
+) {
   const retained: Uint8Array[] = [];
   const marks: Record<string, unknown>[] = [];
   const audits: unknown[] = [];
-  const adapter: MerchantProviderVerificationAdapter = Object.freeze({
+  const testLane = { environment: "test" as const, validation };
+  const lanes = liveValidation === undefined ? [testLane] : [testLane, { environment: "live" as const, validation: liveValidation }];
+  const adapters = lanes.map(({ environment, validation }): MerchantProviderVerificationAdapter => Object.freeze({
     providerCode: "iyzico_iframe",
     capability: "payment_processing",
-    validationIdentity: Object.freeze({ environment: "test", adapterVersion: 1 }),
+    validationIdentity: Object.freeze({ environment, adapterVersion: 1 }),
     async validateCredential(input: Parameters<MerchantProviderVerificationAdapter["validateCredential"]>[0]) {
       retained.push(input.credential);
       if (sabotageCredentialFill) {
@@ -212,15 +205,30 @@ function verificationProbe(validation: VerificationResult, sabotageCredentialFil
       }
       return validation;
     },
-  });
+  }));
   const repository = {
-    async claimProfileVerification() {
+    async claimProfileVerification(input: Parameters<MerchantProviderVerificationWorkflowRepository["claimProfileVerification"]>[0]) {
+      const { validationIdentity } = input;
+      const { environment } = validationIdentity;
+      const profileId = environment === "live" ? "40000000-0000-4000-8000-000000000006" : PROFILE;
+      const leaseId = environment === "live" ? "73000000-0000-4000-8000-000000000002" : LEASE;
+      const plaintext = new TextEncoder().encode(JSON.stringify({ apiKey: "fixture-api-key", secretKey: "fixture-secret-key" }));
+      const sealedCredentials = sealMerchantProviderCredential({
+        plaintext,
+        profileId,
+        storeId: STORE,
+        providerCode: "iyzico_iframe",
+        capability: "payment_processing",
+        credentialVersion: 1,
+        keyring: KEYRING,
+      });
+      plaintext.fill(0);
       return Object.freeze({ kind: "claimed" as const, profile: Object.freeze({
-        profileId: PROFILE, storeId: STORE, providerCode: "iyzico_iframe",
+        profileId, storeId: STORE, providerCode: "iyzico_iframe",
         capability: "payment_processing" as const,
-        publicConfig: Object.freeze({ environment: "test" }),
-        validationIdentity: Object.freeze({ environment: "test" as const, adapterVersion: 1 }),
-        sealedCredentials, credentialVersion: 1, profileVersion: 2, leaseId: LEASE,
+        publicConfig: Object.freeze({ environment }),
+        validationIdentity,
+        sealedCredentials, credentialVersion: 1, profileVersion: 2, leaseId,
         leaseOwner: "worker.fixture", leaseExpiresAt: new Date(NOW.getTime() + 300_000).toISOString(),
       }) });
     },
@@ -247,7 +255,7 @@ function verificationProbe(validation: VerificationResult, sabotageCredentialFil
     mode: "validation_only",
     repository,
     registry: createMerchantProviderAdapterRegistry(Object.freeze([])),
-    verificationRegistry: Object.freeze({ size: 1, get: () => adapter, list: () => Object.freeze([adapter]) }),
+    verificationRegistry: createMerchantProviderVerificationAdapterRegistry(Object.freeze(adapters)),
     keyring: KEYRING,
     workerId: "worker.fixture",
     now: () => new Date(NOW),
@@ -413,6 +421,22 @@ test("verification lane releases transient provider uncertainty for retry withou
     capability: "payment_processing",
   }]);
   assert.equal(selected.retained[0]?.every((byte) => byte === 0), true);
+});
+
+test("a temporarily unavailable sandbox verification cannot block live verification", async () => {
+  const selected = verificationProbe(
+    Object.freeze({ kind: "rejected", outcomeCode: "validation_unavailable" }),
+    false,
+    Object.freeze({ kind: "validated" }),
+  );
+
+  assert.deepEqual(await selected.worker.runOnce(), { kind: "profile_validated" });
+  assert.deepEqual(selected.marks.map(({ validationIdentity, outcome }) => ({ validationIdentity, outcome })), [
+    { validationIdentity: { environment: "test", adapterVersion: 1 }, outcome: "unavailable" },
+    { validationIdentity: { environment: "live", adapterVersion: 1 }, outcome: "validated" },
+  ]);
+  assert.equal(selected.retained.length, 2);
+  assert.equal(selected.retained.every((credential) => credential.every((byte) => byte === 0)), true);
 });
 
 test("verification worker wipes plaintext with the typed-array intrinsic after adapter sabotage", async () => {
