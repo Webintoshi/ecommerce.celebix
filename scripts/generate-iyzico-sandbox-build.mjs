@@ -8,6 +8,7 @@ import {
   IYZICO_ADAPTER_SOURCE_PATHS,
   createIyzicoAdapterSourceManifest,
   createIyzicoCandidateBuildMetadata,
+  iyzicoLiveExecutionEvidenceDigest,
 } from "../packages/payment-adapters/src/providers/iyzico/build-binding.ts";
 
 const GENERATED_PATH = "packages/payment-adapters/src/providers/iyzico/build-metadata.generated.ts";
@@ -15,6 +16,8 @@ const GIT_SHA = /^[a-f0-9]{40}$/;
 const APPROVAL_MODE = "approved_test_sandbox";
 const APPROVAL_MODE_KEY = "CELEBIX_IYZICO_APPROVAL_MODE";
 const APPROVAL_DIGEST_KEY = "CELEBIX_IYZICO_APPROVED_EVIDENCE_DIGEST";
+const LIVE_APPROVAL_MODE_KEY = "CELEBIX_IYZICO_LIVE_APPROVAL_MODE";
+const LIVE_APPROVAL_DIGEST_KEY = "CELEBIX_IYZICO_LIVE_APPROVED_EVIDENCE_DIGEST";
 const APPROVAL_PREFIX = "CELEBIX_IYZICO_";
 const BUILD_SECRETS_DIRECTORY_KEY = "CELEBIX_BUILD_SECRETS_DIR";
 const DEFAULT_BUILD_SECRETS_DIRECTORY = "/run/secrets";
@@ -22,6 +25,8 @@ const BUILD_SECRET_KEYS = Object.freeze([
   "SOURCE_COMMIT",
   APPROVAL_MODE_KEY,
   APPROVAL_DIGEST_KEY,
+  LIVE_APPROVAL_MODE_KEY,
+  LIVE_APPROVAL_DIGEST_KEY,
 ]);
 
 function invalid() {
@@ -74,11 +79,7 @@ function selectedEnvironment(value) {
       const descriptor = descriptors[key];
       if (!descriptor || !descriptor.enumerable || !("value" in descriptor)
         || typeof descriptor.value !== "string") invalid();
-      if (
-        key !== "SOURCE_COMMIT"
-        && key !== APPROVAL_MODE_KEY
-        && key !== APPROVAL_DIGEST_KEY
-      ) invalid();
+      if (!BUILD_SECRET_KEYS.includes(key)) invalid();
       selected[key] = descriptor.value;
     }
     if (typeof selected.SOURCE_COMMIT !== "string" || !GIT_SHA.test(selected.SOURCE_COMMIT)) {
@@ -145,27 +146,40 @@ function approval(environment, candidateDigest) {
   return Object.freeze({ environment: "test", adapterVersion: 1, evidenceDigest });
 }
 
-function render(candidate, selectedApproval) {
-  const metadata = JSON.stringify(candidate, null, 2);
-  const authority = selectedApproval === null
-    ? "null"
-    : `Object.freeze(${JSON.stringify(selectedApproval, null, 2)})`;
+function liveApproval(environment, candidate) {
+  const mode = environment[LIVE_APPROVAL_MODE_KEY];
+  const suppliedDigest = environment[LIVE_APPROVAL_DIGEST_KEY];
+  if (mode === undefined && suppliedDigest === undefined) return null;
+  const evidenceDigest = iyzicoLiveExecutionEvidenceDigest(candidate);
+  if (mode !== "approved_live" || suppliedDigest !== evidenceDigest) invalid();
+  return Object.freeze({ environment: "live", adapterVersion: 1, evidenceDigest });
+}
+
+function frozenLiteral(value) {
+  return value === null ? "null" : `Object.freeze(${JSON.stringify(value, null, 2)})`;
+}
+
+function render(candidate, selectedApproval, liveCandidate, selectedLiveApproval) {
   return `import type { PaymentProviderExecutionAuthority } from "@celebix/saas-contracts";\n\n`
-    + `export type IyzicoCandidateBuildMetadata = Readonly<{\n`
+    + `export type IyzicoCandidateBuildMetadata<Environment extends "test" | "live" = "test"> = Readonly<{\n`
     + `  buildMetadataSchemaVersion: 1;\n`
     + `  evidenceSchemaVersion: 1;\n`
     + `  providerCode: "iyzico_iframe";\n`
     + `  capability: "payment_processing";\n`
-    + `  environment: "test";\n`
+    + `  environment: Environment;\n`
     + `  adapterVersion: 1;\n`
     + `  gitSha: string;\n`
     + `  sourceDigest: string;\n`
     + `  candidateExecutionDigest: string;\n`
     + `}>;\n\n`
     + `export const IYZICO_GENERATED_BUILD_METADATA:\n`
-    + `  IyzicoCandidateBuildMetadata | null = Object.freeze(${metadata});\n\n`
+    + `  IyzicoCandidateBuildMetadata | null = ${frozenLiteral(candidate)};\n\n`
     + `export const IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY:\n`
-    + `  Readonly<PaymentProviderExecutionAuthority> | null = ${authority};\n`;
+    + `  Readonly<PaymentProviderExecutionAuthority> | null = ${frozenLiteral(selectedApproval)};\n\n`
+    + `export const IYZICO_GENERATED_LIVE_BUILD_METADATA:\n`
+    + `  IyzicoCandidateBuildMetadata<"live"> | null = ${frozenLiteral(liveCandidate)};\n\n`
+    + `export const IYZICO_GENERATED_LIVE_APPROVED_EXECUTION_AUTHORITY:\n`
+    + `  Readonly<PaymentProviderExecutionAuthority> | null = ${frozenLiteral(selectedLiveApproval)};\n`;
 }
 
 async function atomicWrite(path, bytes) {
@@ -210,11 +224,15 @@ export async function generateIyzicoSandboxBuild(value) {
     return invalid();
   }
   const sourceManifest = createIyzicoAdapterSourceManifest(Object.freeze(sources));
-  const candidate = createIyzicoCandidateBuildMetadata(Object.freeze({
-    gitSha: environment.SOURCE_COMMIT,
-    sourceManifest,
-  }));
-  const output = render(candidate, approval(environment, candidate.candidateExecutionDigest));
+  const build = Object.freeze({ gitSha: environment.SOURCE_COMMIT, sourceManifest });
+  const candidate = createIyzicoCandidateBuildMetadata(build);
+  const liveCandidate = createIyzicoCandidateBuildMetadata(build, "live");
+  const output = render(
+    candidate,
+    approval(environment, candidate.candidateExecutionDigest),
+    liveCandidate,
+    liveApproval(environment, liveCandidate),
+  );
   const generatedPath = join(parsed.repositoryRoot, GENERATED_PATH);
   if (parsed.check) {
     let current;

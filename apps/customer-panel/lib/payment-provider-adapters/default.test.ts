@@ -303,3 +303,18 @@ test("Akbank setup seals every bank identifier and exposes only safe environment
     assert.throws(() => entry.parsePublicConfig({...config,secretKey:"not-public"}));
   }
 });
+
+test("an exact live iyzico approval exposes only the live execution environment", () => {
+  const live = Object.freeze({
+    environment: "live",
+    adapterVersion: 1,
+    evidenceDigest: `sha256:${"c".repeat(64)}`,
+  } as const);
+  const hosted = createDefaultHostedPaymentAdapterRegistry(transport());
+  const registry = createDefaultCustomerPanelPaymentProviderRegistry(hosted, undefined, "disabled", null, null, live);
+  const entry = registry.get("iyzico_iframe", "payment_processing")!;
+  assert.deepEqual(entry.environments, ["live"]);
+  assert.deepEqual(entry.executionAuthority, live);
+  assert.deepEqual(entry.parsePublicConfig({ environment: "live" }), { environment: "live" });
+  assert.throws(() => entry.parsePublicConfig({ environment: "test" }));
+});

@@ -881,6 +881,39 @@ test("reconciliation supersession between read and exact claim leaves no provide
   assert.equal(selected.calls.finalized.length, 0);
 });
 
+test("iyzico LIVE redirect binds the production URL to the persisted provider token", async () => {
+  const providerReference = "A".repeat(36);
+  const url = `https://cpp.iyzipay.com/?token=${providerReference}&lang=tr`;
+  const begin = beginResult({
+    providerCode: "iyzico_iframe",
+    environment: "live",
+    publicConfig: Object.freeze({ environment: "live" }),
+    methodConfig: { ...beginResult().methodConfig, environment: "live" },
+  });
+  const selected = fixture({
+    packet: IYZICO_IFRAME_PACKET,
+    begin,
+    compiledAuthority: { ...COMPILED_AUTHORITY, providerCode: "iyzico_iframe", environment: "live" },
+    credential: { apiKey: "fixture-key", secretKey: "fixture-secret" },
+    initialization: { kind: "redirect", url, providerReference },
+  });
+  assert.deepEqual(await selected.runtime.initialize(providerInput()), { kind: "redirect", url });
+  assert.equal(selected.calls.initialized[0]?.providerReference, providerReference);
+  assert.equal(selected.calls.initialized[0]?.safeCode, "redirect_ready");
+
+  for (const wrongUrl of [url.replace(providerReference, "B".repeat(36)), url.replace("cpp.", "sandbox-cpp."), `${url}&next=other`]) {
+    const mismatched = fixture({
+      packet: IYZICO_IFRAME_PACKET,
+      begin,
+      compiledAuthority: { ...COMPILED_AUTHORITY, providerCode: "iyzico_iframe", environment: "live" },
+      credential: { apiKey: "fixture-key", secretKey: "fixture-secret" },
+      initialization: { kind: "redirect", url: wrongUrl, providerReference },
+    });
+    assert.deepEqual(await mismatched.runtime.initialize(providerInput()), { kind: "processing" });
+    assert.equal(mismatched.calls.initialized.length, 0);
+  }
+});
+
 test("provider-specific projection keeps buyer PII in memory, sends iyzico its real fields, and preserves PayTR input", async () => {
   const paytrA = providerProjectionFixture("paytr_iframe");
   const paytrB = providerProjectionFixture("paytr_iframe");

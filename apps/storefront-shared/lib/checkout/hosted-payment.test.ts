@@ -202,6 +202,36 @@ test("hosted checkout sends only database authority plus operation and trusted I
   });
 });
 
+test("quick-order iyzico LIVE checkout redirects only to the exact production payment URL", async () => {
+  const url = `https://cpp.iyzipay.com/?token=${TOKEN}&lang=tr`;
+  const selectedAuthority = Object.freeze({ ...authority(), environment: "live" as const });
+  for (const [location, expectedStatus] of [
+    [url, 303],
+    [url.replace("cpp.", "sandbox-cpp."), 503],
+    [`${url}&next=other`, 503],
+  ] as const) {
+    const handler = createQuickOrderHostedPaymentBridgeRoute({
+      selectAuthority: () => ({ kind: "trusted", hostname: HOSTNAME }),
+      now: () => new Date(NOW),
+      fallback: async () => { throw new Error("hosted authority must not use legacy fallback"); },
+      resolveRuntime: async () => ({
+        hostedPayments: {
+          async getAuthority() { return { kind: "found", authority: selectedAuthority }; },
+          async begin() { throw new Error("unused begin"); },
+        },
+        resolveExecution: async () => ({
+          attempts: unusedAttempts(),
+          keyring,
+          createRuntime: () => runtimeWithInitialize(async () => ({ kind: "redirect", url: location })),
+        }),
+      }),
+    });
+    const response = await handler(request());
+    assert.equal(response.status, expectedStatus);
+    assert.equal(response.headers.get("location"), expectedStatus === 303 ? url : null);
+  }
+});
+
 test("quick-link price drift at atomic begin returns a new-link instruction without provider handoff", async () => {
   let providerCalls = 0;
   const handler = createQuickOrderHostedPaymentBridgeRoute({

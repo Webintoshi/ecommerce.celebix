@@ -49,7 +49,11 @@ export interface MerchantProviderVerificationAdapter {
 
 export interface MerchantProviderAdapterRegistry {
   readonly size: number;
-  get(providerCode: string, capability: MerchantProviderCapability): MerchantProviderAdapter | null;
+  get(
+    providerCode: string,
+    capability: MerchantProviderCapability,
+    environment?: PaymentProviderExecutionAuthority["environment"],
+  ): MerchantProviderAdapter | null;
   list(): readonly MerchantProviderAdapter[];
 }
 

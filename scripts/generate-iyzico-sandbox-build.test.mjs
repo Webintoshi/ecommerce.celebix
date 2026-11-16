@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import {
   copyFile,
@@ -141,6 +142,35 @@ test("Build B emits a test-only authority only for exact mode and candidate dige
   assert.equal(Object.isFrozen(generated.IYZICO_GENERATED_APPROVED_EXECUTION_AUTHORITY), true);
   assert.deepEqual(binding.IYZICO_APPROVED_EXECUTION_AUTHORITY, authority);
   assert.equal(Object.isFrozen(binding.IYZICO_APPROVED_EXECUTION_AUTHORITY), true);
+});
+
+test("live approval binds the reviewed execution source and never supplies a test authority", async (t) => {
+  const selected = await fixture(t);
+  const evidenceDigest = `sha256:${createHash("sha256").update(JSON.stringify({
+    evidenceSchemaVersion: 1,
+    providerCode: "iyzico_iframe",
+    capability: "payment_processing",
+    environment: "live",
+    adapterVersion: 1,
+    sourceDigest: EXPECTED_METADATA.sourceDigest,
+  })).digest("hex")}`;
+  const environment = {
+    SOURCE_COMMIT,
+    CELEBIX_IYZICO_LIVE_APPROVAL_MODE: "approved_live",
+    CELEBIX_IYZICO_LIVE_APPROVED_EVIDENCE_DIGEST: evidenceDigest,
+  };
+  assert.equal((await runGenerator(selected.root, environment)).code, 0);
+  const binding = await imported(selected.binding, "live-binding");
+  assert.equal(binding.IYZICO_APPROVED_EXECUTION_AUTHORITY, null);
+  assert.deepEqual(binding.IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY, {
+    environment: "live", adapterVersion: 1, evidenceDigest,
+  });
+  assert.equal((await runGenerator(selected.root, { ...environment, SOURCE_COMMIT: "2".repeat(40) })).code, 0);
+  assert.equal((await runGenerator(selected.root, {
+    ...environment, CELEBIX_IYZICO_LIVE_APPROVED_EVIDENCE_DIGEST: CANDIDATE_DIGEST,
+  })).code, 1);
+  await writeFile(join(selected.root, "packages/payment-adapters/src/providers/iyzico/adapter.ts"), "changed\n");
+  assert.equal((await runGenerator(selected.root, environment)).code, 1);
 });
 
 test("Coolify BuildKit secrets can supply missing Iyzico build authority without leaking values", async (t) => {

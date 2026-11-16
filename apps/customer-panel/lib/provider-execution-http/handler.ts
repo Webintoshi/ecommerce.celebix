@@ -306,12 +306,18 @@ export function createProviderExecutionHttpHandlers(deps: Deps) {
               environment,
             );
           } else {
-            executionAuthority = paymentExecutionAuthority(
+            const authority = paymentExecutionAuthority(
               authorized.runtime,
               entry,
               deps.paymentCatalog(),
               (stage) => deps.diagnostic(`payment_execution_authority.${stage}`),
             );
+            if (entry.providerCode === "iyzico_iframe" && authority?.environment === "live") {
+              if (paymentEnvironment(parsed.publicConfig) !== "live") return failure("invalid_input", 400);
+              validationIdentity = Object.freeze({ environment: "live", adapterVersion: authority.adapterVersion });
+            } else {
+              executionAuthority = authority;
+            }
           }
         }
         catch { return failure("unavailable", 503); }

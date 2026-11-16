@@ -248,6 +248,35 @@ test("initializes an exact signed iyzico Checkout Form request and preserves bas
   assert.equal(providerResponse.kind === "response" && providerResponse.body.every((byte) => byte === 0), true);
 });
 
+test("live initialization and settlement use the production iyzico endpoints and hosted origin", async () => {
+  const paymentPageUrl = `https://cpp.iyzipay.com?token=${TOKEN}&lang=tr`;
+  const requests: string[] = [];
+  const adapter = createIyzicoCheckoutFormAdapter(transport((request) => {
+    assert.equal(request.environment, "live");
+    requests.push(request.url);
+    return request.url.includes("/initialize/")
+      ? response(signedInitialize({ paymentPageUrl }))
+      : response(signedRetrieve());
+  }));
+  const base = initializeInput();
+  const initialized = await adapter.initialize(initializeInput({
+    environment: "live",
+    preferences: { ...base.preferences, environment: "live" },
+  }));
+  assert.deepEqual(initialized, {
+    kind: "redirect",
+    url: `https://cpp.iyzipay.com/?token=${TOKEN}&lang=tr`,
+    providerReference: TOKEN,
+  });
+  assert.equal((await adapter.verifyCallback(callbackInput({ environment: "live" }))).status, "succeeded");
+  assert.equal((await adapter.query(queryInput({ environment: "live" }))).kind, "succeeded");
+  assert.deepEqual(requests, [
+    "https://api.iyzipay.com/payment/iyzipos/checkoutform/initialize/auth/ecom",
+    "https://api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail",
+    "https://api.iyzipay.com/payment/iyzipos/checkoutform/auth/ecom/detail",
+  ]);
+});
+
 test("maps locale and installment preferences to the exact iyzico payload and presentation URL", async () => {
   const observed: Array<Record<string, unknown>> = [];
   const responses = [
@@ -330,7 +359,7 @@ test("requires merchant-supplied buyer identity, address core, item type, and ex
     kind: "rejected", code: "invalid_request",
   });
   assert.deepEqual(await adapter.initialize(initializeInput({ environment: "live" })), {
-    kind: "rejected", code: "environment_not_ready",
+    kind: "rejected", code: "invalid_request",
   });
   assert.equal(calls, 0);
 });

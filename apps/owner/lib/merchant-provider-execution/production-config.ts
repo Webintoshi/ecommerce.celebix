@@ -3,6 +3,7 @@ import { types as nodeTypes } from "node:util";
 
 import {
   IYZICO_APPROVED_EXECUTION_AUTHORITY,
+  IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY,
   AKBANK_APPROVED_EXECUTION_AUTHORITIES,
   PAYTR_APPROVED_EXECUTION_AUTHORITIES,
 } from "@celebix/payment-adapters";
@@ -24,7 +25,9 @@ export type MerchantProviderProductionProviderCode = typeof PROVIDERS[number];
 export type MerchantProviderExecutionAuthorityMap = Readonly<Record<
 MerchantProviderProductionProviderCode,
 Readonly<PaymentProviderExecutionAuthority> | null
->>;
+> & {
+  iyzico_iframe_live?: Readonly<PaymentProviderExecutionAuthority> | null;
+}>;
 export type MerchantProviderVerificationIdentityMap = Readonly<Record<
 MerchantProviderProductionProviderCode,
 readonly Readonly<MerchantProviderValidationIdentity>[]
@@ -88,13 +91,27 @@ function executionAuthority(value: unknown): Readonly<PaymentProviderExecutionAu
 }
 
 function authorityMap(value: unknown): MerchantProviderExecutionAuthorityMap | null {
-  const selected = record(value, PROVIDERS) ?? record(value, ["iyzico_iframe", "paytr_iframe"]);
+  const previousProviders = ["iyzico_iframe", "paytr_iframe"];
+  const selected = record(value, [...PROVIDERS, "iyzico_iframe_live"])
+    ?? record(value, [...previousProviders, "iyzico_iframe_live"])
+    ?? record(value, PROVIDERS)
+    ?? record(value, previousProviders);
   if (selected === null) return null;
   const iyzico = executionAuthority(selected.iyzico_iframe);
+  const iyzicoLive = executionAuthority(Object.hasOwn(selected, "iyzico_iframe_live") ? selected.iyzico_iframe_live : null);
   const paytr = executionAuthority(selected.paytr_iframe);
   const akbank = executionAuthority(selected.akbank_json ?? null);
-  if (iyzico === false || paytr === false || akbank === false) return null;
-  return Object.freeze({ iyzico_iframe: iyzico, paytr_iframe: paytr, akbank_json: akbank });
+  if (
+    iyzico === false || (iyzico !== null && iyzico.environment !== "test")
+    || iyzicoLive === false || (iyzicoLive !== null && iyzicoLive.environment !== "live")
+    || paytr === false || akbank === false
+  ) return null;
+  return Object.freeze({
+    iyzico_iframe: iyzico,
+    ...(iyzicoLive === null ? {} : { iyzico_iframe_live: iyzicoLive }),
+    paytr_iframe: paytr,
+    akbank_json: akbank,
+  });
 }
 
 function identity(value: unknown): Readonly<MerchantProviderValidationIdentity> | null {
@@ -211,6 +228,7 @@ export function createMerchantProviderProductionConfigParser(
   const executionAuthorities = authorityMap(compiledExecutionAuthorities);
   const verificationIdentities = identityMap(compiledVerificationIdentities);
   const enabled = executionAuthorities !== null && verificationIdentities !== null && (
+    executionAuthorities.iyzico_iframe_live != null ||
     PROVIDERS.some((providerCode) => executionAuthorities[providerCode] !== null) ||
     PROVIDERS.some((providerCode) => verificationIdentities[providerCode].length > 0)
   );
@@ -253,6 +271,9 @@ function compiledExecutionAuthorities(): MerchantProviderExecutionAuthorityMap {
   return Object.freeze({
     akbank_json: AKBANK_APPROVED_EXECUTION_AUTHORITIES.live ?? AKBANK_APPROVED_EXECUTION_AUTHORITIES.test,
     iyzico_iframe: IYZICO_APPROVED_EXECUTION_AUTHORITY,
+    ...(IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY === null
+      ? {}
+      : { iyzico_iframe_live: IYZICO_LIVE_APPROVED_EXECUTION_AUTHORITY }),
     paytr_iframe: PAYTR_APPROVED_EXECUTION_AUTHORITIES.test ?? PAYTR_APPROVED_EXECUTION_AUTHORITIES.live,
   });
 }
