@@ -91,7 +91,8 @@ test("PayTR media compatibility stays bound to the exact token request", async (
   })), unrelatedResponse);
 });
 
-test("real production composition preflights 056 and validates Iyzico through verification RPCs only", async () => {
+for (const environment of ["test", "live"] as const) test(
+  `production validates iyzico ${environment} through verification RPCs only`, async () => {
   const selected = config();
   const plaintext = new TextEncoder().encode(JSON.stringify({ apiKey: "sandbox-api-key", secretKey: "sandbox-secret-key" }));
   const sealedCredentials = sealMerchantProviderCredential({
@@ -115,8 +116,8 @@ test("real production composition preflights 056 and validates Iyzico through ve
       storeId: STORE,
       providerCode: "iyzico_iframe",
       capability: "payment_processing",
-      publicConfig: { environment: "test" },
-      validationIdentity: { environment: "test", adapterVersion: 1 },
+      publicConfig: { environment },
+      validationIdentity: { environment, adapterVersion: 1 },
       sealedCredentials,
       credentialVersion: 1,
       profileVersion: 2,
@@ -131,7 +132,7 @@ test("real production composition preflights 056 and validates Iyzico through ve
       id: PROFILE,
       providerCode: "iyzico_iframe",
       capability: "payment_processing",
-      publicConfig: { environment: "test" },
+      publicConfig: { environment },
       maskedAccountReference: "••••-key",
       status: "active",
       credentialVersion: 1,
@@ -141,12 +142,15 @@ test("real production composition preflights 056 and validates Iyzico through ve
       updatedAt: NOW.toISOString(),
     },
   }] : []);
-  const clients = [preflight, claim, mark];
+  const emptySandbox = new Client((text) => text.includes("merchant_provider_profile_claim_verification")
+    ? [{ outcome: "empty", result_payload: null }]
+    : []);
+  const clients = [preflight, ...(environment === "live" ? [emptySandbox] : []), claim, mark];
   let closed = 0;
   let providerCalls = 0;
   let providerUrl = "";
   let providerBody: unknown;
-  const uuids = [LEASE, REFERENCE, RANDOM_KEY];
+  const uuids = [...(environment === "live" ? [LEASE] : []), LEASE, REFERENCE, RANDOM_KEY];
   const runtime = await initializeMerchantProviderProductionRuntime(selected, Object.freeze({
     createPool() {
       return {
@@ -168,7 +172,10 @@ test("real production composition preflights 056 and validates Iyzico through ve
         binNumber: "41579200",
       }), {
         status: 200,
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(environment === "live" ? { "set-cookie": "edge-session=fixture" } : {}),
+        },
       });
     },
     uuid: () => uuids.shift() ?? RANDOM_KEY,
@@ -178,7 +185,9 @@ test("real production composition preflights 056 and validates Iyzico through ve
 
   assert.deepEqual(await runtime.runOnce(), { kind: "profile_validated" });
   assert.equal(providerCalls, 1);
-  assert.equal(providerUrl, "https://sandbox-api.iyzipay.com/payment/bin/check");
+  assert.equal(providerUrl, environment === "live"
+    ? "https://api.iyzipay.com/payment/bin/check"
+    : "https://sandbox-api.iyzipay.com/payment/bin/check");
   assert.deepEqual(providerBody, {
     locale: "tr",
     binNumber: "41579200",
@@ -187,7 +196,7 @@ test("real production composition preflights 056 and validates Iyzico through ve
   assert.equal(preflight.calls.some(({ text }) => text === "SET LOCAL ROLE celebix_saas_workflow"), true);
   assert.equal(mark.calls.some(({ text }) => text.includes("saas.merchant_provider_profile_mark_verification")), true);
   assert.deepEqual(claim.calls.find(({ text }) => text.includes("claim_verification"))?.values.slice(1, 5), [
-    "iyzico_iframe", "payment_processing", "test", 1,
+    "iyzico_iframe", "payment_processing", environment, 1,
   ]);
   assert.equal(mark.calls.find(({ text }) => text.includes("mark_verification"))?.values[10], "validated");
   for (const client of [claim, mark]) {

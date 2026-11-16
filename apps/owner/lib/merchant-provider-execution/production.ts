@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   createAkbankInquiryCompatibleFetch,
   createBoundedProviderTransport,
+  createIyzicoCheckoutFormCompatibleFetch,
 } from "@celebix/payment-adapters";
 import {
   PostgresMerchantProviderWorkflowRepository,
@@ -130,7 +131,9 @@ export async function initializeMerchantProviderProductionRuntime(
   try {
     await preflight(pool, config.database.name);
     const transport = createBoundedProviderTransport({
-      fetch: createAkbankInquiryCompatibleFetch(createPaytrValidationCompatibleFetch(dependencies.fetch)),
+      fetch: createIyzicoCheckoutFormCompatibleFetch(
+        createAkbankInquiryCompatibleFetch(createPaytrValidationCompatibleFetch(dependencies.fetch)),
+      ),
       timeoutMs: 5_000,
       maximumResponseBytes: 16_384,
     });

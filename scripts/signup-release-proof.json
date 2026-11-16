@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "7aaf81b41338922c6341edf004cffae7c68ddadff9182c5d4fc822ee3a5e1956",
+  "inputDigest": "ea941253928b78a369ccc23ca98d304f64d98b3d43c57ccd7558cf93b1d14d0d",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -941,7 +941,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/production.ts",
-      "sha256": "e75a0bf3defa5461549a685d2f9c5ea35073ba8f2d63292f00b9b4d087bee5ed"
+      "sha256": "f24767928a6e87c3a9066100f7be8acc0814a6c68e485ef00d0926d734778397"
     },
     {
       "path": "apps/owner/lib/merchant-provider-execution/registry.ts",
@@ -3525,7 +3525,11 @@
     },
     {
       "path": "packages/payment-adapters/src/index.ts",
-      "sha256": "1d3cfd16947d6be4e2c53041818b26a8612f8e7ea0aea5a876e005c674109909"
+      "sha256": "15c23071804af80fefcb3a5ea99cdf75e70b6973764c6dfcb8118ea00a8b3da5"
+    },
+    {
+      "path": "packages/payment-adapters/src/iyzico-checkout-form-compatible-fetch.ts",
+      "sha256": "5bef7dda87f5a57febcf37fa7f22bcff577c823c32fd411039f3de1102c02356"
     },
     {
       "path": "packages/payment-adapters/src/packets/plugin-inventory.ts",
