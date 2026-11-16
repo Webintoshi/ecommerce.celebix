@@ -132,10 +132,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.gallery button:focus-visible,
+:is(.gallery, .zoomDialog) button:focus-visible,
 .strip:focus-visible {
   outline: 2px solid #242421;
   outline-offset: -3px;
+}
+
+@media (forced-colors: active) {
+  :is(.gallery, .zoomDialog) button:focus-visible,
+  .strip:focus-visible { outline-color: Highlight; }
+  .thumbnail[aria-current="true"] { border-bottom-color: Highlight; }
 }
 
 .empty {
@@ -143,7 +149,7 @@
   place-items: center;
   width: 100%;
   height: 100%;
-  color: #75756f;
+  color: #5d5d57;
   font-size: 13px;
 }
 
@@ -280,7 +286,7 @@
   .thumbnails { max-width: calc(100% - 380px); }
 }
 
-@media (max-width: 767px) {
+@media not all and (min-width: 768px) {
   .gallery {
     position: relative;
     inset: auto;
@@ -289,9 +295,9 @@
   }
   .panel { flex-basis: 100%; width: 100%; }
   .thumbnails { left: 16px; bottom: 14px; max-width: calc(100% - 78px); }
-  .thumbnail { width: 35px; height: 40px; }
+  .thumbnail { display: grid; place-items: center; width: 44px; height: 44px; }
   .thumbnail img { width: 35px; height: 35px; }
-  .zoomButton { left: auto; right: 16px; bottom: 16px; }
+  .zoomButton { left: auto; right: 16px; bottom: 16px; width: 44px; height: 44px; padding: 13px; }
   .zoomToolbar { padding: 8px 12px; }
   .zoomContent { padding: 68px 20px 20px; }
   .previous { left: 8px; }

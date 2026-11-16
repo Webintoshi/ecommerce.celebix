@@ -1,5 +1,6 @@
 "use client";
 import { useCommercePolicy } from "./CommercePolicyProvider";
+import { ResponsiveProductImage } from "./ResponsiveProductImage";
 import { useEffect, useId, useRef, useState, type FormEvent, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { isValidProductCatalogSearch } from "../lib/product-catalog-query.ts";
@@ -7,6 +8,7 @@ import type { SearchSuggestion } from "../lib/search-suggestions.ts";
 
 export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon, submitIcon, inputRef: externalInputRef, clientNavigation = false, onNavigate }: Readonly<{ defaultValue?: string; variant?: "page" | "header" | "panel" | "siora-mobile"; icon?: ReactNode; submitIcon?: ReactNode; inputRef?: RefObject<HTMLInputElement | null>; clientNavigation?: boolean; onNavigate?: (href: string) => void }>) {
   const policy = useCommercePolicy();
+  const compactSioraSearch = variant === "header" || variant === "siora-mobile";
   const router = useRouter(), id = useId();
   const internalInputRef = useRef<HTMLInputElement>(null);
   const inputRef = externalInputRef ?? internalInputRef;
@@ -114,7 +116,11 @@ export function StorefrontSearchForm({ defaultValue = "", variant = "page", icon
         <a id={`${id}-item-${index}`} href={item.href} role="option" aria-selected={active === index} tabIndex={-1}
           onMouseDown={event => { if (event.button === 0) event.preventDefault(); }}
           onClick={event => follow(event, item.href)}>
-          {item.imageUrl ? <img src={item.imageUrl} alt="" width={48} height={48} loading="lazy" /> : <span className="store-search-image-placeholder" aria-hidden="true">◇</span>}
+          {item.imageUrl ? (
+            compactSioraSearch
+              ? <ResponsiveProductImage media={{ url: item.imageUrl, width: 48, height: 48 }} alt="" sizes="(max-width: 480px) 40px, 48px" />
+              : <img src={item.imageUrl} alt="" width={48} height={48} loading="lazy" />
+          ) : <span className="store-search-image-placeholder" aria-hidden="true">◇</span>}
           <span>{item.title}{!item.available ? <small>Tükendi</small> : null}</span>
           {!policy.hidePrices && item.priceCents !== null ? <strong>{new Intl.NumberFormat("tr-TR", { style: "currency", currency: item.currency }).format(item.priceCents / 100)}</strong> : null}
         </a>

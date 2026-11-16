@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { StorefrontNavigationItems } from "@celebix/storefront-design-ui";
 import type { PublicStarterNavigation } from "@celebix/saas-contracts";
-import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEvent, type ReactNode } from "react";
 
 import { useCartStatus } from "../../components/CartStatusProvider";
 import { useFavoriteStatus } from "../../components/FavoriteStatusProvider";
@@ -22,7 +22,7 @@ function isCheckout(pathname: string): boolean {
 }
 function visibleCount(value: number): number { return Number.isSafeInteger(value) && value > 0 ? Math.min(value, 999) : 0; }
 
-export function SioraMobileShell({ storefrontId, locale, displayName, navigation, variant = "boutique" }: Readonly<{ storefrontId: string; locale: string; displayName: string; navigation: PublicStarterNavigation; variant?: "boutique" | "sports" }>) {
+export function SioraMobileShell({ storefrontId, locale, displayName, navigation, variant = "boutique", children }: Readonly<{ storefrontId: string; locale: string; displayName: string; navigation: PublicStarterNavigation; variant?: "boutique" | "sports"; children?: ReactNode }>) {
   const pathname = usePathname();
   const router = useRouter();
   const hydrated = useHydrated();
@@ -39,6 +39,7 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
   const cartCount = visibleCount(hydrated ? cart?.itemCount ?? 0 : 0);
   const favorites = visibleCount(hydrated ? favoriteCount : 0);
   const sports = variant === "sports";
+  const mobileQuery = sports ? "(max-width: 767px)" : "not all and (min-width: 768px)";
   const panelId = sports ? "alpler-mobile-panel" : "siora-mobile-panel";
   const panelTitleId = `${panelId}-title`;
   const searchInputId = sports ? "alpler-mobile-search-input" : "siora-mobile-search-input";
@@ -64,7 +65,7 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
   const dismissPanel = useCallback((restoreFocus = true) => { hidePanel(restoreFocus); void closeHistory(); }, [closeHistory, hidePanel]);
 
   const openPanel = useCallback((next: Panel, trigger: HTMLElement) => {
-    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    if (!window.matchMedia(mobileQuery).matches) return;
     if (drawerOpen) {
       const sourceRoute = `${window.location.pathname}${window.location.search}`;
       void closeDrawerAndWait(false).then((sameRoute) => {
@@ -81,7 +82,7 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
     }
     panelRef.current = next;
     setPanel(next);
-  }, [closeDrawerAndWait, drawerOpen, openHistory]);
+  }, [closeDrawerAndWait, drawerOpen, mobileQuery, openHistory]);
 
   const openCart = (trigger: HTMLElement) => {
     const sourceRoute = `${window.location.pathname}${window.location.search}`;
@@ -99,11 +100,11 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
   }, [checkout, drawerOpen, dismissPanel]);
 
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 767px)");
+    const query = window.matchMedia(mobileQuery);
     const onChange = () => { if (!query.matches && panelRef.current) dismissPanel(); };
     query.addEventListener("change", onChange);
     return () => query.removeEventListener("change", onChange);
-  }, [dismissPanel]);
+  }, [dismissPanel, mobileQuery]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -147,13 +148,14 @@ export function SioraMobileShell({ storefrontId, locale, displayName, navigation
     navigateAfterPanelClose(`/search?q=${encodeURIComponent(query)}`);
   };
 
-  if (checkout) return null;
+  if (checkout) return children ?? null;
 
   return <div className="siora-mobile-shell" data-siora-home={pathname === "/" ? "true" : "false"} data-siora-scrolled={scrolled ? "true" : "false"}>
     <div className="siora-header-mobile-tools">
       <button type="button" aria-label="Menüyü aç" aria-haspopup="dialog" aria-expanded={panel === "menu"} aria-controls={panelId} onClick={(event) => openPanel("menu", event.currentTarget)}><SioraIcon name="menu" /></button>
       <button type="button" aria-label="Ürün ara" aria-haspopup="dialog" aria-expanded={panel === "search"} aria-controls={panelId} onClick={(event) => openPanel("search", event.currentTarget)}><SioraIcon name="search" /></button>
     </div>
+    {children}
     <div className="siora-mobile-bottom-space" aria-hidden="true" />
     <nav className="siora-mobile-bottom" aria-label="Mobil mağaza gezinmesi">
       <Link href="/" prefetch={false} className={pathname === "/" && !panel ? "is-selected" : undefined} aria-current={pathname === "/" ? "page" : undefined}><SioraIcon name="home" /><span>Ana Sayfa</span></Link>

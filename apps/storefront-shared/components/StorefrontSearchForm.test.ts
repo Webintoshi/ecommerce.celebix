@@ -160,3 +160,37 @@ test("search options stay out of the tab sequence and Escape dismisses only the 
     assert.deepEqual(pushes, ["/urun/altin-kolye"]);
   });
 });
+
+test("Siora mobile search requests thumbnails at their displayed width and preserves the original fallback", async () => {
+  const imageUrl = "https://media.saas-staging.celebix.site/stores/ff465e64-1491-40ef-8840-c66281155a1d/products/ceket.webp";
+  const sizes = "(max-width: 480px) 40px, 48px";
+  const optimized = `/_next/image?url=${encodeURIComponent(imageUrl)}&w=96&q=75`;
+  const previous = globalThis.fetch;
+  globalThis.fetch = (async () => Response.json({ items: [{ id: "ceket", title: "Ceket", href: "/urun/ceket", priceCents: 10000, currency: "TRY", imageUrl, available: true }] })) as typeof fetch;
+  const load = componentLoader({
+    "next/navigation": { useRouter: () => ({ push() {} }) },
+    "next/image": {
+      getImageProps: (options: { src: string; sizes: string }) => {
+        assert.equal(options.src, imageUrl);
+        assert.equal(options.sizes, sizes);
+        return { props: { src: optimized, srcSet: `${optimized} 96w` } };
+      },
+    },
+  });
+  const { StorefrontSearchForm: Form } = load<{ StorefrontSearchForm: React.ComponentType<Record<string, unknown>> }>(new URL("./StorefrontSearchForm.tsx", import.meta.url));
+  try {
+    await withProductBrowser(async ({ container, render }) => {
+      await render(React.createElement(Form, { defaultValue: "ceket", variant: "siora-mobile" }));
+      await React.act(async () => { container.querySelector<HTMLInputElement>('input[name="q"]')!.focus(); });
+      await React.act(async () => { await new Promise(resolve => setTimeout(resolve, 280)); });
+      const image = container.querySelector<HTMLImageElement>('[role="option"] img');
+      assert.ok(image);
+      assert.equal(image.getAttribute("src"), optimized);
+      assert.equal(image.getAttribute("sizes"), sizes);
+      assert.equal(image.getAttribute("loading"), "lazy");
+      await React.act(async () => { image.dispatchEvent(new window.Event("error")); });
+      assert.equal(image.getAttribute("src"), imageUrl);
+      assert.equal(image.hasAttribute("srcset"), false);
+    });
+  } finally { globalThis.fetch = previous; }
+});

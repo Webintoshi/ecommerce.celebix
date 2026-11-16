@@ -10,7 +10,7 @@
 .content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 30px 32px 36px; }
 .line { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 24px; padding-bottom: 28px; }
 .line + .line { padding-top: 28px; border-top: 1px solid #dededb; }
-.media { display: grid; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; place-items: center; background: #f3f3f1; color: #777; font-size: 11px; text-align: center; text-decoration: none; }
+.media { display: grid; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; place-items: center; background: #f3f3f1; color: #66665f; font-size: 11px; text-align: center; text-decoration: none; }
 .media img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .copy { display: flex; min-width: 0; flex-direction: column; align-items: stretch; }
 .title { margin: 1px 0 14px; font-size: 16px; font-weight: 500; line-height: 1.45; color: inherit; text-decoration: none; }
@@ -39,10 +39,10 @@
 .checkout[aria-disabled="true"], .checkout:disabled { opacity: .4; cursor: default; }
 .continue { min-height: 44px; justify-self: center; border: 0; background: transparent; padding: 8px 0; color: inherit; font-size: 13px; font-weight: 400; letter-spacing: .13em; text-decoration: underline; text-underline-offset: 6px; text-transform: uppercase; cursor: pointer; }
 .notice { margin: 8px 0 0; color: #8b302d; font-size: 12px; line-height: 1.5; }
-.trust { margin: -4px 0 0; color: #777; font-size: 11px; line-height: 1.5; text-align: center; }
+.trust { margin: -4px 0 0; color: #66665f; font-size: 11px; line-height: 1.5; text-align: center; }
 .empty { display: flex; min-height: 0; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 32px; text-align: center; }
 .empty h3 { margin: 0; font-family: inherit; font-size: 22px; font-weight: 400; line-height: 1.4; }
-.empty p { margin: 0 0 12px; color: #777; font-size: 14px; line-height: 1.5; }
+.empty p { margin: 0 0 12px; color: #66665f; font-size: 14px; line-height: 1.5; }
 .drawer button:focus-visible, .drawer a:focus-visible { outline: 2px solid #111; outline-offset: 3px; }
 @keyframes fade { from { opacity: 0; } }
 @keyframes enter { from { transform: translateX(100%); } }

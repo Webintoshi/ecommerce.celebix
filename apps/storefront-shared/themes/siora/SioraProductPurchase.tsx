@@ -6,7 +6,7 @@ import {RestockSubscriptionForm,useRestockAlertsConfig} from "../../components/R
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { PublicProduct, StarterProductDetailConfigV2 } from "@celebix/saas-contracts";
 import { useCartStatus } from "../../components/CartStatusProvider";
 import { FavoriteButton } from "../../components/FavoriteButton";
@@ -82,9 +82,19 @@ export function SioraProductPurchase({ product, initialVariantId,storefrontId, l
     return () => { document.body.style.overflow = overflow; };
   }, [modal]);
 
+  useLayoutEffect(() => {
+    const trigger = modalTrigger.current;
+    if (modal || !trigger) return;
+    modalTrigger.current = null;
+    if (trigger.isConnected && !trigger.closest('[aria-hidden="true"]')) {
+      trigger.focus({ preventScroll: true });
+      if (document.activeElement === trigger) return;
+    }
+    selectorRef.current?.focus();
+  }, [modal]);
+
   const openModal = (kind: "options" | "guide", trigger: HTMLElement) => { modalTrigger.current = trigger; setModal(kind); };
   const closeModal = () => dialogRef.current?.close();
-  const afterClose = () => { setModal(null); modalTrigger.current?.focus({ preventScroll: true }); };
   const changeColor = (key: string) => {
     const nextGroup = groups.find((item) => item.key === key);
     if (!nextGroup) return;
@@ -97,7 +107,7 @@ export function SioraProductPurchase({ product, initialVariantId,storefrontId, l
   };
   const run = async (kind: "add" | "buy", trigger: HTMLButtonElement) => {
     if (policy.hideAddToCart || (kind === "buy" && !policy.checkoutAllowed) || pending || !available) return;
-    if (!variant) { openModal("options", selectorRef.current ?? trigger); setStatus("Lütfen bir beden seçin."); return; }
+    if (!variant) { openModal("options", trigger); setStatus("Lütfen bir beden seçin."); return; }
     if (!variant.available || quantity > quantityLimit) { setStatus("Bu seçenek şu anda mevcut değil. Başka bir seçenek seçebilirsiniz."); return; }
     setPending(kind); setStatus("");
     const requestRoute = `${window.location.pathname}${window.location.search}`;
@@ -134,7 +144,7 @@ export function SioraProductPurchase({ product, initialVariantId,storefrontId, l
       {needsChoice ? <button ref={selectorRef} className={styles.selector} type="button" disabled={pending !== null} onClick={(event) => openModal("options", event.currentTarget)} aria-haspopup="dialog"><span>{variant ? `${choiceLabel}: ${sioraOptionLabel(variant)}` : `${choiceLabel} seçin`}</span><Chevron /></button> : null}
       {sizeGuide ? <button type="button" className={styles.sizeHelp} onClick={(event) => openModal("guide", event.currentTarget)}><span aria-hidden="true">▱</span> {sizeGuideHeading}</button> : null}
       <div className={styles.price}>{!pricesHidden && compareAt && amount !== null && compareAt > amount ? <del>{formatTry(compareAt)}</del> : null}{!pricesHidden ? <span>{priceText}</span> : null}</div>
-      <PurchaseActionLayout className={styles.actions} actionRef={purchaseRef} quantity={showQuantitySelector ? <div className={styles.quantity} aria-label="Adet seçimi"><button type="button" aria-label="Adedi azalt" disabled={pending !== null || quantity <= 1} onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><output aria-label="Adet" aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || quantity >= quantityLimit} onClick={() => setQuantity(Math.min(quantityLimit, quantity + 1))}>+</button></div> : null}>
+      <PurchaseActionLayout className={styles.actions} actionRef={purchaseRef} quantity={showQuantitySelector ? <div role="group" aria-label="Adet seçimi"><button type="button" aria-label="Adedi azalt" disabled={pending !== null || quantity <= 1} onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button><output aria-label="Adet" aria-live="polite">{quantity}</output><button type="button" aria-label="Adedi artır" disabled={pending !== null || quantity >= quantityLimit} onClick={() => setQuantity(Math.min(quantityLimit, quantity + 1))}>+</button></div> : null}>
         {!policy.hideAddToCart ? <button type="button" data-purchase-action="add" disabled={pending !== null || !canPurchase} onClick={(event) => void run("add", event.currentTarget)}>{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button> : null}
         {policy.checkoutAllowed ? <button type="button" data-purchase-action="buy" disabled={pending !== null || !canPurchase} onClick={(event) => void run("buy", event.currentTarget)}>{pending === "buy" ? "Hazırlanıyor…" : "Hemen satın al"}</button> : null}
       </PurchaseActionLayout>
@@ -143,6 +153,6 @@ export function SioraProductPurchase({ product, initialVariantId,storefrontId, l
       <p className={styles.status} aria-live="polite" role="status">{status}</p>
     </section>
     {options.mobileStickyPurchase ? <div className={styles.sticky} data-siora-sticky-purchase data-visible={sticky && !modal && !drawerOpen ? "true" : undefined} aria-hidden={!sticky || Boolean(modal || drawerOpen)}>{!pricesHidden ? <span>{priceText}</span> : null}{!policy.hideAddToCart ? <button type="button" tabIndex={sticky && !modal && !drawerOpen ? 0 : -1} disabled={pending !== null || !canPurchase} onClick={(event) => void run("add", event.currentTarget)}><BagIcon />{pending === "add" ? "EKLENİYOR…" : available ? "SEPETE EKLE" : "TÜKENDİ"}</button> : null}{policy.hideAddToCart ? <WhatsAppOrderButton product={product} variant={variant} quantity={quantity} disabled={pending !== null} /> : null}</div> : null}
-    <dialog ref={dialogRef} className={styles.dialog} data-modal={modal} aria-labelledby={modalTitleId} onClose={afterClose} onCancel={(event) => { event.preventDefault(); closeModal(); }}><header><h2 id={modalTitleId}>{modal === "guide" ? sizeGuideHeading : `${choiceLabel} seçin`}</h2><button type="button" aria-label="Pencereyi kapat" onClick={closeModal}>×</button></header>{modal === "guide" ? <div className={styles.guide}>{sizeGuide}</div> : <div className={styles.optionList}>{group?.variants.map((item) => <button type="button" key={item.id} disabled={(!item.available && !restockConfig?.enabled) || pending !== null} aria-pressed={item.id === choiceId} onClick={() => { selectVariant(item.id); setChoiceId(item.id); setQuantity(1); setStatus(""); closeModal(); }}><span>{sioraOptionLabel(item)}</span><small>{item.available ? pricesHidden ? "Stokta" : formatTry(item.priceCents) : "Tükendi"}</small></button>)}</div>}</dialog>
+    <dialog ref={dialogRef} className={styles.dialog} data-modal={modal} aria-labelledby={modalTitleId} onClose={() => setModal(null)} onCancel={(event) => { event.preventDefault(); closeModal(); }}><header><h2 id={modalTitleId}>{modal === "guide" ? sizeGuideHeading : `${choiceLabel} seçin`}</h2><button type="button" aria-label="Pencereyi kapat" onClick={closeModal}>×</button></header>{modal === "guide" ? <div className={styles.guide}>{sizeGuide}</div> : <div className={styles.optionList}>{group?.variants.map((item) => <button type="button" key={item.id} disabled={(!item.available && !restockConfig?.enabled) || pending !== null} aria-pressed={item.id === choiceId} onClick={() => { selectVariant(item.id); setChoiceId(item.id); setQuantity(1); setStatus(""); closeModal(); }}><span>{sioraOptionLabel(item)}</span><small>{item.available ? pricesHidden ? "Stokta" : formatTry(item.priceCents) : "Tükendi"}</small></button>)}</div>}</dialog>
   </>;
 }

@@ -4,22 +4,24 @@ import { StorefrontNavigationItems } from "@celebix/storefront-design-ui";
 import type { PublicStorefront, PublicStorefrontDesign } from "@celebix/saas-contracts";
 import { categoryPath, productIndexPath, localizeStorefrontPath } from "../../lib/storefront-routes.ts";
 import { SioraIcon } from "./SioraIcon";
+import { SioraMobileShell } from "./SioraMobileShell";
 import { SioraNavigationLink } from "./SioraNavigationLink";
 
-export function SioraHeaderContent({ storefront, design, search, actions, mobileMenu }: Readonly<{ storefront: PublicStorefront; design: PublicStorefrontDesign; search: ReactNode; actions: ReactNode; mobileMenu: ReactNode }>) {
+export function SioraHeaderContent({ storefront, design, search, actions }: Readonly<{ storefront: PublicStorefront; design: PublicStorefrontDesign; search: ReactNode; actions: ReactNode }>) {
  const { presentation, locale } = storefront;
  const logo = design.publicationVersion > 1 ? (design.brand.logo ?? presentation.logo) : presentation.logo;
  const navigation = presentation.schemaVersion === 1 ? { items: [] } : presentation.navigation;
  return <>
     <div className="siora-header-bar" data-storefront-header-container>
       {search}
-      {mobileMenu}
-      <noscript><div className="siora-mobile-header-fallback"><Link href={productIndexPath(locale)} prefetch={false} aria-label="Tüm ürünler"><SioraIcon name="menu" /></Link><Link href="/search" prefetch={false} aria-label="Ürün ara"><SioraIcon name="search" /></Link></div></noscript>
-      <Link className="siora-wordmark" data-storefront-wordmark href="/" prefetch={false} aria-label={`${presentation.displayName} ana sayfa`}>
-        {logo ? <img src={logo.url} alt={logo.altText || presentation.displayName} width={180} height={90} /> : <span>{presentation.displayName}</span>}
-      </Link>
-      {actions}
-      <Link className="siora-header-account" href="/account" prefetch={false} aria-label="Hesabım"><SioraIcon name="account" /></Link>
+      <SioraMobileShell storefrontId={storefront.id} locale={locale} displayName={presentation.displayName} navigation={navigation}>
+        <noscript><div className="siora-mobile-header-fallback"><Link href={productIndexPath(locale)} prefetch={false} aria-label="Tüm ürünler"><SioraIcon name="menu" /></Link><Link href="/search" prefetch={false} aria-label="Ürün ara"><SioraIcon name="search" /></Link></div></noscript>
+        <Link className="siora-wordmark" data-storefront-wordmark href="/" prefetch={false} aria-label={`${presentation.displayName} ana sayfa`}>
+          {logo ? <img src={logo.url} alt={logo.altText || presentation.displayName} width={180} height={90} /> : <span>{presentation.displayName}</span>}
+        </Link>
+        {actions}
+        <Link className="siora-header-account" href="/account" prefetch={false} aria-label="Hesabım"><SioraIcon name="account" /></Link>
+      </SioraMobileShell>
     </div>
     <div className="siora-header-navigation-row">
       <nav className="siora-desktop-navigation" aria-label="Ana menü">

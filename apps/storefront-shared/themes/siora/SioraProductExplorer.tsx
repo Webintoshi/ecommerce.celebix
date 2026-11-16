@@ -1,8 +1,7 @@
 "use client";
-import { useMemo } from "react";
 import { useCommercePolicy } from "../../components/CommercePolicyProvider";
 
-import { useEffect, useId, useRef, useState, useTransition, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { ProductExplorerProps } from "../../components/ProductExplorer";
 import { CatalogProductList } from "../../components/CatalogProductList";
@@ -29,9 +28,16 @@ export function SioraProductExplorer({ products, locale, cardStyle, imageRatio, 
   const headingId = useId();
   const searchErrorId = useId();
   const { drawerOpen, visualTheme } = useCartStatus();
-  const panelHistory = useSioraPanelHistory({ storefrontId: visualTheme === "alpler-deniz" ? ALPLER_STOREFRONT_ID : SIORA_STOREFRONT_ID, panel: "filters", onClose: () => dialog.current?.close() });
+  const isAlpler = visualTheme === "alpler-deniz";
+  const panelHistory = useSioraPanelHistory({ storefrontId: isAlpler ? ALPLER_STOREFRONT_ID : SIORA_STOREFRONT_ID, panel: "filters", onClose: () => dialog.current?.close() });
   const activeCount = Number(selection.filter !== "all") + Number(selection.order !== "featured");
-  useEffect(() => { setQuery(selection.query); setDraft(selection); setQueryInvalid(false); }, [selection, path]);
+  const appliedQuery = selection.query;
+  const alplerSelection = isAlpler ? selection : null;
+  useEffect(() => {
+    setQuery(alplerSelection?.query ?? appliedQuery);
+    setQueryInvalid(false);
+  }, [alplerSelection, appliedQuery, path]);
+  useEffect(() => { setDraft(selection); }, [selection, path]);
   useEffect(() => { if (drawerOpen && dialog.current?.open) { dialog.current.close(); void panelHistory.close(); } }, [drawerOpen, panelHistory.close]);
   const navigate = (next: ProductCatalogSelection) => startTransition(() => router.push(catalogHref(path, next, 0), { scroll: false }));
   const readQuery = () => {
@@ -48,7 +54,7 @@ export function SioraProductExplorer({ products, locale, cardStyle, imageRatio, 
   };
   const close = () => { dialog.current?.close(); return panelHistory.close(); };
   const open = () => {
-    const value = readQuery();
+    const value = isAlpler ? readQuery() : appliedQuery;
     if (value === null) return;
     setDraft({ ...selection, query: value });
     if (panelHistory.open()) dialog.current?.showModal();

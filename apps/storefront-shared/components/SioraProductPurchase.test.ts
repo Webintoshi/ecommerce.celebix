@@ -23,7 +23,7 @@ function installDialogBehavior() {
   if (typeof prototype.close !== "function") prototype.close = function () { this.removeAttribute("open"); this.dispatchEvent(new window.Event("close")); };
 }
 
-async function withPurchase(run: (context: Browser & { calls: AddInput[]; events: CommerceEvent[]; order: string[]; replaced: unknown[] }) => Promise<void>, config: Readonly<{ quantity?: boolean; add?: (input: AddInput) => Promise<unknown>; initialVariantId?: string; deferDrawer?: boolean; product?: PublicProduct; guide?: {heading: string; body: React.ReactNode} }> = {}) {
+async function withPurchase(run: (context: Browser & { calls: AddInput[]; events: CommerceEvent[]; order: string[]; replaced: unknown[] }) => Promise<void>, config: Readonly<{ quantity?: boolean; add?: (input: AddInput) => Promise<unknown>; initialVariantId?: string; deferDrawer?: boolean; observePurchase?: (setRatio: (ratio: number) => void) => void; product?: PublicProduct; guide?: {heading: string; body: React.ReactNode} }> = {}) {
   const calls: AddInput[] = [], events: CommerceEvent[] = [], order: string[] = [], replaced: unknown[] = [];
   const snapshot = { itemCount: 1 };
   const add = async (input: AddInput) => { calls.push(input); order.push("add"); return config.add ? config.add(input) : snapshot; };
@@ -43,9 +43,28 @@ async function withPurchase(run: (context: Browser & { calls: AddInput[]; events
   const { ProductVariantMediaProvider: Provider } = load<{ ProductVariantMediaProvider: Component }>(new URL("./ProductVariantMedia.tsx", import.meta.url));
   await withProductBrowser(async (browser) => {
     installDialogBehavior();
-    const subject = config.product ?? product;
-    await browser.render(React.createElement(Provider, { product: subject, initialVariantId: config.initialVariantId }, React.createElement(Purchase, { product: subject, storefrontId: "store", locale: "tr", options: { ...createDefaultStarterThemeComposition().productDetail, mobileStickyPurchase: false }, showQuantitySelector: config.quantity ?? false, sizeGuide: config.guide?.body, sizeGuideHeading: config.guide?.heading })));
-    await run({ ...browser, calls, events, order, replaced });
+    const previousObserver = globalThis.IntersectionObserver;
+    const observePurchase = config.observePurchase;
+    if (observePurchase) {
+      Object.defineProperty(globalThis, "IntersectionObserver", {
+        configurable: true,
+        writable: true,
+        value: class {
+          constructor(callback: IntersectionObserverCallback) {
+            observePurchase?.((ratio) => callback([{ intersectionRatio: ratio } as IntersectionObserverEntry], this as unknown as IntersectionObserver));
+          }
+          observe() {}
+          disconnect() {}
+        },
+      });
+    }
+    try {
+      const subject = config.product ?? product;
+      await browser.render(React.createElement(Provider, { product: subject, initialVariantId: config.initialVariantId }, React.createElement(Purchase, { product: subject, storefrontId: "store", locale: "tr", options: { ...createDefaultStarterThemeComposition().productDetail, mobileStickyPurchase: Boolean(observePurchase) }, showQuantitySelector: config.quantity ?? false, sizeGuide: config.guide?.body, sizeGuideHeading: config.guide?.heading })));
+      await run({ ...browser, calls, events, order, replaced });
+    } finally {
+      if (observePurchase) globalThis.IntersectionObserver = previousObserver;
+    }
   });
 }
 
@@ -70,6 +89,33 @@ test("add asks for an explicit size and never auto-adds; sold-out size is disabl
     assert.equal(container.querySelector(".selector")?.textContent, "Beden seçin");
     assert.deepEqual(calls, []);
   });
+});
+
+test("closing the size dialog returns focus to its purchase button", async () => {
+  await withPurchase(async ({ container, click }) => {
+    const add = '[data-purchase-action="add"]';
+    await click(add);
+    await click('[aria-label="Pencereyi kapat"]');
+    assert.ok(document.activeElement === container.querySelector(add), "focus returns to the regular add button");
+  });
+});
+
+test("closing the size dialog restores sticky focus or moves it to the size selector when hidden", async () => {
+  let updateRatio: ((ratio: number) => void) | undefined;
+  await withPurchase(async ({ container, click }) => {
+    const stickyAdd = "[data-siora-sticky-purchase] button";
+    const close = '[aria-label="Pencereyi kapat"]';
+    assert.ok(updateRatio);
+    await React.act(async () => updateRatio?.(0));
+    await click(stickyAdd);
+    await click(close);
+    assert.ok(document.activeElement === container.querySelector(stickyAdd), "focus returns to the visible sticky add button");
+
+    await click(stickyAdd);
+    await React.act(async () => updateRatio?.(1));
+    await click(close);
+    assert.ok(document.activeElement === container.querySelector(".selector"), "focus returns to the size selector when the sticky add button is hidden");
+  }, { observePurchase: (setRatio) => { updateRatio = setRatio; } });
 });
 
 test("chosen color and size send the real API variant and its price in commerce events", async () => {

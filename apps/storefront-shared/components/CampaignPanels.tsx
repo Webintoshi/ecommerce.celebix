@@ -8,20 +8,30 @@ type CategorySection = Extract<PublicStarterHomeSection, { kind: "category_grid"
 type SplitSection = Extract<PublicStarterHomeSection, { kind: "split_campaign" }>;
 type StorySection = Extract<PublicStarterHomeSection, { kind: "brand_story" }>;
 
-export function CampaignCategories({ section, locale, prefetch }: Readonly<{ section: CategorySection; locale: string; prefetch?: boolean }>) {
+export function CampaignCategories({ section, locale, prefetch, concise = false, deferImages = false }: Readonly<{
+  section: CategorySection;
+  locale: string;
+  prefetch?: boolean;
+  concise?: boolean;
+  deferImages?: boolean;
+}>) {
   if (!section.items.length) return null;
   const layoutClass = section.layout === "duo" ? styles.categoryGridDuo : styles.categoryGridGrid;
   return (
     <section className={styles.categories} data-campaign-categories aria-labelledby="campaign-category-title">
       <div className={styles.sectionHeading} data-campaign-section-heading><div><h2 id="campaign-category-title">{section.heading}</h2></div></div>
       <div className={`${styles.categoryGrid} ${layoutClass}`} data-layout={section.layout}>
-        {section.items.map((item) => (
-          <Link href={categoryPath(locale, item.slug)} prefetch={prefetch} key={item.slug}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={item.image.url} alt={item.image.altText || item.name} width={item.image.width} height={item.image.height} />
-            <span><strong>{item.name}</strong><small>Keşfet →</small></span>
-          </Link>
-        ))}
+        {section.items.map((item) => {
+          const altText = item.image.altText?.trim();
+          const repeatsName = altText?.toLocaleLowerCase("tr") === item.name.trim().toLocaleLowerCase("tr");
+          return (
+            <Link href={categoryPath(locale, item.slug)} prefetch={prefetch} key={item.slug}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={item.image.url} alt={concise ? (repeatsName ? "" : altText ?? "") : item.image.altText || item.name} width={item.image.width} height={item.image.height} loading={deferImages ? "lazy" : undefined} />
+              <span><strong>{item.name}</strong>{concise ? null : <small>Keşfet →</small>}</span>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

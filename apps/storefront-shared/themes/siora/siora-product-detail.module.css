@@ -33,9 +33,6 @@
 .actions button + button, .sticky button { background: #11110f; color: white; font-size: 11px; letter-spacing: .035em; }
 .actions svg, .sticky svg { width: 17px; height: 17px; }
 .actions button:disabled, .sticky button:disabled { opacity: .5; cursor: default; }
-.quantity { display: flex; align-items: center; gap: 16px; margin: 0 0 14px; font-size: 12px; }
-.quantity > span { margin-right: auto; color: #6b6b65; }
-.quantity button { width: 30px; height: 30px; border: 1px solid #dedbd4; background: transparent; color: inherit; cursor: pointer; }
 .status { margin: 12px 0 0; font-size: 11px; line-height: 1.5; }
 .status:empty { display: none; }
 .details { max-width: 820px; padding: 72px 24px; margin: 0 auto; }
@@ -59,7 +56,7 @@
 .dialog::backdrop { background: #11110f66; }
 .dialog header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 25px; }
 .dialog h2 { margin: 0; font-size: 19px; font-weight: 400; }
-.dialog header button { width: 36px; height: 36px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 28px; cursor: pointer; }
+.dialog header button { flex: none; width: 44px; height: 44px; padding: 0; border: 0; background: transparent; color: inherit; font-size: 28px; cursor: pointer; }
 .optionList { display: grid; gap: 8px; }
 .optionList button { display: flex; justify-content: space-between; align-items: center; padding: 16px; border: 1px solid #dedbd4; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .optionList button[aria-pressed="true"] { border-color: #22221f; }
@@ -67,10 +64,12 @@
 .optionList small { font-size: 11px; }
 .guide { font-size: 13px; line-height: 1.8; }
 .sticky { display: none; }
-.experience button:focus-visible, .experience a:focus-visible, .dialog button:focus-visible, .sticky button:focus-visible { outline: 1px solid #22221f66; outline-offset: 2px; }
-.experience .selector:focus-visible { outline: 0; border-bottom-color: #22221f; box-shadow: 0 1px #22221f; }
+:is(.experience, .dialog, .sticky) button:focus-visible, .experience a:focus-visible { outline: 2px solid #22221f; outline-offset: 2px; }
+@media (forced-colors: active) {
+  :is(.experience, .dialog, .sticky) button:focus-visible, .experience a:focus-visible { outline-color: Highlight; }
+}
 @media (max-width: 1050px) and (min-width: 768px) { .purchase { right: 20px; bottom: 28px; padding: 24px; } }
-@media (max-width: 767px) {
+@media not all and (min-width: 768px) {
   .experience { padding-bottom: 76px; }
   .stage { height: auto; min-height: 0; }
   .back, .cart { top: 20px; }
@@ -81,6 +80,7 @@
   .experience .titleRow h1 { font-size: 19px; }
   .swatches button, .swatches img { width: 61px; }
   .swatches img { height: 61px; }
+  .sizeHelp { min-height: 44px; }
   .details { padding: 35px 24px; }
   .related { padding: 35px 20px; }
   .relatedGrid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px 12px; }

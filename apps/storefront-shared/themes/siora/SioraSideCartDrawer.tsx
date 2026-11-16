@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { PublicCartLine, PublicStarterThemePresentationV2 } from "@celebix/saas-contracts";
 import { FreeShippingProgress } from "../../components/FreeShippingProgress";
+import { ResponsiveProductImage } from "../../components/ResponsiveProductImage";
 import { useCartStatus } from "../../components/CartStatusProvider";
 import { sideCartPresentation } from "../../components/campaign-ui-model";
 import { mutateSideCartLine } from "../../components/side-cart-mutation";
@@ -110,7 +111,11 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
                   const pending = pendingVariant !== null || bumpPending;
                   return <article className={styles.line} key={line.variantId}>
                     <Link className={styles.media} href={productPath(locale, line.slug)} onClick={closeDrawer}>
-                      {line.media ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={line.media.url} alt={line.media.altText || line.title} width={line.media.width ?? 240} height={line.media.height ?? 300} /> : <span>Görsel yakında</span>}
+                      {line.media ? <ResponsiveProductImage
+                        media={{ url: line.media.url, width: line.media.width ?? 240, height: line.media.height ?? 300 }}
+                        alt={line.media.altText || line.title}
+                        sizes="(max-width: 359px) 88px, (max-width: 600px) 112px, 140px"
+                      /> : <span>Görsel yakında</span>}
                     </Link>
                     <div className={styles.copy}>
                       <Link className={styles.title} href={productPath(locale, line.slug)} onClick={closeDrawer}>{line.title}</Link>
@@ -123,7 +128,11 @@ export function SioraSideCartDrawer({ presentation, locale }: Readonly<{ present
                 })}</div>
                 <OrderBumpOffers cart={cart} placement="side_cart" locale={locale} active={typeof window !== "undefined" && !/^\/(?:checkout|payments|odeme)(?:\/|$)/iu.test(window.location.pathname)} disabled={pendingVariant !== null || bumpPending} beforeAdd={() => { if (mutationBusy.current) return false; mutationBusy.current = true; return true; }} onPendingChange={value => { setBumpPending(value); if (!value) mutationBusy.current = false; }} onAvailability={setCustomOffers} />
                 {!customOffers && suggestions.length ? <section className={styles.recommendations} aria-labelledby="siora-cart-recommendations"><h3 id="siora-cart-recommendations">Beğenebilecekleriniz</h3><div className={styles.suggestions}>{suggestions.map((item) => <Link className={styles.suggestion} key={item.id} href={productPath(locale, item.slug)} onClick={closeDrawer}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.media.url} alt={item.media.altText || item.title} width={item.media.width ?? 320} height={item.media.height ?? 400} loading="lazy" />
+                  <ResponsiveProductImage
+                    media={{ url: item.media.url, width: item.media.width ?? 320, height: item.media.height ?? 400 }}
+                    alt={item.media.altText || item.title}
+                    sizes="(max-width: 359px) calc(50vw - 23px), (max-width: 560px) calc(50vw - 27px), (max-width: 600px) 253px, 238px"
+                  />
                   <span>{item.title}</span>{!pricesHidden && item.priceCents !== null ? <small>{formatTry(item.priceCents)}</small> : null}
                 </Link>)}</div></section> : null}
               </div>
