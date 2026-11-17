@@ -12,6 +12,25 @@ const props = { currentPlan, storeId: '11111111-1111-4111-8111-111111111111', ca
 const money = (cents: number) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: cents % 100 === 0 ? 0 : 2, maximumFractionDigits: 2 }).format(cents / 100);
 const gross = (net: number) => net + Math.round(net * 0.2);
 
+for (const plan of COMMERCIAL_PACKAGES.filter(plan => plan.monthlyPriceCents > 0)) {
+  for (const term of ['monthly', 'annual'] as const) {
+    test(`external ${plan.code} ${term} selection opens the existing catalog checkout`, async () => {
+      const Component = load();
+      await withEditor(async ({ container, render }) => {
+        await render(React.createElement(Component, { ...props, selection: { code: plan.code, term } }));
+        const summary = container.querySelector('#plan-checkout')!;
+        const checkout = summary.querySelector<HTMLButtonElement>('[data-checkout-offer]')!;
+        const net = term === 'monthly' ? plan.monthlyPriceCents : plan.annualPriceCents;
+        assert.ok(container.querySelector<HTMLInputElement>(`input[value="${plan.id}"]`)?.checked);
+        assert.equal(checkout.getAttribute('data-checkout-offer'), plan.id);
+        assert.equal(checkout.getAttribute('data-checkout-term'), term);
+        assert.equal(checkout.disabled, false);
+        assert.equal(summary.querySelector('[data-total="total"]')?.textContent, `${money(gross(net))} TL`);
+      });
+    });
+  }
+}
+
 test('product cards and selected payment totals stay synchronized with the billing period', async () => {
   const Component = load();
   await withEditor(async ({ container, render, click }) => {

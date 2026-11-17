@@ -16,12 +16,13 @@ const CAPABILITIES = Object.keys(COMMERCIAL_CAPABILITY_LABELS) as CommercialCapa
 const defaultFetcher = (input: string, init?: RequestInit) => fetch(input, init);
 const defaultOperationId = () => crypto.randomUUID();
 const packageRank = (plan: {code: string} | undefined) => plan ? COMMERCIAL_PACKAGES.findIndex(candidate => candidate.code === plan.code) : -1;
-export function CommercialPlanComparison({ currentPlan, canRequest, feature, storeId, checkoutEnabled=false, fetcher = defaultFetcher, createOperationId = defaultOperationId }: Readonly<{
+export function CommercialPlanComparison({ currentPlan, canRequest, feature, selection, storeId, checkoutEnabled=false, fetcher = defaultFetcher, createOperationId = defaultOperationId }: Readonly<{
     currentPlan: PlanIdentity;
     canRequest: boolean;
     storeId?: string;
     checkoutEnabled?: boolean;
     feature?: CommercialCapability;
+    selection?: Readonly<{code: string; term: "monthly" | "annual"}>;
     fetcher?: typeof defaultFetcher;
     createOperationId?: () => string;
 }>) {
@@ -29,14 +30,15 @@ export function CommercialPlanComparison({ currentPlan, canRequest, feature, sto
     const currentOffer = current ? COMMERCIAL_PACKAGES.find(plan => plan.code === current.code) : undefined;
     const required = minimum && packageRank(minimum) > packageRank(current) ? minimum : undefined;
     const firstUpgrade = COMMERCIAL_PACKAGES.find(plan => plan.monthlyPriceCents > 0 && packageRank(plan) > packageRank(current));
-    const [selectedId, setSelectedId] = useState(required?.id ?? (feature && currentOffer ? currentOffer.id : firstUpgrade?.id) ?? currentOffer?.id ?? COMMERCIAL_PACKAGES[1].id);
+    const requestedPlan = COMMERCIAL_PACKAGES.find(plan => plan.code === selection?.code && plan.monthlyPriceCents > 0);
+    const [selectedId, setSelectedId] = useState(requestedPlan?.id ?? required?.id ?? (feature && currentOffer ? currentOffer.id : firstUpgrade?.id) ?? currentOffer?.id ?? COMMERCIAL_PACKAGES[1].id);
     const [overview, setOverview] = useState<CommercialPlanOverview | null>(null), [loading, setLoading] = useState(true), [loadError, setLoadError] = useState(false), [revision, setRevision] = useState(0), [busy, setBusy] = useState(false), [error, setError] = useState(''), [request, setRequest] = useState<CommercialUpgradeRequest | null>(null);
     const operation = useRef<{
         planId: string;
         operationId: string;
     } | null>(null), sending = useRef(false);
     const selected = COMMERCIAL_PACKAGES.find(plan => plan.id === selectedId)!;
-    const [checkoutTerm,setCheckoutTerm]=useState<'monthly'|'annual'>('annual');
+    const [checkoutTerm,setCheckoutTerm]=useState<'monthly'|'annual'>(selection?.term ?? 'annual');
     const onlineCheckout=Boolean(checkoutEnabled&&storeId&&canRequest&&current?.monthlyPriceCents===0);
     const checkoutNet=checkoutTerm==='annual'?selected.annualPriceCents:selected.monthlyPriceCents;
     const checkoutGross=packageGrossCents(checkoutNet);
@@ -151,7 +153,7 @@ export function CommercialPlanComparison({ currentPlan, canRequest, feature, sto
             })}
         </fieldset>
 
-        <section className={styles.requestSection} aria-label="Paket değişikliği">
+        <section id="plan-checkout" className={styles.requestSection} aria-label="Paket değişikliği">
             <div className={styles.selectedProduct}><img src={selectedPresentation.image} alt="" width={960} height={640}/><div><h2>{selected.name} · {checkoutTerm === 'annual' ? 'Yıllık' : 'Aylık'}</h2><p>{checkoutNet > 0 ? 'Seçtiğiniz paket için ödeme özeti.' : 'Süresiz ücretsiz paket.'}</p></div></div>
             <dl className={styles.paymentTotals}><div><dt>KDV hariç tutar</dt><dd data-total="net">{checkoutMoney(checkoutNet)} TL</dd></div><div><dt>KDV (%{STORE_TOOL_OFFERS[0]!.vatBps / 100})</dt><dd data-total="vat">{checkoutMoney(checkoutVat)} TL</dd></div><div className={styles.grandTotal}><dt>KDV dahil toplam</dt><dd data-total="total">{checkoutMoney(checkoutGross)} TL</dd></div></dl>
             <div className={styles.requestActions}>

@@ -8,7 +8,7 @@ import {
 } from "@celebix/saas-data";
 
 import { serializePersistentPanelSessionCookie } from "./panel-session-completion/cookie.ts";
-import { merchantPurchaseHintFromSearch, merchantPurchaseDestination, type MerchantPurchaseHint } from './merchant-phone/purchase-hint.ts';
+import { merchantPackageSelection, merchantPurchaseHintFromSearch, merchantPurchaseDestination, type MerchantPurchaseHint } from './merchant-phone/purchase-hint.ts';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const KEY_ID = /^[A-Za-z0-9._-]{1,64}$/;
@@ -149,7 +149,10 @@ export function createCrossHostHandoffHttpHandler(options: Readonly<{
       if (!(trustedNow instanceof Date) || !Number.isFinite(trustedNow.getTime())) throw new Error("unavailable");
       if (!authority.hostname.startsWith("admin.")) parseCanonicalAdminOriginFromPanelOrigin(authority.origin, runtime.access?.panelOrigin);
       const requestOrigin = request.headers.get("origin");
-      if (authority.purchaseHint && requestOrigin !== runtime.access?.panelOrigin) return json('admin_handoff_request_invalid', 400);
+      if (authority.purchaseHint && requestOrigin !== runtime.access?.panelOrigin
+          && !(requestOrigin === runtime.ownerOrigin && merchantPackageSelection(authority.purchaseHint))) {
+        return json('admin_handoff_request_invalid', 400);
+      }
       if (requestOrigin === null || requestOrigin === "null") throw new Error("invalid");
       if (requestOrigin !== runtime.access?.panelOrigin && requestOrigin !== runtime.ownerOrigin && requestOrigin !== authority.origin) {
         const hostname = sourceAdminHostname(requestOrigin, runtime.access?.panelOrigin);

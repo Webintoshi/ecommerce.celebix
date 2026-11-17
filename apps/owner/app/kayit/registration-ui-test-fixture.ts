@@ -83,7 +83,7 @@ export function registrationUiFixture(environment: Record<string, string | undef
   }
   const form = load(path.join(ownerRoot, "components/self-serve/SelfServeDirectRegistrationForm.tsx"))
     .SelfServeDirectRegistrationForm as (props: { enabled: boolean; domainSuffix?: string }) => UiElement;
-  const page = load(path.join(ownerRoot, "app/kayit/page.tsx")).default as () => UiElement;
+  const page = load(path.join(ownerRoot, "app/kayit/page.tsx")).default as (props?: {searchParams?: Promise<Record<string,unknown>>}) => Promise<UiElement>;
 
   function elements(node: unknown): UiElement[] {
     if (Array.isArray(node)) return node.flatMap(elements);

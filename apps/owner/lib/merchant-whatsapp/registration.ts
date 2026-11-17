@@ -1,3 +1,4 @@
+import {merchantPackageSelection,merchantPurchaseHintFromPage,type MerchantPurchaseHint} from '../../../customer-panel/lib/merchant-phone/purchase-hint.ts';
 import {registrationRecovery} from './registration-recovery.ts';
 import type {CreatePhoneStarterTenantInput, CreateStarterTenantResult, SaaSContractError} from '../../../../packages/saas-contracts/src/index.ts';
 import type {MerchantPhonePending} from './codec.ts';
@@ -15,7 +16,7 @@ export type MerchantPhoneRegistrationDependencies = Readonly<{
   >};
   claimSignup: (input: Readonly<{pending: MerchantPhonePending; storeId: string; operationId: string}>) => Promise<MerchantInternalResult>;
   /** Transfers the existing native session through the registered cross-host handoff. Never issues a second session. */
-  complete: (input: Readonly<{request: Request; completion: MerchantCompletion; operationId: string}>) => Promise<Response>;
+  complete: (input: Readonly<{request: Request; completion: MerchantCompletion; operationId: string; purchaseHint?: MerchantPurchaseHint}>) => Promise<Response>;
 }>;
 const PATH = '/api/self-serve/register';
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
@@ -56,7 +57,7 @@ async function form(request: Request) {
   try {raw = new TextDecoder('utf-8', {fatal: true}).decode(Buffer.concat(chunks));} catch {return invalid();}
   if (/%(?![a-f0-9]{2})/iu.test(raw)) invalid();
   const body = new URLSearchParams(raw);
-  const allowed = ['firstName', 'lastName', 'storeName', 'storeSlug', 'privacyConsent', 'marketingConsent', 'operationId', 'contactEmail'];
+  const allowed = ['firstName', 'lastName', 'storeName', 'storeSlug', 'privacyConsent', 'marketingConsent', 'operationId', 'contactEmail', 'purchase', 'term'];
   for (const key of body.keys()) if (!allowed.includes(key) || body.getAll(key).length !== 1) invalid();
   const firstName=(body.get('firstName') ?? '').trim(), lastName=(body.get('lastName') ?? '').trim();
   if (![firstName,lastName].every(name=>name.length>=1 && name.length<=100 && !/[\u0000-\u001f\u007f]/u.test(name))) invalid();
@@ -67,7 +68,11 @@ async function form(request: Request) {
   const marketing = body.get('marketingConsent');
   if (!name || name.length > 120 || /[\u0000-\u001f\u007f]/u.test(name) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(slug) || slug.length < 3 || slug.length > 48 || !UUID.test(operationId)) invalid();
   if (!['on', 'true'].includes(privacy ?? '') || (marketing !== null && !['on', 'true', 'false'].includes(marketing))) invalid();
-  return {firstName,lastName,name, slug, operationId, marketing: marketing === 'on' || marketing === 'true', contactEmail: (body.get('contactEmail') ?? '').trim()};
+  const purchase = body.get('purchase'), term = body.get('term');
+  const purchaseHint = merchantPurchaseHintFromPage({purchase,term});
+  const packageSelection = merchantPackageSelection(purchaseHint);
+  if ((purchase !== null || term !== null) && !packageSelection) invalid();
+  return {purchaseHint,packageSelection,firstName,lastName,name, slug, operationId, marketing: marketing === 'on' || marketing === 'true', contactEmail: (body.get('contactEmail') ?? '').trim()};
 }
 
 export function createMerchantPhoneRegistrationHandler(options: MerchantPhoneRegistrationDependencies) {
@@ -82,7 +87,7 @@ export function createMerchantPhoneRegistrationHandler(options: MerchantPhoneReg
       // Next may construct request.url using its internal listener; the configured public origin is authoritative.
       if (request.headers.get('origin') !== ownerOrigin || request.headers.get('host') !== hostname || ['cross-site', 'same-site'].includes(request.headers.get('sec-fetch-site') ?? '')) return reject('unauthorized', 403);
       const input = await form(request);
-      recoveryFields={firstName:input.firstName,lastName:input.lastName,storeName:input.name,storeSlug:input.slug,operationId:input.operationId,privacyConsent:'true',...(input.marketing?{marketingConsent:'true'}:{})};
+      recoveryFields={firstName:input.firstName,lastName:input.lastName,storeName:input.name,storeSlug:input.slug,operationId:input.operationId,privacyConsent:'true',...(input.packageSelection?{purchase:input.packageSelection.code,term:input.packageSelection.term}:{}),...(input.marketing?{marketingConsent:'true'}:{})};
       // Business contact settings are configured after registration, never treated as identity evidence.
       if (input.contactEmail) return reject('contact_email_unavailable', 503);
       const proof = await options.getSignupProof(request);
@@ -110,7 +115,7 @@ export function createMerchantPhoneRegistrationHandler(options: MerchantPhoneReg
       const claimed = await options.claimSignup({pending: proof.pending, storeId: result.store.id, operationId: input.operationId});
       const completion = claimed.completion;
       if (claimed.code !== 'complete' || !completion || completion.purpose !== 'signup' || completion.destinationStoreId !== result.store.id || completion.destinationOrigin !== destination) return reject('registration_unavailable', 503);
-      return secure(await options.complete({request, completion, operationId: input.operationId}));
+      return secure(await options.complete({request, completion, operationId: input.operationId, ...(input.purchaseHint?{purchaseHint:input.purchaseHint}:{})}));
     } catch (error) {return reject(error instanceof InvalidForm ? 'invalid_input' : 'registration_unavailable', error instanceof InvalidForm ? 400 : 503);}
   };
 }

@@ -1,8 +1,9 @@
 'use client';
 import {MerchantSignupPhoneGate} from './MerchantSignupPhoneGate.tsx';
-interface SelfServeDirectRegistrationFormProps { enabled:boolean; domainSuffix?:string; }
-export function SelfServeDirectRegistrationForm({enabled,domainSuffix}:SelfServeDirectRegistrationFormProps) {
+interface SelfServeDirectRegistrationFormProps { enabled:boolean; domainSuffix?:string; purchaseSelection?:{code:string;term:string}; }
+export function SelfServeDirectRegistrationForm({enabled,domainSuffix,purchaseSelection}:SelfServeDirectRegistrationFormProps) {
  return <MerchantSignupPhoneGate enabled={enabled}><form className="signup-form" action="/api/self-serve/register" method="post" aria-describedby="self-serve-registration-state">
+  {purchaseSelection&&<><input type="hidden" name="purchase" value={purchaseSelection.code}/><input type="hidden" name="term" value={purchaseSelection.term}/></>}
   <div className="signup-name-row" data-signup-name-fields>
    <label htmlFor="signup-first-name"><span>Ad</span><input id="signup-first-name" name="firstName" autoComplete="given-name" placeholder="Adınız" required maxLength={100}/></label>
    <label htmlFor="signup-last-name"><span>Soyad</span><input id="signup-last-name" name="lastName" autoComplete="family-name" placeholder="Soyadınız" required maxLength={100}/></label>

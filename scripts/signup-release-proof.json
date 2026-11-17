@@ -5,7 +5,7 @@
     "current-signup.native",
     "starter-plan-snapshots255.native"
   ],
-  "inputDigest": "ea941253928b78a369ccc23ca98d304f64d98b3d43c57ccd7558cf93b1d14d0d",
+  "inputDigest": "06e1251cad4323ef439165754662f3092c6929dabb275d80053594409b986f7d",
   "inputs": [
     {
       "path": ".github/workflows/signup-release-guard.yml",
@@ -89,7 +89,7 @@
     },
     {
       "path": "apps/customer-panel/components/auth/TenantLogin.tsx",
-      "sha256": "039a2ae35703763bb1c09ab5a2706fdaced8cff999fcab6e94928d2290a6743c"
+      "sha256": "bb0cc7946680c489471429f3ce15a7a9e2b843e19edbdb08514b853722c28963"
     },
     {
       "path": "apps/customer-panel/components/auth/merchant-phone-login-client.ts",
@@ -121,7 +121,7 @@
     },
     {
       "path": "apps/customer-panel/lib/cross-host-handoff-http.ts",
-      "sha256": "617b0522ac051e422a6bcf27928472d050eb444892ae934778488c8aa1821033"
+      "sha256": "011b4250b4eb9d9115c504817c057a48df9370a2c6a9ac4ff25ef74e08d3f140"
     },
     {
       "path": "apps/customer-panel/lib/cross-host-session-handoff/postgres-repository.ts",
@@ -133,7 +133,7 @@
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/purchase-hint.ts",
-      "sha256": "97e4a0a22a20e97cf6c99197e1c11769cc092a96a8dbefc7f1a8e7b196504204"
+      "sha256": "9a255e2c0ed13b8597a9ca6c3486ed94085a95a9124fc541c7c95770f2412892"
     },
     {
       "path": "apps/customer-panel/lib/merchant-phone/runtime.ts",
@@ -505,11 +505,11 @@
     },
     {
       "path": "apps/owner/app/kayit/page.tsx",
-      "sha256": "a3cf0c90172b214c3fea8776184210da7caba8082577012eaef1151c8c840c83"
+      "sha256": "3fb9c246fc9af6c5b817674ff472e7557d0500f05e2d37f39eb33cc4fed99efd"
     },
     {
       "path": "apps/owner/app/kayit/registration-ui-test-fixture.ts",
-      "sha256": "7208ec8052e32d068b34841d31064b7987e130e9a28c9e9c58c31782686d0565"
+      "sha256": "c762405138fc940d46d8bbbfd9d00884e12dab825c03cbd5ecababdefac95e9c"
     },
     {
       "path": "apps/owner/app/layout.tsx",
@@ -745,7 +745,7 @@
     },
     {
       "path": "apps/owner/components/self-serve/SelfServeDirectRegistrationForm.tsx",
-      "sha256": "9ba80236d5b1394ab4327039445952b56c3d7959f3d0e435ec09bd0ef8eb957a"
+      "sha256": "637d12a0b3ca443921637b01788f9936b7da494681c5ae74d56b4e88c94d5f07"
     },
     {
       "path": "apps/owner/components/self-serve/SelfServeOwnerRequestDetail.tsx",
@@ -961,7 +961,7 @@
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/completion.ts",
-      "sha256": "6f5edfb6cf1ae7c8da21e63d46815882966d7af2667f742c32cb249aab57286e"
+      "sha256": "d521de9272ea2e251825798287cd088235f1c829183261154e32dca8895bd3ee"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/config.ts",
@@ -981,11 +981,11 @@
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/registration-recovery.ts",
-      "sha256": "628b585c8ea94e8e09712a750ef93f71b870ef7ae538c0b134ad9085a031c37a"
+      "sha256": "980d3e2666130628683e56fee1622a680594c95a5dc20416a4d67b753bc230df"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/registration.ts",
-      "sha256": "b243b75447adbab1c834b27bf518f2fce07da268478213074ad92e324be7e668"
+      "sha256": "3519983e77b6e46ab05d16c58fe9ddadb006f71f35ba892c923172e2c99d15ec"
     },
     {
       "path": "apps/owner/lib/merchant-whatsapp/service.ts",

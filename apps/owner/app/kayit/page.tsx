@@ -1,13 +1,16 @@
 import process from 'node:process';
+import {merchantPackageSelection,merchantPurchaseHintFromPage,merchantPurchaseSearch} from '../../../customer-panel/lib/merchant-phone/purchase-hint.ts';
 import type {Metadata} from 'next';
 import {resolveSelfServeRegistrationUiEnabled} from '@/lib/self-serve-registration-orchestrator';
 import {SelfServeDirectRegistrationForm} from '@/components/self-serve/SelfServeDirectRegistrationForm';
 import styles from './signup.module.css';
 export const metadata:Metadata={title:'Mağazanızı açın | Celebix',description:'Telefonunuzu doğrulayın, Celebix ile mağazanızı oluşturun.'};
-export default function KayitPage() {
+export default async function KayitPage({searchParams}: {searchParams?:Promise<Record<string,string|string[]|undefined>>} = {}) {
+ const hint=merchantPurchaseHintFromPage(await searchParams);
+ const purchaseSelection=merchantPackageSelection(hint);
  const enabled=resolveSelfServeRegistrationUiEnabled(process.env);
  let merchantLoginHref:string|null=null;
- try {const value=process.env.CELEBIX_PANEL_ORIGIN;if(value){const origin=new URL(value);if(origin.protocol==='https:'&&origin.origin===value&&!origin.port&&!origin.username&&!origin.password&&origin.hostname.includes('.'))merchantLoginHref=value+'/login';}}catch{/* Missing authority never becomes a guessed login destination. */}
+ try {const value=process.env.CELEBIX_PANEL_ORIGIN;if(value){const origin=new URL(value);if(origin.protocol==='https:'&&origin.origin===value&&!origin.port&&!origin.username&&!origin.password&&origin.hostname.includes('.'))merchantLoginHref=value+'/login'+(purchaseSelection?merchantPurchaseSearch(hint):'');}}catch{/* Missing authority never becomes a guessed login destination. */}
  return <main className={styles.page}>
   <header className={styles.header}>
    <a href="https://celebix.net/tr" aria-label="Celebix ana sayfa"><img src="/branding/celebix-logo.svg" alt="Celebix" width="146" height="40"/></a>
@@ -15,7 +18,7 @@ export default function KayitPage() {
   </header>
   <section className={styles.formArea} aria-labelledby="signup-title" data-state={enabled?'enabled':'disabled'}>
    <h1 id="signup-title">Mağazanızı açın.</h1>
-   <SelfServeDirectRegistrationForm enabled={enabled} domainSuffix={enabled?process.env.CELEBIX_PLATFORM_DOMAIN_SUFFIX:undefined}/>
+   <SelfServeDirectRegistrationForm enabled={enabled} domainSuffix={enabled?process.env.CELEBIX_PLATFORM_DOMAIN_SUFFIX:undefined} purchaseSelection={purchaseSelection}/>
    {!enabled&&<p className={styles.unavailable} role="status">Mağaza kaydı şu anda kullanılamıyor. Lütfen daha sonra tekrar deneyin.</p>}
   </section>
   <aside className={styles.scene} aria-label="Markanızın yeni başlangıcı">

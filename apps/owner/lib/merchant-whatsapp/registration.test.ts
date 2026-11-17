@@ -40,3 +40,16 @@ test('native browser failures keep exact names, consents and operation for expli
  assert.match(html,/İpek &lt;script&gt;/);assert.match(html,new RegExp(`name="operationId" value="${op}"`));assert.match(html,/name="lastName" value="Yılmaz"/);assert.match(html,/name="privacyConsent" value="true"/);assert.doesNotMatch(html,/<script/);assert.match(response.headers.get('content-security-policy')!,/form-action 'self'/);assert.equal(response.headers.get('referrer-policy'),'same-origin');
  assert.equal(response.headers.get('cache-control'),'no-store');
 });
+
+test('paid signup preserves the requested offer only as an authenticated post-registration destination', async () => {
+ const f=await fixture();
+ const result=await f.handler(request({...fields,purchase:'professional',term:'annual'}));
+ assert.equal(result.status,303);
+ assert.equal(f.transfers[0].purchaseHint,'professional:annual');
+ assert.equal(Object.hasOwn(f.inputs[0],'purchaseHint'),false);
+ assert.equal(Object.hasOwn(f.inputs[0].store,'plan'),false);
+ for(const invalid of [{purchase:'professional'},{purchase:'free_starter',term:'annual'},{purchase:'growth',term:'once'}]){
+  assert.equal((await f.handler(request({...fields,...invalid} as Record<string,string>))).status,400);
+ }
+ assert.equal(f.inputs.length,1);
+});
