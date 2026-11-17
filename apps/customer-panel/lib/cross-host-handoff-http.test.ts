@@ -358,3 +358,15 @@ test("unknown brands and denied handoffs never install a cookie", async () => {
     assert.equal(response.headers.has("set-cookie"), false);
   }
 });
+
+test('a package selection survives both login and registration handoff redemption', async () => {
+ for(const origin of [CENTRAL,OWNER]) {
+  for(const purchase of ['starter','growth','professional']) for(const term of ['monthly','annual']){
+   const current=fixture(),query='?purchase='+purchase+'&term='+term;
+   const response=await current.handler(request({url:ORIGIN+'/auth/handoff'+query,origin}));
+   assert.equal(response.status,303);
+   assert.equal(response.headers.get('location'),ORIGIN+'/settings/plan'+query+'#plan-checkout');
+   assert.equal(current.redeemCalls,1);
+  }
+ }
+});

@@ -28,3 +28,20 @@ test('unknown duplicate and extra navigation fields never become a purchase hint
   ]) assert.throws(() => merchantPurchaseHintFromSearch(search));
   assert.throws(() => merchantPurchaseSearch('https://evil.example' as never));
 });
+
+test('all six paid package intents round-trip without amounts or arbitrary redirect targets', () => {
+ for(const purchase of ['starter','growth','professional']) for(const term of ['monthly','annual']){
+  const search='?'+new URLSearchParams({purchase,term}).toString();
+  const hint=merchantPurchaseHintFromPage({purchase,term});
+  assert.ok(hint);
+  assert.equal(merchantPurchaseHintFromSearch(search),hint);
+  assert.equal(merchantPurchaseSearch(hint),search);
+  assert.equal(merchantPurchaseDestination(hint),'/settings/plan'+search+'#plan-checkout');
+ }
+ for(const query of [{purchase:'free_starter',term:'annual'},{purchase:'growth',term:'once'},{purchase:'growth',term:['monthly','annual']},{purchase:'growth',term:'annual',amount:'1'}]){
+  assert.equal(merchantPurchaseHintFromPage(query),undefined);
+ }
+ for(const search of ['?purchase=growth','?purchase=growth&term=annual&term=monthly','?purchase=professional&term=monthly&returnTo=https://example.com']){
+  assert.throws(()=>merchantPurchaseHintFromSearch(search));
+ }
+});

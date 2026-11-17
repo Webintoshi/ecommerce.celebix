@@ -6,7 +6,16 @@ test('trusted route gate redirects before a page can load its feature and distin
     for (const [role, path, expected] of [['store_owner', '/discounts/new', 'coupons'], ['store_owner', '/accounting', 'accounting'], ['editor', '/accounting', 'accounting'], ['store_owner', '/settings/shipping', null]] as const) {
         const p = COMMERCIAL_PACKAGES[0];
         const context = { membership: { role: role as StoreMembershipRole }, entitlements: { schemaVersion: 1, planId: p.id, planCode: p.code, version: p.version, status: 'active', features: p.features, limits: p.limits, validFrom: '2026-01-01T00:00:00Z' } };
-        const { requireServerPanelAccess } = compile<any>(new URL('../../lib/server-access.ts', import.meta.url), { 'server-only': {}, 'next/headers': { headers: async () => new Headers({ 'x-celebix-panel-pathname': path }) }, 'next/navigation': { redirect: (to: string) => { throw Error(`redirect:${to}`); } }, '@/lib/server-session': { resolveServerPanelSession: async () => ({}) }, '@/lib/server-panel-access/decision': { decideServerPanelAccess: () => ({ kind: 'render', session: {}, tenantContext: context }) } });
+        const { requireServerPanelAccess } = compile<any>(new URL('../../lib/server-access.ts', import.meta.url), {
+            'server-only': {},
+            'next/headers': { headers: async () => new Headers({ 'x-celebix-panel-pathname': path }) },
+            'next/navigation': { redirect: (to: string) => { throw Error(`redirect:${to}`); } },
+            '@/lib/server-session': { resolveServerPanelSession: async () => ({}) },
+            '@/lib/server-panel-access/decision': { decideServerPanelAccess: () => ({ kind: 'render', session: {}, tenantContext: context }) },
+            '@/lib/server-accounting/access': { resolvePanelAccountingAccess: async () => ({}) },
+            '@/lib/server-orders/access': { resolvePanelOrdersAccess: async () => ({}) },
+            '@/lib/server-overview/access': { resolvePanelOverviewAccess: async () => ({}) },
+        });
         let loads = 0;
         const page = async () => { await requireServerPanelAccess(); loads++; };
         if (expected) {
@@ -18,6 +27,23 @@ test('trusted route gate redirects before a page can load its feature and distin
             assert.equal(loads, 1);
         }
     }
+});
+
+test('the authenticated plan page accepts only catalog plan and period selections', async () => {
+    const plan = COMMERCIAL_PACKAGES[0];
+    const tenantContext = { store: { id: 'store' }, membership: { role: 'store_owner' }, entitlements: { planId: plan.id, planCode: plan.code, version: plan.version } };
+    const { default: Page } = compile<any>(new URL('../../app/(panel)/settings/plan/page.tsx', import.meta.url), {
+        '@/lib/server-access': { requireServerPanelAccess: async () => ({ tenantContext }) },
+        '@/components/commercial-packages/CommercialPlanComparison': { CommercialPlanComparison: () => null },
+    });
+    for (const code of ['starter', 'growth', 'professional']) {
+        for (const term of ['monthly', 'annual']) {
+            const view = await Page({ searchParams: Promise.resolve({ purchase: code, term }) });
+            assert.deepEqual(view.props.selection, { code, term });
+        }
+    }
+    const view = await Page({ searchParams: Promise.resolve({ purchase: 'growth', term: 'monthly', amount: '1' }) });
+    assert.equal(view.props.selection, undefined);
 });
 
 test('direct upgrade links validate the finite feature and skip offers already granted by the active package',async()=>{

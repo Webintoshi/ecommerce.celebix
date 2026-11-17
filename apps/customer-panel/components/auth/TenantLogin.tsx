@@ -2,12 +2,18 @@ import Link from "next/link";
 import { ChartNoAxesColumnIncreasing, Clock3, ShieldCheck, Store } from "lucide-react";
 
 import { MerchantPhoneLoginForm } from "./MerchantPhoneLoginForm.tsx";
+import fieldStyles from "./MerchantPhoneLoginForm.module.css";
 import styles from "./TenantLogin.module.css";
 
 import type { TenantAdminLoginModel } from "../../lib/tenant-admin-login-model.ts";
 import type { MerchantPurchaseHint } from "../../lib/merchant-phone/purchase-hint.ts";
 
-export function TenantLogin({ model, purchaseHint }: Readonly<{ model: TenantAdminLoginModel; purchaseHint?: MerchantPurchaseHint }>) {
+export function TenantLogin({ model, purchaseHint, signupHref, packageStore }: Readonly<{
+  model: TenantAdminLoginModel;
+  purchaseHint?: MerchantPurchaseHint;
+  signupHref?: string;
+  packageStore?: Readonly<{ code: string; term: string; invalid: boolean }>;
+}>) {
   return (
     <main className={`tenant-login-page ${styles.page}`}>
       <header className={`tenant-login-header ${styles.header}`}>
@@ -19,8 +25,21 @@ export function TenantLogin({ model, purchaseHint }: Readonly<{ model: TenantAdm
         <div className={`tenant-login-content ${styles.content}`}>
           <h2 className={styles.entryTitle}>Giriş</h2>
           <MerchantPhoneLoginForm inline purchaseHint={purchaseHint} />
+          {packageStore && <details className={styles.packageStore} open={packageStore.invalid || undefined}>
+            <summary>Mağazanızda oturumunuz açık mı?</summary>
+            <form action="/login" method="get" className={fieldStyles.fields}>
+              <input type="hidden" name="purchase" value={packageStore.code} />
+              <input type="hidden" name="term" value={packageStore.term} />
+              <label className={fieldStyles.field}>Mağaza kısa adı veya panel adresi
+                <input name="store" required maxLength={253} autoCapitalize="none" spellCheck={false}
+                  aria-invalid={packageStore.invalid || undefined} aria-describedby={packageStore.invalid ? 'package-store-error' : undefined} />
+              </label>
+              {packageStore.invalid && <p id="package-store-error" role="alert" className={fieldStyles.error}>Mağaza bulunamadı. Adresi kontrol edin veya telefonla giriş yapın.</p>}
+              <button className={fieldStyles.secondary} type="submit">Mağazamda devam et</button>
+            </form>
+          </details>}
           <nav className={styles.actions} aria-label="Mağaza açılışı">
-            <Link className={styles.action} data-login-action="store" href="https://ecommerce.celebix.co/kayit" prefetch={false}>
+            <Link className={styles.action} data-login-action="store" href={signupHref ?? "https://ecommerce.celebix.co/kayit"} prefetch={false}>
               <Store className={styles.glyph} aria-hidden="true" size={40} strokeWidth={1.5} />
               <span className={styles.actionCopy}><span className={styles.actionTitle}>Yeni mağaza aç</span><span className={styles.actionDescription}>Kendi mağazanı dakikalar içinde aç.</span></span>
             </Link>
